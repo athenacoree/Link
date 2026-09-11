@@ -1,0 +1,491 @@
+:root{
+  --morado-950:#1a0b33; --morado-800:#3a1877; --morado-700:#5b21b6;
+  --morado-600:#7c3aed; --morado-500:#9d5cf5; --morado-300:#c9a6fb; --morado-100:#efe3fe;
+  --blanco:#ffffff; --hueso:#faf8ff; --linea:#e9e0fb;
+  --texto-900:#241539; --texto-500:#7a6f92; --texto-400:#a79ac0;
+  --exito:#22c55e; --alerta:#f59e0b; --peligro:#ef4444;
+  --radio-tarjeta:18px; --radio-chip:999px;
+  --sombra-tarjeta: 0 6px 18px -8px rgba(91,33,182,0.20);
+  --fuente: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
+html,body{height:100%;}
+body{
+  margin:0; font-family:var(--fuente);
+  background:radial-gradient(120% 60% at 50% -10%, var(--morado-100) 0%, var(--hueso) 55%);
+  color:var(--texto-900); overscroll-behavior-y:none;
+}
+button, input, textarea{font-family:inherit;}
+a{color:inherit; text-decoration:none;}
+img{max-width:100%;}
+
+.telefono{max-width:430px; margin:0 auto; min-height:100vh; position:relative; padding-bottom:96px; padding-top:env(safe-area-inset-top);}
+
+/* ============ AUTENTICACIÓN ============ */
+#authScreen{min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px;}
+.auth-caja{width:100%; max-width:380px; background:var(--blanco); border-radius:24px; padding:28px 24px; box-shadow:var(--sombra-tarjeta);}
+.auth-logo{width:60px; height:60px; border-radius:18px; background:linear-gradient(135deg,var(--morado-600),var(--morado-700)); display:flex; align-items:center; justify-content:center; margin:0 auto 14px; box-shadow:0 14px 28px -10px rgba(91,33,182,0.5);}
+.auth-logo svg{width:28px; height:28px; stroke:#fff;}
+.auth-titulo{text-align:center; font-size:22px; font-weight:800; letter-spacing:-0.02em; margin-bottom:2px;}
+.auth-sub{text-align:center; color:var(--texto-500); font-size:13.5px; margin-bottom:20px;}
+.auth-tabs{display:flex; background:var(--morado-100); border-radius:14px; padding:4px; margin-bottom:18px;}
+.auth-tab{flex:1; text-align:center; padding:9px; border-radius:11px; font-size:13.5px; font-weight:700; color:var(--morado-700);}
+.auth-tab.activo{background:var(--blanco); box-shadow:0 4px 10px -4px rgba(91,33,182,0.3);}
+.campo{margin-bottom:12px;}
+.campo label{display:block; font-size:11.5px; font-weight:700; color:var(--texto-500); text-transform:uppercase; letter-spacing:0.4px; margin-bottom:5px;}
+.campo input, .campo select, .campo textarea{
+  width:100%; border:1.5px solid var(--linea); border-radius:13px; padding:12px 13px;
+  font-size:15px; background:var(--hueso); color:var(--texto-900); outline:none;
+}
+.campo input:focus, .campo select:focus, .campo textarea:focus{border-color:var(--morado-500);}
+.campo-error{color:var(--peligro); font-size:12.5px; margin-top:4px; min-height:15px;}
+.grid-2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+.vista-auth{display:none;}
+.vista-auth.activo{display:block;}
+
+/* ============ Campanita / mensajes flotantes ============ */
+.icono-flotante{
+  position:fixed; top:calc(env(safe-area-inset-top) + 14px); z-index:18;
+  width:42px; height:42px; border-radius:50%;
+  background:rgba(255,255,255,0.85); backdrop-filter:blur(16px);
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:0 8px 20px -8px rgba(91,33,182,0.35); color:var(--morado-700);
+}
+.icono-flotante.campana{right:18px;}
+.icono-flotante .punto-badge{
+  position:absolute; top:6px; right:6px; width:9px; height:9px; border-radius:50%;
+  background:var(--alerta); border:2px solid var(--hueso); display:none;
+}
+.icono-flotante.hay-notif .punto-badge{display:block;}
+
+/* ============ Vistas / secciones principales ============ */
+.vista-app{display:none; padding:64px 16px 20px;}
+.vista-app.activo{display:block;}
+.titulo-vista{font-size:22px; font-weight:800; letter-spacing:-0.02em; margin-bottom:14px;}
+
+.feed{display:flex; flex-direction:column; gap:10px;}
+.aviso-vacio{
+  text-align:center; color:var(--texto-500); font-size:13.5px; padding:30px 20px;
+  background:var(--blanco); border-radius:var(--radio-tarjeta); border:1px dashed var(--linea);
+}
+
+/* ---- Barra de estados (historias) ---- */
+.barra-estados{display:flex; gap:12px; overflow-x:auto; padding:2px 2px 14px; scrollbar-width:none;}
+.barra-estados::-webkit-scrollbar{display:none;}
+.item-estado{display:flex; flex-direction:column; align-items:center; gap:5px; flex:0 0 auto; width:64px;}
+.item-estado .anillo-estado{width:58px; height:58px; border-radius:50%; padding:2.5px; background:conic-gradient(from 90deg,var(--morado-600),var(--morado-300),var(--morado-600));}
+.item-estado .anillo-estado.visto{background:var(--linea);}
+.item-estado .anillo-estado.mio{background:var(--morado-100);}
+.item-estado img{width:100%; height:100%; border-radius:50%; object-fit:cover; border:2.5px solid var(--hueso); display:block;}
+.item-estado .plus{position:relative;}
+.item-estado .plus .signo{position:absolute; bottom:-2px; right:-2px; width:19px; height:19px; border-radius:50%; background:var(--morado-600); border:2px solid var(--hueso); color:#fff; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:800;}
+.item-estado span{font-size:11px; color:var(--texto-500); font-weight:600; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:64px;}
+
+/* ---- Composer de publicación ---- */
+.compositor{background:var(--blanco); border-radius:var(--radio-tarjeta); box-shadow:var(--sombra-tarjeta); padding:12px 14px; margin-bottom:14px;}
+.compositor-fila{display:flex; gap:10px; align-items:center;}
+.compositor-fila img{width:38px; height:38px; border-radius:50%; object-fit:cover; flex:0 0 auto;}
+.compositor textarea{flex:1; border:none; background:var(--hueso); border-radius:13px; padding:10px 13px; resize:none; font-size:14.5px; min-height:40px; outline:none;}
+.compositor-acciones{display:flex; justify-content:space-between; align-items:center; margin-top:10px;}
+.compositor-adjuntar{display:flex; align-items:center; gap:6px; color:var(--morado-700); font-weight:700; font-size:13px;}
+.compositor-preview{width:100%; max-height:180px; object-fit:cover; border-radius:12px; margin-top:8px; display:none;}
+.compositor-preview.activo{display:block;}
+
+/* ---- Publicaciones del feed ---- */
+.publicacion{background:var(--blanco); border-radius:var(--radio-tarjeta); box-shadow:var(--sombra-tarjeta); overflow:hidden; margin-bottom:12px;}
+.publicacion-header{display:flex; align-items:center; gap:10px; padding:12px 14px;}
+.publicacion-header img{width:42px; height:42px; border-radius:50%; object-fit:cover;}
+.publicacion-header .nombre{font-weight:700; font-size:14.5px;}
+.publicacion-header .fecha{font-size:11.5px; color:var(--texto-500);}
+.publicacion-texto{padding:0 14px 10px; font-size:14.5px; line-height:1.5;}
+.publicacion-img{width:100%; max-height:340px; object-fit:cover; display:block;}
+.publicacion-acciones{display:flex; border-top:1px solid var(--linea);}
+.publicacion-accion{flex:1; display:flex; align-items:center; justify-content:center; gap:6px; padding:11px; font-size:13px; font-weight:700; color:var(--texto-500);}
+.publicacion-accion.activo{color:var(--morado-700);}
+.publicacion-accion svg{width:17px; height:17px;}
+.comentarios-caja{padding:0 14px 12px; display:none;}
+.comentarios-caja.activo{display:block;}
+.comentario-item{display:flex; gap:8px; padding:6px 0; font-size:13px;}
+.comentario-item img{width:26px; height:26px; border-radius:50%; object-fit:cover; flex:0 0 auto;}
+.comentario-item b{font-weight:700; margin-right:5px;}
+.comentario-input-fila{display:flex; gap:8px; margin-top:8px;}
+.comentario-input-fila input{flex:1; border:1px solid var(--linea); border-radius:20px; padding:8px 13px; font-size:13px; outline:none;}
+
+/* ---- Tarjetas de persona (buscar / feed de personas) ---- */
+.tarjeta{
+  background:var(--blanco); border-radius:var(--radio-tarjeta); box-shadow:var(--sombra-tarjeta);
+  border:1px solid rgba(91,33,182,0.06); display:flex; align-items:center; gap:13px;
+  padding:12px 14px; transition:transform .2s cubic-bezier(.2,.8,.2,1);
+}
+.tarjeta:active{transform:scale(0.97);}
+.avatar-wrap{position:relative; flex:0 0 auto;}
+.avatar-circulo{width:56px; height:56px; border-radius:50%; object-fit:cover; border:2px solid var(--morado-100); display:block; background:var(--morado-100);}
+.punto-online{position:absolute; bottom:1px; right:1px; width:13px; height:13px; border-radius:50%; background:var(--texto-400); border:2px solid var(--blanco);}
+.punto-online.en-linea{background:var(--exito);}
+.check-amigo{
+  position:absolute; bottom:-2px; right:-2px; width:19px; height:19px; border-radius:50%;
+  background:var(--exito); border:2px solid var(--blanco); display:none;
+  align-items:center; justify-content:center;
+}
+.check-amigo.activo{display:flex;}
+.id-persona{display:flex; flex-direction:column; gap:4px; min-width:0; flex:1 1 auto;}
+.id-persona .nombre{font-size:16px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.id-persona .detalle{font-size:12.5px; color:var(--texto-500); display:flex; align-items:center; gap:5px; flex-wrap:wrap;}
+.id-persona .detalle .sep{width:3px; height:3px; border-radius:50%; background:var(--texto-400);}
+.chevron{flex:0 0 auto; color:var(--morado-300);}
+.mini-btn{flex:0 0 auto; display:flex; align-items:center; justify-content:center; gap:5px; padding:8px 12px; border-radius:12px; font-size:12.5px; font-weight:700;}
+.mini-btn.primario{background:linear-gradient(135deg,var(--morado-600),var(--morado-700)); color:#fff;}
+.mini-btn.secundario{background:var(--morado-100); color:var(--morado-700);}
+.acciones-tarjeta{display:flex; gap:6px; flex:0 0 auto;}
+.icono-btn{width:38px; height:38px; border-radius:50%; background:var(--morado-100); color:var(--morado-700); display:flex; align-items:center; justify-content:center; flex:0 0 auto;}
+.icono-btn.llamada-audio{background:#e6f8ef; color:var(--exito);}
+.icono-btn.llamada-video{background:#e9f1ff; color:#2563eb;}
+
+/* ---- Buscador ---- */
+.caja-busqueda{display:flex; align-items:center; gap:8px; background:var(--blanco); border:1.5px solid var(--linea); border-radius:16px; padding:11px 14px; margin-bottom:14px;}
+.caja-busqueda input{flex:1; border:none; outline:none; font-size:15px; background:transparent;}
+.caja-busqueda svg{color:var(--texto-400); flex:0 0 auto;}
+
+/* ---- Contactos: sub tabs ---- */
+.sub-tabs{display:flex; gap:8px; margin-bottom:14px;}
+.sub-tab{flex:1; text-align:center; padding:9px; border-radius:12px; font-size:13px; font-weight:700; color:var(--morado-700); background:var(--morado-100);}
+.sub-tab.activo{background:var(--morado-700); color:#fff;}
+
+/* ---- Mensajes ---- */
+.lista-conversaciones{display:flex; flex-direction:column; gap:8px;}
+.conversacion-item{display:flex; align-items:center; gap:12px; background:var(--blanco); border-radius:16px; padding:11px 13px; box-shadow:var(--sombra-tarjeta);}
+.conversacion-item img{width:48px; height:48px; border-radius:50%; object-fit:cover;}
+.conversacion-info{flex:1; min-width:0;}
+.conversacion-info .nombre{font-weight:700; font-size:14.5px;}
+.conversacion-info .preview{font-size:12.5px; color:var(--texto-500); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.conversacion-hora{font-size:11px; color:var(--texto-400); flex:0 0 auto;}
+
+/* ---- Vista de chat individual ---- */
+.vista-chat{position:fixed; inset:0; z-index:75; background:var(--hueso); display:flex; flex-direction:column; transform:translateX(100%); transition:transform .38s cubic-bezier(.2,.85,.2,1);}
+.vista-chat.activo{transform:translateX(0);}
+.chat-header{display:flex; align-items:center; gap:10px; padding:calc(env(safe-area-inset-top) + 12px) 14px 12px; background:var(--blanco); border-bottom:1px solid var(--linea); flex:0 0 auto;}
+.chat-header img{width:38px; height:38px; border-radius:50%; object-fit:cover;}
+.chat-header .info{flex:1; min-width:0;}
+.chat-header .nombre{font-weight:700; font-size:14.5px;}
+.chat-header .estado-linea{font-size:11.5px; color:var(--texto-500);}
+.chat-header .btn-volver{width:34px; height:34px; border-radius:50%; background:var(--morado-100); color:var(--morado-700); display:flex; align-items:center; justify-content:center;}
+.chat-header .acciones{display:flex; gap:8px;}
+.chat-mensajes{flex:1; overflow-y:auto; padding:14px; display:flex; flex-direction:column; gap:8px;}
+.burbuja{max-width:76%; padding:9px 13px; border-radius:16px; font-size:14px; line-height:1.4;}
+.burbuja.mia{align-self:flex-end; background:linear-gradient(135deg,var(--morado-600),var(--morado-700)); color:#fff; border-bottom-right-radius:4px;}
+.burbuja.suya{align-self:flex-start; background:var(--blanco); border:1px solid var(--linea); border-bottom-left-radius:4px;}
+.burbuja img{max-width:100%; border-radius:10px; display:block; margin-top:4px;}
+.chat-input-barra{display:flex; align-items:center; gap:8px; padding:10px 14px calc(14px + env(safe-area-inset-bottom)); background:var(--blanco); border-top:1px solid var(--linea); flex:0 0 auto;}
+.chat-input-barra input{flex:1; border:1.5px solid var(--linea); border-radius:22px; padding:10px 16px; font-size:14.5px; outline:none;}
+.chat-input-barra button{width:40px; height:40px; border-radius:50%; background:var(--morado-700); color:#fff; display:flex; align-items:center; justify-content:center; flex:0 0 auto;}
+
+/* ---- Ajustes ---- */
+.tarjeta-ajustes{background:var(--blanco); border-radius:16px; box-shadow:var(--sombra-tarjeta); overflow:hidden; margin-bottom:14px;}
+.fila-ajustes{display:flex; align-items:center; gap:12px; padding:14px 16px; border-bottom:1px solid var(--linea);}
+.fila-ajustes:last-child{border-bottom:none;}
+.fila-ajustes svg{color:var(--morado-700); flex:0 0 auto;}
+.fila-ajustes .txt{flex:1; font-size:14px; font-weight:600;}
+.fila-ajustes.peligro{color:var(--peligro);}
+.fila-ajustes.peligro svg{color:var(--peligro);}
+.editar-avatar-btn{position:relative; width:88px; height:88px; margin:16px auto 4px;}
+.editar-avatar-btn img{width:100%; height:100%; border-radius:50%; object-fit:cover; border:3px solid var(--morado-100);}
+.editar-avatar-btn .lapiz{position:absolute; bottom:0; right:0; width:28px; height:28px; border-radius:50%; background:var(--morado-700); color:#fff; display:flex; align-items:center; justify-content:center; border:2px solid var(--blanco);}
+
+/* ============ Hoja de acciones / modales ============ */
+.velo{position:fixed; inset:0; z-index:50; background:rgba(26,11,51,0.35); backdrop-filter:blur(2px); opacity:0; pointer-events:none; transition:opacity .28s ease;}
+.velo.activo{opacity:1; pointer-events:auto;}
+.hoja{position:fixed; left:50%; bottom:14px; z-index:60; width:min(94%,402px); transform:translate(-50%,130%); transition:transform .38s cubic-bezier(.2,.9,.25,1.15); max-height:80vh; overflow-y:auto;}
+.hoja.activo{transform:translate(-50%,0%);}
+.hoja-grupo{background:rgba(255,255,255,0.85); backdrop-filter:blur(26px) saturate(180%); border-radius:20px; overflow:hidden; margin-bottom:8px; box-shadow:0 20px 40px -12px rgba(26,11,51,0.35);}
+.hoja-persona{display:flex; align-items:center; gap:10px; padding:14px 16px; border-bottom:1px solid rgba(91,33,182,0.12);}
+.hoja-persona img{width:38px; height:38px; border-radius:50%; object-fit:cover;}
+.hoja-persona span{font-size:12.5px; color:var(--texto-500); font-weight:600;}
+.hoja-opcion{display:flex; align-items:center; justify-content:center; gap:8px; padding:16px; font-size:16.5px; font-weight:500; color:var(--morado-700); border-bottom:1px solid rgba(91,33,182,0.12);}
+.hoja-opcion:last-child{border-bottom:none;}
+.hoja-opcion:active{background:rgba(124,58,237,0.08);}
+.hoja-opcion.peligro{color:var(--peligro);}
+.hoja-cancelar{background:rgba(255,255,255,0.85); backdrop-filter:blur(26px); border-radius:20px; padding:16px; text-align:center; font-size:16.5px; font-weight:700; color:var(--morado-700); box-shadow:0 20px 40px -12px rgba(26,11,51,0.35);}
+.hoja-form{padding:16px;}
+
+.toast{position:fixed; left:50%; top:calc(env(safe-area-inset-top) + 18px); transform:translate(-50%,-140%); background:var(--morado-800); color:#fff; padding:11px 18px; border-radius:14px; font-size:13.5px; font-weight:600; display:flex; align-items:center; gap:8px; z-index:220; box-shadow:0 12px 26px -8px rgba(26,11,51,0.5); transition:transform .4s cubic-bezier(.2,.9,.25,1.2); max-width:88vw;}
+.toast.activo{transform:translate(-50%,0);}
+
+/* ============ Barra de navegación ============ */
+nav.tabbar{position:fixed; left:50%; bottom:14px; transform:translateX(-50%); width:min(92%,400px); z-index:15; background:rgba(255,255,255,0.75); backdrop-filter:blur(22px) saturate(180%); border-radius:26px; display:flex; justify-content:space-around; align-items:center; padding:11px 6px; box-shadow:0 14px 30px -10px rgba(91,33,182,0.35); border:1px solid rgba(255,255,255,0.6);}
+nav.tabbar .tab{display:flex; flex-direction:column; align-items:center; gap:3px; color:var(--texto-400); position:relative;}
+nav.tabbar .tab.activo{color:var(--morado-700);}
+nav.tabbar .tab span{font-size:10px; font-weight:600;}
+nav.tabbar .tab .badge{position:absolute; top:-4px; right:-8px; background:var(--peligro); color:#fff; font-size:9px; font-weight:800; min-width:15px; height:15px; border-radius:8px; display:none; align-items:center; justify-content:center; padding:0 3px;}
+nav.tabbar .tab .badge.activa{display:flex;}
+
+/* ============ Vista de perfil ============ */
+.vista-perfil{position:fixed; inset:0; z-index:70; background:var(--hueso); transform:translateX(100%); transition:transform .42s cubic-bezier(.2,.85,.2,1); overflow-y:auto;}
+.vista-perfil.activo{transform:translateX(0);}
+.perfil-header{position:relative;}
+.perfil-header .cover{width:100%; height:150px; object-fit:cover; filter:brightness(0.92); background:linear-gradient(135deg,var(--morado-300),var(--morado-600));}
+.perfil-header .volver{position:absolute; top:calc(env(safe-area-inset-top) + 12px); left:14px; width:36px; height:36px; border-radius:50%; background:rgba(26,11,51,0.35); backdrop-filter:blur(10px); display:flex; align-items:center; justify-content:center; color:#fff;}
+.perfil-avatar-wrap{margin:-46px 0 0 20px; width:92px; position:relative;}
+.perfil-avatar-wrap .anillo{width:92px; height:92px; border-radius:50%; padding:2.5px; background:conic-gradient(from 90deg,var(--morado-600),var(--morado-300),var(--morado-600));}
+.perfil-avatar-wrap .anillo.sin-estado{background:var(--linea);}
+.perfil-avatar-wrap .anillo img{width:100%; height:100%; border-radius:50%; object-fit:cover; border:3px solid var(--hueso); background:var(--morado-100);}
+.estado-24{position:absolute; top:-8px; right:-58px; background:var(--morado-700); color:#fff; font-size:10.5px; font-weight:600; padding:5px 9px; border-radius:12px; white-space:nowrap; box-shadow:0 6px 14px -4px rgba(91,33,182,0.5); max-width:180px; overflow:hidden; text-overflow:ellipsis;}
+.estado-24::after{content:""; position:absolute; left:-4px; bottom:6px; width:8px; height:8px; background:var(--morado-700); transform:rotate(45deg);}
+
+.perfil-info{padding:14px 20px 4px;}
+.perfil-info h2{margin:0 0 3px; font-size:21px; letter-spacing:-0.02em;}
+.perfil-info .profesion{font-size:14px; color:var(--morado-700); font-weight:600; margin-bottom:2px;}
+.perfil-info .ubicacion{font-size:13.5px; color:var(--texto-500); margin-bottom:10px;}
+.perfil-info .descripcion{font-size:14px; color:var(--texto-900); line-height:1.5; margin-bottom:14px;}
+
+.chips{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px;}
+.chip{background:var(--morado-100); color:var(--morado-800); font-size:12.5px; font-weight:600; padding:7px 13px; border-radius:var(--radio-chip); display:flex; align-items:center; gap:5px;}
+
+.interacciones{display:flex; gap:10px; padding:0 20px 18px;}
+.stat-box{flex:1; background:var(--blanco); border:1px solid var(--linea); border-radius:16px; padding:12px; text-align:center;}
+.stat-box .n{font-size:19px; font-weight:800; color:var(--morado-700);}
+.stat-box .l{font-size:11px; color:var(--texto-500); font-weight:600;}
+
+.acciones-perfil{display:flex; gap:10px; padding:0 20px 22px;}
+.btn{flex:1; display:flex; align-items:center; justify-content:center; gap:7px; font-weight:700; font-size:14px; padding:13px; border-radius:16px;}
+.btn-primario{background:linear-gradient(135deg,var(--morado-600),var(--morado-700)); color:#fff; box-shadow:0 10px 22px -8px rgba(91,33,182,0.55);}
+.btn-primario:active{transform:scale(0.98);}
+.btn-secundario{background:var(--blanco); border:1.5px solid var(--linea); color:var(--morado-700);}
+.btn-secundario:active{background:var(--morado-100);}
+.btn[disabled]{opacity:.55; pointer-events:none;}
+.btn.es-amigo{background:var(--morado-100); color:var(--morado-700); box-shadow:none;}
+
+.seccion-titulo{padding:0 20px 10px; font-size:13.5px; font-weight:700; color:var(--texto-500);}
+.galeria{display:grid; grid-template-columns:repeat(3,1fr); gap:2px; padding:0 0 30px;}
+.galeria img{width:100%; aspect-ratio:1/1; object-fit:cover; background:var(--morado-100);}
+
+.lista-notif{padding:6px 4px;}
+.notif-item{display:flex; gap:10px; align-items:flex-start; padding:12px 16px; border-bottom:1px solid rgba(91,33,182,0.1);}
+.notif-item:last-child{border-bottom:none;}
+.notif-item.no-leida{background:rgba(124,58,237,0.05);}
+.notif-icono{width:34px; height:34px; border-radius:50%; overflow:hidden; background:var(--morado-100); color:var(--morado-700); display:flex; align-items:center; justify-content:center; flex:0 0 auto; font-size:15px;}
+.notif-icono img{width:100%; height:100%; object-fit:cover;}
+.notif-texto{font-size:13.5px; line-height:1.4;}
+.notif-hora{font-size:11px; color:var(--texto-400); margin-top:2px;}
+.notif-vacio{padding:26px 16px; text-align:center; color:var(--texto-500); font-size:13.5px;}
+
+.spinner{width:18px; height:18px; border-radius:50%; border:2.5px solid rgba(255,255,255,0.4); border-top-color:#fff; animation:girar .7s linear infinite; display:inline-block;}
+@keyframes girar{to{transform:rotate(360deg);}}
+
+.oculto{display:none!important;}
+
+svg{display:block;}
+
+/* =========================================================
+   MODO OSCURO
+   Se activa poniendo data-tema="oscuro" en <html> (ver app.js).
+   Como casi todo el CSS ya usa variables, alcanza con redefinirlas.
+   ========================================================= */
+html[data-tema="oscuro"]{
+  --morado-950:#efe3fe; --morado-800:#c9a6fb; --morado-700:#a685f0;
+  --morado-600:#9d5cf5; --morado-500:#8b5cf6; --morado-300:#5b3d8a; --morado-100:#241a3d;
+  --blanco:#191320; --hueso:#120d18; --linea:#2c2438;
+  --texto-900:#f1ecfb; --texto-500:#a89bc4; --texto-400:#786a99;
+}
+html[data-tema="oscuro"] body{
+  background:radial-gradient(120% 60% at 50% -10%, #241a3d 0%, #120d18 55%);
+}
+html[data-tema="oscuro"] .campo input,
+html[data-tema="oscuro"] .campo select,
+html[data-tema="oscuro"] .campo textarea{ background:#1d1626; color:var(--texto-900); }
+html[data-tema="oscuro"] .compositor textarea{ background:#1d1626; color:var(--texto-900); }
+html[data-tema="oscuro"] .icono-flotante{ background:rgba(30,22,42,0.85); }
+html[data-tema="oscuro"] .hoja-grupo,
+html[data-tema="oscuro"] .hoja-cancelar,
+html[data-tema="oscuro"] nav.tabbar{ background:rgba(25,19,32,0.88); }
+html[data-tema="oscuro"] .btn-secundario{ background:var(--blanco); }
+html[data-tema="oscuro"] .perfil-header .cover{ filter:brightness(0.72); }
+
+/* Transición suave al cambiar de tema, en vez de un corte seco */
+body, .tarjeta, .publicacion, .compositor, .tarjeta-ajustes, .hoja-grupo, .hoja-cancelar,
+nav.tabbar, .conversacion-item, .stat-box, .caja-busqueda, .campo input, .campo select,
+.campo textarea, .btn-secundario, .auth-caja{
+  transition: background-color .35s ease, color .35s ease, border-color .35s ease, box-shadow .35s ease;
+}
+
+/* ---- Interruptor (switch) de modo oscuro / ajustes booleanos ---- */
+.interruptor{position:relative; width:46px; height:27px; border-radius:20px; background:var(--linea); flex:0 0 auto; transition:background .25s ease;}
+.interruptor .bola{position:absolute; top:2.5px; left:2.5px; width:22px; height:22px; border-radius:50%; background:#fff; box-shadow:0 2px 6px rgba(0,0,0,0.25); transition:transform .25s cubic-bezier(.2,.9,.25,1.2);}
+.interruptor.activo{background:linear-gradient(135deg,var(--morado-600),var(--morado-700));}
+.interruptor.activo .bola{transform:translateX(19px);}
+
+/* =========================================================
+   ANIMACIONES DE ENTRADA — tarjetas, publicaciones y modales
+   aparecen con un pequeño deslizamiento + fade, en vez de "saltar"
+   de golpe. Como el contenido se pinta con innerHTML, la animación
+   se dispara sola cada vez que el navegador crea el elemento.
+   ========================================================= */
+@keyframes enlaceApareceArriba{ from{opacity:0; transform:translateY(10px) scale(0.98);} to{opacity:1; transform:translateY(0) scale(1);} }
+@keyframes enlaceApareceEscala{ from{opacity:0; transform:scale(0.85);} to{opacity:1; transform:scale(1);} }
+@keyframes enlacePop{ 0%{transform:scale(1);} 40%{transform:scale(1.35);} 100%{transform:scale(1);} }
+@keyframes enlaceBrilloVerificado{ 0%,100%{filter:drop-shadow(0 0 0 rgba(56,151,240,0));} 50%{filter:drop-shadow(0 0 4px rgba(56,151,240,0.65));} }
+
+.tarjeta{animation:enlaceApareceArriba .38s cubic-bezier(.2,.8,.2,1) both;}
+.publicacion{animation:enlaceApareceArriba .42s cubic-bezier(.2,.8,.2,1) both;}
+.conversacion-item{animation:enlaceApareceArriba .36s cubic-bezier(.2,.8,.2,1) both;}
+.item-estado{animation:enlaceApareceEscala .35s cubic-bezier(.2,.8,.2,1) both;}
+.notif-item{animation:enlaceApareceArriba .3s ease both;}
+.admin-fila{animation:enlaceApareceArriba .32s ease both;}
+/* escalona un poco las tarjetas consecutivas para que no aparezcan todas a la vez */
+.tarjeta:nth-child(1),.publicacion:nth-child(1),.conversacion-item:nth-child(1){animation-delay:0s;}
+.tarjeta:nth-child(2),.publicacion:nth-child(2),.conversacion-item:nth-child(2){animation-delay:.03s;}
+.tarjeta:nth-child(3),.publicacion:nth-child(3),.conversacion-item:nth-child(3){animation-delay:.06s;}
+.tarjeta:nth-child(4),.publicacion:nth-child(4),.conversacion-item:nth-child(4){animation-delay:.09s;}
+.tarjeta:nth-child(5),.publicacion:nth-child(5),.conversacion-item:nth-child(5){animation-delay:.12s;}
+.tarjeta:nth-child(n+6),.publicacion:nth-child(n+6),.conversacion-item:nth-child(n+6){animation-delay:.14s;}
+
+.publicacion-accion.activo svg{ animation: enlacePop .35s cubic-bezier(.3,1.4,.4,1); }
+.vista-perfil.activo .perfil-avatar-wrap{ animation: enlaceApareceEscala .4s cubic-bezier(.2,.8,.2,1) both .05s; }
+.btn:active, .mini-btn:active{ transform:scale(0.95); }
+.btn, .mini-btn{ transition: transform .15s cubic-bezier(.3,1.2,.4,1), background .2s ease, box-shadow .2s ease; }
+.fila-ajustes:active{ background:var(--morado-100); }
+.fila-ajustes{ transition: background .15s ease; }
+
+/* =========================================================
+   BADGE DE VERIFICADO (solo lo activa un administrador)
+   ========================================================= */
+.badge-verificado{
+  display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto;
+  width:15px; height:15px; margin-left:3px; vertical-align:middle;
+  animation: enlaceBrilloVerificado 3.2s ease-in-out infinite;
+}
+.badge-verificado svg{ width:100%; height:100%; display:block; }
+.nombre-con-badge{ display:inline-flex; align-items:center; gap:2px; }
+
+/* =========================================================
+   CHIP DE NIVEL DE REPUTACIÓN
+   ========================================================= */
+.chip-reputacion{
+  display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:700;
+  padding:5px 11px; border-radius:var(--radio-chip); white-space:nowrap;
+}
+.chip-reputacion .punto{width:6px; height:6px; border-radius:50%; flex:0 0 auto;}
+.chip-reputacion.gris{background:var(--linea); color:var(--texto-500);}
+.chip-reputacion.gris .punto{background:var(--texto-400);}
+.chip-reputacion.verde{background:#e6f8ef; color:#15803d;}
+.chip-reputacion.verde .punto{background:var(--exito);}
+.chip-reputacion.morado{background:var(--morado-100); color:var(--morado-700);}
+.chip-reputacion.morado .punto{background:var(--morado-600);}
+.chip-reputacion.oro{background:#fef3c7; color:#92400e;}
+.chip-reputacion.oro .punto{background:#f59e0b;}
+.chip-reputacion.rojo{background:#fee2e2; color:#b91c1c;}
+.chip-reputacion.rojo .punto{background:var(--peligro);}
+html[data-tema="oscuro"] .chip-reputacion.verde{background:rgba(34,197,94,0.15); color:#4ade80;}
+html[data-tema="oscuro"] .chip-reputacion.oro{background:rgba(245,158,11,0.15); color:#fbbf24;}
+html[data-tema="oscuro"] .chip-reputacion.rojo{background:rgba(239,68,68,0.15); color:#f87171;}
+
+/* ---- Botones pequeños de acción sobre una publicación (dueño/admin) ---- */
+.publicacion-mod{display:flex; gap:6px; padding:0 14px 8px; justify-content:flex-end;}
+.publicacion-mod .mini-btn{padding:6px 11px; font-size:11.5px;}
+.publicacion-mod .mini-btn.peligro{background:#fee2e2; color:var(--peligro);}
+.etiqueta-editado{font-size:11px; color:var(--texto-400); font-style:italic; padding:0 14px 8px;}
+
+/* =========================================================
+   PANEL DE ADMINISTRADOR
+   ========================================================= */
+.vista-admin{position:fixed; inset:0; z-index:80; background:var(--hueso); transform:translateX(100%); transition:transform .4s cubic-bezier(.2,.85,.2,1); overflow-y:auto;}
+.vista-admin.activo{transform:translateX(0);}
+.admin-header{display:flex; align-items:center; gap:12px; padding:calc(env(safe-area-inset-top) + 14px) 16px 12px; background:var(--blanco); border-bottom:1px solid var(--linea); position:sticky; top:0; z-index:2;}
+.admin-header .titulo{font-size:18px; font-weight:800;}
+.admin-body{padding:14px 16px 90px;}
+.admin-fila{background:var(--blanco); border-radius:16px; box-shadow:var(--sombra-tarjeta); padding:12px 14px; margin-bottom:10px; display:flex; align-items:center; gap:11px;}
+.admin-fila img{width:42px; height:42px; border-radius:50%; object-fit:cover; flex:0 0 auto;}
+.admin-fila .info{flex:1; min-width:0;}
+.admin-fila .info .n{font-weight:700; font-size:14px; display:flex; align-items:center; gap:4px;}
+.admin-fila .info .s{font-size:11.5px; color:var(--texto-500);}
+.admin-acciones{display:flex; gap:6px; flex-wrap:wrap; flex:0 0 auto;}
+.admin-btn{padding:7px 11px; border-radius:11px; font-size:11.5px; font-weight:700; white-space:nowrap;}
+.admin-btn.verificar{background:#e9f1ff; color:#2563eb;}
+.admin-btn.verificar.activo{background:#2563eb; color:#fff;}
+.admin-btn.banear{background:#fee2e2; color:var(--peligro);}
+.admin-btn.banear.activo{background:var(--peligro); color:#fff;}
+.etiqueta-baneado{background:var(--peligro); color:#fff; font-size:10px; font-weight:800; padding:2px 8px; border-radius:8px; margin-left:6px;}
+.admin-reporte-detalle{font-size:12.5px; color:var(--texto-500); margin-top:4px; line-height:1.4;}
+.admin-reporte-motivo{display:inline-block; background:var(--morado-100); color:var(--morado-700); font-size:10.5px; font-weight:700; padding:3px 9px; border-radius:8px; margin-top:4px;}
+
+/* =========================================================
+   RECOMENDACIONES: botón "¿por qué?" + explicación estilo iOS
+   ========================================================= */
+.boton-porque-wrap{padding:0 20px 6px;}
+.boton-porque{
+  display:flex; align-items:center; gap:8px; justify-content:center;
+  background:linear-gradient(135deg, var(--morado-100), #fbeffe);
+  color:var(--morado-700); font-size:13px; font-weight:700;
+  border:1px solid var(--morado-300); border-radius:999px; padding:10px 14px;
+}
+.boton-porque:active{transform:scale(0.97);}
+.boton-porque-icono{font-size:14px;}
+.boton-porque svg{margin-left:auto; flex:0 0 auto;}
+
+.hoja-porque .hoja-grupo{padding:18px 16px 6px;}
+.porque-cabecera{display:flex; flex-direction:column; align-items:center; text-align:center; padding:4px 6px 10px;}
+.anillo-puntaje{position:relative; width:104px; height:104px; margin-bottom:10px;}
+.anillo-puntaje svg{display:block;}
+#porque-anillo-relleno{transition: stroke-dashoffset 1s cubic-bezier(.2,.8,.2,1), stroke .4s ease;}
+.anillo-puntaje-texto{position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;}
+.anillo-puntaje-texto .n{font-size:15px; font-weight:800; text-transform:capitalize;}
+.anillo-puntaje-texto .l{font-size:9.5px; font-weight:700; color:var(--texto-500); text-transform:uppercase; letter-spacing:0.5px;}
+.porque-resumen{margin:0; font-size:13.5px; color:var(--texto-500); line-height:1.5; max-width:300px;}
+
+.porque-lista{display:flex; flex-direction:column; gap:9px; padding:6px 2px 14px; max-height:44vh; overflow-y:auto;}
+.factor-fila{background:var(--hueso); border:1px solid var(--linea); border-radius:14px; padding:10px 12px;}
+.factor-fila-top{display:flex; align-items:center; gap:8px;}
+.factor-etiqueta{flex:1; min-width:0; font-size:13px; font-weight:700;}
+.factor-detalle{font-size:11.5px; color:var(--texto-500); margin-top:2px; text-transform:lowercase;}
+.factor-punto{flex:0 0 auto; font-size:12px; font-weight:800; padding:3px 9px; border-radius:999px;}
+.factor-punto.positivo{background:#e6f8ef; color:#15803d;}
+.factor-punto.negativo{background:#fee2e2; color:#b91c1c;}
+.factor-barra-fondo{margin-top:8px; height:6px; border-radius:999px; background:var(--linea); overflow:hidden;}
+.factor-barra{height:100%; width:0%; border-radius:999px; transition:width .7s cubic-bezier(.2,.8,.2,1);}
+.factor-barra.positivo{background:linear-gradient(90deg,#22c55e,#16a34a);}
+.factor-barra.negativo{background:linear-gradient(90deg,#f87171,#ef4444);}
+.porque-nota{font-size:11.5px; color:var(--texto-400); line-height:1.5; padding:2px 4px 4px; border-top:1px solid var(--linea); margin-top:2px; padding-top:12px;}
+.porque-aviso-no-algoritmo{font-size:12.5px; line-height:1.5; font-weight:600; background:#fef3c7; color:#92400e; border-radius:12px; padding:10px 12px; margin:2px 4px 10px;}
+html[data-tema="oscuro"] .porque-aviso-no-algoritmo{background:rgba(245,158,11,0.15); color:#fbbf24;}
+.porque-aviso-no-algoritmo b{display:block; margin-bottom:3px;}
+
+/* ---- Etiqueta de origen en las tarjetas del feed "Descubrir" ---- */
+.tarjeta-origen{font-size:10.5px; font-weight:700; padding:2px 8px; border-radius:8px; display:inline-block; margin-top:3px;}
+.tarjeta-origen.local{background:var(--morado-100); color:var(--morado-700);}
+.tarjeta-origen.afinidad_otra_localidad{background:#e6f8ef; color:#15803d;}
+.tarjeta-origen.exploracion_aleatoria{background:var(--linea); color:var(--texto-500);}
+.tarjeta-origen.cuenta_nueva{background:#fef3c7; color:#92400e;}
+html[data-tema="oscuro"] .tarjeta-origen.afinidad_otra_localidad{background:rgba(34,197,94,0.15); color:#4ade80;}
+html[data-tema="oscuro"] .tarjeta-origen.cuenta_nueva{background:rgba(245,158,11,0.15); color:#fbbf24;}
+
+html[data-tema="oscuro"] .boton-porque{background:linear-gradient(135deg,#241a3d,#2c2140); border-color:var(--morado-500);}
+html[data-tema="oscuro"] .factor-fila{background:#1d1626;}
+html[data-tema="oscuro"] .factor-punto.positivo{background:rgba(34,197,94,0.15); color:#4ade80;}
+html[data-tema="oscuro"] .factor-punto.negativo{background:rgba(239,68,68,0.15); color:#f87171;}
+
+/* ---- Selector de chips (encuesta de intereses/hobbies) ---- */
+.chips-selector{display:flex; flex-wrap:wrap; gap:8px;}
+.chip-toggle{
+  font-size:12.5px; font-weight:700; padding:8px 13px; border-radius:999px;
+  background:var(--hueso); border:1.5px solid var(--linea); color:var(--texto-500);
+}
+.chip-toggle:active{transform:scale(0.96);}
+.chip-toggle.seleccionado{background:linear-gradient(135deg,var(--morado-600),var(--morado-700)); border-color:transparent; color:#fff;}
+
+/* ---- Reacciones privadas del feed "Descubrir" (doble toque) ---- */
+.chip-reaccion.negativa.seleccionado{background:linear-gradient(135deg,#ef4444,#b91c1c);}
+.tarjeta{position:relative; overflow:hidden;}
+.corazon-doble-toque{
+  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%) scale(0.4);
+  font-size:44px; opacity:0; pointer-events:none; z-index:2;
+  animation:enlaceCorazonToque .72s cubic-bezier(.2,.8,.2,1) forwards;
+}
+@keyframes enlaceCorazonToque{
+  0%{opacity:0; transform:translate(-50%,-50%) scale(0.3);}
+  22%{opacity:1; transform:translate(-50%,-50%) scale(1.15);}
+  40%{transform:translate(-50%,-50%) scale(0.95);}
+  75%{opacity:1;}
+  100%{opacity:0; transform:translate(-50%,-50%) scale(0.9);}
+}
+.tarjeta-reaccionada{
+  position:absolute; top:8px; right:10px; font-size:13px; opacity:0.85; z-index:1;
+}

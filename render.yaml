@@ -1,0 +1,39 @@
+databases:
+  - name: enlace-db
+    plan: free
+    databaseName: enlace
+    user: enlace
+
+services:
+  - type: web
+    name: enlace
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/salud
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: enlace-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 30d
+      - key: CORS_ORIGIN
+        value: "*"
+      - key: STORY_CLEANUP_INTERVAL_MIN
+        value: "15"
+      # MONGODB_URI no se genera sola: pégala tú a mano en el panel de
+      # Render después de crear tu cluster gratuito en MongoDB Atlas.
+      - key: MONGODB_URI
+        sync: false
+      # Correo(s) que se vuelven administrador automáticamente al iniciar
+      # sesión (separados por coma). Pégalo tú a mano en el panel de Render.
+      - key: ADMIN_EMAILS
+        sync: false

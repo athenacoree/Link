@@ -1,0 +1,1271 @@
+/* =========================================================
+   ENLACE — lógica principal de la app (100% conectada al backend real)
+   ========================================================= */
+const $ = (id) => document.getElementById(id);
+
+function mostrarToast(texto) {
+  const t = $('toast');
+  $('toast-texto').textContent = texto;
+  t.classList.add('activo');
+  clearTimeout(mostrarToast._t);
+  mostrarToast._t = setTimeout(() => t.classList.remove('activo'), 2600);
+}
+
+function iniciales(nombre) {
+  if (!nombre) return '?';
+  const p = nombre.trim().split(/\s+/);
+  return ((p[0]?.[0] || '') + (p[1]?.[0] || '')).toUpperCase();
+}
+
+function avatarDe(persona) {
+  return persona?.avatar_data || 'data:image/svg+xml;utf8,' + encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120"><rect width="120" height="120" fill="#efe3fe"/><text x="50%" y="55%" font-size="42" text-anchor="middle" fill="#5b21b6" font-family="sans-serif">${iniciales(persona?.name)}</text></svg>`
+  );
+}
+
+function tiempoRelativo(fechaISO) {
+  const diff = (Date.now() - new Date(fechaISO).getTime()) / 1000;
+  if (diff < 60) return 'Justo ahora';
+  if (diff < 3600) return `Hace ${Math.floor(diff / 60)} min`;
+  if (diff < 86400) return `Hace ${Math.floor(diff / 3600)} h`;
+  return new Date(fechaISO).toLocaleDateString('es');
+}
+
+/* ================= ESTADO GLOBAL DE LA SESIÓN ================= */
+let MI_ES_ADMIN = false;
+
+/* ================= ENCUESTA INICIAL DE INTERESES (opcional) =================
+   Breve encuesta para conocer intereses, hobbies, profesión, ciudad y
+   preferencias. Alimenta el algoritmo de recomendación del feed
+   "Descubrir personas" (ver backend/utils/recomendaciones.js). Se
+   ofrece una sola vez tras crear la cuenta (o iniciar sesión si nunca
+   se completó ni se omitió), y siempre se puede volver a abrir desde
+   Ajustes → "Mis intereses y recomendaciones". */
+const LISTA_INTERESES = [
+  'Música', 'Cine y series', 'Deportes', 'Viajes', 'Tecnología', 'Arte',
+  'Lectura', 'Moda', 'Gastronomía', 'Naturaleza', 'Fotografía', 'Baile',
+  'Espiritualidad', 'Negocios', 'Educación', 'Videojuegos', 'Salud y bienestar',
+  'Mascotas', 'Política', 'Humor',
+];
+const LISTA_HOBBIES = [
+  'Cocinar', 'Hacer ejercicio', 'Cantar', 'Tocar un instrumento', 'Pintar/dibujar',
+  'Jugar videojuegos', 'Leer', 'Ver películas', 'Salir a caminar', 'Pescar',
+  'Jardinería', 'Escribir', 'Bailar', 'Nadar', 'Ciclismo', 'Manualidades',
+];
+
+let encuestaSeleccion = { intereses: new Set(), hobbies: new Set() };
+
+function pintarChipsSelector(contenedorId, lista, seleccionSet) {
+  const cont = $(contenedorId);
+  cont.innerHTML = lista.map((etiqueta) => `<div class="chip-toggle ${seleccionSet.has(etiqueta) ? 'seleccionado' : ''}" data-valor="${etiqueta}">${etiqueta}</div>`).join('');
+  cont.querySelectorAll('.chip-toggle').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      const valor = chip.dataset.valor;
+      if (seleccionSet.has(valor)) seleccionSet.delete(valor); else seleccionSet.add(valor);
+      chip.classList.toggle('seleccionado', seleccionSet.has(valor));
+    });
+  });
+}
+
+function abrirEncuesta() {
+  const u = Sesion.usuario();
+  encuestaSeleccion = {
+    intereses: new Set(Array.isArray(u.interests) ? u.interests : []),
+    hobbies: new Set(Array.isArray(u.hobbies) ? u.hobbies : []),
+  };
+  pintarChipsSelector('encuestaIntereses', LISTA_INTERESES, encuestaSeleccion.intereses);
+  pintarChipsSelector('encuestaHobbies', LISTA_HOBBIES, encuestaSeleccion.hobbies);
+  $('encuestaProfesion').value = u.profession || '';
+  $('encuestaCiudad').value = u.city || '';
+  $('encuestaBuscando').value = (u.discovery_prefs && u.discovery_prefs.buscando) || '';
+  $('veloEncuesta').classList.add('activo'); $('hojaEncuesta').classList.add('activo');
+}
+function cerrarEncuesta() { $('veloEncuesta').classList.remove('activo'); $('hojaEncuesta').classList.remove('activo'); }
+
+$('btnGuardarEncuesta').addEventListener('click', async () => {
+  try {
+    const { user } = await api('/usuarios/me/encuesta', {
+      method: 'PUT',
+      body: {
+        interests: [...encuestaSeleccion.intereses],
+        hobbies: [...encuestaSeleccion.hobbies],
+        profession: $('encuestaProfesion').value.trim(),
+        city: $('encuestaCiudad').value.trim(),
+        discovery_prefs: { buscando: $('encuestaBuscando').value || undefined },
+      },
+    });
+    Sesion.actualizarUsuario(user);
+    cerrarEncuesta();
+    mostrarToast('¡Gracias! Ya estamos afinando tus recomendaciones ✨');
+    if ($('vistaFeed').classList.contains('activo')) cargarDescubrir();
+  } catch (e) { mostrarToast(e.message); }
+});
+$('btnOmitirEncuesta').addEventListener('click', async () => {
+  cerrarEncuesta();
+  try { const { user } = await api('/usuarios/me/encuesta', { method: 'PUT', body: { omitir: true } }); Sesion.actualizarUsuario(user); } catch (e) { /* silencioso */ }
+});
+$('btnEditarIntereses').addEventListener('click', abrirEncuesta);
+
+/* ================= "¿POR QUÉ SE RECOMIENDA?" — explicación del algoritmo =================
+   Botón en el perfil de otra persona: abre una hoja con un aro de
+   puntaje (estilo iOS) y el desglose +/- de cada factor, para que el
+   algoritmo sea entendible y no una caja negra. */
+async function abrirPorqueRecomendado(personaId) {
+  $('porque-nivel-texto').textContent = '—';
+  $('porque-resumen').textContent = 'Calculando…';
+  $('porque-lista').innerHTML = '';
+  $('porque-aviso-no-algoritmo').classList.add('oculto');
+  $('porque-aviso-no-algoritmo').innerHTML = '';
+  $('porque-anillo-relleno').style.strokeDashoffset = '314';
+  $('veloPorque').classList.add('activo'); $('hojaPorque').classList.add('activo');
+  try {
+    const data = await api(`/usuarios/${personaId}/porque-recomendado`);
+    pintarExplicacionRecomendacion(data);
+  } catch (e) {
+    $('porque-resumen').textContent = e.message;
+  }
+}
+function cerrarPorqueRecomendado() { $('veloPorque').classList.remove('activo'); $('hojaPorque').classList.remove('activo'); }
+$('cerrarPorque').addEventListener('click', cerrarPorqueRecomendado);
+$('veloPorque').addEventListener('click', cerrarPorqueRecomendado);
+$('p-porque-btn').addEventListener('click', () => { if (perfilActualId) abrirPorqueRecomendado(perfilActualId); });
+
+const COLORES_NIVEL = { alta: '#22c55e', media: '#9d5cf5', baja: '#a79ac0' };
+
+// Textos honestos para cuando la persona NO fue elegida por afinidad
+// (o ni siquiera vino del feed). Ver backend/utils/recomendaciones.js.
+const TITULOS_NO_ALGORITMO = {
+  null: '🔎 No vino de tu feed',
+  exploracion_aleatoria: '🎲 Cupo de exploración al azar',
+  cuenta_nueva: '🌱 Cupo fijo de cuenta nueva',
+};
+
+function pintarExplicacionRecomendacion(data) {
+  const { total, nivel, resumen, factores, recomendado_por_algoritmo, origen, nota } = data;
+  $('porque-nivel-texto').textContent = recomendado_por_algoritmo === false ? 'n/a' : nivel;
+  $('porque-resumen').textContent = recomendado_por_algoritmo === false
+    ? resumen
+    : `${resumen} (puntaje total: ${total > 0 ? '+' : ''}${total})`;
+
+  const avisoEl = $('porque-aviso-no-algoritmo');
+  if (recomendado_por_algoritmo === false) {
+    const titulo = TITULOS_NO_ALGORITMO[origen] || TITULOS_NO_ALGORITMO.null;
+    avisoEl.innerHTML = `<b>${titulo}</b>${nota || ''}`;
+    avisoEl.classList.remove('oculto');
+  } else {
+    avisoEl.classList.add('oculto');
+    avisoEl.innerHTML = '';
+  }
+
+  // Aro de progreso: mapeamos el puntaje a 0–100% de forma suave. Si no
+  // fue una recomendación real del algoritmo, dejamos el aro apagado
+  // para no insinuar un "nivel de afinidad" que no aplicó aquí.
+  const circunferencia = 314;
+  const anillo = $('porque-anillo-relleno');
+  if (recomendado_por_algoritmo === false) {
+    anillo.style.stroke = 'var(--texto-400)';
+    requestAnimationFrame(() => { anillo.style.strokeDashoffset = String(circunferencia); });
+  } else {
+    const pct = Math.max(4, Math.min(100, Math.round(((total + 40) / 120) * 100)));
+    anillo.style.stroke = COLORES_NIVEL[nivel] || 'var(--morado-600)';
+    requestAnimationFrame(() => { anillo.style.strokeDashoffset = String(circunferencia - (circunferencia * pct) / 100); });
+  }
+
+  if (!factores.length) {
+    $('porque-lista').innerHTML = '<div class="aviso-vacio">Todavía no hay suficientes señales para calcular esto.</div>';
+    return;
+  }
+  const maxAbs = Math.max(...factores.map((f) => Math.abs(f.puntos)), 1);
+  $('porque-lista').innerHTML = factores.map((f) => `
+    <div class="factor-fila">
+      <div class="factor-fila-top">
+        <div>
+          <div class="factor-etiqueta">${f.etiqueta}</div>
+          ${f.detalle ? `<div class="factor-detalle">${f.detalle}</div>` : ''}
+        </div>
+        <div class="factor-punto ${f.tipo}">${f.puntos > 0 ? '+' : ''}${f.puntos}</div>
+      </div>
+      <div class="factor-barra-fondo"><div class="factor-barra ${f.tipo}" data-ancho="${Math.round((Math.abs(f.puntos) / maxAbs) * 100)}"></div></div>
+    </div>`).join('');
+  requestAnimationFrame(() => {
+    document.querySelectorAll('#porque-lista .factor-barra').forEach((b) => { b.style.width = `${b.dataset.ancho}%`; });
+  });
+}
+
+/* ================= MODO OSCURO / CLARO ================= */
+const CLAVE_TEMA = 'enlace_tema';
+function aplicarTema(tema) {
+  document.documentElement.setAttribute('data-tema', tema);
+  const interruptor = $('interruptorTema');
+  if (interruptor) interruptor.classList.toggle('activo', tema === 'oscuro');
+}
+function iniciarTema() {
+  const guardado = localStorage.getItem(CLAVE_TEMA);
+  const preferido = guardado || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'oscuro' : 'claro');
+  aplicarTema(preferido);
+}
+iniciarTema();
+$('interruptorTema')?.addEventListener('click', () => {
+  const actual = document.documentElement.getAttribute('data-tema') === 'oscuro' ? 'claro' : 'oscuro';
+  localStorage.setItem(CLAVE_TEMA, actual);
+  aplicarTema(actual);
+});
+
+/* ================= BADGES: verificado y reputación ================= */
+const SVG_CHECK_VERIFICADO = '<svg viewBox="0 0 24 24" fill="#3897f0"><circle cx="12" cy="12" r="11"/><path d="M8.2 12.3l2.6 2.6 5.4-5.6" stroke="#fff" stroke-width="2.1" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+function badgeVerificado(persona) {
+  if (!persona || !persona.verified) return '';
+  return `<span class="badge-verificado" title="Cuenta verificada">${SVG_CHECK_VERIFICADO}</span>`;
+}
+function nombreConBadge(persona) {
+  return `<span class="nombre-con-badge">${persona?.name || ''}${badgeVerificado(persona)}</span>`;
+}
+function chipReputacion(rep) {
+  if (!rep) return '';
+  return `<div class="chip-reputacion ${rep.color}"><span class="punto"></span>${rep.nivel}</div>`;
+}
+
+/* ================= AUTENTICACIÓN ================= */
+$('tabLogin').addEventListener('click', () => cambiarTabAuth('login'));
+$('tabRegistro').addEventListener('click', () => cambiarTabAuth('registro'));
+function cambiarTabAuth(cual) {
+  $('tabLogin').classList.toggle('activo', cual === 'login');
+  $('tabRegistro').classList.toggle('activo', cual === 'registro');
+  $('vistaLogin').classList.toggle('activo', cual === 'login');
+  $('vistaRegistro').classList.toggle('activo', cual === 'registro');
+}
+
+$('btnLogin').addEventListener('click', async () => {
+  $('loginError').textContent = '';
+  const email = $('loginEmail').value.trim();
+  const password = $('loginPassword').value;
+  if (!email || !password) { $('loginError').textContent = 'Completa correo y contraseña.'; return; }
+  try {
+    const { token, user } = await api('/auth/login', { method: 'POST', body: { email, password }, sinAuth: true });
+    Sesion.guardar(token, user);
+    iniciarApp();
+  } catch (e) { $('loginError').textContent = e.message; }
+});
+
+$('btnRegistro').addEventListener('click', async () => {
+  $('regError').textContent = '';
+  const body = {
+    name: $('regNombre').value.trim(),
+    username: $('regUsername').value.trim(),
+    email: $('regEmail').value.trim(),
+    password: $('regPassword').value,
+    birthdate: $('regNacimiento').value || null,
+    gender: $('regGenero').value,
+    city: $('regCiudad').value.trim(),
+  };
+  if (!body.name || !body.username || !body.email || !body.password) { $('regError').textContent = 'Completa nombre, usuario, correo y contraseña.'; return; }
+  try {
+    const { token, user } = await api('/auth/registro', { method: 'POST', body, sinAuth: true });
+    Sesion.guardar(token, user);
+    iniciarApp();
+  } catch (e) { $('regError').textContent = e.message; }
+});
+
+/* ================= ARRANQUE DE LA APP ================= */
+async function iniciarApp() {
+  $('authScreen').classList.add('oculto');
+  $('appShell').classList.remove('oculto');
+
+  conectarSocket();
+  await refrescarMiPerfil();
+  cargarDescubrir();
+  cargarEstados();
+  cargarNotificaciones();
+  cargarSolicitudesBadge();
+
+  const u = Sesion.usuario();
+  if (u && !u.encuesta_completada_at && !u.encuesta_omitida) {
+    setTimeout(abrirEncuesta, 500); // pequeño respiro visual tras cargar la app
+  }
+}
+
+function conectarSocket() {
+  window.socket = io({ auth: { token: Sesion.token() } });
+  Chat.enlazarSocket(window.socket);
+  Llamada.enlazarSocket(window.socket);
+  window.socket.on('notificacion:nueva', (n) => {
+    mostrarToast(n.text);
+    pintarBadgeCampana(true);
+    if ($('vistaContactos').classList.contains('activo')) cargarAmigosYSolicitudes();
+  });
+  window.socket.on('connect_error', (err) => {
+    console.warn('Socket no pudo conectar:', err.message);
+  });
+}
+
+async function refrescarMiPerfil() {
+  try {
+    const { user } = await api('/auth/yo');
+    Sesion.actualizarUsuario(user);
+    $('ajustesAvatar').src = avatarDe(user);
+    $('ajustesNombre').innerHTML = nombreConBadge(user);
+    MI_ES_ADMIN = !!user.is_admin;
+    $('btnPanelAdmin').classList.toggle('oculto', !MI_ES_ADMIN);
+  } catch (e) { /* token vencido ya redirige */ }
+}
+
+/* ================= NAVEGACIÓN POR PESTAÑAS ================= */
+document.querySelectorAll('nav.tabbar .tab').forEach((tab) => {
+  tab.addEventListener('click', () => cambiarVista(tab.dataset.tab));
+});
+function cambiarVista(nombre) {
+  if (typeof finalizarConteoPerfil === 'function') finalizarConteoPerfil();
+  document.querySelectorAll('nav.tabbar .tab').forEach((t) => t.classList.toggle('activo', t.dataset.tab === nombre));
+  document.querySelectorAll('.vista-app').forEach((v) => v.classList.toggle('activo', v.dataset.vista === nombre));
+  if (nombre === 'feed' && !$('inputBuscar').value.trim()) cargarDescubrir();
+  if (nombre === 'contactos') cargarAmigosYSolicitudes();
+  if (nombre === 'mensajes') cargarConversaciones();
+}
+
+/* =================================================================
+   PUBLICACIONES
+   Ya NO existe un feed general en la pantalla principal: las
+   publicaciones de una persona solo se ven al entrar a SU perfil.
+   Estas funciones se usan dentro de abrirPerfil().
+   ================================================================= */
+let imagenCompositorBase64 = null;
+$('pCompImagenInput').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    imagenCompositorBase64 = await archivoABase64(file, 1000, 0.72);
+    $('pCompPreview').src = imagenCompositorBase64;
+    $('pCompPreview').classList.add('activo');
+  } catch (err) { mostrarToast('No se pudo procesar la imagen.'); }
+});
+
+$('pBtnPublicar').addEventListener('click', async () => {
+  const texto = $('pCompTexto').value.trim();
+  if (!texto && !imagenCompositorBase64) { mostrarToast('Escribe algo o añade una foto.'); return; }
+  try {
+    await api('/publicaciones', { method: 'POST', body: { text: texto, image_base64: imagenCompositorBase64 } });
+    $('pCompTexto').value = '';
+    imagenCompositorBase64 = null;
+    $('pCompPreview').classList.remove('activo');
+    $('pCompPreview').src = '';
+    mostrarToast('Publicado ✅ — ya aparece en tu perfil');
+    abrirPerfil(perfilActualId);
+  } catch (e) { mostrarToast(e.message); }
+});
+
+function renderizarPublicacionesPerfil(publicaciones, contenedorId) {
+  const cont = $(contenedorId);
+  if (!publicaciones.length) {
+    cont.innerHTML = '<div class="aviso-vacio">Todavía no ha publicado nada.</div>';
+    return;
+  }
+  cont.innerHTML = publicaciones.map(pintarPublicacion).join('');
+  cont.querySelectorAll('.publicacion-accion[data-accion="like"]').forEach((btn) => {
+    btn.addEventListener('click', () => alternarLike(btn.dataset.id));
+  });
+  cont.querySelectorAll('.publicacion-accion[data-accion="comentar"]').forEach((btn) => {
+    btn.addEventListener('click', () => alternarComentarios(btn.dataset.id));
+  });
+}
+
+function pintarPublicacion(p) {
+  const yo = Sesion.usuario();
+  const esDueno = yo && p.user_id === yo.id;
+  const puedeModerar = esDueno || MI_ES_ADMIN;
+  return `
+    <div class="publicacion" id="post-${p.id}">
+      <div class="publicacion-header">
+        <img src="${avatarDe({ avatar_data: p.autor_avatar, name: p.autor_nombre })}" alt="">
+        <div>
+          <div class="nombre">${p.autor_nombre}</div>
+          <div class="fecha">${tiempoRelativo(p.created_at)}</div>
+        </div>
+      </div>
+      ${p.text ? `<div class="publicacion-texto">${escaparHTMLGlobal(p.text)}</div>` : ''}
+      ${p.image_data ? `<img class="publicacion-img" src="${p.image_data}" alt="">` : ''}
+      ${p.edited_at ? `<div class="etiqueta-editado">Editada por un administrador</div>` : ''}
+      ${puedeModerar ? `
+        <div class="publicacion-mod">
+          <div class="mini-btn secundario" onclick="editarPublicacionAccion('${p.id}', ${JSON.stringify(p.text || '').replace(/"/g, '&quot;')})">Editar</div>
+          <div class="mini-btn peligro" onclick="borrarPublicacionAccion('${p.id}')">Borrar</div>
+        </div>` : ''}
+      <div class="publicacion-acciones">
+        <div class="publicacion-accion ${p.me_gusta ? 'activo' : ''}" data-accion="like" data-id="${p.id}">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="${p.me_gusta ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z"/></svg>
+          <span id="likes-${p.id}">${p.total_likes}</span>
+        </div>
+        <div class="publicacion-accion" data-accion="comentar" data-id="${p.id}">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.5 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7A8.4 8.4 0 0 1 3.5 11.5 8.5 8.5 0 1 1 21 11.5Z"/></svg>
+          <span>${p.total_comentarios}</span>
+        </div>
+      </div>
+      <div class="comentarios-caja" id="comentarios-${p.id}">
+        <div class="lista-comentarios" id="lista-comentarios-${p.id}"></div>
+        <div class="comentario-input-fila">
+          <input type="text" placeholder="Escribe un comentario…" id="input-comentario-${p.id}">
+          <div class="mini-btn primario" onclick="enviarComentario('${p.id}')">Enviar</div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function escaparHTMLGlobal(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+async function alternarLike(postId) {
+  try {
+    const { me_gusta } = await api(`/publicaciones/${postId}/like`, { method: 'POST' });
+    const btn = document.querySelector(`.publicacion-accion[data-id="${postId}"][data-accion="like"]`);
+    btn.classList.toggle('activo', me_gusta);
+    const span = $(`likes-${postId}`);
+    span.textContent = parseInt(span.textContent) + (me_gusta ? 1 : -1);
+  } catch (e) { mostrarToast(e.message); }
+}
+
+async function alternarComentarios(postId) {
+  const caja = $(`comentarios-${postId}`);
+  const activo = caja.classList.toggle('activo');
+  if (activo) await cargarComentarios(postId);
+}
+
+async function cargarComentarios(postId) {
+  try {
+    const { comentarios } = await api(`/publicaciones/${postId}/comentarios`);
+    $(`lista-comentarios-${postId}`).innerHTML = comentarios.map((c) => `
+      <div class="comentario-item">
+        <img src="${avatarDe({ avatar_data: c.autor_avatar, name: c.autor_nombre })}" alt="">
+        <div><b>${c.autor_nombre}</b>${escaparHTMLGlobal(c.text)}</div>
+      </div>`).join('') || '<div style="color:var(--texto-500); font-size:12.5px; padding:6px 0;">Sé el primero en comentar.</div>';
+  } catch (e) { mostrarToast(e.message); }
+}
+
+async function enviarComentario(postId) {
+  const input = $(`input-comentario-${postId}`);
+  const texto = input.value.trim();
+  if (!texto) return;
+  try {
+    await api(`/publicaciones/${postId}/comentarios`, { method: 'POST', body: { text: texto } });
+    input.value = '';
+    cargarComentarios(postId);
+    const contador = document.querySelector(`.publicacion-accion[data-id="${postId}"][data-accion="comentar"] span`);
+    if (contador) contador.textContent = parseInt(contador.textContent || '0') + 1;
+  } catch (e) { mostrarToast(e.message); }
+}
+window.enviarComentario = enviarComentario;
+
+/* ================= MODERAR PUBLICACIONES (dueño o administrador) ================= */
+async function editarPublicacionAccion(postId, textoActual) {
+  const nuevo = prompt('Editar publicación:', textoActual || '');
+  if (nuevo === null || !nuevo.trim()) return;
+  try {
+    const { editado_por_admin } = await api(`/publicaciones/${postId}`, { method: 'PUT', body: { text: nuevo.trim() } });
+    mostrarToast(editado_por_admin ? 'Publicación editada por un administrador' : 'Publicación actualizada');
+    if (perfilActualId) abrirPerfil(perfilActualId);
+  } catch (e) { mostrarToast(e.message); }
+}
+async function borrarPublicacionAccion(postId) {
+  if (!confirm('¿Seguro que quieres borrar esta publicación? No se puede deshacer.')) return;
+  try {
+    const { borrado_por_admin } = await api(`/publicaciones/${postId}`, { method: 'DELETE' });
+    mostrarToast(borrado_por_admin ? 'Publicación borrada por un administrador' : 'Publicación borrada');
+    if (perfilActualId) abrirPerfil(perfilActualId);
+  } catch (e) { mostrarToast(e.message); }
+}
+window.editarPublicacionAccion = editarPublicacionAccion;
+window.borrarPublicacionAccion = borrarPublicacionAccion;
+
+/* ================= ESTADOS (historias 24h) ================= */
+async function cargarEstados() {
+  try {
+    const { estados } = await api('/estados');
+    const yo = Sesion.usuario();
+    const propios = estados.filter((e) => e.user_id === yo.id);
+    const ajenos = estados.filter((e) => e.user_id !== yo.id);
+
+    let html = `
+      <div class="item-estado" id="miEstadoItem">
+        <div class="anillo-estado ${propios.length ? '' : 'mio'} plus">
+          <img src="${avatarDe(yo)}" alt="">
+          <div class="signo">+</div>
+        </div>
+        <span>Tu estado</span>
+      </div>`;
+    html += ajenos.map((e) => `
+      <div class="item-estado" data-estado='${JSON.stringify({ id: e.id, autor_nombre: e.autor_nombre, autor_avatar: e.autor_avatar, text: e.text, image_data: e.image_data }).replace(/'/g, '&apos;')}'>
+        <div class="anillo-estado"><img src="${avatarDe({ avatar_data: e.autor_avatar, name: e.autor_nombre })}" alt=""></div>
+        <span>${e.autor_nombre.split(' ')[0]}</span>
+      </div>`).join('');
+    $('barraEstados').innerHTML = html;
+
+    $('miEstadoItem').addEventListener('click', () => {
+      $('veloEstado').classList.add('activo'); $('hojaEstado').classList.add('activo');
+    });
+    document.querySelectorAll('.item-estado[data-estado]').forEach((el) => {
+      el.addEventListener('click', () => {
+        const data = JSON.parse(el.dataset.estado.replace(/&apos;/g, "'"));
+        verEstado(data);
+      });
+    });
+  } catch (e) { console.error(e); }
+}
+
+function verEstado(data) {
+  $('ve-avatar').src = avatarDe({ avatar_data: data.autor_avatar, name: data.autor_nombre });
+  $('ve-nombre').textContent = data.autor_nombre;
+  $('ve-texto').textContent = data.text || '';
+  if (data.image_data) { $('ve-imagen').src = data.image_data; $('ve-imagen').style.display = 'block'; }
+  else { $('ve-imagen').style.display = 'none'; }
+  api(`/estados/${data.id}/visto`, { method: 'POST' }).catch(() => {});
+  $('veloVerEstado').classList.add('activo'); $('hojaVerEstado').classList.add('activo');
+}
+$('cerrarVerEstado').addEventListener('click', () => { $('veloVerEstado').classList.remove('activo'); $('hojaVerEstado').classList.remove('activo'); });
+$('veloVerEstado').addEventListener('click', () => { $('veloVerEstado').classList.remove('activo'); $('hojaVerEstado').classList.remove('activo'); });
+
+let estadoImagenBase64 = null;
+$('estadoImagenInput').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  estadoImagenBase64 = await archivoABase64(file, 900, 0.7);
+  $('estadoPreview').src = estadoImagenBase64;
+  $('estadoPreview').classList.add('activo');
+});
+$('btnPublicarEstado').addEventListener('click', async () => {
+  const texto = $('nuevoEstadoTexto').value.trim();
+  if (!texto && !estadoImagenBase64) { mostrarToast('Escribe algo para tu estado.'); return; }
+  try {
+    await api('/estados', { method: 'POST', body: { text: texto, image_base64: estadoImagenBase64 } });
+    $('nuevoEstadoTexto').value = ''; estadoImagenBase64 = null;
+    $('estadoPreview').classList.remove('activo'); $('estadoPreview').src = '';
+    $('veloEstado').classList.remove('activo'); $('hojaEstado').classList.remove('activo');
+    mostrarToast('Estado publicado, estará visible 24h');
+    cargarEstados();
+  } catch (e) { mostrarToast(e.message); }
+});
+$('cerrarEstado').addEventListener('click', () => { $('veloEstado').classList.remove('activo'); $('hojaEstado').classList.remove('activo'); });
+$('veloEstado').addEventListener('click', () => { $('veloEstado').classList.remove('activo'); $('hojaEstado').classList.remove('activo'); });
+
+/* ================= DESCUBRIR / BUSCAR PERSONAS ================= */
+let temporizadorBusqueda = null;
+$('inputBuscar').addEventListener('input', () => {
+  clearTimeout(temporizadorBusqueda);
+  temporizadorBusqueda = setTimeout(() => {
+    const q = $('inputBuscar').value.trim();
+    q ? buscarPersonas(q) : cargarDescubrir();
+  }, 350);
+});
+
+async function cargarDescubrir() {
+  try {
+    const { personas } = await api('/usuarios');
+    pintarListaPersonas(personas, 'listaBuscar');
+  } catch (e) { $('listaBuscar').innerHTML = `<div class="aviso-vacio">${e.message}</div>`; }
+}
+async function buscarPersonas(q) {
+  try {
+    const { personas } = await api(`/usuarios/buscar?q=${encodeURIComponent(q)}`);
+    pintarListaPersonas(personas, 'listaBuscar', true);
+  } catch (e) { $('listaBuscar').innerHTML = `<div class="aviso-vacio">${e.message}</div>`; }
+}
+
+// Etiquetas cortas para el badge de origen en cada tarjeta del feed
+// "Descubrir" (no aparece en resultados de búsqueda, que no tienen `origen`).
+const ETIQUETAS_ORIGEN_FEED = {
+  local: '📍 Tu localidad',
+  afinidad_otra_localidad: '🧭 Afinidad de localidad',
+  exploracion_aleatoria: '🎲 Descubrimiento al azar',
+  cuenta_nueva: '🌱 Cuenta nueva',
+};
+
+// Opciones de la mini encuesta de matices tras el doble toque. Debe
+// coincidir con TIPOS_REACCION en backend/utils/recomendaciones.js.
+// Son SIEMPRE privadas: solo las ve quien las puso, nunca el perfil
+// evaluado. Nunca generan una acción de moderación por sí solas — para
+// "estafador", acoso u otra acusación grave está "Reportar" (aparte).
+const OPCIONES_REACCION = [
+  { tipo: 'atrae', emoji: '😍', texto: 'Me atrae/interesa' },
+  { tipo: 'cae_bien', emoji: '😊', texto: 'Me cae bien' },
+  { tipo: 'interesante', emoji: '🧠', texto: 'Interesante' },
+  { tipo: 'estilo', emoji: '🎨', texto: 'Me gusta su estilo' },
+  { tipo: 'divertido', emoji: '😂', texto: 'Divertido' },
+  { tipo: 'quiero_hablarle', emoji: '💬', texto: 'Quiero hablarle' },
+  { tipo: 'buena_persona', emoji: '🤝', texto: 'Parece buena persona' },
+  { tipo: 'desconfianza', emoji: '⚠️', texto: 'Me genera desconfianza', negativa: true },
+  { tipo: 'no_interesa', emoji: '👎', texto: 'No me interesa', negativa: true },
+];
+const EMOJI_POR_TIPO_REACCION = Object.fromEntries(
+  [{ tipo: 'me_interesa', emoji: '💗' }, ...OPCIONES_REACCION].map((o) => [o.tipo, o.emoji])
+);
+
+function pintarListaPersonas(personas, contenedorId) {
+  const cont = $(contenedorId);
+  if (!personas.length) { cont.innerHTML = '<div class="aviso-vacio">No hay nadie que mostrar por ahora.</div>'; return; }
+  cont.innerHTML = personas.map((p) => `
+    <div class="tarjeta" data-persona='${encodeURIComponent(JSON.stringify(p))}'>
+      ${p.mi_reaccion ? `<div class="tarjeta-reaccionada" title="Ya reaccionaste (privado)">${EMOJI_POR_TIPO_REACCION[p.mi_reaccion] || '💗'}</div>` : ''}
+      <div class="avatar-wrap">
+        <img class="avatar-circulo" src="${avatarDe(p)}" alt="">
+        <div class="punto-online ${p.is_online ? 'en-linea' : ''}"></div>
+        <div class="check-amigo ${p.estado_amistad === 'amigos' ? 'activo' : ''}">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg>
+        </div>
+      </div>
+      <div class="id-persona">
+        <div class="nombre">${nombreConBadge(p)}</div>
+        <div class="detalle"><span>${p.flag_emoji || '🇨🇺'}</span> ${p.city || 'Cuba'}${p.profession ? ` <span class="sep"></span> ${p.profession}` : ''}</div>
+        ${p.origen ? `<div class="tarjeta-origen ${p.origen}">${ETIQUETAS_ORIGEN_FEED[p.origen] || ''}</div>` : ''}
+      </div>
+      <div class="chevron"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m9 6 6 6-6 6"/></svg></div>
+    </div>`).join('');
+
+  cont.querySelectorAll('.tarjeta').forEach((tarjeta) => {
+    const persona = JSON.parse(decodeURIComponent(tarjeta.dataset.persona));
+    adjuntarInteraccionTarjeta(tarjeta, persona);
+  });
+}
+
+/* ---- Doble toque sobre una tarjeta = reacción privada "me interesa" ----
+   Un solo toque abre la hoja de opciones (comportamiento de siempre). Un
+   segundo toque dentro de ~320ms sobre la MISMA tarjeta cancela esa
+   apertura y en su lugar registra la reacción + abre la mini encuesta
+   opcional de matices. Se hace con temporización manual (no con
+   `dblclick` nativo) porque en móvil es más confiable y así evitamos que
+   el primer toque abra la hoja antes de que llegue el segundo. */
+const VENTANA_DOBLE_TOQUE_MS = 320;
+function adjuntarInteraccionTarjeta(tarjeta, persona) {
+  let ultimoToque = 0;
+  let temporizador = null;
+  tarjeta.addEventListener('click', () => {
+    const ahora = Date.now();
+    if (ahora - ultimoToque < VENTANA_DOBLE_TOQUE_MS) {
+      clearTimeout(temporizador);
+      ultimoToque = 0;
+      manejarDobleToquePersona(persona, tarjeta);
+    } else {
+      ultimoToque = ahora;
+      temporizador = setTimeout(() => abrirHojaPersona(persona), VENTANA_DOBLE_TOQUE_MS);
+    }
+  });
+}
+
+async function manejarDobleToquePersona(persona, tarjeta) {
+  animarCorazonToque(tarjeta);
+  try {
+    const { reaccion } = await api(`/usuarios/${persona.id}/reaccion`, { method: 'PUT', body: { tipo: 'me_interesa' } });
+    persona.mi_reaccion = reaccion?.tipo || 'me_interesa';
+  } catch (e) {
+    mostrarToast(e.message);
+    return;
+  }
+  abrirMiniEncuestaReaccion(persona);
+}
+
+function animarCorazonToque(tarjeta) {
+  tarjeta.querySelectorAll('.corazon-doble-toque').forEach((el) => el.remove());
+  const corazon = document.createElement('div');
+  corazon.className = 'corazon-doble-toque';
+  corazon.textContent = '💗';
+  tarjeta.appendChild(corazon);
+  setTimeout(() => corazon.remove(), 750);
+}
+
+/* ---- Mini encuesta opcional de matices (después del doble toque) ---- */
+let reaccionPersonaActual = null;
+function abrirMiniEncuestaReaccion(persona) {
+  reaccionPersonaActual = persona;
+  $('reaccion-titulo').textContent = `Tocaste dos veces a ${(persona.name || 'esta persona').split(' ')[0]} — ¿qué te pareció? (opcional)`;
+  $('reaccionOpciones').innerHTML = OPCIONES_REACCION.map((o) => `
+    <div class="chip-toggle chip-reaccion ${o.negativa ? 'negativa' : ''} ${persona.mi_reaccion === o.tipo ? 'seleccionado' : ''}" data-tipo="${o.tipo}">${o.emoji} ${o.texto}</div>
+  `).join('');
+  $('reaccionOpciones').querySelectorAll('.chip-reaccion').forEach((chip) => {
+    chip.addEventListener('click', async () => {
+      $('reaccionOpciones').querySelectorAll('.chip-reaccion').forEach((c) => c.classList.remove('seleccionado'));
+      chip.classList.add('seleccionado');
+      try {
+        const { reaccion } = await api(`/usuarios/${reaccionPersonaActual.id}/reaccion`, { method: 'PUT', body: { tipo: chip.dataset.tipo } });
+        reaccionPersonaActual.mi_reaccion = reaccion?.tipo || chip.dataset.tipo;
+        mostrarToast('Guardado — esto es privado, solo tú lo ves 🔒');
+      } catch (e) { mostrarToast(e.message); return; }
+      setTimeout(cerrarMiniEncuestaReaccion, 500);
+    });
+  });
+  $('veloReaccion').classList.add('activo'); $('hojaReaccion').classList.add('activo');
+}
+function cerrarMiniEncuestaReaccion() { $('veloReaccion').classList.remove('activo'); $('hojaReaccion').classList.remove('activo'); }
+$('veloReaccion').addEventListener('click', cerrarMiniEncuestaReaccion);
+$('cerrarReaccion').addEventListener('click', cerrarMiniEncuestaReaccion);
+
+
+
+/* ================= HOJA DE ACCIONES SOBRE UNA PERSONA ================= */
+let personaSeleccionada = null;
+function abrirHojaPersona(persona) {
+  personaSeleccionada = persona;
+  $('hoja-avatar').src = avatarDe(persona);
+  $('hoja-nombre').innerHTML = `${nombreConBadge(persona)} · ${persona.city || 'Cuba'}`;
+  $('op-eliminar-amigo').classList.toggle('oculto', persona.estado_amistad !== 'amigos');
+  // Estas listas ya excluyen a quien bloqueaste o te bloqueó, así que aquí
+  // solo tiene sentido ofrecer "Bloquear" (ver perfil o "Cuentas
+  // bloqueadas" para desbloquear).
+  $('op-bloquear').classList.remove('oculto');
+  $('op-desbloquear').classList.add('oculto');
+  $('velo').classList.add('activo'); $('hoja').classList.add('activo');
+}
+function cerrarHojaPersona() { $('velo').classList.remove('activo'); $('hoja').classList.remove('activo'); }
+$('velo').addEventListener('click', cerrarHojaPersona);
+$('op-cancelar').addEventListener('click', cerrarHojaPersona);
+$('op-ver-perfil').addEventListener('click', () => { cerrarHojaPersona(); abrirPerfil(personaSeleccionada.id); });
+$('op-mensaje').addEventListener('click', () => { cerrarHojaPersona(); Chat.abrirConversacion(personaSeleccionada); });
+$('op-llamar-audio').addEventListener('click', () => { cerrarHojaPersona(); Llamada.iniciar(personaSeleccionada, 'audio'); });
+$('op-llamar-video').addEventListener('click', () => { cerrarHojaPersona(); Llamada.iniciar(personaSeleccionada, 'video'); });
+$('op-agregar').addEventListener('click', () => { importarContactoVCard(personaSeleccionada); cerrarHojaPersona(); });
+$('op-eliminar-amigo').addEventListener('click', () => { cerrarHojaPersona(); eliminarAmigoAccion(personaSeleccionada.id); });
+$('op-bloquear').addEventListener('click', () => { cerrarHojaPersona(); bloquearPersonaAccion(personaSeleccionada.id); });
+$('op-reportar').addEventListener('click', () => { cerrarHojaPersona(); abrirReportar({ target_user_id: personaSeleccionada.id }); });
+
+/* ================= AMISTAD: eliminar / BLOQUEOS / REPORTES ================= */
+async function eliminarAmigoAccion(personaId) {
+  if (!confirm('¿Seguro que quieres eliminar a esta persona de tus amigos?')) return;
+  try {
+    await api(`/amigos/${personaId}`, { method: 'DELETE' });
+    mostrarToast('Eliminado de tus amigos');
+    cargarAmigosYSolicitudes();
+    if (perfilActualId === personaId) abrirPerfil(personaId);
+  } catch (e) { mostrarToast(e.message); }
+}
+
+async function bloquearPersonaAccion(personaId) {
+  if (!confirm('¿Bloquear a esta persona? Ya no podrán verse, escribirse ni llamarse.')) return;
+  try {
+    await api(`/moderacion/${personaId}/bloquear`, { method: 'POST' });
+    mostrarToast('Persona bloqueada');
+    cargarDescubrir();
+    cargarAmigosYSolicitudes();
+    if (perfilActualId === personaId) abrirPerfil(personaId);
+  } catch (e) { mostrarToast(e.message); }
+}
+
+async function desbloquearPersonaAccion(personaId) {
+  try {
+    await api(`/moderacion/${personaId}/desbloquear`, { method: 'POST' });
+    mostrarToast('Persona desbloqueada');
+    if (perfilActualId === personaId) abrirPerfil(personaId);
+    cargarBloqueados();
+  } catch (e) { mostrarToast(e.message); }
+}
+window.desbloquearPersonaAccion = desbloquearPersonaAccion;
+
+let reportarObjetivo = null;
+function abrirReportar(objetivo) {
+  reportarObjetivo = objetivo;
+  $('reportarMotivo').value = 'spam';
+  $('reportarDetalles').value = '';
+  $('veloReportar').classList.add('activo'); $('hojaReportar').classList.add('activo');
+}
+function cerrarReportar() { $('veloReportar').classList.remove('activo'); $('hojaReportar').classList.remove('activo'); }
+$('cerrarReportar').addEventListener('click', cerrarReportar);
+$('veloReportar').addEventListener('click', cerrarReportar);
+$('btnEnviarReporte').addEventListener('click', async () => {
+  if (!reportarObjetivo) return;
+  try {
+    await api('/moderacion/reportar', {
+      method: 'POST',
+      body: {
+        ...reportarObjetivo,
+        reason: $('reportarMotivo').value,
+        details: $('reportarDetalles').value.trim(),
+      },
+    });
+    mostrarToast('Gracias, revisaremos tu reporte');
+    cerrarReportar();
+  } catch (e) { mostrarToast(e.message); }
+});
+
+/* ================= CUENTAS BLOQUEADAS ================= */
+async function cargarBloqueados() {
+  try {
+    const { bloqueados } = await api('/usuarios/bloqueados');
+    $('listaBloqueados').innerHTML = bloqueados.length ? bloqueados.map((p) => `
+      <div class="notif-item">
+        <div class="notif-icono"><img src="${avatarDe(p)}" alt=""></div>
+        <div style="flex:1; min-width:0;"><div class="notif-texto"><b>${p.name}</b></div><div class="notif-hora">${p.city || ''}</div></div>
+        <div class="mini-btn secundario" onclick="desbloquearPersonaAccion('${p.id}')">Desbloquear</div>
+      </div>`).join('') : '<div class="notif-vacio">No tienes a nadie bloqueado.</div>';
+  } catch (e) { $('listaBloqueados').innerHTML = `<div class="notif-vacio">${e.message}</div>`; }
+}
+$('btnVerBloqueados').addEventListener('click', () => {
+  cargarBloqueados();
+  $('veloBloqueados').classList.add('activo'); $('hojaBloqueados').classList.add('activo');
+});
+$('cerrarBloqueados').addEventListener('click', () => { $('veloBloqueados').classList.remove('activo'); $('hojaBloqueados').classList.remove('activo'); });
+$('veloBloqueados').addEventListener('click', () => { $('veloBloqueados').classList.remove('activo'); $('hojaBloqueados').classList.remove('activo'); });
+
+function importarContactoVCard(persona) {
+  const vcard = ['BEGIN:VCARD', 'VERSION:3.0', `FN:${persona.name}`, persona.phone ? `TEL;TYPE=CELL:${persona.phone}` : '', `NOTE:Contacto de Enlace — ${persona.city || ''}`, 'END:VCARD'].filter(Boolean).join('\n');
+  const blob = new Blob([vcard], { type: 'text/vcard' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `${persona.name.replace(/\s+/g, '_')}.vcf`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+  mostrarToast('Contacto listo para guardar en tu teléfono');
+}
+
+/* ================= PERFIL DE UNA PERSONA ================= */
+/* -- Tiempo viendo cada perfil: señal de comportamiento para el feed
+      (cuenta cuánto se queda alguien viendo perfiles de cierta persona
+      o localidad). Se manda al backend al salir del perfil. -- */
+let perfilVistoId = null;
+let perfilVistoDesde = null;
+function finalizarConteoPerfil() {
+  if (perfilVistoId && perfilVistoDesde) {
+    const segundos = Math.round((Date.now() - perfilVistoDesde) / 1000);
+    if (segundos >= 3) {
+      api(`/usuarios/${perfilVistoId}/tiempo-perfil`, { method: 'POST', body: { segundos } }).catch(() => {});
+    }
+  }
+  perfilVistoId = null; perfilVistoDesde = null;
+}
+function iniciarConteoPerfil(personaId, esMiPerfil) {
+  finalizarConteoPerfil();
+  if (!esMiPerfil) { perfilVistoId = personaId; perfilVistoDesde = Date.now(); }
+}
+document.addEventListener('visibilitychange', () => { if (document.hidden) finalizarConteoPerfil(); });
+window.addEventListener('pagehide', finalizarConteoPerfil);
+
+let perfilActualId = null;
+async function abrirPerfil(personaId) {
+  perfilActualId = personaId;
+  try {
+    const { persona, estado_amistad, solicitud_de_mi, contacto_verificado, yo_la_bloquee, ella_me_bloqueo, reputacion, publicaciones } = await api(`/usuarios/${personaId}`);
+    const yo = Sesion.usuario();
+    const esMiPerfil = personaId === yo.id;
+    iniciarConteoPerfil(personaId, esMiPerfil);
+
+    $('p-cover').src = persona.cover_data || avatarDe(persona);
+    $('p-avatar').src = avatarDe(persona);
+    $('p-anillo').classList.toggle('sin-estado', !persona.status_text);
+    $('p-estado').textContent = persona.status_text || 'Sin estado activo';
+    $('p-estado').style.display = persona.status_text ? 'block' : 'none';
+    $('p-nombre').innerHTML = nombreConBadge(persona);
+    $('p-profesion').textContent = persona.profession || '';
+    $('p-ubicacion').textContent = `${persona.flag_emoji || '🇨🇺'} ${persona.country || 'Cuba'} · ${persona.city || ''}`;
+    $('p-descripcion').textContent = persona.bio || '';
+    $('p-chips').innerHTML = [persona.gender, persona.skin_color, persona.relationship_status].filter(Boolean).map((c) => `<div class="chip">${c}</div>`).join('');
+    $('p-reputacion').innerHTML = chipReputacion(reputacion);
+
+    renderizarPublicacionesPerfil(publicaciones, 'p-publicaciones');
+
+    // ---- Solo tú ves el compositor en TU perfil; a otras personas les
+    //      muestras los botones de amistad/mensaje/llamada ----
+    $('p-acciones-otros').classList.toggle('oculto', esMiPerfil);
+    $('p-porque-wrap').classList.toggle('oculto', esMiPerfil);
+    $('p-compositor').classList.toggle('oculto', !esMiPerfil);
+    $('p-verificar').style.display = esMiPerfil ? 'none' : '';
+
+    if (!esMiPerfil) {
+      $('p-stat-guardado').textContent = contacto_verificado ? 'Sí' : 'No';
+      pintarBotonAmistad(estado_amistad, solicitud_de_mi);
+      $('p-verificar').onclick = () => verificarContactoReal(persona);
+      $('p-amistad').onclick = () => accionAmistad(estado_amistad);
+      $('p-mensaje').onclick = () => { finalizarConteoPerfil(); $('vistaPerfil').classList.remove('activo'); Chat.abrirConversacion(persona); };
+      $('p-audio').onclick = () => Llamada.iniciar(persona, 'audio');
+      $('p-video').onclick = () => Llamada.iniciar(persona, 'video');
+
+      $('p-eliminar-amigo').classList.toggle('oculto', estado_amistad !== 'amigos');
+      $('p-eliminar-amigo').onclick = () => eliminarAmigoAccion(personaId);
+      $('p-bloquear').textContent = yo_la_bloquee ? 'Desbloquear' : 'Bloquear';
+      $('p-bloquear').onclick = () => (yo_la_bloquee ? desbloquearPersonaAccion(personaId) : bloquearPersonaAccion(personaId));
+      $('p-reportar').onclick = () => abrirReportar({ target_user_id: personaId });
+
+      // Si esta persona te bloqueó, no tiene sentido ofrecerle mensaje,
+      // llamadas ni solicitud de amistad — solo puedes reportarla.
+      const bloqueadoPorEllos = !!ella_me_bloqueo;
+      $('p-amistad').classList.toggle('oculto', bloqueadoPorEllos);
+      $('p-mensaje').classList.toggle('oculto', bloqueadoPorEllos);
+      $('p-audio').classList.toggle('oculto', bloqueadoPorEllos);
+      $('p-video').classList.toggle('oculto', bloqueadoPorEllos);
+      $('p-verificar').style.display = bloqueadoPorEllos ? 'none' : (esMiPerfil ? 'none' : '');
+      $('p-eliminar-amigo').classList.toggle('oculto', bloqueadoPorEllos || estado_amistad !== 'amigos');
+    }
+
+    $('vistaPerfil').classList.add('activo');
+  } catch (e) { mostrarToast(e.message); }
+}
+$('p-volver').addEventListener('click', () => { finalizarConteoPerfil(); $('vistaPerfil').classList.remove('activo'); });
+$('btnVerMiPerfil').addEventListener('click', () => abrirPerfil(Sesion.usuario().id));
+
+function pintarBotonAmistad(estado, deMi) {
+  const btn = $('p-amistad'); const txt = $('p-amistad-texto');
+  $('p-stat-amigos').textContent = estado === 'amigos' ? 'Amigos' : estado === 'pendiente' ? 'Pendiente' : 'Ninguna';
+  btn.classList.remove('es-amigo'); btn.removeAttribute('disabled');
+  if (estado === 'amigos') { btn.classList.add('es-amigo'); txt.textContent = 'Ya son amigos ✓'; btn.setAttribute('disabled', 'true'); }
+  else if (estado === 'pendiente' && deMi) { txt.textContent = 'Solicitud enviada…'; btn.setAttribute('disabled', 'true'); }
+  else if (estado === 'pendiente' && !deMi) { txt.textContent = 'Aceptar solicitud'; }
+  else { txt.textContent = 'Hacerse amigos'; }
+}
+
+async function accionAmistad(estadoActual) {
+  try {
+    if (estadoActual === 'ninguno' || !estadoActual) {
+      await api(`/amigos/${perfilActualId}/solicitar`, { method: 'POST' });
+      mostrarToast('Solicitud enviada');
+    } else if (estadoActual === 'pendiente') {
+      await api(`/amigos/${perfilActualId}/responder`, { method: 'POST', body: { aceptar: true } });
+      mostrarToast('¡Ahora son amigos!');
+    }
+    abrirPerfil(perfilActualId);
+    cargarSolicitudesBadge();
+  } catch (e) { mostrarToast(e.message); }
+}
+
+async function verificarContactoReal(persona) {
+  if (!('contacts' in navigator && 'ContactsManager' in window)) {
+    mostrarToast('Tu navegador no permite leer contactos (usa Chrome en Android)');
+    return;
+  }
+  try {
+    const seleccion = await navigator.contacts.select(['tel', 'name'], { multiple: false });
+    if (!seleccion || !seleccion.length) { mostrarToast('No se eligió ningún contacto'); return; }
+    const telefonos = (seleccion[0].tel || []).map((t) => t.replace(/\D/g, ''));
+    const miTel = (persona.phone || '').replace(/\D/g, '');
+    const coincide = miTel && telefonos.some((t) => t.endsWith(miTel.slice(-8)));
+    await api(`/usuarios/${persona.id}/verificar-contacto`, { method: 'POST', body: { coincide } });
+    mostrarToast(coincide ? 'Coincide: ya la tienes guardada' : 'Ese contacto no coincide con este perfil');
+    abrirPerfil(persona.id);
+  } catch (e) { mostrarToast('No se pudo acceder a tus contactos'); }
+}
+
+/* ================= CONTACTOS: amigos + solicitudes ================= */
+document.querySelectorAll('#vistaContactos .sub-tab').forEach((tab) => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('#vistaContactos .sub-tab').forEach((t) => t.classList.toggle('activo', t === tab));
+    $('listaAmigos').classList.toggle('oculto', tab.dataset.sub !== 'amigos');
+    $('listaSolicitudes').classList.toggle('oculto', tab.dataset.sub !== 'solicitudes');
+  });
+});
+
+async function cargarAmigosYSolicitudes() {
+  try {
+    const { amigos } = await api('/amigos');
+    if (!amigos.length) $('listaAmigos').innerHTML = '<div class="aviso-vacio">Todavía no tienes amigos agregados. Ve a "Buscar" para encontrar personas.</div>';
+    else pintarListaPersonas(amigos.map((a) => ({ ...a, estado_amistad: 'amigos' })), 'listaAmigos');
+  } catch (e) { $('listaAmigos').innerHTML = `<div class="aviso-vacio">${e.message}</div>`; }
+
+  try {
+    const { solicitudes } = await api('/amigos/solicitudes');
+    if (!solicitudes.length) { $('listaSolicitudes').innerHTML = '<div class="aviso-vacio">No tienes solicitudes pendientes.</div>'; }
+    else {
+      $('listaSolicitudes').innerHTML = solicitudes.map((s) => `
+        <div class="tarjeta">
+          <div class="avatar-wrap"><img class="avatar-circulo" src="${avatarDe(s)}" alt=""></div>
+          <div class="id-persona"><div class="nombre">${s.name}</div><div class="detalle">${s.city || 'Cuba'}</div></div>
+          <div class="acciones-tarjeta">
+            <div class="mini-btn primario" onclick="responderSolicitud('${s.id}', true)">Aceptar</div>
+            <div class="mini-btn secundario" onclick="responderSolicitud('${s.id}', false)">Rechazar</div>
+          </div>
+        </div>`).join('');
+    }
+    $('badgeSolicitudes').textContent = solicitudes.length;
+    $('badgeSolicitudes').classList.toggle('activa', solicitudes.length > 0);
+  } catch (e) { console.error(e); }
+}
+
+async function responderSolicitud(userId, aceptar) {
+  try {
+    await api(`/amigos/${userId}/responder`, { method: 'POST', body: { aceptar } });
+    mostrarToast(aceptar ? 'Ahora son amigos 🎉' : 'Solicitud rechazada');
+    cargarAmigosYSolicitudes();
+  } catch (e) { mostrarToast(e.message); }
+}
+window.responderSolicitud = responderSolicitud;
+
+async function cargarSolicitudesBadge() {
+  try {
+    const { solicitudes } = await api('/amigos/solicitudes');
+    $('badgeSolicitudes').textContent = solicitudes.length;
+    $('badgeSolicitudes').classList.toggle('activa', solicitudes.length > 0);
+  } catch (e) { /* silencioso */ }
+}
+
+/* ================= MENSAJES: lista de conversaciones ================= */
+async function cargarConversaciones() {
+  try {
+    const { conversaciones } = await api('/mensajes');
+    Chat.actualizarBadgeMensajes(false);
+    if (!conversaciones.length) { $('listaConversaciones').innerHTML = '<div class="aviso-vacio">Aún no tienes conversaciones. Escríbele a un amigo desde su perfil.</div>'; return; }
+    $('listaConversaciones').innerHTML = conversaciones.map((c) => `
+      <div class="conversacion-item" data-persona='${encodeURIComponent(JSON.stringify({ id: c.otro_id, name: c.otro_nombre, avatar_data: c.otro_avatar, is_online: c.is_online }))}'>
+        <img src="${avatarDe({ avatar_data: c.otro_avatar, name: c.otro_nombre })}" alt="">
+        <div class="conversacion-info">
+          <div class="nombre">${c.otro_nombre}</div>
+          <div class="preview">${c.last_message_preview || ''}</div>
+        </div>
+        <div class="conversacion-hora">${c.last_message_at ? tiempoRelativo(c.last_message_at) : ''}</div>
+      </div>`).join('');
+    document.querySelectorAll('.conversacion-item').forEach((item) => {
+      item.addEventListener('click', () => Chat.abrirConversacion(JSON.parse(decodeURIComponent(item.dataset.persona))));
+    });
+  } catch (e) { $('listaConversaciones').innerHTML = `<div class="aviso-vacio">${e.message}</div>`; }
+}
+
+/* ================= NOTIFICACIONES ================= */
+function pintarBadgeCampana(hay) { $('campana').classList.toggle('hay-notif', hay); }
+
+async function cargarNotificaciones() {
+  try {
+    const { notificaciones } = await api('/notificaciones');
+    pintarBadgeCampana(notificaciones.some((n) => !n.read));
+  } catch (e) { /* silencioso */ }
+}
+
+$('campana').addEventListener('click', async () => {
+  try {
+    const { notificaciones } = await api('/notificaciones');
+    const cont = $('lista-notif');
+    cont.innerHTML = notificaciones.length ? notificaciones.map((n) => `
+      <div class="notif-item ${n.read ? '' : 'no-leida'}">
+        <div class="notif-icono">${n.actor_avatar ? `<img src="${n.actor_avatar}" alt="">` : '👋'}</div>
+        <div><div class="notif-texto">${n.text}</div><div class="notif-hora">${tiempoRelativo(n.created_at)}</div></div>
+      </div>`).join('') : '<div class="notif-vacio">Todavía no tienes notificaciones</div>';
+    await api('/notificaciones/marcar-leidas', { method: 'POST' });
+    pintarBadgeCampana(false);
+  } catch (e) { mostrarToast(e.message); }
+  $('veloNotif').classList.add('activo'); $('hojaNotif').classList.add('activo');
+});
+$('veloNotif').addEventListener('click', () => { $('veloNotif').classList.remove('activo'); $('hojaNotif').classList.remove('activo'); });
+$('cerrarNotif').addEventListener('click', () => { $('veloNotif').classList.remove('activo'); $('hojaNotif').classList.remove('activo'); });
+
+/* ================= AJUSTES / EDITAR PERFIL ================= */
+$('btnCambiarAvatar').addEventListener('click', () => $('inputAvatar').click());
+$('inputAvatar').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    const base64 = await archivoABase64(file, 500, 0.75);
+    const { user } = await api('/usuarios/me/avatar', { method: 'PUT', body: { image_base64: base64 } });
+    Sesion.actualizarUsuario(user);
+    $('ajustesAvatar').src = avatarDe(user);
+    if ($('vistaPerfil').classList.contains('activo') && perfilActualId === user.id) $('p-avatar').src = avatarDe(user);
+    mostrarToast('Foto de perfil actualizada');
+  } catch (err) { mostrarToast(err.message); }
+});
+
+$('btnEditarPerfil').addEventListener('click', abrirEditarPerfil);
+function abrirEditarPerfil() {
+  const u = Sesion.usuario();
+  $('edNombre').value = u.name || '';
+  $('edProfesion').value = u.profession || '';
+  $('edCiudad').value = u.city || '';
+  $('edPiel').value = u.skin_color || '';
+  $('edSituacion').value = u.relationship_status || '';
+  $('edBio').value = u.bio || '';
+  $('edEstado').value = u.status_text || '';
+  $('veloEditar').classList.add('activo'); $('hojaEditar').classList.add('activo');
+}
+$('cerrarEditar').addEventListener('click', () => { $('veloEditar').classList.remove('activo'); $('hojaEditar').classList.remove('activo'); });
+$('veloEditar').addEventListener('click', () => { $('veloEditar').classList.remove('activo'); $('hojaEditar').classList.remove('activo'); });
+
+$('btnGuardarPerfil').addEventListener('click', async () => {
+  try {
+    const { user } = await api('/usuarios/me/perfil', {
+      method: 'PUT',
+      body: {
+        name: $('edNombre').value.trim(),
+        profession: $('edProfesion').value.trim(),
+        city: $('edCiudad').value.trim(),
+        skin_color: $('edPiel').value.trim(),
+        relationship_status: $('edSituacion').value.trim(),
+        bio: $('edBio').value.trim(),
+        status_text: $('edEstado').value.trim(),
+      },
+    });
+    Sesion.actualizarUsuario(user);
+    $('ajustesNombre').textContent = user.name;
+    mostrarToast('Perfil actualizado');
+    $('veloEditar').classList.remove('activo'); $('hojaEditar').classList.remove('activo');
+    cargarEstados();
+  } catch (e) { mostrarToast(e.message); }
+});
+
+$('btnCerrarSesion').addEventListener('click', () => {
+  Sesion.cerrar();
+  if (window.socket) window.socket.disconnect();
+  window.location.reload();
+});
+
+/* ================= PANEL DE ADMINISTRADOR ================= */
+$('btnPanelAdmin').addEventListener('click', () => {
+  $('vistaAdmin').classList.add('activo');
+  cargarAdminUsuarios('');
+});
+$('admin-volver').addEventListener('click', () => $('vistaAdmin').classList.remove('activo'));
+
+document.querySelectorAll('#vistaAdmin > .admin-body > .sub-tabs > .sub-tab[data-admintab]').forEach((tab) => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('#vistaAdmin > .admin-body > .sub-tabs > .sub-tab[data-admintab]').forEach((t) => t.classList.toggle('activo', t === tab));
+    const target = tab.dataset.admintab;
+    $('adminVistaUsuarios').classList.toggle('oculto', target !== 'usuarios');
+    $('adminVistaReportes').classList.toggle('oculto', target !== 'reportes');
+    $('adminVistaBaseDatos').classList.toggle('oculto', target !== 'base-datos');
+    if (target === 'reportes') cargarAdminReportes('pendiente');
+  });
+});
+
+// Admin DB Export
+if ($('adminBtnExportarDB')) {
+  $('adminBtnExportarDB').addEventListener('click', async () => {
+    const statusEl = $('adminDBStatus');
+    statusEl.style.color = 'var(--texto-800)';
+    statusEl.textContent = 'Generando respaldo .zip y manifest.json...';
+    try {
+      const token = Sesion.token();
+      const res = await fetch('/api/admin/exportar-db', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error('Error al exportar la base de datos.');
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `enlace_db_backup_${new Date().toISOString().slice(0, 10)}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      statusEl.style.color = 'var(--verde)';
+      statusEl.textContent = 'Exportación completada exitosamente.';
+    } catch (e) {
+      statusEl.style.color = 'var(--rojo)';
+      statusEl.textContent = e.message;
+    }
+  });
+}
+
+// Admin DB Import
+if ($('adminBtnImportarDB')) {
+  $('adminBtnImportarDB').addEventListener('click', async () => {
+    const statusEl = $('adminDBStatus');
+    const input = $('adminInputImportarDB');
+    if (!input.files || !input.files[0]) {
+      statusEl.style.color = 'var(--rojo)';
+      statusEl.textContent = 'Por favor selecciona un archivo .zip para importar.';
+      return;
+    }
+    statusEl.style.color = 'var(--texto-800)';
+    statusEl.textContent = 'Importando respaldo y procesando manifest.json...';
+    const formData = new FormData();
+    formData.append('archivo', input.files[0]);
+    try {
+      const token = Sesion.token();
+      const res = await fetch('/api/admin/importar-db', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Error al importar respaldo.');
+      statusEl.style.color = 'var(--verde)';
+      statusEl.textContent = `${data.mensaje} Versión: ${data.manifest.version}, Creado: ${new Date(data.manifest.exported_at).toLocaleString()}`;
+    } catch (e) {
+      statusEl.style.color = 'var(--rojo)';
+      statusEl.textContent = e.message;
+    }
+  });
+}
+
+let temporizadorAdminBuscar = null;
+$('adminBuscarUsuario').addEventListener('input', () => {
+  clearTimeout(temporizadorAdminBuscar);
+  temporizadorAdminBuscar = setTimeout(() => cargarAdminUsuarios($('adminBuscarUsuario').value.trim()), 300);
+});
+
+async function cargarAdminUsuarios(q) {
+  try {
+    const { personas } = await api(`/admin/usuarios?q=${encodeURIComponent(q || '')}`);
+    if (!personas.length) { $('adminListaUsuarios').innerHTML = '<div class="aviso-vacio">No hay resultados.</div>'; return; }
+    $('adminListaUsuarios').innerHTML = personas.map((p) => `
+      <div class="admin-fila" id="admin-user-${p.id}">
+        <img src="${avatarDe(p)}" alt="">
+        <div class="info">
+          <div class="n">${p.name}${badgeVerificado(p)}${p.banned ? '<span class="etiqueta-baneado">Baneado</span>' : ''}</div>
+          <div class="s">${p.email}</div>
+        </div>
+        <div class="admin-acciones">
+          <div class="admin-btn verificar ${p.verified ? 'activo' : ''}" onclick="adminAlternarVerificado('${p.id}', ${!p.verified})">${p.verified ? 'Verificado ✓' : 'Verificar'}</div>
+          <div class="admin-btn banear ${p.banned ? 'activo' : ''}" onclick="adminAlternarBaneo('${p.id}', ${!p.banned})">${p.banned ? 'Desbanear' : 'Banear'}</div>
+        </div>
+      </div>`).join('');
+  } catch (e) { $('adminListaUsuarios').innerHTML = `<div class="aviso-vacio">${e.message}</div>`; }
+}
+
+async function adminAlternarVerificado(userId, ponerVerificado) {
+  try {
+    await api(`/admin/usuarios/${userId}/verificado`, { method: 'PUT', body: { verificado: ponerVerificado } });
+    mostrarToast(ponerVerificado ? 'Cuenta verificada ✓' : 'Verificación retirada');
+    cargarAdminUsuarios($('adminBuscarUsuario').value.trim());
+    if (perfilActualId === userId) abrirPerfil(userId);
+  } catch (e) { mostrarToast(e.message); }
+}
+window.adminAlternarVerificado = adminAlternarVerificado;
+
+async function adminAlternarBaneo(userId, ponerBaneado) {
+  let motivo = '';
+  if (ponerBaneado) {
+    motivo = prompt('Motivo del baneo (se le mostrará a la persona):', '') || '';
+    if (motivo === null) return;
+  } else if (!confirm('¿Quitarle el baneo a esta cuenta?')) return;
+  try {
+    await api(`/admin/usuarios/${userId}/baneo`, { method: 'PUT', body: { baneado: ponerBaneado, motivo } });
+    mostrarToast(ponerBaneado ? 'Cuenta baneada' : 'Baneo retirado');
+    cargarAdminUsuarios($('adminBuscarUsuario').value.trim());
+  } catch (e) { mostrarToast(e.message); }
+}
+window.adminAlternarBaneo = adminAlternarBaneo;
+
+document.querySelectorAll('.sub-tab[data-estadorep]').forEach((tab) => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.sub-tab[data-estadorep]').forEach((t) => t.classList.toggle('activo', t === tab));
+    cargarAdminReportes(tab.dataset.estadorep);
+  });
+});
+
+const MOTIVOS_REPORTE = { spam: 'Spam o publicidad', acoso: 'Acoso', contenido_inapropiado: 'Contenido inapropiado', suplantacion: 'Suplantación', estafa: 'Estafa', otro: 'Otro' };
+
+async function cargarAdminReportes(estado) {
+  try {
+    const { reportes } = await api(`/admin/reportes?estado=${estado}`);
+    if (!reportes.length) { $('adminListaReportes').innerHTML = '<div class="aviso-vacio">No hay reportes aquí.</div>'; return; }
+    $('adminListaReportes').innerHTML = reportes.map((r) => `
+      <div class="admin-fila" style="flex-direction:column; align-items:stretch;">
+        <div style="display:flex; align-items:center; gap:11px;">
+          <img src="${avatarDe({ avatar_data: r.objetivo_avatar, name: r.objetivo_nombre || '?' })}" alt="">
+          <div class="info">
+            <div class="n">${r.objetivo_nombre || 'Publicación'}</div>
+            <div class="s">Reportado por ${r.reportante_nombre} · ${tiempoRelativo(r.created_at)}</div>
+          </div>
+        </div>
+        <div><span class="admin-reporte-motivo">${MOTIVOS_REPORTE[r.reason] || r.reason}</span></div>
+        ${r.publicacion_texto ? `<div class="admin-reporte-detalle">📝 "${escaparHTMLGlobal(r.publicacion_texto).slice(0,140)}"</div>` : ''}
+        ${r.details ? `<div class="admin-reporte-detalle">${escaparHTMLGlobal(r.details)}</div>` : ''}
+        ${r.status === 'pendiente' ? `
+          <div class="admin-acciones" style="margin-top:8px;">
+            <div class="admin-btn verificar" onclick="adminResolverReporte('${r.id}', 'resuelto')">Marcar resuelto</div>
+            <div class="admin-btn banear" onclick="adminResolverReporte('${r.id}', 'descartado')">Descartar</div>
+            ${r.target_user_id ? `<div class="admin-btn banear" onclick="adminAlternarBaneo('${r.target_user_id}', true)">Banear</div>` : ''}
+            ${r.target_post_id ? `<div class="admin-btn banear" onclick="borrarPublicacionAccion('${r.target_post_id}')">Borrar publicación</div>` : ''}
+          </div>` : ''}
+      </div>`).join('');
+  } catch (e) { $('adminListaReportes').innerHTML = `<div class="aviso-vacio">${e.message}</div>`; }
+}
+
+async function adminResolverReporte(reporteId, status) {
+  try {
+    await api(`/admin/reportes/${reporteId}`, { method: 'PUT', body: { status } });
+    mostrarToast(status === 'resuelto' ? 'Reporte marcado como resuelto' : 'Reporte descartado');
+    const tabActiva = document.querySelector('.sub-tab[data-estadorep].activo');
+    cargarAdminReportes(tabActiva ? tabActiva.dataset.estadorep : 'pendiente');
+  } catch (e) { mostrarToast(e.message); }
+}
+window.adminResolverReporte = adminResolverReporte;
+
+/* ================= ARRANQUE ================= */
+if (Sesion.activa()) { iniciarApp(); } else { $('authScreen').classList.remove('oculto'); }
