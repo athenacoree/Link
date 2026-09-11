@@ -92,12 +92,42 @@ function initSockets(io) {
         socket.emit('llamada:no-disponible', { calleeId });
         return;
       }
-      emitToUser(calleeId, 'llamada:entrante', { callerId: userId, callType });
+
+      let callId = null;
+      try {
+        const { rows } = await query(
+          `INSERT INTO calls (caller_id, callee_id, call_type, status, started_at)
+           VALUES ($1, $2, $3, 'iniciada', now()) RETURNING id`,
+          [userId, calleeId, callType || 'audio']
+        );
+        callId = rows[0]?.id;
+      } catch (e) {
+        console.error('[calls] error registrando llamada iniciada:', e.message);
+      }
+
+      emitToUser(calleeId, 'llamada:entrante', { callerId: userId, callType, callId });
       registrarSenal(userId, calleeId, 'llamada', 4);
     });
 
-    socket.on('llamada:responder', ({ callerId, aceptar }) => {
-      emitToUser(callerId, 'llamada:respondida', { calleeId: userId, aceptar });
+    socket.on('llamada:responder', async ({ callerId, callId, aceptar }) => {
+      const status = aceptar ? 'conectada' : 'rechazada';
+      if (callId) {
+        query(
+          `UPDATE calls SET status = $1, ended_at = CASE WHEN $2 = false THEN now() ELSE NULL END WHERE id = $3`,
+          [status, aceptar, callId]
+        ).catch(() => {});
+      }
+      emitToUser(callerId, 'llamada:respondida', { calleeId: userId, aceptar, callId });
+    });
+
+    socket.on('llamada:colgar', async ({ destinoId, callId, duracionSegundos }) => {
+      if (callId) {
+        query(
+          `UPDATE calls SET status = 'finalizada', ended_at = now(), duration_seconds = $1 WHERE id = $2`,
+          [Number(duracionSegundos) || 0, callId]
+        ).catch(() => {});
+      }
+      emitToUser(destinoId, 'llamada:colgar', { deId: userId });
     });
 
     socket.on('llamada:oferta', ({ calleeId, sdp }) => {

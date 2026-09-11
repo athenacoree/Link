@@ -21,6 +21,7 @@ const Llamada = (() => {
   let pc = null;
   let localStream = null;
   let estado = 'inactiva'; // inactiva | llamando | entrante | conectando | activa
+  let callIdActual = null;
   let soyElCaller = false;
   let otraPersona = null; // {id, name, avatar_data}
   let tipoActual = 'audio'; // audio | video
@@ -164,13 +165,14 @@ const Llamada = (() => {
   }
 
   // ---------------- Me llaman (evento del servidor) ----------------
-  async function onEntrante({ callerId, callType }, datosPersona) {
+  async function onEntrante({ callerId, callType, callId }, datosPersona) {
     if (estado !== 'inactiva') {
       // Ya ocupado: rechazo automático
-      window.socket.emit('llamada:responder', { callerId, aceptar: false });
+      window.socket.emit('llamada:responder', { callerId, callId, aceptar: false });
       return;
     }
     otraPersona = { id: callerId, ...datosPersona };
+    callIdActual = callId || null;
     tipoActual = callType;
     soyElCaller = false;
     estado = 'entrante';
@@ -195,23 +197,24 @@ const Llamada = (() => {
       configurarLocalUI();
       pc = crearPeerConnection(otraPersona.id);
       localStream.getTracks().forEach((t) => pc.addTrack(t, localStream));
-      window.socket.emit('llamada:responder', { callerId: otraPersona.id, aceptar: true });
+      window.socket.emit('llamada:responder', { callerId: otraPersona.id, callId: callIdActual, aceptar: true });
     } catch (err) {
       toast('No se pudo acceder a la cámara/micrófono.');
-      window.socket.emit('llamada:responder', { callerId: otraPersona.id, aceptar: false });
+      window.socket.emit('llamada:responder', { callerId: otraPersona.id, callId: callIdActual, aceptar: false });
       finalizar();
     }
   }
 
   function rechazar() {
     if (estado !== 'entrante') return;
-    window.socket.emit('llamada:responder', { callerId: otraPersona.id, aceptar: false });
+    window.socket.emit('llamada:responder', { callerId: otraPersona.id, callId: callIdActual, aceptar: false });
     finalizar();
   }
 
   // ---------------- El otro lado respondió mi invitación ----------------
-  async function onRespondida({ aceptar: fueAceptada }) {
+  async function onRespondida({ aceptar: fueAceptada, callId }) {
     clearTimeout(timeoutSinRespuesta);
+    if (callId) callIdActual = callId;
     if (!soyElCaller || estado !== 'llamando') return;
     if (!fueAceptada) {
       toast('Rechazó la llamada.');
@@ -286,7 +289,7 @@ const Llamada = (() => {
   // ---------------- Colgar ----------------
   function colgar(silencioso) {
     if (otraPersona?.id) {
-      window.socket.emit('llamada:colgar', { destinoId: otraPersona.id });
+      window.socket.emit('llamada:colgar', { destinoId: otraPersona.id, callId: callIdActual, duracionSegundos: segundos });
     }
     finalizar();
   }
@@ -448,12 +451,12 @@ const Llamada = (() => {
 
   // ---------------- Conectar eventos de socket (llamados desde app.js) ----------------
   function enlazarSocket(socket) {
-    socket.on('llamada:entrante', async ({ callerId, callType }) => {
+    socket.on('llamada:entrante', async ({ callerId, callType, callId }) => {
       try {
         const { persona } = await api(`/usuarios/${callerId}`);
-        onEntrante({ callerId, callType }, persona);
+        onEntrante({ callerId, callType, callId }, persona);
       } catch (e) {
-        onEntrante({ callerId, callType }, { name: 'Alguien' });
+        onEntrante({ callerId, callType, callId }, { name: 'Alguien' });
       }
     });
     socket.on('llamada:no-disponible', () => { toast('Esa persona no está conectada ahora.'); finalizar(); });

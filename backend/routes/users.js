@@ -208,10 +208,38 @@ router.get('/:id/porque-recomendado', requireAuth, async (req, res) => {
   res.json(explicacion);
 });
 
+// ---- Descargar vCard (.vcf) de un usuario ----
+router.get('/:id/vcard', requireAuth, async (req, res) => {
+  try {
+    const { rows } = await query('SELECT * FROM users WHERE id = $1', [req.params.id]);
+    if (!rows.length) return res.status(404).json({ error: 'Persona no encontrada.' });
+    const user = rows[0];
+    const fullPhone = user.phone ? `${user.country_code || '+53'}${user.phone.replace(/\D/g, '')}` : '';
+    const vcardLines = [
+      'BEGIN:VCARD',
+      'VERSION:3.0',
+      `FN:${user.name}`,
+      fullPhone ? `TEL;TYPE=CELL:${fullPhone}` : '',
+      `NOTE:Contacto de Link — ${user.city || ''}`,
+      'END:VCARD'
+    ].filter(Boolean);
+
+    const vcardString = vcardLines.join('\r\n');
+    res.set({
+      'Content-Type': 'text/vcard; charset=utf-8',
+      'Content-Disposition': `attachment; filename="${user.name.replace(/\s+/g, '_')}.vcf"`,
+    });
+    return res.send(vcardString);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ---- Editar mi perfil ----
 router.put('/me/perfil', requireAuth, async (req, res) => {
   const campos = [
-    'name', 'phone', 'birthdate', 'gender', 'skin_color', 'relationship_status',
+    'name', 'phone', 'country_code', 'instagram', 'other_links', 'birthdate', 'gender', 'skin_color', 'relationship_status',
     'profession', 'bio', 'city', 'country', 'flag_emoji', 'status_text',
   ];
   const sets = [];

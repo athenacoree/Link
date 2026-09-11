@@ -264,35 +264,64 @@
     </div>
   </div>
 
-  <div id="p-acciones-otros">
+  <div id="p-acciones-otros" style="position:relative;">
     <div class="acciones-perfil">
-      <div class="btn btn-secundario" id="p-verificar">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="m17.5 9 1.8 1.8L23 7"/></svg>
-        Verificar contacto
-      </div>
-      <div class="btn btn-primario" id="p-amistad">
+      <div class="btn btn-primario" id="p-amistad" style="flex:1;">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 21H5a2 2 0 0 1-2-2v-1a4 4 0 0 1 4-4h2"/><path d="m17.5 3.5-9 9L4 9"/><circle cx="18" cy="16" r="4"/></svg>
         <span id="p-amistad-texto">Hacerse amigos</span>
       </div>
-    </div>
-    <div class="acciones-perfil" style="padding-top:0;">
-      <div class="btn btn-secundario" id="p-mensaje">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.5 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7A8.4 8.4 0 0 1 3.5 11.5 8.5 8.5 0 1 1 21 11.5Z"/></svg>
-        Mensaje
-      </div>
-      <div class="btn btn-secundario" id="p-audio">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3.1-8.7A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .3 2 .6 2.9a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.1-.5c.9.3 1.9.5 2.9.6a2 2 0 0 1 1.8 2Z"/></svg>
-        Llamar
-      </div>
-      <div class="btn btn-secundario" id="p-video">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 10 6-3v10l-6-3M3 6h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2Z"/></svg>
-        Video
+
+      <!-- Botón Flotante "+" de Opciones -->
+      <div class="btn btn-secundario" id="p-btn-mas-opciones" style="padding:10px 14px; display:flex; align-items:center; gap:4px; font-weight:700;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        <span>Acciones</span>
       </div>
     </div>
-    <div class="acciones-perfil" style="padding-top:0;">
-      <div class="btn btn-secundario oculto" id="p-eliminar-amigo">Eliminar amigo</div>
-      <div class="btn btn-secundario" id="p-bloquear">Bloquear</div>
-      <div class="btn btn-secundario" id="p-reportar" style="color:var(--peligro);">Reportar</div>
+
+    <!-- Menú/Extensión Flotante desplegable -->
+    <div id="p-menu-flotante" class="oculto" style="position:absolute; right:20px; top:50px; z-index:100; background:var(--blanco); border:1px solid var(--borde); border-radius:14px; box-shadow:0 8px 24px rgba(0,0,0,0.12); width:240px; padding:12px 0;">
+      <!-- Categoría 1: Comunicación -->
+      <div style="padding:4px 14px; font-size:11px; font-weight:700; color:var(--texto-500); text-transform:uppercase; letter-spacing:0.5px;">Comunicación</div>
+      <div id="p-mensaje" style="padding:10px 14px; display:flex; align-items:center; gap:10px; cursor:pointer; font-size:13.5px; font-weight:500;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.5 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7A8.4 8.4 0 0 1 3.5 11.5 8.5 8.5 0 1 1 21 11.5Z"/></svg>
+        <span>Mensaje privado</span>
+      </div>
+      <div id="p-audio" style="padding:10px 14px; display:flex; align-items:center; gap:10px; cursor:pointer; font-size:13.5px; font-weight:500;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3.1-8.7A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .3 2 .6 2.9a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.1-.5c.9.3 1.9.5 2.9.6a2 2 0 0 1 1.8 2Z"/></svg>
+        <span>Llamada de audio</span>
+      </div>
+      <div id="p-video" style="padding:10px 14px; display:flex; align-items:center; gap:10px; cursor:pointer; font-size:13.5px; font-weight:500;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 10 6-3v10l-6-3M3 6h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2Z"/></svg>
+        <span>Llamada de video</span>
+      </div>
+
+      <div style="border-top:1px solid var(--borde); margin:6px 0;"></div>
+
+      <!-- Categoría 2: Contacto externo / Link -->
+      <div style="padding:4px 14px; font-size:11px; font-weight:700; color:var(--texto-500); text-transform:uppercase; letter-spacing:0.5px;">Contacto Externo</div>
+      <div id="p-link-desplegable" style="padding:6px 14px;"></div>
+      <div id="p-exportar-vcard" style="padding:10px 14px; display:flex; align-items:center; gap:10px; cursor:pointer; font-size:13.5px; font-weight:500;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <span>Exportar contacto (.vcf)</span>
+      </div>
+
+      <div style="border-top:1px solid var(--borde); margin:6px 0;"></div>
+
+      <!-- Categoría 3: Otras acciones -->
+      <div style="padding:4px 14px; font-size:11px; font-weight:700; color:var(--texto-500); text-transform:uppercase; letter-spacing:0.5px;">Otras Acciones</div>
+      <div id="p-verificar" style="padding:10px 14px; display:flex; align-items:center; gap:10px; cursor:pointer; font-size:13.5px; font-weight:500;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="m17.5 9 1.8 1.8L23 7"/></svg>
+        <span>Verificar contacto</span>
+      </div>
+      <div id="p-eliminar-amigo" class="oculto" style="padding:10px 14px; display:flex; align-items:center; gap:10px; cursor:pointer; font-size:13.5px; font-weight:500; color:var(--peligro);">
+        <span>Eliminar amigo</span>
+      </div>
+      <div id="p-bloquear" style="padding:10px 14px; display:flex; align-items:center; gap:10px; cursor:pointer; font-size:13.5px; font-weight:500;">
+        <span>Bloquear persona</span>
+      </div>
+      <div id="p-reportar" style="padding:10px 14px; display:flex; align-items:center; gap:10px; cursor:pointer; font-size:13.5px; font-weight:500; color:var(--peligro);">
+        <span>Reportar perfil</span>
+      </div>
     </div>
   </div>
 
@@ -389,6 +418,24 @@
   <div class="hoja-grupo">
     <div class="hoja-form">
       <div class="campo"><label>Nombre</label><input type="text" id="edNombre"></div>
+      <div class="grid-2">
+        <div class="campo">
+          <label>Código país</label>
+          <select id="edCodigoPais">
+            <option value="+53"> Cuba (+53)</option>
+            <option value="+1"> EE.UU. / Canadá (+1)</option>
+            <option value="+34"> España (+34)</option>
+            <option value="+52"> México (+52)</option>
+            <option value="+57"> Colombia (+57)</option>
+            <option value="+54"> Argentina (+54)</option>
+            <option value="+56"> Chile (+56)</option>
+            <option value="+58"> Venezuela (+58)</option>
+            <option value="+51"> Perú (+51)</option>
+          </select>
+        </div>
+        <div class="campo"><label>Teléfono (WhatsApp)</label><input type="tel" id="edTelefono" placeholder="51234567"></div>
+      </div>
+      <div class="campo"><label>Usuario Instagram (@)</label><input type="text" id="edInstagram" placeholder="tu_usuario"></div>
       <div class="campo"><label>Profesión</label><input type="text" id="edProfesion"></div>
       <div class="campo"><label>Municipio / ciudad</label><input type="text" id="edCiudad"></div>
       <div class="grid-2">

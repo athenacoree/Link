@@ -214,8 +214,14 @@ $('interruptorTema')?.addEventListener('click', () => {
 /* ================= BADGES: verificado y reputación ================= */
 const SVG_CHECK_VERIFICADO = '<svg viewBox="0 0 24 24" fill="#3897f0"><circle cx="12" cy="12" r="11"/><path d="M8.2 12.3l2.6 2.6 5.4-5.6" stroke="#fff" stroke-width="2.1" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 function badgeVerificado(persona) {
-  if (!persona || !persona.verified) return '';
-  return `<span class="badge-verificado" title="Cuenta verificada">${SVG_CHECK_VERIFICADO}</span>`;
+  let extra = '';
+  if (persona?.is_creador || persona?.is_admin) {
+    extra += `<span class="badge-creador" title="Creador" style="margin-left:4px; font-size:14px;">👑 <span style="font-size:11px; font-weight:700; color:var(--morado-700);">Creador</span></span>`;
+  }
+  if (persona?.verified) {
+    extra += `<span class="badge-verificado" title="Cuenta verificada">${SVG_CHECK_VERIFICADO}</span>`;
+  }
+  return extra;
 }
 function nombreConBadge(persona) {
   return `<span class="nombre-con-badge">${persona?.name || ''}${badgeVerificado(persona)}</span>`;
@@ -864,20 +870,66 @@ async function abrirPerfil(personaId) {
     if (!esMiPerfil) {
       $('p-stat-guardado').textContent = contacto_verificado ? 'Sí' : 'No';
       pintarBotonAmistad(estado_amistad, solicitud_de_mi);
-      $('p-verificar').onclick = () => verificarContactoReal(persona);
       $('p-amistad').onclick = () => accionAmistad(estado_amistad);
-      $('p-mensaje').onclick = () => { finalizarConteoPerfil(); $('vistaPerfil').classList.remove('activo'); Chat.abrirConversacion(persona); };
-      $('p-audio').onclick = () => Llamada.iniciar(persona, 'audio');
-      $('p-video').onclick = () => Llamada.iniciar(persona, 'video');
+
+      // Toggle flotante
+      const btnMas = $('p-btn-mas-opciones');
+      const menuFlotante = $('p-menu-flotante');
+      if (menuFlotante) menuFlotante.classList.add('oculto');
+
+      if (btnMas && menuFlotante) {
+        btnMas.onclick = (ev) => {
+          ev.stopPropagation();
+          menuFlotante.classList.toggle('oculto');
+        };
+        document.onclick = (e) => {
+          if (menuFlotante && !menuFlotante.contains(e.target) && e.target !== btnMas) {
+            menuFlotante.classList.add('oculto');
+          }
+        };
+      }
+
+      // Opciones de contacto externo (WhatsApp, Instagram, etc)
+      const linkContainer = $('p-link-desplegable');
+      if (linkContainer) {
+        linkContainer.innerHTML = '';
+        const links = [];
+        if (persona.phone) {
+          const numLimpio = `${persona.country_code || '+53'}${persona.phone.replace(/\D/g, '')}`.replace(/^\+/, '');
+          links.push(`<a href="https://wa.me/${numLimpio}" target="_blank" style="display:flex; align-items:center; gap:8px; padding:6px 0; color:#25D366; text-decoration:none; font-weight:600; font-size:13px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg> WhatsApp (${persona.country_code || '+53'})</a>`);
+        }
+        if (persona.instagram) {
+          const igUser = persona.instagram.replace(/^@/, '');
+          links.push(`<a href="https://instagram.com/${igUser}" target="_blank" style="display:flex; align-items:center; gap:8px; padding:6px 0; color:#E1306C; text-decoration:none; font-weight:600; font-size:13px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg> @${igUser}</a>`);
+        }
+        if (links.length) {
+          linkContainer.innerHTML = links.join('');
+        } else {
+          linkContainer.innerHTML = '<span style="font-size:12px; color:var(--texto-500);">Sin enlaces configurados</span>';
+        }
+      }
+
+      // Handler para exportar vCard
+      const btnExportarVCard = $('p-exportar-vcard');
+      if (btnExportarVCard) {
+        btnExportarVCard.onclick = () => {
+          const token = Sesion.token();
+          window.open(`/api/usuarios/${personaId}/vcard?token=${encodeURIComponent(token)}`, '_blank');
+        };
+      }
+
+      $('p-verificar').onclick = () => { if (menuFlotante) menuFlotante.classList.add('oculto'); verificarContactoReal(persona); };
+      $('p-mensaje').onclick = () => { if (menuFlotante) menuFlotante.classList.add('oculto'); finalizarConteoPerfil(); $('vistaPerfil').classList.remove('activo'); Chat.abrirConversacion(persona); };
+      $('p-audio').onclick = () => { if (menuFlotante) menuFlotante.classList.add('oculto'); Llamada.iniciar(persona, 'audio'); };
+      $('p-video').onclick = () => { if (menuFlotante) menuFlotante.classList.add('oculto'); Llamada.iniciar(persona, 'video'); };
 
       $('p-eliminar-amigo').classList.toggle('oculto', estado_amistad !== 'amigos');
-      $('p-eliminar-amigo').onclick = () => eliminarAmigoAccion(personaId);
+      $('p-eliminar-amigo').onclick = () => { if (menuFlotante) menuFlotante.classList.add('oculto'); eliminarAmigoAccion(personaId); };
       $('p-bloquear').textContent = yo_la_bloquee ? 'Desbloquear' : 'Bloquear';
-      $('p-bloquear').onclick = () => (yo_la_bloquee ? desbloquearPersonaAccion(personaId) : bloquearPersonaAccion(personaId));
-      $('p-reportar').onclick = () => abrirReportar({ target_user_id: personaId });
+      $('p-bloquear').onclick = () => { if (menuFlotante) menuFlotante.classList.add('oculto'); (yo_la_bloquee ? desbloquearPersonaAccion(personaId) : bloquearPersonaAccion(personaId)); };
+      $('p-reportar').onclick = () => { if (menuFlotante) menuFlotante.classList.add('oculto'); abrirReportar({ target_user_id: personaId }); };
 
-      // Si esta persona te bloqueó, no tiene sentido ofrecerle mensaje,
-      // llamadas ni solicitud de amistad — solo puedes reportarla.
+      // Si esta persona te bloqueó
       const bloqueadoPorEllos = !!ella_me_bloqueo;
       $('p-amistad').classList.toggle('oculto', bloqueadoPorEllos);
       $('p-mensaje').classList.toggle('oculto', bloqueadoPorEllos);
@@ -1053,6 +1105,9 @@ $('btnEditarPerfil').addEventListener('click', abrirEditarPerfil);
 function abrirEditarPerfil() {
   const u = Sesion.usuario();
   $('edNombre').value = u.name || '';
+  if ($('edCodigoPais')) $('edCodigoPais').value = u.country_code || '+53';
+  if ($('edTelefono')) $('edTelefono').value = u.phone || '';
+  if ($('edInstagram')) $('edInstagram').value = u.instagram || '';
   $('edProfesion').value = u.profession || '';
   $('edCiudad').value = u.city || '';
   $('edPiel').value = u.skin_color || '';
@@ -1070,6 +1125,9 @@ $('btnGuardarPerfil').addEventListener('click', async () => {
       method: 'PUT',
       body: {
         name: $('edNombre').value.trim(),
+        country_code: $('edCodigoPais') ? $('edCodigoPais').value : '+53',
+        phone: $('edTelefono') ? $('edTelefono').value.trim() : '',
+        instagram: $('edInstagram') ? $('edInstagram').value.trim().replace(/^@/, '') : '',
         profession: $('edProfesion').value.trim(),
         city: $('edCiudad').value.trim(),
         skin_color: $('edPiel').value.trim(),
