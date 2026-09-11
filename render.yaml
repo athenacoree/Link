@@ -1,12 +1,12 @@
 databases:
-  - name: enlace-db
+  - name: link-db
     plan: free
-    databaseName: enlace
-    user: enlace
+    databaseName: link
+    user: link
 
 services:
   - type: web
-    name: enlace
+    name: link
     runtime: node
     plan: free
     rootDir: backend
@@ -19,7 +19,7 @@ services:
         value: production
       - key: DATABASE_URL
         fromDatabase:
-          name: enlace-db
+          name: link-db
           property: connectionString
       - key: JWT_SECRET
         generateValue: true
