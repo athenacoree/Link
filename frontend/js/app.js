@@ -352,6 +352,18 @@ $('btnRegistro').addEventListener('click', async () => {
   } catch (e) { $('regError').textContent = e.message; }
 });
 
+/* ================= CONFIGURACIÓN Y DISPONIBILIDAD DE IA ================= */
+let AI_CONFIG = { available: false, name: 'Link AI', avatar: '' };
+
+async function comprobarAIConfig() {
+  try {
+    const res = await api('/ai/config');
+    window.AI_CONFIG = res;
+  } catch (e) {
+    window.AI_CONFIG = { available: false, name: 'Link AI', avatar: '' };
+  }
+}
+
 /* ================= ARRANQUE DE LA APP ================= */
 async function iniciarApp() {
   $('authScreen').classList.add('oculto');
@@ -359,6 +371,7 @@ async function iniciarApp() {
 
   conectarSocket();
   await refrescarMiPerfil();
+  await comprobarAIConfig();
   cargarDescubrir();
   cargarEstados();
   cargarNotificaciones();
@@ -375,14 +388,128 @@ async function iniciarApp() {
   }
 }
 
+/* ================= AUDIO SINTETIZADOR Y VIBRACIÓN ================= */
+class SonidosYVibracion {
+  static ctx = null;
+
+  static initContext() {
+    if (!SonidosYVibracion.ctx) {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtx) SonidosYVibracion.ctx = new AudioCtx();
+    }
+    if (SonidosYVibracion.ctx && SonidosYVibracion.ctx.state === 'suspended') {
+      SonidosYVibracion.ctx.resume().catch(() => {});
+    }
+  }
+
+  static reproducirNotificacion() {
+    SonidosYVibracion.initContext();
+    SonidosYVibracion.vibrar([150, 80, 150]);
+    if (!SonidosYVibracion.ctx) return;
+
+    try {
+      const now = SonidosYVibracion.ctx.currentTime;
+      const osc = SonidosYVibracion.ctx.createOscillator();
+      const gain = SonidosYVibracion.ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, now); // D5
+      osc.frequency.exponentialRampToValueAtTime(880, now + 0.15); // A5
+
+      gain.gain.setValueAtTime(0.15, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+
+      osc.connect(gain);
+      gain.connect(SonidosYVibracion.ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.35);
+    } catch (e) { /* silencioso */ }
+  }
+
+  static reproducirMensaje() {
+    SonidosYVibracion.initContext();
+    SonidosYVibracion.vibrar([100]);
+    if (!SonidosYVibracion.ctx) return;
+
+    try {
+      const now = SonidosYVibracion.ctx.currentTime;
+      const osc = SonidosYVibracion.ctx.createOscillator();
+      const gain = SonidosYVibracion.ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(800, now);
+      osc.frequency.exponentialRampToValueAtTime(1200, now + 0.1);
+
+      gain.gain.setValueAtTime(0.12, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+
+      osc.connect(gain);
+      gain.connect(SonidosYVibracion.ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.2);
+    } catch (e) { /* silencioso */ }
+  }
+
+  static reproducirLlamadaEntrante() {
+    SonidosYVibracion.initContext();
+    SonidosYVibracion.vibrar([400, 200, 400, 200, 400]);
+    if (!SonidosYVibracion.ctx) return;
+
+    try {
+      const now = SonidosYVibracion.ctx.currentTime;
+      const osc = SonidosYVibracion.ctx.createOscillator();
+      const gain = SonidosYVibracion.ctx.createGain();
+
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(440, now);
+      osc.frequency.setValueAtTime(480, now + 0.2);
+
+      gain.gain.setValueAtTime(0.2, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+
+      osc.connect(gain);
+      gain.connect(SonidosYVibracion.ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.6);
+    } catch (e) { /* silencioso */ }
+  }
+
+  static vibrar(patron) {
+    if ('vibrate' in navigator) {
+      try { navigator.vibrate(patron); } catch (e) {}
+    }
+  }
+}
+
+window.SonidosYVibracion = SonidosYVibracion;
+
+function solicitarPermisoNotificaciones() {
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission().catch(() => {});
+  }
+}
+window.solicitarPermisoNotificaciones = solicitarPermisoNotificaciones;
+
 function conectarSocket() {
   window.socket = io({ auth: { token: Sesion.token() } });
   Chat.enlazarSocket(window.socket);
   Llamada.enlazarSocket(window.socket);
+  solicitarPermisoNotificaciones();
+
   window.socket.on('notificacion:nueva', (n) => {
     mostrarToast(n.text);
+    SonidosYVibracion.reproducirNotificacion();
     pintarBadgeCampana(true);
     if ($('vistaContactos').classList.contains('activo')) cargarAmigosYSolicitudes();
+
+    if ('Notification' in window && Notification.permission === 'granted' && document.hidden) {
+      try {
+        new Notification('Link', { body: n.text, icon: '/icons/icon-192.png' });
+      } catch (e) {}
+    }
   });
   window.socket.on('connect_error', (err) => {
     console.warn('Socket no pudo conectar:', err.message);
@@ -1089,13 +1216,160 @@ $('op-compartir-perfil')?.addEventListener('click', () => {
     mostrarToast('Enlace de perfil copiado 🔗');
   }
 });
+function abrirSocialLinksModal(persona) {
+  if (!persona) return;
+  const sl = persona.social_links || {};
+  const links = [];
+
+  if (persona.phone) {
+    const numLimpio = `${persona.country_code || '+53'}${persona.phone.replace(/\D/g, '')}`.replace(/^\+/, '');
+    links.push({
+      red: 'WhatsApp',
+      icono: '💬',
+      color: '#25D366',
+      valor: `${persona.country_code || '+53'} ${persona.phone}`,
+      url: `https://wa.me/${numLimpio}`
+    });
+  }
+
+  if (sl.telegram || persona.telegram) {
+    const tg = (sl.telegram || persona.telegram || '').replace(/^@/, '');
+    links.push({
+      red: 'Telegram',
+      icono: '✈️',
+      color: '#229ED9',
+      valor: `@${tg}`,
+      url: `https://t.me/${tg}`
+    });
+  }
+
+  if (persona.instagram || sl.instagram) {
+    const ig = (persona.instagram || sl.instagram || '').replace(/^@/, '');
+    links.push({
+      red: 'Instagram',
+      icono: '📸',
+      color: '#E1306C',
+      valor: `@${ig}`,
+      url: `https://instagram.com/${ig}`
+    });
+  }
+
+  if (sl.discord) {
+    links.push({
+      red: 'Discord',
+      icono: '🎮',
+      color: '#5865F2',
+      valor: sl.discord,
+      copiar: sl.discord
+    });
+  }
+
+  if (sl.freefire) {
+    links.push({
+      red: 'Free Fire ID',
+      icono: '🔥',
+      color: '#FF6B00',
+      valor: sl.freefire,
+      copiar: sl.freefire
+    });
+  }
+
+  if (sl.clashofclans) {
+    links.push({
+      red: 'Clash of Clans Tag',
+      icono: '⚔️',
+      color: '#F1C40F',
+      valor: sl.clashofclans,
+      copiar: sl.clashofclans
+    });
+  }
+
+  if (sl.callofduty) {
+    links.push({
+      red: 'Call of Duty ID',
+      icono: '🎯',
+      color: '#2C3E50',
+      valor: sl.callofduty,
+      copiar: sl.callofduty
+    });
+  }
+
+  if (sl.otros) {
+    const url = sl.otros.startsWith('http') ? sl.otros : `https://${sl.otros}`;
+    links.push({
+      red: 'Sitio Web / Enlace',
+      icono: '🌐',
+      color: '#5b21b6',
+      valor: sl.otros,
+      url
+    });
+  }
+
+  const modalNombre = $('socialModalNombre');
+  if (modalNombre) modalNombre.textContent = `Redes de ${persona.name}`;
+
+  const container = $('listaSocialLinks');
+  if (container) {
+    if (!links.length) {
+      container.innerHTML = '<div class="aviso-vacio">Esta persona aún no ha configurado sus redes sociales o juegos.</div>';
+    } else {
+      container.innerHTML = links.map(l => `
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 12px; background:var(--hueso); border:1px solid var(--borde); border-radius:12px;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <span style="font-size:20px;">${l.icono}</span>
+            <div>
+              <div style="font-size:13px; font-weight:700; color:${l.color};">${l.red}</div>
+              <div style="font-size:12px; color:var(--texto-700);">${escaparHTMLGlobal(l.valor)}</div>
+            </div>
+          </div>
+          ${l.url ? `<a href="${l.url}" target="_blank" class="mini-btn primario" style="text-decoration:none;">Abrir ↗</a>` : ''}
+          ${l.copiar ? `<button class="mini-btn secundario" onclick="navigator.clipboard.writeText('${escaparHTMLGlobal(l.copiar)}'); mostrarToast('ID/Tag copiado');">Copiar 📋</button>` : ''}
+        </div>
+      `).join('');
+    }
+
+    // Botón para solicitar intercambio de datos
+    const yo = Sesion.usuario();
+    if (yo && persona.id !== yo.id) {
+      container.innerHTML += `
+        <div style="border-top:1px solid var(--borde); margin-top:10px; padding-top:12px;">
+          <button class="btn btn-secundario" style="width:100%; font-size:12.5px;" onclick="solicitarContactoAccion('${persona.id}')">
+            📩 Solicitar datos / Mandar mi contacto
+          </button>
+        </div>
+      `;
+    }
+  }
+
+  $('veloSocialLinks')?.classList.add('activo');
+  $('hojaSocialLinks')?.classList.add('activo');
+}
+
+async function solicitarContactoAccion(targetId) {
+  try {
+    await api('/notificaciones/solicitar-contacto', { method: 'POST', body: { target_id: targetId } });
+    mostrarToast('Se le envió una notificación expresando tu interés en agregar su contacto ✓');
+    $('veloSocialLinks')?.classList.remove('activo');
+    $('hojaSocialLinks')?.classList.remove('activo');
+  } catch (e) {
+    mostrarToast(e.message);
+  }
+}
+window.solicitarContactoAccion = solicitarContactoAccion;
+
+$('cerrarSocialLinks')?.addEventListener('click', () => {
+  $('veloSocialLinks')?.classList.remove('activo');
+  $('hojaSocialLinks')?.classList.remove('activo');
+});
+$('veloSocialLinks')?.addEventListener('click', () => {
+  $('veloSocialLinks')?.classList.remove('activo');
+  $('hojaSocialLinks')?.classList.remove('activo');
+});
+
 $('op-link-whatsapp').addEventListener('click', () => {
   cerrarHojaPersona();
-  if (personaSeleccionada && personaSeleccionada.phone) {
-    const numLimpio = `${personaSeleccionada.country_code || '+53'}${personaSeleccionada.phone.replace(/\D/g, '')}`.replace(/^\+/, '');
-    window.open(`https://wa.me/${numLimpio}`, '_blank');
-  } else {
-    mostrarToast('Esta persona no ha configurado número de WhatsApp.');
+  if (personaSeleccionada) {
+    abrirSocialLinksModal(personaSeleccionada);
   }
 });
 $('op-mensaje').addEventListener('click', () => { cerrarHojaPersona(); Chat.abrirConversacion(personaSeleccionada); });
@@ -1184,6 +1458,9 @@ $('cerrarBloqueados').addEventListener('click', () => { $('veloBloqueados').clas
 $('veloBloqueados').addEventListener('click', () => { $('veloBloqueados').classList.remove('activo'); $('hojaBloqueados').classList.remove('activo'); });
 
 function importarContactoVCard(persona) {
+  if (persona && persona.id) {
+    api('/notificaciones/descarga-contacto', { method: 'POST', body: { target_id: persona.id } }).catch(() => {});
+  }
   const vcard = ['BEGIN:VCARD', 'VERSION:3.0', `FN:${persona.name}`, persona.phone ? `TEL;TYPE=CELL:${persona.phone}` : '', `NOTE:Contacto de Enlace — ${persona.city || ''}`, 'END:VCARD'].filter(Boolean).join('\n');
   const blob = new Blob([vcard], { type: 'text/vcard' });
   const url = URL.createObjectURL(blob);
@@ -1214,10 +1491,12 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) final
 window.addEventListener('pagehide', finalizarConteoPerfil);
 
 let perfilActualId = null;
+let personaActualGlobal = null;
 async function abrirPerfil(personaId) {
   perfilActualId = personaId;
   try {
     const { persona, estado_amistad, solicitud_de_mi, contacto_verificado, yo_la_bloquee, ella_me_bloqueo, reputacion, publicaciones } = await api(`/usuarios/${personaId}`);
+    personaActualGlobal = persona;
     const yo = Sesion.usuario();
     const esMiPerfil = personaId === yo.id;
     iniciarConteoPerfil(personaId, esMiPerfil);
@@ -1281,26 +1560,13 @@ async function abrirPerfil(personaId) {
 
       const linkContainer = $('p-link-desplegable');
       if (linkContainer) {
-        linkContainer.innerHTML = '';
-        const links = [];
-        if (persona.phone) {
-          const numLimpio = `${persona.country_code || '+53'}${persona.phone.replace(/\D/g, '')}`.replace(/^\+/, '');
-          links.push(`<a href="https://wa.me/${numLimpio}" target="_blank" style="display:flex; align-items:center; gap:8px; padding:6px 0; color:#25D366; text-decoration:none; font-weight:600; font-size:13px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg> WhatsApp (${persona.country_code || '+53'})</a>`);
-        }
-        if (persona.instagram) {
-          const igUser = persona.instagram.replace(/^@/, '');
-          links.push(`<a href="https://instagram.com/${igUser}" target="_blank" style="display:flex; align-items:center; gap:8px; padding:6px 0; color:#E1306C; text-decoration:none; font-weight:600; font-size:13px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg> @${igUser}</a>`);
-        }
-        if (links.length) {
-          linkContainer.innerHTML = links.join('');
-        } else {
-          linkContainer.innerHTML = '<span style="font-size:12px; color:var(--texto-500);">Sin enlaces configurados</span>';
-        }
+        linkContainer.innerHTML = `<button class="btn btn-secundario" style="width:100%; font-size:12.5px; padding:8px;" onclick="abrirSocialLinksModal(personaActualGlobal)">🔗 Ver Redes Sociales y Juegos</button>`;
       }
 
       const btnExportarVCard = $('p-exportar-vcard');
       if (btnExportarVCard) {
         btnExportarVCard.onclick = () => {
+          api('/notificaciones/descarga-contacto', { method: 'POST', body: { target_id: personaId } }).catch(() => {});
           const token = Sesion.token();
           window.open(`/api/usuarios/${personaId}/vcard?token=${encodeURIComponent(token)}`, '_blank');
         };
@@ -1458,20 +1724,26 @@ async function cargarSolicitudesBadge() {
 
 /* ================= MENSAJES ================= */
 function renderizarConversacionesHTML(conversaciones) {
-  const itemAi = `
-    <div class="conversacion-item" data-persona='${encodeURIComponent(JSON.stringify({ id: 'link_ai', name: '🤖 Link AI Assistant', avatar_data: '', is_online: true, is_ai: true }))}' style="border-left:4px solid var(--morado-600); background:var(--morado-50);">
-      <div style="width:48px; height:48px; border-radius:50%; background:var(--morado-600); color:#fff; display:flex; align-items:center; justify-content:center; font-size:22px; font-weight:700;">🤖</div>
+  const aiAvailable = window.AI_CONFIG && window.AI_CONFIG.available;
+  const aiName = (window.AI_CONFIG && window.AI_CONFIG.name) || 'Link AI Assistant';
+  const aiAvatar = (window.AI_CONFIG && window.AI_CONFIG.avatar) || '';
+
+  const itemAi = aiAvailable ? `
+    <div class="conversacion-item" data-persona='${encodeURIComponent(JSON.stringify({ id: 'link_ai', name: `🤖 ${aiName}`, avatar_data: aiAvatar, is_online: true, is_ai: true }))}' style="border-left:4px solid var(--morado-600); background:var(--morado-50);">
+      <div style="width:48px; height:48px; border-radius:50%; background:var(--morado-600); color:#fff; display:flex; align-items:center; justify-content:center; font-size:22px; font-weight:700; overflow:hidden;">
+        ${aiAvatar ? `<img src="${aiAvatar}" style="width:100%; height:100%; object-fit:cover;">` : '🤖'}
+      </div>
       <div class="conversacion-info">
-        <div class="nombre" style="color:var(--morado-700);">Link AI (Asistente)</div>
-        <div class="preview">Pregúntame lo que sea (vía OpenRouter)</div>
+        <div class="nombre" style="color:var(--morado-700);">${escaparHTMLGlobal(aiName)}</div>
+        <div class="preview">Asistente Inteligente (OpenRouter)</div>
       </div>
       <div class="conversacion-hora">En línea</div>
-    </div>`;
+    </div>` : '';
 
   if (!conversaciones || !conversaciones.length) {
-    return itemAi + '<div class="aviso-vacio">Aún no tienes conversaciones con amigos. Escríbele a un amigo desde su perfil.</div>';
+    return (itemAi || '') + '<div class="aviso-vacio">Aún no tienes conversaciones con amigos. Escríbele a un amigo desde su perfil.</div>';
   }
-  return itemAi + conversaciones.map((c) => `
+  return (itemAi || '') + conversaciones.map((c) => `
     <div class="conversacion-item" data-persona='${encodeURIComponent(JSON.stringify({ id: c.otro_id, name: c.otro_nombre, avatar_data: c.otro_avatar, is_online: c.is_online }))}'>
       <img src="${avatarDe({ avatar_data: c.otro_avatar, name: c.otro_nombre })}" alt="">
       <div class="conversacion-info">
@@ -1531,15 +1803,26 @@ async function cargarNotificaciones() {
   } catch (e) { /* silencioso */ }
 }
 
+function cerrarNotificacionesHoja() {
+  $('veloNotif')?.classList.remove('activo');
+  $('hojaNotif')?.classList.remove('activo');
+}
+window.cerrarNotificacionesHoja = cerrarNotificacionesHoja;
+
 $('campana').addEventListener('click', async () => {
   try {
     const { notificaciones } = await api('/notificaciones');
     const cont = $('lista-notif');
-    cont.innerHTML = notificaciones.length ? notificaciones.map((n) => `
-      <div class="notif-item ${n.read ? '' : 'no-leida'}">
+    cont.innerHTML = notificaciones.length ? notificaciones.map((n) => {
+      let dataJson = {};
+      try { dataJson = typeof n.data === 'string' ? JSON.parse(n.data || '{}') : (n.data || {}); } catch(e){}
+      const targetActor = n.actor_id || dataJson.actor_id;
+      return `
+      <div class="notif-item ${n.read ? '' : 'no-leida'}" style="cursor:pointer;" onclick="cerrarNotificacionesHoja(); ${targetActor ? `abrirPerfil('${targetActor}')` : ''}">
         <div class="notif-icono">${n.actor_avatar ? `<img src="${n.actor_avatar}" alt="">` : '👋'}</div>
-        <div><div class="notif-texto">${n.text}</div><div class="notif-hora">${tiempoRelativo(n.created_at)}</div></div>
-      </div>`).join('') : '<div class="notif-vacio">Todavía no tienes notificaciones</div>';
+        <div><div class="notif-texto">${escaparHTMLGlobal(n.text)}</div><div class="notif-hora">${tiempoRelativo(n.created_at)}</div></div>
+      </div>`;
+    }).join('') : '<div class="notif-vacio">Todavía no tienes notificaciones</div>';
     await api('/notificaciones/marcar-leidas', { method: 'POST' });
     pintarBadgeCampana(false);
   } catch (e) { mostrarToast(e.message); }
@@ -1566,11 +1849,19 @@ $('inputAvatar').addEventListener('change', async (e) => {
 $('btnEditarPerfil').addEventListener('click', abrirEditarPerfil);
 function abrirEditarPerfil() {
   const u = Sesion.usuario();
+  const sl = u.social_links || {};
   $('edNombre').value = u.name || '';
   if ($('edGenero')) $('edGenero').value = u.gender || 'Mujer';
   if ($('edCodigoPais')) $('edCodigoPais').value = u.country_code || '+53';
   if ($('edTelefono')) $('edTelefono').value = u.phone || '';
-  if ($('edInstagram')) $('edInstagram').value = u.instagram || '';
+  if ($('edTelegram')) $('edTelegram').value = sl.telegram || u.telegram || '';
+  if ($('edInstagram')) $('edInstagram').value = sl.instagram || u.instagram || '';
+  if ($('edDiscord')) $('edDiscord').value = sl.discord || '';
+  if ($('edFreeFire')) $('edFreeFire').value = sl.freefire || '';
+  if ($('edClashOfClans')) $('edClashOfClans').value = sl.clashofclans || '';
+  if ($('edCallOfDuty')) $('edCallOfDuty').value = sl.callofduty || '';
+  if ($('edOtrosLinks')) $('edOtrosLinks').value = sl.otros || '';
+
   $('edProfesion').value = u.profession || '';
   $('edCiudad').value = u.city || '';
   $('edPiel').value = u.skin_color || '';
@@ -1584,6 +1875,16 @@ $('veloEditar').addEventListener('click', () => { $('veloEditar').classList.remo
 
 $('btnGuardarPerfil').addEventListener('click', async () => {
   try {
+    const social_links = {
+      telegram: $('edTelegram')?.value.trim().replace(/^@/, '') || '',
+      instagram: $('edInstagram')?.value.trim().replace(/^@/, '') || '',
+      discord: $('edDiscord')?.value.trim() || '',
+      freefire: $('edFreeFire')?.value.trim() || '',
+      clashofclans: $('edClashOfClans')?.value.trim() || '',
+      callofduty: $('edCallOfDuty')?.value.trim() || '',
+      otros: $('edOtrosLinks')?.value.trim() || '',
+    };
+
     const { user } = await api('/usuarios/me/perfil', {
       method: 'PUT',
       body: {
@@ -1592,6 +1893,7 @@ $('btnGuardarPerfil').addEventListener('click', async () => {
         country_code: $('edCodigoPais') ? $('edCodigoPais').value : '+53',
         phone: $('edTelefono') ? $('edTelefono').value.trim() : '',
         instagram: $('edInstagram') ? $('edInstagram').value.trim().replace(/^@/, '') : '',
+        social_links,
         profession: $('edProfesion').value.trim(),
         city: $('edCiudad').value.trim(),
         skin_color: $('edPiel').value.trim(),
@@ -1741,13 +2043,189 @@ document.querySelectorAll('#vistaAdmin > .admin-body > .sub-tabs > .sub-tab[data
   tab.addEventListener('click', () => {
     document.querySelectorAll('#vistaAdmin > .admin-body > .sub-tabs > .sub-tab[data-admintab]').forEach((t) => t.classList.toggle('activo', t === tab));
     const target = tab.dataset.admintab;
-    $('adminVistaUsuarios').classList.toggle('oculto', target !== 'usuarios');
-    $('adminVistaReportes').classList.toggle('oculto', target !== 'reportes');
-    $('adminVistaAnuncios').classList.toggle('oculto', target !== 'anuncios');
-    $('adminVistaBaseDatos').classList.toggle('oculto', target !== 'base-datos');
+    $('adminVistaUsuarios')?.classList.toggle('oculto', target !== 'usuarios');
+    $('adminVistaReportes')?.classList.toggle('oculto', target !== 'reportes');
+    $('adminVistaAnuncios')?.classList.toggle('oculto', target !== 'anuncios');
+    $('adminVistaAIConfig')?.classList.toggle('oculto', target !== 'ai-config');
+    $('adminVistaBaseDatos')?.classList.toggle('oculto', target !== 'base-datos');
+    $('adminVistaEditorDB')?.classList.toggle('oculto', target !== 'editor-db');
     if (target === 'reportes') cargarAdminReportes('pendiente');
     if (target === 'anuncios') cargarAdminAnuncios();
+    if (target === 'ai-config') cargarAdminAIConfig();
+    if (target === 'editor-db') cargarAdminEditorDB();
   });
+});
+
+// Admin AI Config
+async function cargarAdminAIConfig() {
+  try {
+    const { settings } = await api('/admin/system-settings');
+    if ($('adminOpenRouterKey')) $('adminOpenRouterKey').value = settings.openrouter_api_key || '';
+    if ($('adminOpenRouterModel')) $('adminOpenRouterModel').value = settings.openrouter_model || 'meta-llama/llama-3.1-8b-instruct:free';
+    if ($('adminAIName')) $('adminAIName').value = settings.ai_name || 'Link AI';
+    if ($('adminAIAvatar')) $('adminAIAvatar').value = settings.ai_avatar || '';
+    if ($('adminAIPersonality')) $('adminAIPersonality').value = settings.ai_personality || 'Eres Link AI, un asistente inteligente integrado en la plataforma social Link. Responde siempre en español, con amabilidad y precisión.';
+    if ($('adminAIMaxTokens')) $('adminAIMaxTokens').value = settings.ai_max_tokens || 1000;
+    if ($('adminAIContextTokens')) $('adminAIContextTokens').value = settings.ai_context_tokens || 4000;
+  } catch (e) {
+    mostrarToast('Error al cargar configuración de IA.');
+  }
+}
+
+$('adminBtnTestAI')?.addEventListener('click', async () => {
+  const resultEl = $('adminAITestResult');
+  if (!resultEl) return;
+  resultEl.style.color = 'var(--texto-800)';
+  resultEl.textContent = 'Probando conexión directamente con la API de OpenRouter...';
+
+  try {
+    const res = await api('/admin/test-openrouter', {
+      method: 'POST',
+      body: {
+        openrouter_api_key: $('adminOpenRouterKey').value,
+        openrouter_model: $('adminOpenRouterModel').value,
+        ai_personality: $('adminAIPersonality').value,
+      }
+    });
+
+    if (res.success) {
+      resultEl.style.color = 'var(--verde)';
+      resultEl.textContent = `✅ ${res.message} Respuesta de prueba: "${res.reply}"`;
+    } else {
+      resultEl.style.color = 'var(--rojo)';
+      resultEl.textContent = res.error || 'Falló la prueba.';
+    }
+  } catch (e) {
+    resultEl.style.color = 'var(--rojo)';
+    resultEl.textContent = `❌ Error de prueba: ${e.message}`;
+  }
+});
+
+$('adminBtnSaveAI')?.addEventListener('click', async () => {
+  try {
+    const payload = {
+      openrouter_api_key: $('adminOpenRouterKey').value.trim(),
+      openrouter_model: $('adminOpenRouterModel').value.trim() || 'meta-llama/llama-3.1-8b-instruct:free',
+      ai_name: $('adminAIName').value.trim() || 'Link AI',
+      ai_avatar: $('adminAIAvatar').value.trim(),
+      ai_personality: $('adminAIPersonality').value.trim(),
+      ai_max_tokens: $('adminAIMaxTokens').value || '1000',
+      ai_context_tokens: $('adminAIContextTokens').value || '4000',
+    };
+
+    await api('/admin/system-settings', { method: 'POST', body: { settings: payload } });
+    mostrarToast('Configuración del asistente de IA guardada correctamente ✓');
+    await comprobarAIConfig();
+    cargarConversaciones();
+  } catch (e) {
+    mostrarToast(e.message);
+  }
+});
+
+// Admin DB Direct Editor
+async function cargarAdminEditorDB() {
+  try {
+    const { tables } = await api('/admin/db/tables');
+    const select = $('adminSelectTable');
+    if (!select) return;
+    select.innerHTML = '<option value="">-- Selecciona una tabla --</option>' +
+      tables.map(t => `<option value="${t.name}">${t.name} (${t.total} filas)</option>`).join('');
+  } catch (e) {
+    mostrarToast('Error al obtener lista de tablas.');
+  }
+}
+
+$('adminSelectTable')?.addEventListener('change', async (e) => {
+  const table = e.target.value;
+  if (!table) {
+    $('adminTableContent').innerHTML = '<div style="font-size:12.5px; color:var(--texto-500);">Selecciona una tabla para explorar o modificar sus registros.</div>';
+    return;
+  }
+  cargarTablaAdmin(table);
+});
+
+async function cargarTablaAdmin(table) {
+  try {
+    const data = await api(`/admin/db/tables/${table}`);
+    const cols = data.columns.map(c => c.column_name);
+    const primaryKey = cols.includes('id') ? 'id' : (cols.includes('key') ? 'key' : cols[0]);
+
+    let html = `<div style="font-size:12px; font-weight:bold; margin-bottom:8px;">Tabla: ${data.table} (${data.total} filas)</div>`;
+    html += '<table style="width:100%; border-collapse:collapse; font-size:11.5px; text-align:left;">';
+    html += '<tr style="background:var(--hueso); border-bottom:1px solid var(--borde);">';
+    cols.forEach(c => { html += `<th style="padding:6px 8px; border:1px solid var(--borde);">${c}</th>`; });
+    html += '<th style="padding:6px 8px; border:1px solid var(--borde);">Acciones</th></tr>';
+
+    data.rows.forEach(r => {
+      html += '<tr style="border-bottom:1px solid var(--borde);">';
+      cols.forEach(c => {
+        const val = typeof r[c] === 'object' ? JSON.stringify(r[c]) : (r[c] ?? '');
+        html += `<td style="padding:6px 8px; border:1px solid var(--borde); max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escaparHTMLGlobal(String(val))}">${escaparHTMLGlobal(String(val))}</td>`;
+      });
+      const pkVal = r[primaryKey];
+      html += `<td style="padding:6px 8px; border:1px solid var(--borde); white-space:nowrap;">
+        <button class="mini-btn secundario" onclick="adminEditarFilaDB('${table}', '${primaryKey}', ${JSON.stringify(pkVal).replace(/"/g, '&quot;')})">Editar</button>
+        <button class="mini-btn peligro" onclick="adminBorrarFilaDB('${table}', '${primaryKey}', ${JSON.stringify(pkVal).replace(/"/g, '&quot;')})">Borrar</button>
+      </td></tr>`;
+    });
+
+    html += '</table>';
+    $('adminTableContent').innerHTML = html;
+  } catch (e) {
+    $('adminTableContent').innerHTML = `<div class="aviso-vacio">${e.message}</div>`;
+  }
+}
+
+async function adminEditarFilaDB(table, pkField, pkVal) {
+  const nuevoJSON = prompt(`Editar datos para ${pkField} = ${pkVal} (formato JSON):`, '{}');
+  if (!nuevoJSON) return;
+  try {
+    const data = JSON.parse(nuevoJSON);
+    await api(`/admin/db/tables/${table}/row`, {
+      method: 'PUT',
+      body: { primaryKeyField: pkField, primaryKeyValue: pkVal, data }
+    });
+    mostrarToast('Fila actualizada ✓');
+    cargarTablaAdmin(table);
+  } catch (e) {
+    mostrarToast(`Error: ${e.message}`);
+  }
+}
+window.adminEditarFilaDB = adminEditarFilaDB;
+
+async function adminBorrarFilaDB(table, pkField, pkVal) {
+  if (!confirm(`¿Borrar la fila con ${pkField} = ${pkVal}?`)) return;
+  try {
+    await api(`/admin/db/tables/${table}/row`, {
+      method: 'DELETE',
+      body: { primaryKeyField: pkField, primaryKeyValue: pkVal }
+    });
+    mostrarToast('Fila borrada ✓');
+    cargarTablaAdmin(table);
+  } catch (e) {
+    mostrarToast(`Error: ${e.message}`);
+  }
+}
+window.adminBorrarFilaDB = adminBorrarFilaDB;
+
+$('adminBtnRunSQL')?.addEventListener('click', async () => {
+  const sql = $('adminSQLConsole')?.value.trim();
+  const resEl = $('adminSQLResult');
+  if (!sql || !resEl) return;
+  resEl.textContent = 'Ejecutando consulta SQL...';
+
+  try {
+    const res = await api('/admin/db/query', { method: 'POST', body: { sql } });
+    let text = `Comando: ${res.command}\nFilas afectadas / devueltas: ${res.rowCount || 0}\n\n`;
+    if (res.rows && res.rows.length) {
+      text += JSON.stringify(res.rows, null, 2);
+    } else {
+      text += 'Consulta ejecutada exitosamente sin filas devueltas.';
+    }
+    resEl.textContent = text;
+  } catch (e) {
+    resEl.textContent = `Error SQL: ${e.message}`;
+  }
 });
 
 // Admin Anuncios

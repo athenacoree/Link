@@ -222,7 +222,7 @@
     <div class="hoja-persona"><img id="hoja-avatar" src="" alt=""><span id="hoja-nombre"></span></div>
     <div class="hoja-opcion" id="op-ver-perfil">Ver perfil</div>
     <div class="hoja-opcion" id="op-compartir-perfil">Compartir perfil 🔗</div>
-    <div class="hoja-opcion" id="op-link-whatsapp" style="color:#25D366; font-weight:700;">Link (WhatsApp)</div>
+    <div class="hoja-opcion" id="op-link-whatsapp" style="color:var(--morado-700); font-weight:700;">Link (Redes sociales)</div>
     <div class="hoja-opcion" id="op-mensaje">Enviar mensaje</div>
     <div class="hoja-opcion" id="op-llamar-audio">Llamar (audio)</div>
     <div class="hoja-opcion" id="op-llamar-video">Videollamada</div>
@@ -235,6 +235,16 @@
     <div class="hoja-opcion peligro" id="op-reportar">Reportar</div>
   </div>
   <div class="hoja-cancelar" id="op-cancelar">Cancelar</div>
+</div>
+
+<!-- ---------- Modal Redes Sociales / Juegos (Link Card) ---------- -->
+<div class="velo" id="veloSocialLinks"></div>
+<div class="hoja" id="hojaSocialLinks" style="bottom:20px;">
+  <div class="hoja-grupo">
+    <div class="hoja-persona"><span style="font-weight:700; color:var(--morado-700); font-size:16px;" id="socialModalNombre">Enlaces y Redes Sociales</span></div>
+    <div id="listaSocialLinks" style="padding:10px 4px; display:flex; flex-direction:column; gap:10px;"></div>
+  </div>
+  <div class="hoja-cancelar" id="cerrarSocialLinks">Cerrar</div>
 </div>
 
 <!-- ---------- Reportar a una persona ---------- -->
@@ -451,7 +461,9 @@
       <div class="sub-tab activo" data-admintab="usuarios">Usuarios</div>
       <div class="sub-tab" data-admintab="reportes">Reportes</div>
       <div class="sub-tab" data-admintab="anuncios">Anuncios</div>
+      <div class="sub-tab" data-admintab="ai-config">Asistente IA 🤖</div>
       <div class="sub-tab" data-admintab="base-datos">Base de Datos</div>
+      <div class="sub-tab" data-admintab="editor-db">Editor SQL / Tablas 🗄️</div>
     </div>
 
     <div id="adminVistaUsuarios">
@@ -489,6 +501,33 @@
       <div id="adminListaAnuncios" style="margin-top:18px;"></div>
     </div>
 
+    <!-- CONFIGURACIÓN DE ASISTENTE DE IA -->
+    <div id="adminVistaAIConfig" class="oculto" style="margin-top:16px;">
+      <p style="font-size:13.5px; color:var(--texto-600); margin-bottom:14px;">
+        Configura la integración con OpenRouter. El chat con el asistente solo estará disponible para los usuarios una vez que guardes una clave válida.
+      </p>
+
+      <div class="campo"><label>Clave API de OpenRouter (sk-or-v1-...)</label><input type="password" id="adminOpenRouterKey" placeholder="sk-or-v1-..."></div>
+      <div class="campo"><label>Modelo de Inteligencia Artificial</label><input type="text" id="adminOpenRouterModel" placeholder="meta-llama/llama-3.1-8b-instruct:free"></div>
+      <div class="grid-2">
+        <div class="campo"><label>Nombre del Asistente</label><input type="text" id="adminAIName" placeholder="Link AI"></div>
+        <div class="campo"><label>URL o Foto del Asistente</label><input type="text" id="adminAIAvatar" placeholder="https://... o avatar data"></div>
+      </div>
+      <div class="campo"><label>Personalidad del Asistente (Instrucciones del sistema)</label><textarea id="adminAIPersonality" rows="3" placeholder="Eres Link AI, un asistente inteligente..."></textarea></div>
+      <div class="grid-2">
+        <div class="campo"><label>Máximo de Tokens de Salida</label><input type="number" id="adminAIMaxTokens" value="1000"></div>
+        <div class="campo"><label>Límite de Tokens de Contexto</label><input type="number" id="adminAIContextTokens" value="4000"></div>
+      </div>
+
+      <div style="display:flex; gap:10px; margin-top:12px;">
+        <div class="btn btn-secundario" id="adminBtnTestAI" style="flex:1;">Comprobar con la API 🧪</div>
+        <div class="btn btn-primario" id="adminBtnSaveAI" style="flex:1;">Guardar Configuración 💾</div>
+      </div>
+
+      <div id="adminAITestResult" style="margin-top:14px; font-size:13px; line-height:1.4;"></div>
+    </div>
+
+    <!-- BASE DE DATOS RESPALDO -->
     <div id="adminVistaBaseDatos" class="oculto" style="margin-top:16px;">
       <p style="font-size:13.5px; color:var(--texto-600); margin-bottom:16px;">
         Gestiona la copia de seguridad, exportación e importación de la base de datos de Render (PostgreSQL). El archivo descargado incluye un manifiesto de versión (manifest.json).
@@ -511,6 +550,33 @@
 
       <div id="adminDBStatus" style="margin-top:14px; font-size:13px; line-height:1.4;"></div>
     </div>
+
+    <!-- EDITOR DIRECTO DE TABLAS Y CONSOLA SQL -->
+    <div id="adminVistaEditorDB" class="oculto" style="margin-top:16px;">
+      <p style="font-size:13.5px; color:var(--texto-600); margin-bottom:12px;">
+        Edita filas de las tablas directamente en la base de datos o ejecuta consultas SQL personalizadas.
+      </p>
+
+      <div class="campo">
+        <label>Selecciona una Tabla</label>
+        <select id="adminSelectTable">
+          <option value="">Cargando tablas...</option>
+        </select>
+      </div>
+
+      <div id="adminTableContent" style="margin-top:12px; max-height:350px; overflow:auto; border:1px solid var(--borde); border-radius:12px; padding:8px; background:var(--blanco);">
+        <div style="font-size:12.5px; color:var(--texto-500);">Selecciona una tabla para explorar o modificar sus registros.</div>
+      </div>
+
+      <div style="border-top:1px solid var(--borde); margin:18px 0;"></div>
+
+      <div class="campo">
+        <label>Consola SQL directa</label>
+        <textarea id="adminSQLConsole" rows="3" placeholder="SELECT * FROM users WHERE username = 'admin';"></textarea>
+      </div>
+      <div class="btn btn-primario" id="adminBtnRunSQL" style="width:100%;">Ejecutar Consulta SQL ⚡</div>
+      <div id="adminSQLResult" style="margin-top:12px; max-height:250px; overflow:auto; font-family:monospace; font-size:12px; background:var(--hueso); padding:10px; border-radius:10px; border:1px solid var(--borde);"></div>
+    </div>
   </div>
 </div>
 
@@ -526,9 +592,9 @@
 
 <!-- ---------- Editar perfil ---------- -->
 <div class="velo" id="veloEditar"></div>
-<div class="hoja" id="hojaEditar" style="bottom:20px;">
+<div class="hoja" id="hojaEditar" style="bottom:20px; max-height:85vh;">
   <div class="hoja-grupo">
-    <div class="hoja-form">
+    <div class="hoja-form" style="max-height:70vh; overflow-y:auto;">
       <div class="campo"><label>Nombre</label><input type="text" id="edNombre"></div>
       <div class="campo"><label>Género</label>
         <select id="edGenero">
@@ -554,7 +620,20 @@
         </div>
         <div class="campo"><label>Teléfono (WhatsApp)</label><input type="tel" id="edTelefono" placeholder="51234567"></div>
       </div>
-      <div class="campo"><label>Usuario Instagram (@)</label><input type="text" id="edInstagram" placeholder="tu_usuario"></div>
+      <div class="grid-2">
+        <div class="campo"><label>Telegram (@)</label><input type="text" id="edTelegram" placeholder="tu_usuario"></div>
+        <div class="campo"><label>Instagram (@)</label><input type="text" id="edInstagram" placeholder="tu_usuario"></div>
+      </div>
+      <div class="grid-2">
+        <div class="campo"><label>Discord User/ID</label><input type="text" id="edDiscord" placeholder="usuario#0000"></div>
+        <div class="campo"><label>Free Fire ID</label><input type="text" id="edFreeFire" placeholder="123456789"></div>
+      </div>
+      <div class="grid-2">
+        <div class="campo"><label>Clash of Clans Tag</label><input type="text" id="edClashOfClans" placeholder="#ABC1234"></div>
+        <div class="campo"><label>Call of Duty ID</label><input type="text" id="edCallOfDuty" placeholder="User#1234567"></div>
+      </div>
+      <div class="campo"><label>Otros enlaces / Redes</label><input type="text" id="edOtrosLinks" placeholder="https://..."></div>
+
       <div class="campo"><label>Profesión</label><input type="text" id="edProfesion"></div>
       <div class="campo"><label>Municipio / ciudad</label><input type="text" id="edCiudad"></div>
       <div class="grid-2">
@@ -688,7 +767,7 @@
         <div class="interruptor" id="swShowOnline"><div class="bola"></div></div>
       </div>
       <div class="campo" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-        <span style="font-size:13px; font-weight:700;">4. Sonidos de notificación</span>
+        <span style="font-size:13px; font-weight:700;">4. Sonidos de notificación y llamadas</span>
         <div class="interruptor" id="swNotifSounds"><div class="bola"></div></div>
       </div>
       <div class="campo" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
