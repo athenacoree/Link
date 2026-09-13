@@ -40,6 +40,7 @@ app.use('/api/moderacion', require('./routes/moderacion'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/anuncios', require('./routes/announcements'));
 app.use('/api/ai', require('./routes/ai'));
+app.use('/api/features', require('./routes/features'));
 
 // ---------------- Frontend (PWA estática) ----------------
 const FRONTEND_DIR = path.join(__dirname, '..', 'frontend');
