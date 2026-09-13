@@ -59,8 +59,8 @@ img{max-width:100%;}
 .icono-flotante.hay-notif .punto-badge{display:block;}
 
 /* ============ Vistas / secciones principales ============ */
-.vista-app{display:none; padding:64px 16px 20px;}
-.vista-app.activo{display:block;}
+.vista-app{display:none; padding:64px 16px 20px; opacity:0; transition:opacity 0.15s ease-in-out;}
+.vista-app.activo{display:block; opacity:1;}
 .titulo-vista{font-size:22px; font-weight:800; letter-spacing:-0.02em; margin-bottom:14px;}
 
 .feed{display:flex; flex-direction:column; gap:10px;}

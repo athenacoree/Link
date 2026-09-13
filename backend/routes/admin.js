@@ -29,14 +29,14 @@ router.get('/usuarios', async (req, res) => {
 router.put('/usuarios/:id/verificado', async (req, res) => {
   try {
     const verificadoInput = req.body.verificado;
-    const isVerified = Boolean(verificadoInput) && verificadoInput !== 'false';
+    const isVerified = verificadoInput === true || verificadoInput === 'true';
     const { rows } = await query(
       `UPDATE users SET verified=$1, verified_at = CASE WHEN $1 THEN now() ELSE NULL END, verified_by = CASE WHEN $1 THEN $2 ELSE NULL END
         WHERE id=$3 RETURNING *`,
       [isVerified, req.userId, req.params.id]
     );
     if (!rows.length) return res.status(404).json({ error: 'Persona no encontrada.' });
-    res.json({ persona: publicUser(rows[0]) });
+    res.json({ persona: meUser(rows[0]) });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });

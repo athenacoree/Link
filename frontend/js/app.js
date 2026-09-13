@@ -11,6 +11,36 @@ function mostrarToast(texto) {
   mostrarToast._t = setTimeout(() => t.classList.remove('activo'), 2600);
 }
 
+function abrirVisorImagen(src) {
+  if (!src) return;
+  const visor = $('modalVisorImagen');
+  const velo = $('veloVisorImagen');
+  const img = $('imgVisorAgrandada');
+  if (visor && img && velo) {
+    img.src = src;
+    velo.classList.add('activo');
+    visor.style.display = 'flex';
+  }
+}
+
+function cerrarVisorImagen() {
+  const visor = $('modalVisorImagen');
+  const velo = $('veloVisorImagen');
+  if (visor && velo) {
+    velo.classList.remove('activo');
+    visor.style.display = 'none';
+  }
+}
+window.abrirVisorImagen = abrirVisorImagen;
+
+document.addEventListener('DOMContentLoaded', () => {
+  $('cerrarVisorImagen')?.addEventListener('click', cerrarVisorImagen);
+  $('veloVisorImagen')?.addEventListener('click', cerrarVisorImagen);
+  $('modalVisorImagen')?.addEventListener('click', (e) => {
+    if (e.target.id === 'modalVisorImagen' || e.target.id === 'imgVisorAgrandada') cerrarVisorImagen();
+  });
+});
+
 function iniciales(nombre) {
   if (!nombre) return '?';
   const p = nombre.trim().split(/\s+/);
@@ -323,13 +353,35 @@ async function comprobarAnuncioActivo() {
 document.querySelectorAll('nav.tabbar .tab').forEach((tab) => {
   tab.addEventListener('click', () => cambiarVista(tab.dataset.tab));
 });
+const VISTAS_CARGADAS = new Set();
 function cambiarVista(nombre) {
   if (typeof finalizarConteoPerfil === 'function') finalizarConteoPerfil();
   document.querySelectorAll('nav.tabbar .tab').forEach((t) => t.classList.toggle('activo', t.dataset.tab === nombre));
   document.querySelectorAll('.vista-app').forEach((v) => v.classList.toggle('activo', v.dataset.vista === nombre));
-  if (nombre === 'feed' && !$('inputBuscar').value.trim()) cargarDescubrir();
-  if (nombre === 'contactos') cargarAmigosYSolicitudes();
-  if (nombre === 'mensajes') cargarConversaciones();
+
+  // Carga instantánea si ya fue cargado recientemente, refresco en background
+  if (nombre === 'feed') {
+    if (!VISTAS_CARGADAS.has('feed') || !$('inputBuscar').value.trim()) {
+      cargarDescubrir();
+      VISTAS_CARGADAS.add('feed');
+    }
+  }
+  if (nombre === 'contactos') {
+    if (!VISTAS_CARGADAS.has('contactos')) {
+      cargarAmigosYSolicitudes();
+      VISTAS_CARGADAS.add('contactos');
+    } else {
+      setTimeout(cargarAmigosYSolicitudes, 100);
+    }
+  }
+  if (nombre === 'mensajes') {
+    if (!VISTAS_CARGADAS.has('mensajes')) {
+      cargarConversaciones();
+      VISTAS_CARGADAS.add('mensajes');
+    } else {
+      setTimeout(cargarConversaciones, 100);
+    }
+  }
 }
 
 /* ================= PUBLICACIONES ================= */
@@ -387,7 +439,7 @@ function pintarPublicacion(p) {
         </div>
       </div>
       ${p.text ? `<div class="publicacion-texto">${escaparHTMLGlobal(p.text)}</div>` : ''}
-      ${p.image_data ? `<img class="publicacion-img" src="${p.image_data}" alt="">` : ''}
+      ${p.image_data ? `<img class="publicacion-img" src="${p.image_data}" alt="" style="cursor:pointer;" onclick="window.abrirVisorImagen('${p.image_data.replace(/'/g, "\\'")}')">` : ''}
       ${p.edited_at ? `<div class="etiqueta-editado">Editada por un administrador</div>` : ''}
       ${puedeModerar ? `
         <div class="publicacion-mod">
@@ -581,10 +633,19 @@ $('inputBuscar').addEventListener('input', () => {
 });
 
 async function cargarDescubrir() {
+  const cachedFeed = await LocalStore.obtenerLista('feed', 'descubrir_feed');
+  if (cachedFeed && cachedFeed.length) {
+    pintarListaPersonas(cachedFeed, 'listaBuscar');
+  }
   try {
     const { personas } = await api('/usuarios');
     pintarListaPersonas(personas, 'listaBuscar');
-  } catch (e) { $('listaBuscar').innerHTML = `<div class="aviso-vacio">${e.message}</div>`; }
+    LocalStore.guardarLista('feed', 'descubrir_feed', personas);
+  } catch (e) {
+    if (!cachedFeed || !cachedFeed.length) {
+      $('listaBuscar').innerHTML = `<div class="aviso-vacio">${e.message} (Modo sin conexión)</div>`;
+    }
+  }
 }
 async function buscarPersonas(q) {
   try {
@@ -720,6 +781,15 @@ function cerrarHojaPersona() { $('velo').classList.remove('activo'); $('hoja').c
 $('velo').addEventListener('click', cerrarHojaPersona);
 $('op-cancelar').addEventListener('click', cerrarHojaPersona);
 $('op-ver-perfil').addEventListener('click', () => { cerrarHojaPersona(); abrirPerfil(personaSeleccionada.id); });
+$('op-link-whatsapp').addEventListener('click', () => {
+  cerrarHojaPersona();
+  if (personaSeleccionada && personaSeleccionada.phone) {
+    const numLimpio = `${personaSeleccionada.country_code || '+53'}${personaSeleccionada.phone.replace(/\D/g, '')}`.replace(/^\+/, '');
+    window.open(`https://wa.me/${numLimpio}`, '_blank');
+  } else {
+    mostrarToast('Esta persona no ha configurado número de WhatsApp.');
+  }
+});
 $('op-mensaje').addEventListener('click', () => { cerrarHojaPersona(); Chat.abrirConversacion(personaSeleccionada); });
 $('op-llamar-audio').addEventListener('click', () => { cerrarHojaPersona(); Llamada.iniciar(personaSeleccionada, 'audio'); });
 $('op-llamar-video').addEventListener('click', () => { cerrarHojaPersona(); Llamada.iniciar(personaSeleccionada, 'video'); });
@@ -1047,24 +1117,45 @@ async function cargarSolicitudesBadge() {
 }
 
 /* ================= MENSAJES ================= */
+function renderizarConversacionesHTML(conversaciones) {
+  if (!conversaciones || !conversaciones.length) {
+    return '<div class="aviso-vacio">Aún no tienes conversaciones. Escríbele a un amigo desde su perfil.</div>';
+  }
+  return conversaciones.map((c) => `
+    <div class="conversacion-item" data-persona='${encodeURIComponent(JSON.stringify({ id: c.otro_id, name: c.otro_nombre, avatar_data: c.otro_avatar, is_online: c.is_online }))}'>
+      <img src="${avatarDe({ avatar_data: c.otro_avatar, name: c.otro_nombre })}" alt="">
+      <div class="conversacion-info">
+        <div class="nombre">${c.otro_nombre}</div>
+        <div class="preview">${c.last_message_preview || ''}</div>
+      </div>
+      <div class="conversacion-hora">${c.last_message_at ? tiempoRelativo(c.last_message_at) : ''}</div>
+    </div>`).join('');
+}
+
+function adjuntarListenersConversaciones() {
+  document.querySelectorAll('.conversacion-item').forEach((item) => {
+    item.addEventListener('click', () => Chat.abrirConversacion(JSON.parse(decodeURIComponent(item.dataset.persona))));
+  });
+}
+
 async function cargarConversaciones() {
+  const cachedConvs = await LocalStore.obtenerLista('conversaciones', 'mis_conversaciones');
+  if (cachedConvs && cachedConvs.length) {
+    $('listaConversaciones').innerHTML = renderizarConversacionesHTML(cachedConvs);
+    adjuntarListenersConversaciones();
+  }
+
   try {
     const { conversaciones } = await api('/mensajes');
     Chat.actualizarBadgeMensajes(false);
-    if (!conversaciones.length) { $('listaConversaciones').innerHTML = '<div class="aviso-vacio">Aún no tienes conversaciones. Escríbele a un amigo desde su perfil.</div>'; return; }
-    $('listaConversaciones').innerHTML = conversaciones.map((c) => `
-      <div class="conversacion-item" data-persona='${encodeURIComponent(JSON.stringify({ id: c.otro_id, name: c.otro_nombre, avatar_data: c.otro_avatar, is_online: c.is_online }))}'>
-        <img src="${avatarDe({ avatar_data: c.otro_avatar, name: c.otro_nombre })}" alt="">
-        <div class="conversacion-info">
-          <div class="nombre">${c.otro_nombre}</div>
-          <div class="preview">${c.last_message_preview || ''}</div>
-        </div>
-        <div class="conversacion-hora">${c.last_message_at ? tiempoRelativo(c.last_message_at) : ''}</div>
-      </div>`).join('');
-    document.querySelectorAll('.conversacion-item').forEach((item) => {
-      item.addEventListener('click', () => Chat.abrirConversacion(JSON.parse(decodeURIComponent(item.dataset.persona))));
-    });
-  } catch (e) { $('listaConversaciones').innerHTML = `<div class="aviso-vacio">${e.message}</div>`; }
+    $('listaConversaciones').innerHTML = renderizarConversacionesHTML(conversaciones);
+    adjuntarListenersConversaciones();
+    LocalStore.guardarLista('conversaciones', 'mis_conversaciones', conversaciones);
+  } catch (e) {
+    if (!cachedConvs || !cachedConvs.length) {
+      $('listaConversaciones').innerHTML = `<div class="aviso-vacio">${e.message} (Modo sin conexión)</div>`;
+    }
+  }
 }
 
 /* ================= NOTIFICACIONES ================= */

@@ -23,7 +23,7 @@ const Chat = (() => {
     cont.className = `burbuja ${esMia ? 'mia' : 'suya'}`;
     let html = '';
     if (msg.text) html += escapar(msg.text);
-    if (msg.imageData) html += `<img src="${msg.imageData}" alt="">`;
+    if (msg.imageData) html += `<img src="${msg.imageData}" alt="" style="cursor:pointer;" onclick="window.abrirVisorImagen('${msg.imageData.replace(/'/g, "\\'")}')">`;
     cont.innerHTML = html;
     return cont;
   }
@@ -35,10 +35,21 @@ const Chat = (() => {
     $('chatAvatar').src = persona.avatar_data || iconoDefecto();
     $('chatNombre').textContent = persona.name;
     $('chatEstadoLinea').textContent = persona.is_online ? 'En línea' : 'Desconectado';
-    $('chatMensajes').innerHTML = '<div class="aviso-vacio">Cargando conversación…</div>';
     $('vistaChat').classList.add('activo');
 
     const yo = Sesion.usuario();
+    const cacheKey = conversationId(yo.id, persona.id);
+
+    // Intentar cargar primero de la caché local para vista inmediata (offline / rápida)
+    const cachedMsgs = await LocalStore.obtenerLista('mensajes', cacheKey);
+    if (cachedMsgs && cachedMsgs.length) {
+      $('chatMensajes').innerHTML = '';
+      cachedMsgs.forEach((m) => $('chatMensajes').appendChild(pintarBurbuja(m, yo.id)));
+      $('chatMensajes').scrollTop = $('chatMensajes').scrollHeight;
+    } else {
+      $('chatMensajes').innerHTML = '<div class="aviso-vacio">Cargando conversación…</div>';
+    }
+
     try {
       const { mensajes } = await api(`/mensajes/${persona.id}`);
       $('chatMensajes').innerHTML = '';
@@ -48,8 +59,11 @@ const Chat = (() => {
         mensajes.forEach((m) => $('chatMensajes').appendChild(pintarBurbuja(m, yo.id)));
         $('chatMensajes').scrollTop = $('chatMensajes').scrollHeight;
       }
+      LocalStore.guardarLista('mensajes', cacheKey, mensajes);
     } catch (e) {
-      $('chatMensajes').innerHTML = `<div class="aviso-vacio">${e.message}</div>`;
+      if (!cachedMsgs || !cachedMsgs.length) {
+        $('chatMensajes').innerHTML = `<div class="aviso-vacio">${e.message} (Modo sin conexión)</div>`;
+      }
     }
   }
 
@@ -71,15 +85,19 @@ const Chat = (() => {
       receiverId: conversacionAbiertaCon.id,
       text: texto || '',
       imageData: imagenBase64 || null,
-    }, (respuesta) => {
+    }, async (respuesta) => {
       if (!respuesta.ok) { mostrarToast(respuesta.error || 'No se pudo enviar.'); return; }
       const yo = Sesion.usuario();
       $('chatMensajes').appendChild(pintarBurbuja(respuesta.mensaje, yo.id));
       $('chatMensajes').scrollTop = $('chatMensajes').scrollHeight;
+
+      const cacheKey = conversationId(yo.id, conversacionAbiertaCon.id);
+      const prev = (await LocalStore.obtenerLista('mensajes', cacheKey)) || [];
+      LocalStore.guardarLista('mensajes', cacheKey, [...prev, respuesta.mensaje]);
     });
   }
 
-  function onMensajeEntrante(msg) {
+  async function onMensajeEntrante(msg) {
     const yo = Sesion.usuario();
     if (conversacionAbiertaCon && conversationId(yo.id, conversacionAbiertaCon.id) === msg.conversationId) {
       $('chatMensajes').appendChild(pintarBurbuja(msg, yo.id));
@@ -87,6 +105,10 @@ const Chat = (() => {
     } else {
       mostrarToast('Nuevo mensaje recibido 💬');
       actualizarBadgeMensajes(true);
+    }
+    if (msg.conversationId) {
+      const prev = (await LocalStore.obtenerLista('mensajes', msg.conversationId)) || [];
+      LocalStore.guardarLista('mensajes', msg.conversationId, [...prev, msg]);
     }
     if (typeof cargarConversaciones === 'function') cargarConversaciones();
   }
