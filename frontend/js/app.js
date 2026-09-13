@@ -300,6 +300,10 @@ async function iniciarApp() {
   cargarSolicitudesBadge();
   comprobarAnuncioActivo();
 
+  // Escuchar estado de conexión a internet
+  window.addEventListener('online', () => $('bannerRed').classList.add('oculto'));
+  window.addEventListener('offline', () => $('bannerRed').classList.remove('oculto'));
+
   const u = Sesion.usuario();
   if (u && !u.encuesta_completada_at && !u.encuesta_omitida) {
     setTimeout(abrirEncuesta, 500);
@@ -386,7 +390,7 @@ function cambiarVista(nombre) {
 
 /* ================= PUBLICACIONES ================= */
 let imagenCompositorBase64 = null;
-$('pCompImagenInput').addEventListener('change', async (e) => {
+$('pCompImagenInput')?.addEventListener('change', async (e) => {
   const file = e.target.files[0];
   if (!file) return;
   try {
@@ -396,11 +400,12 @@ $('pCompImagenInput').addEventListener('change', async (e) => {
   } catch (err) { mostrarToast('No se pudo procesar la imagen.'); }
 });
 
-$('pBtnPublicar').addEventListener('click', async () => {
+$('pBtnPublicar')?.addEventListener('click', async () => {
   const texto = $('pCompTexto').value.trim();
+  const visibilidad = $('pCompVisibilidad') ? $('pCompVisibilidad').value : 'public';
   if (!texto && !imagenCompositorBase64) { mostrarToast('Escribe algo o añade una foto.'); return; }
   try {
-    await api('/publicaciones', { method: 'POST', body: { text: texto, image_base64: imagenCompositorBase64 } });
+    await api('/publicaciones', { method: 'POST', body: { text: texto, image_base64: imagenCompositorBase64, visibility: visibilidad } });
     $('pCompTexto').value = '';
     imagenCompositorBase64 = null;
     $('pCompPreview').classList.remove('activo');
@@ -423,6 +428,12 @@ function renderizarPublicacionesPerfil(publicaciones, contenedorId) {
   cont.querySelectorAll('.publicacion-accion[data-accion="comentar"]').forEach((btn) => {
     btn.addEventListener('click', () => alternarComentarios(btn.dataset.id));
   });
+  cont.querySelectorAll('.publicacion-accion[data-accion="guardar"]').forEach((btn) => {
+    btn.addEventListener('click', () => alternarGuardarPost(btn.dataset.id));
+  });
+  cont.querySelectorAll('.publicacion-accion[data-accion="compartir"]').forEach((btn) => {
+    btn.addEventListener('click', () => compartirPost(btn.dataset.id));
+  });
 }
 
 function pintarPublicacion(p) {
@@ -435,7 +446,7 @@ function pintarPublicacion(p) {
         <img src="${avatarDe({ avatar_data: p.autor_avatar, name: p.autor_nombre })}" alt="">
         <div>
           <div class="nombre">${p.autor_nombre}</div>
-          <div class="fecha">${tiempoRelativo(p.created_at)}</div>
+          <div class="fecha">${tiempoRelativo(p.created_at)} ${p.visibility === 'friends' ? '🔒 Solo amigos' : '🌐 Público'}</div>
         </div>
       </div>
       ${p.text ? `<div class="publicacion-texto">${escaparHTMLGlobal(p.text)}</div>` : ''}
@@ -455,6 +466,12 @@ function pintarPublicacion(p) {
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.5 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7A8.4 8.4 0 0 1 3.5 11.5 8.5 8.5 0 1 1 21 11.5Z"/></svg>
           <span>${p.total_comentarios}</span>
         </div>
+        <div class="publicacion-accion ${p.guardada ? 'activo' : ''}" data-accion="guardar" data-id="${p.id}" title="Guardar">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="${p.guardada ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="m19 21-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+        </div>
+        <div class="publicacion-accion" data-accion="compartir" data-id="${p.id}" title="Compartir">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+        </div>
       </div>
       <div class="comentarios-caja" id="comentarios-${p.id}">
         <div class="lista-comentarios" id="lista-comentarios-${p.id}"></div>
@@ -472,11 +489,48 @@ async function alternarLike(postId) {
   try {
     const { me_gusta } = await api(`/publicaciones/${postId}/like`, { method: 'POST' });
     const btn = document.querySelector(`.publicacion-accion[data-id="${postId}"][data-accion="like"]`);
-    btn.classList.toggle('activo', me_gusta);
+    if (btn) btn.classList.toggle('activo', me_gusta);
     const span = $(`likes-${postId}`);
-    span.textContent = parseInt(span.textContent) + (me_gusta ? 1 : -1);
+    if (span) span.textContent = parseInt(span.textContent) + (me_gusta ? 1 : -1);
   } catch (e) { mostrarToast(e.message); }
 }
+
+async function alternarGuardarPost(postId) {
+  try {
+    const { guardada } = await api(`/publicaciones/${postId}/guardar`, { method: 'POST' });
+    const btn = document.querySelector(`.publicacion-accion[data-id="${postId}"][data-accion="guardar"]`);
+    if (btn) btn.classList.toggle('activo', guardada);
+    mostrarToast(guardada ? 'Publicación guardada' : 'Quitada de guardados');
+  } catch (e) { mostrarToast(e.message); }
+}
+
+function compartirPost(postId) {
+  const url = `${window.location.origin}/#post-${postId}`;
+  if (navigator.share) {
+    navigator.share({ title: 'Publicación en Link', url });
+  } else {
+    navigator.clipboard.writeText(url);
+    mostrarToast('Enlace de la publicación copiado 🔗');
+  }
+}
+
+async function cargarGuardados() {
+  try {
+    const { publicaciones } = await api('/publicaciones/guardadas');
+    const cont = $('listaGuardados');
+    if (!publicaciones.length) {
+      cont.innerHTML = '<div class="aviso-vacio">No tienes publicaciones guardadas.</div>';
+      return;
+    }
+    renderizarPublicacionesPerfil(publicaciones, 'listaGuardados');
+  } catch (e) { $('listaGuardados').innerHTML = `<div class="aviso-vacio">${e.message}</div>`; }
+}
+$('btnGuardados')?.addEventListener('click', () => {
+  cargarGuardados();
+  $('veloGuardados').classList.add('activo'); $('hojaGuardados').classList.add('activo');
+});
+$('cerrarGuardados')?.addEventListener('click', () => { $('veloGuardados').classList.remove('activo'); $('hojaGuardados').classList.remove('activo'); });
+$('veloGuardados')?.addEventListener('click', () => { $('veloGuardados').classList.remove('activo'); $('hojaGuardados').classList.remove('activo'); });
 
 async function alternarComentarios(postId) {
   const caja = $(`comentarios-${postId}`);
@@ -632,15 +686,27 @@ $('inputBuscar').addEventListener('input', () => {
   }, 350);
 });
 
+$('filtroGenero')?.addEventListener('change', () => cargarDescubrir());
+$('filtroOnline')?.addEventListener('change', () => cargarDescubrir());
+
 async function cargarDescubrir() {
+  const genero = $('filtroGenero') ? $('filtroGenero').value : '';
+  const soloOnline = $('filtroOnline') ? ($('filtroOnline').value === 'online') : false;
+
   const cachedFeed = await LocalStore.obtenerLista('feed', 'descubrir_feed');
   if (cachedFeed && cachedFeed.length) {
-    pintarListaPersonas(cachedFeed, 'listaBuscar');
+    let filtradas = cachedFeed;
+    if (genero) filtradas = filtradas.filter(p => p.gender === genero);
+    if (soloOnline) filtradas = filtradas.filter(p => p.is_online);
+    pintarListaPersonas(filtradas, 'listaBuscar');
   }
   try {
     const { personas } = await api('/usuarios');
-    pintarListaPersonas(personas, 'listaBuscar');
     LocalStore.guardarLista('feed', 'descubrir_feed', personas);
+    let filtradas = personas;
+    if (genero) filtradas = filtradas.filter(p => p.gender === genero);
+    if (soloOnline) filtradas = filtradas.filter(p => p.is_online);
+    pintarListaPersonas(filtradas, 'listaBuscar');
   } catch (e) {
     if (!cachedFeed || !cachedFeed.length) {
       $('listaBuscar').innerHTML = `<div class="aviso-vacio">${e.message} (Modo sin conexión)</div>`;
@@ -781,6 +847,16 @@ function cerrarHojaPersona() { $('velo').classList.remove('activo'); $('hoja').c
 $('velo').addEventListener('click', cerrarHojaPersona);
 $('op-cancelar').addEventListener('click', cerrarHojaPersona);
 $('op-ver-perfil').addEventListener('click', () => { cerrarHojaPersona(); abrirPerfil(personaSeleccionada.id); });
+$('op-compartir-perfil')?.addEventListener('click', () => {
+  cerrarHojaPersona();
+  const url = `${window.location.origin}/#perfil-${personaSeleccionada.id}`;
+  if (navigator.share) {
+    navigator.share({ title: personaSeleccionada.name, url });
+  } else {
+    navigator.clipboard.writeText(url);
+    mostrarToast('Enlace de perfil copiado 🔗');
+  }
+});
 $('op-link-whatsapp').addEventListener('click', () => {
   cerrarHojaPersona();
   if (personaSeleccionada && personaSeleccionada.phone) {
@@ -926,6 +1002,8 @@ async function abrirPerfil(personaId) {
     $('p-chips').innerHTML = [persona.gender, persona.skin_color, persona.relationship_status].filter(Boolean).map((c) => `<div class="chip">${c}</div>`).join('');
     $('p-reputacion').innerHTML = chipReputacion(reputacion);
 
+    if ($('p-stat-visitas')) $('p-stat-visitas').textContent = persona.views_count || 0;
+
     const abrirEstadoDePerfil = async () => {
       try {
         const { estados } = await api(`/estados/usuario/${personaId}`);
@@ -950,7 +1028,6 @@ async function abrirPerfil(personaId) {
     $('p-verificar').style.display = esMiPerfil ? 'none' : '';
 
     if (!esMiPerfil) {
-      $('p-stat-guardado').textContent = contacto_verificado ? 'Sí' : 'No';
       pintarBotonAmistad(estado_amistad, solicitud_de_mi);
       $('p-amistad').onclick = () => accionAmistad(estado_amistad);
 

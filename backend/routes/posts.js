@@ -7,19 +7,22 @@ const { registrarSenal } = require('../utils/recomendaciones');
 const router = express.Router();
 const MAX_IMAGE_LEN = 1_800_000;
 
-// ---- Editar una publicación (el dueño, o un administrador moderando) ----
+// ---- Editar una publicación ----
 router.put('/:id', requireAuth, async (req, res) => {
   const post = await query('SELECT * FROM posts WHERE id=$1', [req.params.id]);
   if (!post.rows.length) return res.status(404).json({ error: 'Publicación no encontrada.' });
   const esDueno = post.rows[0].user_id === req.userId;
   if (!esDueno && !req.isAdmin) return res.status(403).json({ error: 'No puedes editar esta publicación.' });
 
-  const { text } = req.body;
-  if (text === undefined) return res.status(400).json({ error: 'Falta el texto nuevo.' });
+  const { text, visibility } = req.body;
+  if (text === undefined && visibility === undefined) return res.status(400).json({ error: 'Nada para actualizar.' });
 
-  const sets = ['text = $1'];
-  const values = [text];
-  let i = 2;
+  const sets = [];
+  const values = [];
+  let i = 1;
+  if (text !== undefined) { sets.push(`text = $${i++}`); values.push(text); }
+  if (visibility !== undefined) { sets.push(`visibility = $${i++}`); values.push(visibility); }
+
   if (!esDueno && req.isAdmin) {
     sets.push(`edited_at = now()`, `edited_by_admin = $${i++}`);
     values.push(req.userId);
@@ -29,7 +32,7 @@ router.put('/:id', requireAuth, async (req, res) => {
   res.json({ publicacion: rows[0], editado_por_admin: !esDueno });
 });
 
-// ---- Borrar una publicación (el dueño, o un administrador moderando) ----
+// ---- Borrar una publicación ----
 router.delete('/:id', requireAuth, async (req, res) => {
   const post = await query('SELECT * FROM posts WHERE id=$1', [req.params.id]);
   if (!post.rows.length) return res.status(404).json({ error: 'Publicación no encontrada.' });
@@ -39,16 +42,49 @@ router.delete('/:id', requireAuth, async (req, res) => {
   res.json({ ok: true, borrado_por_admin: !esDueno });
 });
 
-// ---- Crear publicación ----
+// ---- Crear publicación con visibilidad (Público / Solo Amigos) ----
 router.post('/', requireAuth, async (req, res) => {
-  const { text, image_base64 } = req.body;
+  const { text, image_base64, visibility } = req.body;
   if (!text && !image_base64) return res.status(400).json({ error: 'La publicación necesita texto o imagen.' });
   if (image_base64 && image_base64.length > MAX_IMAGE_LEN) return res.status(413).json({ error: 'Imagen demasiado grande.' });
+  const vis = visibility === 'friends' ? 'friends' : 'public';
   const { rows } = await query(
-    `INSERT INTO posts (user_id, text, image_data) VALUES ($1,$2,$3) RETURNING *`,
-    [req.userId, text || null, image_base64 || null]
+    `INSERT INTO posts (user_id, text, image_data, visibility) VALUES ($1,$2,$3,$4) RETURNING *`,
+    [req.userId, text || null, image_base64 || null, vis]
   );
   res.status(201).json({ publicacion: rows[0] });
+});
+
+// ---- Guardar / Marcar publicación como favorita ----
+router.post('/:id/guardar', requireAuth, async (req, res) => {
+  const post = await query('SELECT * FROM posts WHERE id=$1', [req.params.id]);
+  if (!post.rows.length) return res.status(404).json({ error: 'Publicación no encontrada.' });
+
+  const existing = await query('SELECT 1 FROM saved_posts WHERE post_id=$1 AND user_id=$2', [req.params.id, req.userId]);
+  if (existing.rows.length) {
+    await query('DELETE FROM saved_posts WHERE post_id=$1 AND user_id=$2', [req.params.id, req.userId]);
+    return res.json({ guardada: false });
+  }
+  await query('INSERT INTO saved_posts (post_id, user_id) VALUES ($1,$2)', [req.params.id, req.userId]);
+  res.json({ guardada: true });
+});
+
+// ---- Ver mis publicaciones guardadas ----
+router.get('/guardadas', requireAuth, async (req, res) => {
+  const { rows } = await query(
+    `SELECT p.*, u.name AS autor_nombre, u.avatar_data AS autor_avatar,
+            (SELECT COUNT(*) FROM post_likes pl WHERE pl.post_id = p.id) AS total_likes,
+            (SELECT COUNT(*) FROM post_comments pc WHERE pc.post_id = p.id) AS total_comentarios,
+            EXISTS(SELECT 1 FROM post_likes pl2 WHERE pl2.post_id = p.id AND pl2.user_id = $1) AS me_gusta,
+            true AS guardada
+       FROM saved_posts sp
+       JOIN posts p ON p.id = sp.post_id
+       JOIN users u ON u.id = p.user_id
+      WHERE sp.user_id = $1
+      ORDER BY sp.saved_at DESC`,
+    [req.userId]
+  );
+  res.json({ publicaciones: rows });
 });
 
 // ---- Feed: publicaciones de amigos + propias ----
@@ -57,14 +93,16 @@ router.get('/feed', requireAuth, async (req, res) => {
     `SELECT p.*, u.name AS autor_nombre, u.avatar_data AS autor_avatar,
             (SELECT COUNT(*) FROM post_likes pl WHERE pl.post_id = p.id) AS total_likes,
             (SELECT COUNT(*) FROM post_comments pc WHERE pc.post_id = p.id) AS total_comentarios,
-            EXISTS(SELECT 1 FROM post_likes pl2 WHERE pl2.post_id = p.id AND pl2.user_id = $1) AS me_gusta
+            EXISTS(SELECT 1 FROM post_likes pl2 WHERE pl2.post_id = p.id AND pl2.user_id = $1) AS me_gusta,
+            EXISTS(SELECT 1 FROM saved_posts sp WHERE sp.post_id = p.id AND sp.user_id = $1) AS guardada
        FROM posts p
        JOIN users u ON u.id = p.user_id
-      WHERE p.user_id = $1
-         OR p.user_id IN (
-              SELECT CASE WHEN f.user_a = $1 THEN f.user_b ELSE f.user_a END
-              FROM friendships f WHERE (f.user_a=$1 OR f.user_b=$1) AND f.status='amigos'
-            )
+      WHERE (p.user_id = $1 OR p.visibility = 'public' OR (
+              p.visibility = 'friends' AND p.user_id IN (
+                SELECT CASE WHEN f.user_a = $1 THEN f.user_b ELSE f.user_a END
+                FROM friendships f WHERE (f.user_a=$1 OR f.user_b=$1) AND f.status='amigos'
+              )
+            ))
       ORDER BY p.created_at DESC
       LIMIT 50`,
     [req.userId]
