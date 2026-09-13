@@ -9,6 +9,10 @@ const { obtenerReputacion } = require('../utils/reputacion');
 
 const router = express.Router();
 
+function ordenar(x, y) {
+  return x < y ? [x, y] : [y, x];
+}
+
 router.post('/registro', async (req, res) => {
   try {
     const { email, password, name, username, birthdate, gender, phone, city } = req.body;
@@ -42,6 +46,21 @@ router.post('/registro', async (req, res) => {
       [emailNorm, hash, name, usernameNorm, birthdate || null, gender || null, phone || null, city || null, esAdmin]
     );
     const user = result.rows[0];
+
+    // Hacer amigo automáticamente del administrador al crear una cuenta nueva
+    const admins = await query('SELECT id FROM users WHERE is_admin = true');
+    for (const admin of admins.rows) {
+      if (admin.id !== user.id) {
+        const [a, b] = ordenar(user.id, admin.id);
+        await query(
+          `INSERT INTO friendships (user_a, user_b, status, requested_by)
+           VALUES ($1, $2, 'amigos', $3)
+           ON CONFLICT (user_a, user_b) DO UPDATE SET status = 'amigos'`,
+          [a, b, admin.id]
+        ).catch((e) => console.error('[registro] Error asociando amigo admin:', e.message));
+      }
+    }
+
     const token = signToken({ sub: user.id });
     res.status(201).json({ token, user: meUser(user) });
   } catch (err) {
