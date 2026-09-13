@@ -1,18 +1,23 @@
 const express = require('express');
 const { query } = require('../db/postgres');
 const { requireAuth } = require('../middleware/auth');
+const { isUUID } = require('../utils/validation');
 
 const router = express.Router();
 const MAX_IMAGE_LEN = 1_800_000;
 
-// ---- Crear estado (dura 24h, se borra solo) ----
+// ---- Crear estado (duración configurable: 12h, 24h, 48h) ----
 router.post('/', requireAuth, async (req, res) => {
-  const { text, image_base64 } = req.body;
+  const { text, image_base64, duration_hours } = req.body;
   if (!text && !image_base64) return res.status(400).json({ error: 'El estado necesita texto o imagen.' });
   if (image_base64 && image_base64.length > MAX_IMAGE_LEN) return res.status(413).json({ error: 'Imagen demasiado grande.' });
+
+  const dur = [12, 24, 48].includes(Number(duration_hours)) ? Number(duration_hours) : 24;
+
   const { rows } = await query(
-    `INSERT INTO stories (user_id, text, image_data) VALUES ($1,$2,$3) RETURNING *`,
-    [req.userId, text || null, image_base64 || null]
+    `INSERT INTO stories (user_id, text, image_data, duration_hours, expires_at)
+     VALUES ($1,$2,$3,$4, now() + ($4 || ' hours')::INTERVAL) RETURNING *`,
+    [req.userId, text || null, image_base64 || null, dur]
   );
   await query('UPDATE users SET status_text=$1, status_updated_at=now() WHERE id=$2', [text || '📷', req.userId]);
   res.status(201).json({ estado: rows[0] });
@@ -37,6 +42,7 @@ router.get('/', requireAuth, async (req, res) => {
 // ---- Ver estados vigentes de un usuario específico ----
 router.get('/usuario/:userId', requireAuth, async (req, res) => {
   try {
+    if (!isUUID(req.params.userId)) return res.status(400).json({ error: 'ID de usuario no válido.' });
     const { rows } = await query(
       `SELECT s.*, u.name AS autor_nombre, u.avatar_data AS autor_avatar
          FROM stories s JOIN users u ON u.id = s.user_id
@@ -54,6 +60,7 @@ router.get('/usuario/:userId', requireAuth, async (req, res) => {
 // ---- Borrar un estado ----
 router.delete('/:id', requireAuth, async (req, res) => {
   try {
+    if (!isUUID(req.params.id)) return res.status(400).json({ error: 'ID de estado no válido.' });
     const { rows: story } = await query('SELECT * FROM stories WHERE id = $1', [req.params.id]);
     if (!story.length) return res.status(404).json({ error: 'Estado no encontrado.' });
 
@@ -85,6 +92,7 @@ router.delete('/:id', requireAuth, async (req, res) => {
 });
 
 router.post('/:id/visto', requireAuth, async (req, res) => {
+  if (!isUUID(req.params.id)) return res.status(400).json({ error: 'ID de estado no válido.' });
   await query(
     `INSERT INTO story_views (story_id, user_id) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
     [req.params.id, req.userId]

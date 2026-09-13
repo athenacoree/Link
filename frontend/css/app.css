@@ -192,9 +192,9 @@ img{max-width:100%;}
 .editar-avatar-btn .lapiz{position:absolute; bottom:0; right:0; width:28px; height:28px; border-radius:50%; background:var(--morado-700); color:#fff; display:flex; align-items:center; justify-content:center; border:2px solid var(--blanco);}
 
 /* ============ Hoja de acciones / modales ============ */
-.velo{position:fixed; inset:0; z-index:50; background:rgba(26,11,51,0.35); backdrop-filter:blur(2px); opacity:0; pointer-events:none; transition:opacity .28s ease;}
+.velo{position:fixed; inset:0; z-index:2000; background:rgba(26,11,51,0.35); backdrop-filter:blur(2px); opacity:0; pointer-events:none; transition:opacity .28s ease;}
 .velo.activo{opacity:1; pointer-events:auto;}
-.hoja{position:fixed; left:50%; bottom:14px; z-index:60; width:min(94%,402px); transform:translate(-50%,130%); transition:transform .38s cubic-bezier(.2,.9,.25,1.15); max-height:80vh; overflow-y:auto;}
+.hoja{position:fixed; left:50%; bottom:14px; z-index:2010; width:min(94%,402px); transform:translate(-50%,130%); transition:transform .38s cubic-bezier(.2,.9,.25,1.15); max-height:80vh; overflow-y:auto;}
 .hoja.activo{transform:translate(-50%,0%);}
 .hoja-grupo{background:rgba(255,255,255,0.85); backdrop-filter:blur(26px) saturate(180%); border-radius:20px; overflow:hidden; margin-bottom:8px; box-shadow:0 20px 40px -12px rgba(26,11,51,0.35);}
 .hoja-persona{display:flex; align-items:center; gap:10px; padding:14px 16px; border-bottom:1px solid rgba(91,33,182,0.12);}

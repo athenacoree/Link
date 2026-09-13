@@ -101,17 +101,27 @@
   <!-- ---------- CONTACTOS / AMIGOS ---------- -->
   <main class="vista-app" id="vistaContactos" data-vista="contactos">
     <div class="titulo-vista">Contactos</div>
+    <div class="caja-busqueda" style="margin-bottom:10px;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      <input type="text" id="inputBuscarContactos" placeholder="Filtrar por nombre o ciudad…">
+    </div>
     <div class="sub-tabs">
       <div class="sub-tab activo" data-sub="amigos">Amigos</div>
+      <div class="sub-tab" data-sub="favoritos">Favoritos ⭐</div>
       <div class="sub-tab" data-sub="solicitudes">Solicitudes</div>
     </div>
     <div class="feed" id="listaAmigos"></div>
+    <div class="feed oculto" id="listaFavoritos"></div>
     <div class="feed oculto" id="listaSolicitudes"></div>
   </main>
 
   <!-- ---------- MENSAJES ---------- -->
   <main class="vista-app" id="vistaMensajes" data-vista="mensajes">
     <div class="titulo-vista">Mensajes</div>
+    <div class="caja-busqueda" style="margin-bottom:10px;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      <input type="text" id="inputBuscarChats" placeholder="Buscar conversación por nombre o texto…">
+    </div>
     <div class="lista-conversaciones" id="listaConversaciones"></div>
   </main>
 
@@ -148,6 +158,16 @@
       </div>
     </div>
     <div class="tarjeta-ajustes">
+      <div class="fila-ajustes" id="btnAbrirConfiguraciones">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
+        <div class="txt">Configuraciones de la cuenta (10 Opciones)</div>
+        <div class="chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></div>
+      </div>
+      <div class="fila-ajustes" id="btnCodigoQR">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        <div class="txt">Mi Código QR de Perfil</div>
+        <div class="chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></div>
+      </div>
       <div class="fila-ajustes" id="btnModoOscuro">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/></svg>
         <div class="txt">Modo oscuro</div>
@@ -373,8 +393,9 @@
 
   <div class="compositor oculto" id="p-compositor" style="margin:0 20px 16px;">
     <div class="compositor-fila">
-      <textarea id="pCompTexto" placeholder="¿Qué está pasando?" rows="1"></textarea>
+      <textarea id="pCompTexto" placeholder="¿Qué está pasando?" rows="2"></textarea>
     </div>
+    <div style="font-size:11px; color:var(--texto-500); text-align:right; margin-top:2px;" id="pCompCount">0 / 280</div>
     <img class="compositor-preview" id="pCompPreview">
     <div class="compositor-acciones">
       <div style="display:flex; align-items:center; gap:10px;">
@@ -392,7 +413,14 @@
     </div>
   </div>
 
-  <div class="seccion-titulo">Publicaciones</div>
+  <div style="display:flex; align-items:center; justify-content:space-between; padding:0 20px 10px;">
+    <div class="seccion-titulo" style="padding:0;">Publicaciones</div>
+    <select id="pFiltroVisibilidadFeed" style="font-size:11.5px; padding:4px 8px; border-radius:8px; border:1px solid var(--linea); background:var(--blanco); color:var(--morado-700); font-weight:700;">
+      <option value="todas">Todas</option>
+      <option value="fotos">Solo Fotos 📷</option>
+      <option value="amigos">Solo Amigos 👥</option>
+    </select>
+  </div>
   <div class="feed" id="p-publicaciones" style="padding:0 20px 30px;"></div>
 </div>
 
@@ -591,7 +619,15 @@
 <div class="hoja" id="hojaEstado" style="bottom:20px;">
   <div class="hoja-grupo">
     <div class="hoja-form">
-      <div class="campo"><label>Tu estado</label><textarea id="nuevoEstadoTexto" rows="2" placeholder="¿Qué está pasando? (dura 24h)"></textarea></div>
+      <div class="campo"><label>Tu estado</label><textarea id="nuevoEstadoTexto" rows="2" placeholder="¿Qué está pasando?"></textarea></div>
+      <div class="campo">
+        <label>Duración del estado</label>
+        <select id="nuevoEstadoDuracion">
+          <option value="12">12 horas</option>
+          <option value="24" selected>24 horas (Predeterminado)</option>
+          <option value="48">48 horas</option>
+        </select>
+      </div>
       <img class="compositor-preview" id="estadoPreview">
       <label class="compositor-adjuntar" style="margin-top:8px; display:inline-flex;">
         <input type="file" accept="image/*" id="estadoImagenInput" style="display:none">
@@ -602,6 +638,85 @@
     </div>
   </div>
   <div class="hoja-cancelar" id="cerrarEstado">Cancelar</div>
+</div>
+
+<!-- ---------- Modal de 10 Configuraciones del Usuario ---------- -->
+<div class="velo" id="veloConfiguraciones"></div>
+<div class="hoja" id="hojaConfiguraciones" style="bottom:20px; max-height:85vh;">
+  <div class="hoja-grupo">
+    <div class="hoja-persona"><span style="font-weight:700; color:var(--morado-700); font-size:16px;">Configuraciones de la Cuenta</span></div>
+    <div class="hoja-form" style="max-height:65vh; overflow-y:auto;">
+      <div class="campo">
+        <label>1. Privacidad del Perfil</label>
+        <select id="cfgPrivacyProfile">
+          <option value="public">Público (Todos pueden ver mi perfil)</option>
+          <option value="friends">Solo Amigos</option>
+        </select>
+      </div>
+      <div class="campo">
+        <label>2. Solicitudes de Amistad</label>
+        <select id="cfgPrivacyRequests">
+          <option value="everyone">Permitir de todos</option>
+          <option value="nobody">Nadie</option>
+        </select>
+      </div>
+      <div class="campo" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+        <span style="font-size:13px; font-weight:700;">3. Mostrar estado "En línea"</span>
+        <div class="interruptor" id="swShowOnline"><div class="bola"></div></div>
+      </div>
+      <div class="campo" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+        <span style="font-size:13px; font-weight:700;">4. Sonidos de notificación</span>
+        <div class="interruptor" id="swNotifSounds"><div class="bola"></div></div>
+      </div>
+      <div class="campo" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+        <span style="font-size:13px; font-weight:700;">5. Confirmaciones de lectura (Visto en Chat)</span>
+        <div class="interruptor" id="swReadReceipts"><div class="bola"></div></div>
+      </div>
+      <div class="campo" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+        <span style="font-size:13px; font-weight:700;">6. Autoreproducir notas de voz</span>
+        <div class="interruptor" id="swAutoplayVoice"><div class="bola"></div></div>
+      </div>
+      <div class="campo">
+        <label>7. Tamaño de letra / Densidad visual</label>
+        <select id="cfgVisualDensity">
+          <option value="normal">Normal (Estándar)</option>
+          <option value="grande">Grande (Accesibilidad)</option>
+        </select>
+      </div>
+      <div class="campo">
+        <label>8. Duración predeterminada de Historias</label>
+        <select id="cfgDefaultStoryDur">
+          <option value="12">12 horas</option>
+          <option value="24" selected>24 horas</option>
+          <option value="48">48 horas</option>
+        </select>
+      </div>
+      <div class="campo" style="margin-top:10px;">
+        <label>9. Memoria Caché Local</label>
+        <div class="btn btn-secundario" id="btnLimpiarCache" style="width:100%; font-size:13px;">Limpiar caché de la app</div>
+      </div>
+      <div class="campo" style="margin-top:10px;">
+        <label>10. Copia de Seguridad Personal</label>
+        <div class="btn btn-primario" id="btnExportarMisDatos" style="width:100%; font-size:13px;">Descargar mis datos (.json)</div>
+      </div>
+      <div class="btn btn-primario" id="btnGuardarConfiguraciones" style="width:100%; margin-top:14px;">Guardar preferencias</div>
+    </div>
+  </div>
+  <div class="hoja-cancelar" id="cerrarConfiguraciones">Cerrar</div>
+</div>
+
+<!-- ---------- Modal Código QR de Perfil ---------- -->
+<div class="velo" id="veloQR"></div>
+<div class="hoja" id="hojaQR" style="bottom:20px;">
+  <div class="hoja-grupo" style="text-align:center; padding:20px;">
+    <div style="font-size:18px; font-weight:800; color:var(--morado-700); margin-bottom:6px;" id="qrTitulo">Mi Código QR</div>
+    <div style="font-size:13px; color:var(--texto-500); margin-bottom:16px;" id="qrSub">Escanea para abrir mi perfil en Link</div>
+    <div id="contenedorQR" style="width:180px; height:180px; margin:0 auto; background:var(--blanco); border:3px solid var(--morado-600); border-radius:18px; display:flex; align-items:center; justify-content:center; padding:12px; box-shadow:0 8px 20px rgba(91,33,182,0.2);">
+      <svg width="150" height="180" viewBox="0 0 24 24" fill="none" stroke="var(--morado-700)" stroke-width="1.8"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><circle cx="12" cy="12" r="2"/></svg>
+    </div>
+    <div style="font-size:14px; font-weight:700; margin-top:12px;" id="qrUsername">@usuario</div>
+  </div>
+  <div class="hoja-cancelar" id="cerrarQR">Cerrar</div>
 </div>
 
 <!-- ---------- Ver estado de un usuario ---------- -->

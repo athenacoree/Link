@@ -77,7 +77,8 @@ const Chat = (() => {
 
     if (msg.audioData) {
       html += `<div style="display:flex; align-items:center; gap:8px; margin-top:4px;">
-        <audio controls src="${msg.audioData}" style="max-width:200px; height:36px;"></audio>
+        <audio controls src="${msg.audioData}" style="max-width:180px; height:36px;"></audio>
+        <div class="mini-btn secundario" style="padding:4px 7px; font-size:11px; cursor:pointer;" onclick="Chat.alternarVelocidadAudio(this)">1x</div>
       </div>`;
     }
 
@@ -413,6 +414,15 @@ const Chat = (() => {
 
     // Opciones del Menú Mensaje
     $('cerrarMensajeOp')?.addEventListener('click', cerrarMenuMensaje);
+    $('opMsgFijar')?.addEventListener('click', async () => {
+      cerrarMenuMensaje();
+      if (mensajeSeleccionado) {
+        try {
+          const res = await api(`/mensajes/fijar/${mensajeSeleccionado.id}`, { method: 'POST' });
+          mostrarToast(res.fijado ? 'Mensaje fijado 📌' : 'Mensaje desfijado');
+        } catch (e) { mostrarToast(e.message); }
+      }
+    });
     $('veloMensajeOp')?.addEventListener('click', cerrarMenuMensaje);
     $('opMsgResponder')?.addEventListener('click', () => {
       cerrarMenuMensaje();
@@ -514,7 +524,16 @@ const Chat = (() => {
     });
   }
 
-  return { abrirConversacion, cerrarConversacion, enlazarUI, enlazarSocket, actualizarBadgeMensajes };
+  function alternarVelocidadAudio(btn) {
+    const parent = btn.parentElement;
+    const audio = parent ? parent.querySelector('audio') : null;
+    if (!audio) return;
+    if (!audio.playbackRate || audio.playbackRate === 1) { audio.playbackRate = 1.5; btn.textContent = '1.5x'; }
+    else if (audio.playbackRate === 1.5) { audio.playbackRate = 2; btn.textContent = '2x'; }
+    else { audio.playbackRate = 1; btn.textContent = '1x'; }
+  }
+
+  return { abrirConversacion, cerrarConversacion, enlazarUI, enlazarSocket, actualizarBadgeMensajes, alternarVelocidadAudio };
 })();
 
 document.addEventListener('DOMContentLoaded', () => Chat.enlazarUI());

@@ -33,11 +33,25 @@ function cerrarVisorImagen() {
 }
 window.abrirVisorImagen = abrirVisorImagen;
 
+function cerrarTodosLosModales() {
+  document.querySelectorAll('.velo.activo').forEach((el) => el.classList.remove('activo'));
+  document.querySelectorAll('.hoja.activo').forEach((el) => el.classList.remove('activo'));
+}
+window.cerrarTodosLosModales = cerrarTodosLosModales;
+
 document.addEventListener('DOMContentLoaded', () => {
   $('cerrarVisorImagen')?.addEventListener('click', cerrarVisorImagen);
   $('veloVisorImagen')?.addEventListener('click', cerrarVisorImagen);
   $('modalVisorImagen')?.addEventListener('click', (e) => {
     if (e.target.id === 'modalVisorImagen' || e.target.id === 'imgVisorAgrandada') cerrarVisorImagen();
+  });
+
+  // Atajo de teclado Escape (Esc)
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      cerrarVisorImagen();
+      cerrarTodosLosModales();
+    }
   });
 });
 
@@ -359,6 +373,7 @@ document.querySelectorAll('nav.tabbar .tab').forEach((tab) => {
 });
 const VISTAS_CARGADAS = new Set();
 function cambiarVista(nombre) {
+  cerrarTodosLosModales();
   if (typeof finalizarConteoPerfil === 'function') finalizarConteoPerfil();
   document.querySelectorAll('nav.tabbar .tab').forEach((t) => t.classList.toggle('activo', t.dataset.tab === nombre));
   document.querySelectorAll('.vista-app').forEach((v) => v.classList.toggle('activo', v.dataset.vista === nombre));
@@ -425,6 +440,12 @@ function renderizarPublicacionesPerfil(publicaciones, contenedorId) {
   cont.querySelectorAll('.publicacion-accion[data-accion="like"]').forEach((btn) => {
     btn.addEventListener('click', () => alternarLike(btn.dataset.id));
   });
+  cont.querySelectorAll('.btn-emoji-reaccionar').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      alternarEmojiPost(btn.dataset.id, btn.dataset.emoji);
+    });
+  });
   cont.querySelectorAll('.publicacion-accion[data-accion="comentar"]').forEach((btn) => {
     btn.addEventListener('click', () => alternarComentarios(btn.dataset.id));
   });
@@ -457,6 +478,14 @@ function pintarPublicacion(p) {
           <div class="mini-btn secundario" onclick="editarPublicacionAccion('${p.id}', ${JSON.stringify(p.text || '').replace(/"/g, '&quot;')})">Editar</div>
           <div class="mini-btn peligro" onclick="borrarPublicacionAccion('${p.id}')">Borrar</div>
         </div>` : ''}
+      <div style="display:flex; justify-content:space-around; padding:6px 10px; background:var(--hueso); border-top:1px solid var(--linea); font-size:16px;">
+        <span class="btn-emoji-reaccionar" data-id="${p.id}" data-emoji="👍" style="cursor:pointer;" title="Me gusta">👍</span>
+        <span class="btn-emoji-reaccionar" data-id="${p.id}" data-emoji="❤️" style="cursor:pointer;" title="Me encanta">❤️</span>
+        <span class="btn-emoji-reaccionar" data-id="${p.id}" data-emoji="😂" style="cursor:pointer;" title="Me meo de risa">😂</span>
+        <span class="btn-emoji-reaccionar" data-id="${p.id}" data-emoji="😮" style="cursor:pointer;" title="Me asombra">😮</span>
+        <span class="btn-emoji-reaccionar" data-id="${p.id}" data-emoji="😢" style="cursor:pointer;" title="Me entristece">😢</span>
+        <span class="btn-emoji-reaccionar" data-id="${p.id}" data-emoji="🔥" style="cursor:pointer;" title="Fuego">🔥</span>
+      </div>
       <div class="publicacion-acciones">
         <div class="publicacion-accion ${p.me_gusta ? 'activo' : ''}" data-accion="like" data-id="${p.id}">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="${p.me_gusta ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z"/></svg>
@@ -491,7 +520,14 @@ async function alternarLike(postId) {
     const btn = document.querySelector(`.publicacion-accion[data-id="${postId}"][data-accion="like"]`);
     if (btn) btn.classList.toggle('activo', me_gusta);
     const span = $(`likes-${postId}`);
-    if (span) span.textContent = parseInt(span.textContent) + (me_gusta ? 1 : -1);
+    if (span) span.textContent = parseInt(span.textContent || '0') + (me_gusta ? 1 : -1);
+  } catch (e) { mostrarToast(e.message); }
+}
+
+async function alternarEmojiPost(postId, emoji) {
+  try {
+    const res = await api(`/publicaciones/${postId}/reaccion-emoji`, { method: 'POST', body: { emoji } });
+    mostrarToast(res.reaccion ? `Reaccionaste con ${res.reaccion}` : 'Reacción quitada');
   } catch (e) { mostrarToast(e.message); }
 }
 
@@ -662,9 +698,10 @@ $('estadoImagenInput').addEventListener('change', async (e) => {
 });
 $('btnPublicarEstado').addEventListener('click', async () => {
   const texto = $('nuevoEstadoTexto').value.trim();
+  const duration_hours = parseInt($('nuevoEstadoDuracion')?.value || '24');
   if (!texto && !estadoImagenBase64) { mostrarToast('Escribe algo para tu estado.'); return; }
   try {
-    await api('/estados', { method: 'POST', body: { text: texto, image_base64: estadoImagenBase64 } });
+    await api('/estados', { method: 'POST', body: { text: texto, image_base64: estadoImagenBase64, duration_hours } });
     $('nuevoEstadoTexto').value = ''; estadoImagenBase64 = null;
     $('estadoPreview').classList.remove('activo'); $('estadoPreview').src = '';
     $('veloEstado').classList.remove('activo'); $('hojaEstado').classList.remove('activo');
@@ -1097,7 +1134,7 @@ async function abrirPerfil(personaId) {
     $('vistaPerfil').classList.add('activo');
   } catch (e) { mostrarToast(e.message); }
 }
-$('p-volver').addEventListener('click', () => { finalizarConteoPerfil(); $('vistaPerfil').classList.remove('activo'); });
+$('p-volver').addEventListener('click', () => { cerrarTodosLosModales(); finalizarConteoPerfil(); $('vistaPerfil').classList.remove('activo'); });
 $('btnVerMiPerfil').addEventListener('click', () => abrirPerfil(Sesion.usuario().id));
 
 function pintarBotonAmistad(estado, deMi) {
@@ -1142,19 +1179,50 @@ async function verificarContactoReal(persona) {
 }
 
 /* ================= CONTACTOS ================= */
+let listaAmigosGlobal = [];
 document.querySelectorAll('#vistaContactos .sub-tab').forEach((tab) => {
   tab.addEventListener('click', () => {
     document.querySelectorAll('#vistaContactos .sub-tab').forEach((t) => t.classList.toggle('activo', t === tab));
-    $('listaAmigos').classList.toggle('oculto', tab.dataset.sub !== 'amigos');
-    $('listaSolicitudes').classList.toggle('oculto', tab.dataset.sub !== 'solicitudes');
+    const sub = tab.dataset.sub;
+    $('listaAmigos').classList.toggle('oculto', sub !== 'amigos');
+    $('listaFavoritos').classList.toggle('oculto', sub !== 'favoritos');
+    $('listaSolicitudes').classList.toggle('oculto', sub !== 'solicitudes');
   });
 });
+
+$('inputBuscarContactos')?.addEventListener('input', (e) => {
+  const q = e.target.value.trim().toLowerCase();
+  const filtrados = listaAmigosGlobal.filter(a =>
+    (a.name || '').toLowerCase().includes(q) || (a.city || '').toLowerCase().includes(q)
+  );
+  pintarListaPersonas(filtrados.map((a) => ({ ...a, estado_amistad: 'amigos' })), 'listaAmigos');
+});
+
+async function alternarFavoritoAmigo(personaId) {
+  try {
+    const res = await api(`/amigos/${personaId}/favorito`, { method: 'POST' });
+    mostrarToast(res.es_favorito ? 'Añadido a favoritos ⭐' : 'Quitado de favoritos');
+    cargarAmigosYSolicitudes();
+  } catch (e) { mostrarToast(e.message); }
+}
+window.alternarFavoritoAmigo = alternarFavoritoAmigo;
 
 async function cargarAmigosYSolicitudes() {
   try {
     const { amigos } = await api('/amigos');
-    if (!amigos.length) $('listaAmigos').innerHTML = '<div class="aviso-vacio">Todavía no tienes amigos agregados. Ve a "Buscar" para encontrar personas.</div>';
-    else pintarListaPersonas(amigos.map((a) => ({ ...a, estado_amistad: 'amigos' })), 'listaAmigos');
+    listaAmigosGlobal = amigos || [];
+    if (!amigos.length) {
+      $('listaAmigos').innerHTML = '<div class="aviso-vacio">Todavía no tienes amigos agregados. Ve a "Buscar" para encontrar personas.</div>';
+      $('listaFavoritos').innerHTML = '<div class="aviso-vacio">No tienes amigos marcados como favoritos.</div>';
+    } else {
+      pintarListaPersonas(amigos.map((a) => ({ ...a, estado_amistad: 'amigos' })), 'listaAmigos');
+      const favs = amigos.filter(a => a.is_favorite);
+      if (favs.length) {
+        pintarListaPersonas(favs.map((a) => ({ ...a, estado_amistad: 'amigos' })), 'listaFavoritos');
+      } else {
+        $('listaFavoritos').innerHTML = '<div class="aviso-vacio">No tienes amigos marcados como favoritos ⭐</div>';
+      }
+    }
   } catch (e) { $('listaAmigos').innerHTML = `<div class="aviso-vacio">${e.message}</div>`; }
 
   try {
@@ -1215,15 +1283,28 @@ function adjuntarListenersConversaciones() {
   });
 }
 
+let listaConversacionesGlobal = [];
+
+$('inputBuscarChats')?.addEventListener('input', (e) => {
+  const q = e.target.value.trim().toLowerCase();
+  const filtradas = listaConversacionesGlobal.filter(c =>
+    (c.otro_nombre || '').toLowerCase().includes(q) || (c.last_message_preview || '').toLowerCase().includes(q)
+  );
+  $('listaConversaciones').innerHTML = renderizarConversacionesHTML(filtradas);
+  adjuntarListenersConversaciones();
+});
+
 async function cargarConversaciones() {
   const cachedConvs = await LocalStore.obtenerLista('conversaciones', 'mis_conversaciones');
   if (cachedConvs && cachedConvs.length) {
+    listaConversacionesGlobal = cachedConvs;
     $('listaConversaciones').innerHTML = renderizarConversacionesHTML(cachedConvs);
     adjuntarListenersConversaciones();
   }
 
   try {
     const { conversaciones } = await api('/mensajes');
+    listaConversacionesGlobal = conversaciones || [];
     Chat.actualizarBadgeMensajes(false);
     $('listaConversaciones').innerHTML = renderizarConversacionesHTML(conversaciones);
     adjuntarListenersConversaciones();
@@ -1321,6 +1402,121 @@ $('btnGuardarPerfil').addEventListener('click', async () => {
     cargarEstados();
     if (perfilActualId === user.id) abrirPerfil(user.id);
   } catch (e) { mostrarToast(e.message); }
+});
+
+/* ================= MODAL DE 10 CONFIGURACIONES ================= */
+function alternarSwitch(id, activo) {
+  const el = $(id);
+  if (!el) return;
+  if (activo !== undefined) el.classList.toggle('activo', !!activo);
+  else el.classList.toggle('activo');
+}
+
+function esSwitchActivo(id) {
+  return $(id)?.classList.contains('activo') || false;
+}
+
+$('swShowOnline')?.addEventListener('click', () => alternarSwitch('swShowOnline'));
+$('swNotifSounds')?.addEventListener('click', () => alternarSwitch('swNotifSounds'));
+$('swReadReceipts')?.addEventListener('click', () => alternarSwitch('swReadReceipts'));
+$('swAutoplayVoice')?.addEventListener('click', () => alternarSwitch('swAutoplayVoice'));
+
+$('btnAbrirConfiguraciones')?.addEventListener('click', () => {
+  const u = Sesion.usuario();
+  const cfg = u.settings || {};
+  if ($('cfgPrivacyProfile')) $('cfgPrivacyProfile').value = cfg.privacy_profile || 'public';
+  if ($('cfgPrivacyRequests')) $('cfgPrivacyRequests').value = cfg.privacy_requests || 'everyone';
+  alternarSwitch('swShowOnline', cfg.show_online_status !== false);
+  alternarSwitch('swNotifSounds', cfg.notification_sounds !== false);
+  alternarSwitch('swReadReceipts', cfg.read_receipts !== false);
+  alternarSwitch('swAutoplayVoice', cfg.autoplay_voice_notes === true);
+  if ($('cfgVisualDensity')) $('cfgVisualDensity').value = cfg.visual_density || 'normal';
+  if ($('cfgDefaultStoryDur')) $('cfgDefaultStoryDur').value = cfg.default_story_duration || 24;
+
+  $('veloConfiguraciones').classList.add('activo');
+  $('hojaConfiguraciones').classList.add('activo');
+});
+
+$('cerrarConfiguraciones')?.addEventListener('click', () => {
+  $('veloConfiguraciones').classList.remove('activo');
+  $('hojaConfiguraciones').classList.remove('activo');
+});
+$('veloConfiguraciones')?.addEventListener('click', () => {
+  $('veloConfiguraciones').classList.remove('activo');
+  $('hojaConfiguraciones').classList.remove('activo');
+});
+
+$('btnGuardarConfiguraciones')?.addEventListener('click', async () => {
+  try {
+    const settings = {
+      privacy_profile: $('cfgPrivacyProfile')?.value || 'public',
+      privacy_requests: $('cfgPrivacyRequests')?.value || 'everyone',
+      show_online_status: esSwitchActivo('swShowOnline'),
+      notification_sounds: esSwitchActivo('swNotifSounds'),
+      read_receipts: esSwitchActivo('swReadReceipts'),
+      autoplay_voice_notes: esSwitchActivo('swAutoplayVoice'),
+      visual_density: $('cfgVisualDensity')?.value || 'normal',
+      default_story_duration: parseInt($('cfgDefaultStoryDur')?.value || '24'),
+    };
+    const { user } = await api('/usuarios/me/configuraciones', { method: 'PUT', body: settings });
+    Sesion.actualizarUsuario(user);
+    mostrarToast('Configuraciones guardadas correctamente');
+    $('veloConfiguraciones').classList.remove('activo');
+    $('hojaConfiguraciones').classList.remove('activo');
+  } catch (e) { mostrarToast(e.message); }
+});
+
+// Limpieza de caché local
+$('btnLimpiarCache')?.addEventListener('click', async () => {
+  if (!confirm('¿Limpiar la memoria caché local de la aplicación?')) return;
+  try {
+    const token = Sesion.token();
+    const user = Sesion.usuario();
+    localStorage.clear();
+    if (token && user) {
+      Sesion.guardar(token, user);
+    }
+    mostrarToast('Caché local de la app limpiada ✓');
+  } catch (e) { mostrarToast('Error al limpiar caché.'); }
+});
+
+// Exportación de datos personales (.json)
+$('btnExportarMisDatos')?.addEventListener('click', () => {
+  const token = Sesion.token();
+  window.open(`/api/usuarios/me/exportar-datos?token=${encodeURIComponent(token)}`, '_blank');
+});
+
+/* ================= MODAL CÓDIGO QR ================= */
+$('btnCodigoQR')?.addEventListener('click', () => {
+  const u = Sesion.usuario();
+  if ($('qrUsername')) $('qrUsername').textContent = `@${u.username || u.name}`;
+  if ($('qrTitulo')) $('qrTitulo').textContent = `Código QR de ${u.name}`;
+  $('veloQR').classList.add('activo');
+  $('hojaQR').classList.add('activo');
+});
+$('cerrarQR')?.addEventListener('click', () => {
+  $('veloQR').classList.remove('activo');
+  $('hojaQR').classList.remove('activo');
+});
+$('veloQR')?.addEventListener('click', () => {
+  $('veloQR').classList.remove('activo');
+  $('hojaQR').classList.remove('activo');
+});
+
+// Contador de caracteres y Borrador en Compositor
+$('pCompTexto')?.addEventListener('input', (e) => {
+  const txt = e.target.value;
+  if ($('pCompCount')) $('pCompCount').textContent = `${txt.length} / 280`;
+  localStorage.setItem('enlace_draft_post', txt);
+});
+
+// Restaurar borrador si existe
+document.addEventListener('DOMContentLoaded', () => {
+  const draft = localStorage.getItem('enlace_draft_post');
+  if (draft && $('pCompTexto')) {
+    $('pCompTexto').value = draft;
+    if ($('pCompCount')) $('pCompCount').textContent = `${draft.length} / 280`;
+  }
 });
 
 $('btnCerrarSesion').addEventListener('click', () => {

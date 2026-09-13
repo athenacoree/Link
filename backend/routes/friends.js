@@ -3,6 +3,7 @@ const { query } = require('../db/postgres');
 const { requireAuth } = require('../middleware/auth');
 const { publicUser } = require('../utils/serialize');
 const { emitToUser } = require('../utils/realtime');
+const { isUUID } = require('../utils/validation');
 const { registrarSenal } = require('../utils/recomendaciones');
 
 const router = express.Router();
@@ -23,6 +24,7 @@ async function crearNotificacion({ user_id, actor_id, type, text, data }) {
 // ---- Enviar solicitud de amistad ----
 router.post('/:id/solicitar', requireAuth, async (req, res) => {
   const otherId = req.params.id;
+  if (!isUUID(otherId)) return res.status(400).json({ error: 'ID de usuario no válido.' });
   if (otherId === req.userId) return res.status(400).json({ error: 'No puedes agregarte a ti mismo.' });
 
   const bloqueo = await query(
@@ -64,6 +66,7 @@ router.post('/:id/solicitar', requireAuth, async (req, res) => {
 // ---- Aceptar / rechazar ----
 router.post('/:id/responder', requireAuth, async (req, res) => {
   const otherId = req.params.id;
+  if (!isUUID(otherId)) return res.status(400).json({ error: 'ID de usuario no válido.' });
   const { aceptar } = req.body;
   const [a, b] = ordenar(req.userId, otherId);
 
@@ -103,19 +106,33 @@ router.post('/:id/responder', requireAuth, async (req, res) => {
 // ---- Mis amigos ----
 router.get('/', requireAuth, async (req, res) => {
   const { rows } = await query(
-    `SELECT u.*, f.status, f.requested_by
+    `SELECT u.*, f.status, f.requested_by, f.is_favorite
        FROM friendships f
        JOIN users u ON u.id = (CASE WHEN f.user_a = $1 THEN f.user_b ELSE f.user_a END)
       WHERE (f.user_a = $1 OR f.user_b = $1) AND f.status='amigos'
-      ORDER BY u.name ASC`,
+      ORDER BY f.is_favorite DESC, u.name ASC`,
     [req.userId]
   );
-  res.json({ amigos: rows.map(publicUser) });
+  res.json({ amigos: rows.map((r) => ({ ...publicUser(r), is_favorite: !!r.is_favorite })) });
+});
+
+// ---- Marcar / desmarcar como favorito ----
+router.post('/:id/favorito', requireAuth, async (req, res) => {
+  const otherId = req.params.id;
+  if (!isUUID(otherId)) return res.status(400).json({ error: 'ID de usuario no válido.' });
+  const [a, b] = ordenar(req.userId, otherId);
+  const existing = await query('SELECT is_favorite FROM friendships WHERE user_a=$1 AND user_b=$2 AND status=\'amigos\'', [a, b]);
+  if (!existing.rows.length) return res.status(404).json({ error: 'No son amigos.' });
+
+  const nuevoFav = !existing.rows[0].is_favorite;
+  await query('UPDATE friendships SET is_favorite=$1 WHERE user_a=$2 AND user_b=$3', [nuevoFav, a, b]);
+  res.json({ es_favorito: nuevoFav });
 });
 
 // ---- Eliminar a alguien de mis amigos ----
 router.delete('/:id', requireAuth, async (req, res) => {
   const otherId = req.params.id;
+  if (!isUUID(otherId)) return res.status(400).json({ error: 'ID de usuario no válido.' });
   const [a, b] = ordenar(req.userId, otherId);
   const existing = await query('SELECT * FROM friendships WHERE user_a=$1 AND user_b=$2 AND status=\'amigos\'', [a, b]);
   if (!existing.rows.length) return res.status(404).json({ error: 'No eran amigos.' });
