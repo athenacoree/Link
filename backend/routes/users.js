@@ -122,9 +122,9 @@ router.get('/:id', requireAuth, async (req, res) => {
 
   if (req.params.id !== req.userId) {
     registrarSenal(req.userId, req.params.id, 'perfil_visto', 2);
-    await query('INSERT INTO profile_views (profile_id, viewer_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [req.params.id, req.userId]).catch(() => {});
-    const countRes = await query('SELECT COUNT(*) FROM profile_views WHERE profile_id = $1', [req.params.id]);
-    const newViews = parseInt(countRes.rows[0].count) || 0;
+    await query('INSERT INTO profile_views (profile_id, viewed_id, viewer_id) VALUES ($1,$1,$2) ON CONFLICT DO NOTHING', [req.params.id, req.userId]).catch(() => {});
+    const countRes = await query('SELECT COUNT(*) FROM profile_views WHERE profile_id = $1 OR viewed_id = $1', [req.params.id]).catch(() => ({ rows: [{ count: '0' }] }));
+    const newViews = parseInt(countRes.rows[0]?.count || '0') || 0;
     user.views_count = newViews;
     query('UPDATE users SET views_count = $1 WHERE id = $2', [newViews, req.params.id]).catch(() => {});
   }

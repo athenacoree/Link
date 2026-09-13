@@ -36,6 +36,13 @@ CREATE INDEX IF NOT EXISTS idx_post_emoji_reactions_post ON post_emoji_reactions
 ALTER TABLE post_comments ADD COLUMN IF NOT EXISTS parent_id UUID DEFAULT NULL REFERENCES post_comments(id) ON DELETE CASCADE;
 
 -- ---------- Mensajes Fijados y Silenciar Conversaciones ----------
+CREATE TABLE IF NOT EXISTS conversations (
+  id TEXT PRIMARY KEY,
+  pinned_message_id UUID DEFAULT NULL REFERENCES messages(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 ALTER TABLE conversations ADD COLUMN IF NOT EXISTS pinned_message_id UUID DEFAULT NULL REFERENCES messages(id) ON DELETE SET NULL;
 
 CREATE TABLE IF NOT EXISTS muted_conversations (
