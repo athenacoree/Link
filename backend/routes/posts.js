@@ -2,6 +2,7 @@ const express = require('express');
 const { query } = require('../db/postgres');
 const { requireAuth } = require('../middleware/auth');
 const { emitToUser } = require('../utils/realtime');
+const { isUUID } = require('../utils/validation');
 const { registrarSenal } = require('../utils/recomendaciones');
 
 const router = express.Router();
@@ -9,6 +10,7 @@ const MAX_IMAGE_LEN = 1_800_000;
 
 // ---- Editar una publicación ----
 router.put('/:id', requireAuth, async (req, res) => {
+  if (!isUUID(req.params.id)) return res.status(400).json({ error: 'ID de publicación no válido.' });
   const post = await query('SELECT * FROM posts WHERE id=$1', [req.params.id]);
   if (!post.rows.length) return res.status(404).json({ error: 'Publicación no encontrada.' });
   const esDueno = post.rows[0].user_id === req.userId;
@@ -34,6 +36,7 @@ router.put('/:id', requireAuth, async (req, res) => {
 
 // ---- Borrar una publicación ----
 router.delete('/:id', requireAuth, async (req, res) => {
+  if (!isUUID(req.params.id)) return res.status(400).json({ error: 'ID de publicación no válido.' });
   const post = await query('SELECT * FROM posts WHERE id=$1', [req.params.id]);
   if (!post.rows.length) return res.status(404).json({ error: 'Publicación no encontrada.' });
   const esDueno = post.rows[0].user_id === req.userId;
@@ -57,6 +60,7 @@ router.post('/', requireAuth, async (req, res) => {
 
 // ---- Guardar / Marcar publicación como favorita ----
 router.post('/:id/guardar', requireAuth, async (req, res) => {
+  if (!isUUID(req.params.id)) return res.status(400).json({ error: 'ID de publicación no válido.' });
   const post = await query('SELECT * FROM posts WHERE id=$1', [req.params.id]);
   if (!post.rows.length) return res.status(404).json({ error: 'Publicación no encontrada.' });
 
@@ -112,6 +116,7 @@ router.get('/feed', requireAuth, async (req, res) => {
 
 // ---- Dar/quitar like ----
 router.post('/:id/like', requireAuth, async (req, res) => {
+  if (!isUUID(req.params.id)) return res.status(400).json({ error: 'ID de publicación no válido.' });
   const post = await query('SELECT * FROM posts WHERE id=$1', [req.params.id]);
   if (!post.rows.length) return res.status(404).json({ error: 'Publicación no encontrada.' });
 
@@ -133,16 +138,41 @@ router.post('/:id/like', requireAuth, async (req, res) => {
   res.json({ me_gusta: true });
 });
 
-// ---- Comentar ----
+// ---- Reacción Multiemoji en Publicación ----
+router.post('/:id/reaccion-emoji', requireAuth, async (req, res) => {
+  if (!isUUID(req.params.id)) return res.status(400).json({ error: 'ID de publicación no válido.' });
+  const { emoji } = req.body;
+  const emojiValido = (emoji || '👍').trim();
+  const post = await query('SELECT * FROM posts WHERE id=$1', [req.params.id]);
+  if (!post.rows.length) return res.status(404).json({ error: 'Publicación no encontrada.' });
+
+  const existing = await query('SELECT emoji FROM post_emoji_reactions WHERE post_id=$1 AND user_id=$2', [req.params.id, req.userId]);
+  if (existing.rows.length && existing.rows[0].emoji === emojiValido) {
+    await query('DELETE FROM post_emoji_reactions WHERE post_id=$1 AND user_id=$2', [req.params.id, req.userId]);
+    return res.json({ reaccion: null });
+  }
+
+  await query(
+    `INSERT INTO post_emoji_reactions (post_id, user_id, emoji) VALUES ($1,$2,$3)
+     ON CONFLICT (post_id, user_id) DO UPDATE SET emoji=$3, created_at=now()`,
+    [req.params.id, req.userId, emojiValido]
+  );
+  res.json({ reaccion: emojiValido });
+});
+
+// ---- Comentar / Responder a comentario ----
 router.post('/:id/comentarios', requireAuth, async (req, res) => {
-  const { text } = req.body;
+  if (!isUUID(req.params.id)) return res.status(400).json({ error: 'ID de publicación no válido.' });
+  const { text, parent_id } = req.body;
   if (!text || !text.trim()) return res.status(400).json({ error: 'El comentario no puede estar vacío.' });
   const post = await query('SELECT * FROM posts WHERE id=$1', [req.params.id]);
   if (!post.rows.length) return res.status(404).json({ error: 'Publicación no encontrada.' });
 
+  const parentId = isUUID(parent_id) ? parent_id : null;
+
   const { rows } = await query(
-    `INSERT INTO post_comments (post_id, user_id, text) VALUES ($1,$2,$3) RETURNING *`,
-    [req.params.id, req.userId, text.trim()]
+    `INSERT INTO post_comments (post_id, user_id, text, parent_id) VALUES ($1,$2,$3,$4) RETURNING *`,
+    [req.params.id, req.userId, text.trim(), parentId]
   );
 
   if (post.rows[0].user_id !== req.userId) {
@@ -159,9 +189,14 @@ router.post('/:id/comentarios', requireAuth, async (req, res) => {
 });
 
 router.get('/:id/comentarios', requireAuth, async (req, res) => {
+  if (!isUUID(req.params.id)) return res.status(400).json({ error: 'ID de publicación no válido.' });
   const { rows } = await query(
-    `SELECT c.*, u.name AS autor_nombre, u.avatar_data AS autor_avatar
-       FROM post_comments c JOIN users u ON u.id = c.user_id
+    `SELECT c.*, u.name AS autor_nombre, u.avatar_data AS autor_avatar,
+            pu.name AS parent_autor_nombre
+       FROM post_comments c
+       JOIN users u ON u.id = c.user_id
+  LEFT JOIN post_comments pc ON pc.id = c.parent_id
+  LEFT JOIN users pu ON pu.id = pc.user_id
       WHERE c.post_id = $1 ORDER BY c.created_at ASC`,
     [req.params.id]
   );

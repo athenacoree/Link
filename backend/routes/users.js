@@ -3,6 +3,7 @@ const { query } = require('../db/postgres');
 const { requireAuth } = require('../middleware/auth');
 const { publicUser } = require('../utils/serialize');
 const { obtenerReputacion } = require('../utils/reputacion');
+const { isUUID } = require('../utils/validation');
 const {
   registrarSenal, registrarSenalBusqueda, registrarTiempoPerfil,
   construirFeedDescubrir, explicarRecomendacion,
@@ -58,8 +59,52 @@ router.get('/bloqueados', requireAuth, async (req, res) => {
   res.json({ bloqueados: rows.map(publicUser) });
 });
 
+// ---- Guardar configuraciones del usuario ----
+router.put('/me/configuraciones', requireAuth, async (req, res) => {
+  const settings = req.body;
+  if (!settings || typeof settings !== 'object') {
+    return res.status(400).json({ error: 'Configuraciones no válidas.' });
+  }
+  const { rows } = await query(
+    `UPDATE users SET settings = COALESCE(settings, '{}'::jsonb) || $1::jsonb, updated_at = now() WHERE id = $2 RETURNING *`,
+    [JSON.stringify(settings), req.userId]
+  );
+  res.json({ user: publicUser(rows[0]), settings: rows[0].settings });
+});
+
+// ---- Exportar datos personales (JSON) ----
+router.get('/me/exportar-datos', requireAuth, async (req, res) => {
+  const userRes = await query('SELECT * FROM users WHERE id=$1', [req.userId]);
+  if (!userRes.rows.length) return res.status(404).json({ error: 'Usuario no encontrado.' });
+  const me = userRes.rows[0];
+  delete me.password_hash;
+
+  const [posts, comments, friends, stories] = await Promise.all([
+    query('SELECT * FROM posts WHERE user_id=$1 ORDER BY created_at DESC', [req.userId]),
+    query('SELECT * FROM post_comments WHERE user_id=$1 ORDER BY created_at DESC', [req.userId]),
+    query('SELECT * FROM friendships WHERE user_a=$1 OR user_b=$1', [req.userId]),
+    query('SELECT * FROM stories WHERE user_id=$1 ORDER BY created_at DESC', [req.userId]),
+  ]);
+
+  const datos = {
+    exportado_en: new Date().toISOString(),
+    usuario: me,
+    publicaciones: posts.rows,
+    comentarios: comments.rows,
+    amistades: friends.rows,
+    historias: stories.rows,
+  };
+
+  res.set({
+    'Content-Type': 'application/json',
+    'Content-Disposition': `attachment; filename="enlace_mis_datos_${req.userId}.json"`,
+  });
+  return res.send(JSON.stringify(datos, null, 2));
+});
+
 // ---- Perfil de una persona concreta ----
 router.get('/:id', requireAuth, async (req, res) => {
+  if (!isUUID(req.params.id)) return res.status(400).json({ error: 'ID de usuario no válido.' });
   const { rows } = await query('SELECT * FROM users WHERE id = $1', [req.params.id]);
   if (!rows.length) return res.status(404).json({ error: 'Persona no encontrada.' });
 
@@ -121,6 +166,7 @@ router.get('/:id', requireAuth, async (req, res) => {
 
 // ---- Tiempo viendo un perfil ----
 router.post('/:id/tiempo-perfil', requireAuth, async (req, res) => {
+  if (!isUUID(req.params.id)) return res.status(400).json({ error: 'ID de usuario no válido.' });
   const segundos = Number(req.body?.segundos);
   if (req.params.id !== req.userId) {
     registrarTiempoPerfil(req.userId, req.params.id, segundos);
@@ -130,6 +176,7 @@ router.post('/:id/tiempo-perfil', requireAuth, async (req, res) => {
 
 // ---- Reacciones privadas ----
 router.put('/:id/reaccion', requireAuth, async (req, res) => {
+  if (!isUUID(req.params.id)) return res.status(400).json({ error: 'ID de usuario no válido.' });
   if (req.params.id === req.userId) {
     return res.status(400).json({ error: 'No puedes reaccionar a tu propio perfil.' });
   }
@@ -144,11 +191,13 @@ router.put('/:id/reaccion', requireAuth, async (req, res) => {
 });
 
 router.get('/:id/reaccion', requireAuth, async (req, res) => {
+  if (!isUUID(req.params.id)) return res.status(400).json({ error: 'ID de usuario no válido.' });
   const reaccion = await obtenerMiReaccion(req.userId, req.params.id);
   res.json({ reaccion: reaccion ? { tipo: reaccion.tipo, actualizada_en: reaccion.updated_at } : null });
 });
 
 router.delete('/:id/reaccion', requireAuth, async (req, res) => {
+  if (!isUUID(req.params.id)) return res.status(400).json({ error: 'ID de usuario no válido.' });
   await quitarReaccion(req.userId, req.params.id);
   res.json({ ok: true });
 });
@@ -184,6 +233,7 @@ router.put('/me/encuesta', requireAuth, async (req, res) => {
 });
 
 router.get('/:id/porque-recomendado', requireAuth, async (req, res) => {
+  if (!isUUID(req.params.id)) return res.status(400).json({ error: 'ID de usuario no válido.' });
   if (req.params.id === req.userId) {
     return res.status(400).json({ error: 'Este es tu propio perfil.' });
   }
@@ -194,6 +244,7 @@ router.get('/:id/porque-recomendado', requireAuth, async (req, res) => {
 
 // ---- Descargar vCard (.vcf) ----
 router.get('/:id/vcard', requireAuth, async (req, res) => {
+  if (!isUUID(req.params.id)) return res.status(400).json({ error: 'ID de usuario no válido.' });
   try {
     const { rows } = await query('SELECT * FROM users WHERE id = $1', [req.params.id]);
     if (!rows.length) return res.status(404).json({ error: 'Persona no encontrada.' });
@@ -219,6 +270,7 @@ router.get('/:id/vcard', requireAuth, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
 
 // ---- Editar mi perfil ----
 router.put('/me/perfil', requireAuth, async (req, res) => {
@@ -267,6 +319,7 @@ router.put('/me/portada', requireAuth, async (req, res) => {
 
 // ---- Verificación de contacto real ----
 router.post('/:id/verificar-contacto', requireAuth, async (req, res) => {
+  if (!isUUID(req.params.id)) return res.status(400).json({ error: 'ID de usuario no válido.' });
   const { coincide } = req.body;
   await query(
     `INSERT INTO contact_verifications (user_id, target_id, verified, verified_at)
