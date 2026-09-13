@@ -77,7 +77,11 @@ router.get('/:id', requireAuth, async (req, res) => {
 
   if (req.params.id !== req.userId) {
     registrarSenal(req.userId, req.params.id, 'perfil_visto', 2);
-    query('INSERT INTO profile_views (viewer_id, viewed_id) VALUES ($1,$2)', [req.userId, req.params.id]).catch(() => {});
+    await query('INSERT INTO profile_views (profile_id, viewer_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [req.params.id, req.userId]).catch(() => {});
+    const countRes = await query('SELECT COUNT(*) FROM profile_views WHERE profile_id = $1', [req.params.id]);
+    const newViews = parseInt(countRes.rows[0].count) || 0;
+    user.views_count = newViews;
+    query('UPDATE users SET views_count = $1 WHERE id = $2', [newViews, req.params.id]).catch(() => {});
   }
 
   const bloqueo = await query(
@@ -94,7 +98,8 @@ router.get('/:id', requireAuth, async (req, res) => {
     `SELECT p.*,
         (SELECT COUNT(*) FROM post_likes pl WHERE pl.post_id = p.id) AS total_likes,
         (SELECT COUNT(*) FROM post_comments pc WHERE pc.post_id = p.id) AS total_comentarios,
-        EXISTS(SELECT 1 FROM post_likes pl2 WHERE pl2.post_id = p.id AND pl2.user_id = $2) AS me_gusta
+        EXISTS(SELECT 1 FROM post_likes pl2 WHERE pl2.post_id = p.id AND pl2.user_id = $2) AS me_gusta,
+        EXISTS(SELECT 1 FROM saved_posts sp WHERE sp.post_id = p.id AND sp.user_id = $2) AS guardada
        FROM posts p
       WHERE p.user_id = $1
       ORDER BY p.created_at DESC LIMIT 30`,
@@ -103,7 +108,7 @@ router.get('/:id', requireAuth, async (req, res) => {
   const reputacion = await obtenerReputacion(req.params.id);
 
   res.json({
-    persona: publicUser(user),
+    persona: { ...publicUser(user), views_count: user.views_count || 0 },
     estado_amistad: fr.rows[0]?.status || 'ninguno',
     solicitud_de_mi: fr.rows[0]?.requested_by === req.userId,
     contacto_verificado: cv.rows[0]?.verified || false,

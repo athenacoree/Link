@@ -39,9 +39,9 @@ function initSockets(io) {
     broadcastPresencia(io, userId, true);
 
     // ---------------- MENSAJERÍA (persistida en PostgreSQL) ----------------
-    socket.on('mensaje:enviar', async ({ receiverId, text, imageData }, ack) => {
+    socket.on('mensaje:enviar', async ({ receiverId, text, imageData, audioData, audioDuration, replyToId }, ack) => {
       try {
-        if (!receiverId || (!text && !imageData)) {
+        if (!receiverId || (!text && !imageData && !audioData)) {
           return ack && ack({ ok: false, error: 'Mensaje vacío.' });
         }
         if (await hayBloqueoEntre(userId, receiverId)) {
@@ -51,16 +51,27 @@ function initSockets(io) {
         const isDelivered = isOnline(receiverId);
 
         const { rows } = await query(
-          `INSERT INTO messages (conversation_id, sender_id, receiver_id, text, image_data, delivered)
-           VALUES ($1, $2, $3, $4, $5, $6)
+          `INSERT INTO messages (conversation_id, sender_id, receiver_id, text, image_data, audio_data, audio_duration, reply_to_id, delivered)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
            RETURNING id, conversation_id AS "conversationId", sender_id AS "senderId", receiver_id AS "receiverId",
-                     text, image_data AS "imageData", delivered, read, created_at AS "createdAt"`,
-          [convId, userId, receiverId, text || '', imageData || null, isDelivered]
+                     text, image_data AS "imageData", audio_data AS "audioData", audio_duration AS "audioDuration",
+                     reply_to_id AS "replyToId", delivered, read, read_at AS "readAt", reactions, deleted_for_all AS "deletedForAll",
+                     created_at AS "createdAt"`,
+          [convId, userId, receiverId, text || '', imageData || null, audioData || null, audioDuration || 0, replyToId || null, isDelivered]
         );
         const doc = rows[0];
 
+        // Fetch reply_to details if present
+        if (doc.replyToId) {
+          const { rows: rRows } = await query(
+            `SELECT text, image_data AS "imageData", audio_data AS "audioData", sender_id AS "senderId" FROM messages WHERE id = $1`,
+            [doc.replyToId]
+          );
+          if (rRows.length) doc.replyTo = rRows[0];
+        }
+
         const [a, b] = [userId, receiverId].sort();
-        const preview = text ? text.slice(0, 80) : '📷 Foto';
+        const preview = audioData ? '🎤 Nota de voz' : text ? text.slice(0, 80) : '📷 Foto';
         await query(
           `INSERT INTO conversation_meta (user_a, user_b, last_message_at, last_message_preview)
            VALUES ($1,$2, now(), $3)
@@ -79,6 +90,55 @@ function initSockets(io) {
 
     socket.on('mensaje:escribiendo', ({ receiverId }) => {
       emitToUser(receiverId, 'mensaje:escribiendo', { de: userId });
+    });
+
+    socket.on('mensaje:detener_escribiendo', ({ receiverId }) => {
+      emitToUser(receiverId, 'mensaje:detener_escribiendo', { de: userId });
+    });
+
+    socket.on('mensaje:leido', async ({ messageIds, senderId }) => {
+      try {
+        if (!Array.isArray(messageIds) || !messageIds.length) return;
+        const { rows } = await query(
+          `UPDATE messages SET read = true, read_at = now()
+           WHERE id = ANY($1::uuid[]) AND receiver_id = $2
+           RETURNING id, read_at AS "readAt", sender_id AS "senderId"`,
+          [messageIds, userId]
+        );
+        if (rows.length && senderId) {
+          emitToUser(senderId, 'mensaje:leido_confirmacion', { messageIds: rows.map(r => r.id), readAt: rows[0].readAt });
+        }
+      } catch (err) {
+        console.error('[socket] error marcando leido:', err.message);
+      }
+    });
+
+    socket.on('mensaje:reaccionar', async ({ messageId, receiverId, emoji }, ack) => {
+      try {
+        const { rows: mRows } = await query(`SELECT reactions FROM messages WHERE id = $1`, [messageId]);
+        if (!mRows.length) return ack && ack({ ok: false });
+        let reactions = mRows[0].reactions || {};
+        if (emoji) {
+          reactions[userId] = emoji;
+        } else {
+          delete reactions[userId];
+        }
+        await query(`UPDATE messages SET reactions = $1 WHERE id = $2`, [reactions, messageId]);
+        emitToUser(receiverId, 'mensaje:reaccion', { messageId, reactions });
+        ack && ack({ ok: true, reactions });
+      } catch (err) {
+        ack && ack({ ok: false, error: err.message });
+      }
+    });
+
+    socket.on('mensaje:eliminar', async ({ messageId, receiverId }, ack) => {
+      try {
+        await query(`UPDATE messages SET deleted_for_all = true, text = '', image_data = NULL, audio_data = NULL WHERE id = $1 AND sender_id = $2`, [messageId, userId]);
+        emitToUser(receiverId, 'mensaje:eliminado', { messageId });
+        ack && ack({ ok: true });
+      } catch (err) {
+        ack && ack({ ok: false, error: err.message });
+      }
     });
 
     // ---------------- LLAMADAS: señalización WebRTC ----------------
@@ -149,7 +209,7 @@ function initSockets(io) {
     socket.on('disconnect', async () => {
       unregisterSocket(userId, socket.id);
       if (!isOnline(userId)) {
-        await query('UPDATE users SET is_online=false, last_seen_at=now() WHERE id=$1', [userId]).catch(() => {});
+        await query('UPDATE users SET is_online=false, last_seen=now() WHERE id=$1', [userId]).catch(() => {});
         broadcastPresencia(io, userId, false);
       }
     });
