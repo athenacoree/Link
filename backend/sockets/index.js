@@ -205,6 +205,30 @@ function initSockets(io) {
       emitToUser(destinoId, 'llamada:chat', { deId: userId, text });
     });
 
+    // ---------------- GRUPOS Y TIEMPO REAL EXTRA ----------------
+    socket.on('grupo:mensaje', ({ groupId, members, text, imageData, audioData }) => {
+      if (Array.isArray(members)) {
+        members.forEach(memberId => {
+          if (memberId !== userId) {
+            emitToUser(memberId, 'grupo:mensaje', {
+              groupId,
+              senderId: userId,
+              text,
+              imageData,
+              audioData,
+              createdAt: new Date().toISOString()
+            });
+          }
+        });
+      }
+    });
+
+    socket.on('post:live_reaction', ({ postId, reaction, authorId }) => {
+      if (authorId && authorId !== userId) {
+        emitToUser(authorId, 'post:live_reaction', { postId, reaction, fromUserId: userId });
+      }
+    });
+
     // ---------------- DESCONEXIÓN ----------------
     socket.on('disconnect', async () => {
       unregisterSocket(userId, socket.id);
