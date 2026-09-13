@@ -228,13 +228,31 @@ img{max-width:100%;}
   100% { transform: scale(1); filter: brightness(1); }
 }
 
-/* ---- Ajustes ---- */
-.tarjeta-ajustes{background:var(--blanco); border-radius:16px; box-shadow:var(--sombra-tarjeta); overflow:hidden; margin-bottom:14px;}
-.fila-ajustes{display:flex; align-items:center; gap:12px; padding:14px 16px; border-bottom:1px solid var(--linea);}
+/* ---- Ajustes estilo iOS 17 ---- */
+.tarjeta-ajustes{
+  background:var(--blanco);
+  border-radius:20px;
+  box-shadow:0 8px 24px rgba(0,0,0,0.04);
+  overflow:hidden;
+  margin-bottom:18px;
+  border:1px solid var(--borde);
+}
+.fila-ajustes{
+  display:flex;
+  align-items:center;
+  gap:14px;
+  padding:15px 18px;
+  border-bottom:1px solid var(--linea);
+  cursor:pointer;
+  user-select:none;
+  transition:background 0.15s ease, transform 0.1s ease;
+}
 .fila-ajustes:last-child{border-bottom:none;}
+.fila-ajustes:active{background:rgba(91, 33, 182, 0.06); transform:scale(0.985);}
 .fila-ajustes svg{color:var(--morado-700); flex:0 0 auto;}
-.fila-ajustes .txt{flex:1; font-size:14px; font-weight:600;}
+.fila-ajustes .txt{flex:1; font-size:14.5px; font-weight:600; color:var(--texto-900); letter-spacing:-0.2px;}
 .fila-ajustes.peligro{color:var(--peligro);}
+.fila-ajustes.peligro .txt{color:var(--peligro);}
 .fila-ajustes.peligro svg{color:var(--peligro);}
 .editar-avatar-btn{position:relative; width:88px; height:88px; margin:16px auto 4px;}
 .editar-avatar-btn img{width:100%; height:100%; border-radius:50%; object-fit:cover; border:3px solid var(--morado-100);}
@@ -354,6 +372,15 @@ body, .tarjeta, .publicacion, .compositor, .tarjeta-ajustes, .hoja-grupo, .hoja-
 nav.tabbar, .conversacion-item, .stat-box, .caja-busqueda, .campo input, .campo select,
 .campo textarea, .btn-secundario, .auth-caja{
   transition: background-color .35s ease, color .35s ease, border-color .35s ease, box-shadow .35s ease;
+}
+
+/* Modo Oscuro Verdadero OLED / iOS */
+html[data-tema="oscuro"] {
+  --blanco: #000000;
+  --fondo-app: #050508;
+  --fondo-tarjeta: #121217;
+  --linea: rgba(255, 255, 255, 0.08);
+  --borde: rgba(255, 255, 255, 0.12);
 }
 
 /* ---- Interruptor (switch) de modo oscuro / ajustes booleanos ---- */
