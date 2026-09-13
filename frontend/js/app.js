@@ -33,6 +33,40 @@ function cerrarVisorImagen() {
 }
 window.abrirVisorImagen = abrirVisorImagen;
 
+function abrirVisorPDF(fileId, driveUrl, titulo) {
+  const visor = $('modalVisorPDF');
+  const velo = $('veloVisorPDF');
+  const iframe = $('iframePDFVisor');
+  const tituloEl = $('tituloPDFVisor');
+  const btnDownload = $('btnDescargarPDFModal');
+
+  const embedUrl = `https://drive.google.com/file/d/${fileId}/preview`;
+  const downloadUrl = `https://docs.google.com/uc?export=download&id=${fileId}`;
+
+  if (visor && velo && iframe) {
+    if (tituloEl) tituloEl.textContent = titulo || 'Documento PDF / Libro';
+    iframe.src = embedUrl;
+    if (btnDownload) {
+      btnDownload.href = downloadUrl;
+    }
+    velo.classList.add('activo');
+    visor.style.display = 'flex';
+  }
+}
+window.abrirVisorPDF = abrirVisorPDF;
+
+function cerrarVisorPDF() {
+  const visor = $('modalVisorPDF');
+  const velo = $('veloVisorPDF');
+  const iframe = $('iframePDFVisor');
+  if (visor && velo) {
+    velo.classList.remove('activo');
+    visor.style.display = 'none';
+    if (iframe) iframe.src = '';
+  }
+}
+window.cerrarVisorPDF = cerrarVisorPDF;
+
 function cerrarTodosLosModales() {
   document.querySelectorAll('.velo.activo').forEach((el) => el.classList.remove('activo'));
   document.querySelectorAll('.hoja.activo').forEach((el) => el.classList.remove('activo'));
@@ -44,6 +78,23 @@ document.addEventListener('DOMContentLoaded', () => {
   $('veloVisorImagen')?.addEventListener('click', cerrarVisorImagen);
   $('modalVisorImagen')?.addEventListener('click', (e) => {
     if (e.target.id === 'modalVisorImagen' || e.target.id === 'imgVisorAgrandada') cerrarVisorImagen();
+  });
+
+  $('cerrarVisorPDF')?.addEventListener('click', cerrarVisorPDF);
+  $('veloVisorPDF')?.addEventListener('click', cerrarVisorPDF);
+
+  // Habilitar la amplificación de fotos al tocar fotos de perfil
+  $('ajustesAvatar')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if ($('ajustesAvatar').src) abrirVisorImagen($('ajustesAvatar').src);
+  });
+  $('p-avatar')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if ($('p-avatar').src) abrirVisorImagen($('p-avatar').src);
+  });
+  $('chatAvatar')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if ($('chatAvatar').src) abrirVisorImagen($('chatAvatar').src);
   });
 
   // Atajo de teclado Escape (Esc)
@@ -528,29 +579,68 @@ function procesarTextosYDriveLinks(texto) {
       if (!fileId) return;
 
       const isVideo = /video|\.mp4|\.mov|\.avi|\.mkv|\.webm/i.test(fullUrl);
+      const isPdf = /pdf|book|libro|\.pdf/i.test(fullUrl);
+      const isAudio = /audio|\.mp3|\.wav|\.m4a|\.ogg/i.test(fullUrl);
+
       const imgPreviewUrl = `https://lh3.googleusercontent.com/d/${fileId}`;
       const videoEmbedUrl = `https://drive.google.com/file/d/${fileId}/preview`;
+      const downloadUrl = `https://docs.google.com/uc?export=download&id=${fileId}`;
 
       let replacement = '';
-      if (isVideo) {
+      if (isPdf) {
         replacement = `
-          <div class="drive-media-card video-card" style="margin-top:8px; padding:10px; background:rgba(0,0,0,0.05); border:1px solid var(--linea); border-radius:12px;">
-            <div style="font-weight:700; font-size:12.5px; display:flex; align-items:center; gap:6px; color:var(--morado-700);">
+          <div class="drive-media-card pdf-card" style="margin-top:8px; padding:12px; background:var(--morado-50); border:1px solid var(--borde); border-radius:14px;">
+            <div style="font-weight:700; font-size:13px; display:flex; align-items:center; gap:6px; color:var(--morado-700);">
+              📄 Documento / Libro PDF (Google Drive)
+            </div>
+            <div style="font-size:11.5px; color:var(--texto-600); margin:6px 0;">Visualiza hoja por hoja o descárgalo a tu dispositivo.</div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:6px;">
+              <button class="btn btn-primario mini-btn" style="padding:6px 12px; font-size:12px; border-radius:8px;" onclick="window.abrirVisorPDF('${fileId}', '${fullUrl.replace(/'/g, "\\'")}', 'Libro / PDF')">
+                📖 Abrir libro (Hoja por hoja)
+              </button>
+              <a href="${downloadUrl}" target="_blank" download class="btn btn-secundario mini-btn" style="padding:6px 12px; font-size:12px; border-radius:8px; text-decoration:none;">
+                📥 Descargar
+              </a>
+            </div>
+          </div>
+        `;
+      } else if (isVideo) {
+        replacement = `
+          <div class="drive-media-card video-card" style="margin-top:8px; padding:12px; background:rgba(0,0,0,0.05); border:1px solid var(--linea); border-radius:14px;">
+            <div style="font-weight:700; font-size:13px; display:flex; align-items:center; gap:6px; color:var(--morado-700);">
               🎬 Video de Google Drive
             </div>
-            <div style="font-size:11.5px; color:var(--texto-600); margin:4px 0;">Tamaño estimado: ~15 MB — Permiso requerido</div>
-            <div id="drive-video-container-${fileId}">
+            <div style="font-size:11.5px; color:var(--texto-600); margin:4px 0 8px;">Reproduce online o descárgalo directamente.</div>
+            <div id="drive-video-container-${fileId}" style="margin-bottom:6px;">
               <button class="btn btn-primario mini-btn" style="padding:6px 12px; font-size:12px; border-radius:8px;" onclick="window.reproducirVideoDrive(event, '${fileId}', '${videoEmbedUrl.replace(/'/g, "\\'")}')">
-                ▶ Reproducir video (Pedir permiso)
+                ▶ Reproducir video
               </button>
             </div>
+            <a href="${downloadUrl}" target="_blank" download class="btn btn-secundario mini-btn" style="padding:6px 12px; font-size:12px; border-radius:8px; text-decoration:none; display:inline-block;">
+              📥 Descargar video
+            </a>
+          </div>
+        `;
+      } else if (isAudio) {
+        replacement = `
+          <div class="drive-media-card audio-card" style="margin-top:8px; padding:12px; background:var(--hueso); border:1px solid var(--borde); border-radius:14px;">
+            <div style="font-weight:700; font-size:13px; color:var(--morado-700); margin-bottom:6px;">
+              🎵 Audio de Google Drive
+            </div>
+            <audio controls src="${downloadUrl}" style="width:100%; height:36px; margin-bottom:6px;"></audio>
+            <a href="${downloadUrl}" target="_blank" download class="btn btn-secundario mini-btn" style="padding:6px 12px; font-size:12px; border-radius:8px; text-decoration:none; display:inline-block;">
+              📥 Descargar audio
+            </a>
           </div>
         `;
       } else {
         replacement = `
-          <div class="drive-media-card photo-card" style="margin-top:8px;">
-            <div style="font-size:11px; font-weight:600; color:var(--morado-700); margin-bottom:4px;">🖼️ Foto de Google Drive</div>
-            <img src="${imgPreviewUrl}" alt="Foto de Google Drive" style="max-width:100%; max-height:260px; object-fit:cover; border-radius:10px; cursor:pointer;" onclick="window.abrirVisorImagen('${imgPreviewUrl.replace(/'/g, "\\'")}')" onerror="this.onerror=null; this.src='https://docs.google.com/uc?export=view&id=${fileId}'">
+          <div class="drive-media-card photo-card" style="margin-top:8px; padding:8px; background:var(--blanco); border:1px solid var(--borde); border-radius:14px;">
+            <div style="font-size:11.5px; font-weight:700; color:var(--morado-700); margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
+              <span>🖼️ Foto de Google Drive</span>
+              <a href="${downloadUrl}" target="_blank" download style="color:var(--morado-600); text-decoration:none; font-size:11px;">📥 Descargar</a>
+            </div>
+            <img src="${imgPreviewUrl}" alt="Foto de Google Drive" style="max-width:100%; max-height:280px; object-fit:cover; border-radius:10px; cursor:pointer;" onclick="window.abrirVisorImagen('${imgPreviewUrl.replace(/'/g, "\\'")}')" onerror="this.onerror=null; this.src='https://docs.google.com/uc?export=view&id=${fileId}'">
           </div>
         `;
       }
@@ -1368,10 +1458,20 @@ async function cargarSolicitudesBadge() {
 
 /* ================= MENSAJES ================= */
 function renderizarConversacionesHTML(conversaciones) {
+  const itemAi = `
+    <div class="conversacion-item" data-persona='${encodeURIComponent(JSON.stringify({ id: 'link_ai', name: '🤖 Link AI Assistant', avatar_data: '', is_online: true, is_ai: true }))}' style="border-left:4px solid var(--morado-600); background:var(--morado-50);">
+      <div style="width:48px; height:48px; border-radius:50%; background:var(--morado-600); color:#fff; display:flex; align-items:center; justify-content:center; font-size:22px; font-weight:700;">🤖</div>
+      <div class="conversacion-info">
+        <div class="nombre" style="color:var(--morado-700);">Link AI (Asistente)</div>
+        <div class="preview">Pregúntame lo que sea (vía OpenRouter)</div>
+      </div>
+      <div class="conversacion-hora">En línea</div>
+    </div>`;
+
   if (!conversaciones || !conversaciones.length) {
-    return '<div class="aviso-vacio">Aún no tienes conversaciones. Escríbele a un amigo desde su perfil.</div>';
+    return itemAi + '<div class="aviso-vacio">Aún no tienes conversaciones con amigos. Escríbele a un amigo desde su perfil.</div>';
   }
-  return conversaciones.map((c) => `
+  return itemAi + conversaciones.map((c) => `
     <div class="conversacion-item" data-persona='${encodeURIComponent(JSON.stringify({ id: c.otro_id, name: c.otro_nombre, avatar_data: c.otro_avatar, is_online: c.is_online }))}'>
       <img src="${avatarDe({ avatar_data: c.otro_avatar, name: c.otro_nombre })}" alt="">
       <div class="conversacion-info">

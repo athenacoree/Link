@@ -151,6 +151,19 @@ const Chat = (() => {
     conversacionAbiertaCon = persona;
     $('chatAvatar').src = persona.avatar_data || iconoDefecto();
     $('chatNombre').textContent = persona.name;
+
+    if (persona.is_ai) {
+      $('chatEstadoLinea').textContent = '🤖 Asistente de IA (OpenRouter)';
+      $('vistaChat').classList.add('activo');
+      $('chatMensajes').innerHTML = `
+        <div class="burbuja suya" style="max-width:85%;">
+          <div>¡Hola! Soy <b>Link AI</b>. ¿En qué te puedo ayudar hoy? Si tu administrador configuró la clave de OpenRouter responderé tus preguntas inmediatamente.</div>
+          <div style="font-size:10px; opacity:0.7; margin-top:4px;">Justo ahora</div>
+        </div>
+      `;
+      return;
+    }
+
     $('chatEstadoLinea').textContent = persona.is_online ? 'En línea' : formatearUltimaVez(persona.last_seen);
     $('vistaChat').classList.add('activo');
 
@@ -206,6 +219,37 @@ const Chat = (() => {
   function enviarMensaje(texto, imagenBase64, audioBase64, audioDur) {
     if (!conversacionAbiertaCon) return;
     if (!texto && !imagenBase64 && !audioBase64) return;
+
+    if (conversacionAbiertaCon.is_ai) {
+      const msgUser = {
+        id: 'ai_user_' + Date.now(),
+        senderId: Sesion.usuario().id,
+        text: texto || '',
+        createdAt: new Date().toISOString(),
+      };
+      $('chatMensajes').appendChild(pintarBurbuja(msgUser, Sesion.usuario().id));
+      $('chatMensajes').scrollTop = $('chatMensajes').scrollHeight;
+
+      api('/ai/chat', { method: 'POST', body: { prompt: texto } })
+        .then((res) => {
+          const aiReplyText = res.available ? res.reply : (res.message || 'Inteligencia artificial no configurada.');
+          const msgAi = {
+            id: 'ai_bot_' + Date.now(),
+            senderId: 'link_ai_bot',
+            text: aiReplyText,
+            createdAt: new Date().toISOString(),
+          };
+          $('chatMensajes').appendChild(pintarBurbuja(msgAi, Sesion.usuario().id));
+          $('chatMensajes').scrollTop = $('chatMensajes').scrollHeight;
+        })
+        .catch((err) => {
+          mostrarToast(err.message || 'Error en IA');
+        });
+
+      cancelarRespuesta();
+      return;
+    }
+
     window.socket.emit('mensaje:enviar', {
       receiverId: conversacionAbiertaCon.id,
       text: texto || '',
