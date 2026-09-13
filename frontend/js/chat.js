@@ -37,6 +37,9 @@ const Chat = (() => {
 
   function formatearUrlsTexto(texto) {
     if (!texto) return '';
+    if (window.procesarTextosYDriveLinks) {
+      return window.procesarTextosYDriveLinks(texto);
+    }
     const urlRegex = /(https?:\/\/[^\s]+)/g;
     return texto.replace(urlRegex, (url) => {
       try {
@@ -72,7 +75,11 @@ const Chat = (() => {
     if (msg.text) html += `<div>${formatearUrlsTexto(escapar(msg.text))}</div>`;
 
     if (msg.imageData) {
-      html += `<img src="${msg.imageData}" alt="" style="cursor:pointer; max-width:100%; border-radius:8px; margin-top:4px;" onclick="window.abrirVisorImagen('${msg.imageData.replace(/'/g, "\\'")}')">`;
+      if (window.renderizarLivePhotoHTML) {
+        html += window.renderizarLivePhotoHTML(msg.imageData, !!msg.isLivePhoto);
+      } else {
+        html += `<img src="${msg.imageData}" alt="" style="cursor:pointer; max-width:100%; border-radius:8px; margin-top:4px;" onclick="window.abrirVisorImagen('${msg.imageData.replace(/'/g, "\\'")}')">`;
+      }
     }
 
     if (msg.audioData) {
@@ -388,6 +395,27 @@ const Chat = (() => {
       e.target.value = '';
     });
 
+    $('chatLivePhotoInput')?.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      try {
+        const base64 = await archivoABase64(file, 1000, 0.7);
+        window.socket.emit('mensaje:enviar', {
+          receiverId: conversacionAbiertaCon.id,
+          text: '',
+          imageData: base64,
+          isLivePhoto: true,
+        }, (respuesta) => {
+          if (respuesta && respuesta.ok) {
+            const yo = Sesion.usuario();
+            $('chatMensajes').appendChild(pintarBurbuja(respuesta.mensaje, yo.id));
+            $('chatMensajes').scrollTop = $('chatMensajes').scrollHeight;
+          }
+        });
+      } catch (err) { mostrarToast('No se pudo procesar la Foto Live.'); }
+      e.target.value = '';
+    });
+
     // Micrófono grabador audio
     $('chatBtnGravaVoz')?.addEventListener('click', iniciarGrabacionVoz);
     $('chatBtnCancelarVoz')?.addEventListener('click', () => detenerGrabacionVoz(false));
@@ -457,10 +485,55 @@ const Chat = (() => {
       });
     });
 
-    $('chatBtnAudio').addEventListener('click', () => {
+    const abrirMenuAdjuntos = () => {
+      $('veloChatAdjuntos')?.classList.add('activo');
+      $('hojaChatAdjuntos')?.classList.add('activo');
+    };
+    const cerrarMenuAdjuntos = () => {
+      $('veloChatAdjuntos')?.classList.remove('activo');
+      $('hojaChatAdjuntos')?.classList.remove('activo');
+    };
+
+    $('chatBtnMasOpciones')?.addEventListener('click', abrirMenuAdjuntos);
+    $('cerrarChatAdjuntos')?.addEventListener('click', cerrarMenuAdjuntos);
+    $('veloChatAdjuntos')?.addEventListener('click', cerrarMenuAdjuntos);
+
+    $('opChatFoto')?.addEventListener('click', () => {
+      cerrarMenuAdjuntos();
+      $('chatImagenInput')?.click();
+    });
+    $('opChatLivePhoto')?.addEventListener('click', () => {
+      cerrarMenuAdjuntos();
+      $('chatLivePhotoInput')?.click();
+    });
+    $('opChatVoz')?.addEventListener('click', () => {
+      cerrarMenuAdjuntos();
+      iniciarGrabacionVoz();
+    });
+    $('opChatBuscar')?.addEventListener('click', () => {
+      cerrarMenuAdjuntos();
+      $('chatBusquedaBar')?.classList.remove('oculto');
+      $('inputBuscarMsgChat')?.focus();
+    });
+    $('opChatGaleria')?.addEventListener('click', () => {
+      cerrarMenuAdjuntos();
+      abrirGaleriaChat();
+    });
+    $('opChatExportar')?.addEventListener('click', () => {
+      cerrarMenuAdjuntos();
+      exportarConversacionTxt();
+    });
+
+    $('chatBtnAudio')?.addEventListener('click', () => {
       if (conversacionAbiertaCon) Llamada.iniciar(conversacionAbiertaCon, 'audio');
     });
-    $('chatBtnVideo').addEventListener('click', () => {
+    $('chatBtnVideo')?.addEventListener('click', () => {
+      if (conversacionAbiertaCon) Llamada.iniciar(conversacionAbiertaCon, 'video');
+    });
+    $('chatBtnAudioInput')?.addEventListener('click', () => {
+      if (conversacionAbiertaCon) Llamada.iniciar(conversacionAbiertaCon, 'audio');
+    });
+    $('chatBtnVideoInput')?.addEventListener('click', () => {
       if (conversacionAbiertaCon) Llamada.iniciar(conversacionAbiertaCon, 'video');
     });
   }

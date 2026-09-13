@@ -175,9 +175,58 @@ img{max-width:100%;}
 .burbuja.mia{align-self:flex-end; background:linear-gradient(135deg,var(--morado-600),var(--morado-700)); color:#fff; border-bottom-right-radius:4px;}
 .burbuja.suya{align-self:flex-start; background:var(--blanco); border:1px solid var(--linea); border-bottom-left-radius:4px;}
 .burbuja img{max-width:100%; border-radius:10px; display:block; margin-top:4px;}
-.chat-input-barra{display:flex; align-items:center; gap:8px; padding:10px 14px calc(14px + env(safe-area-inset-bottom)); background:var(--blanco); border-top:1px solid var(--linea); flex:0 0 auto;}
-.chat-input-barra input{flex:1; border:1.5px solid var(--linea); border-radius:22px; padding:10px 16px; font-size:14.5px; outline:none;}
-.chat-input-barra button{width:40px; height:40px; border-radius:50%; background:var(--morado-700); color:#fff; display:flex; align-items:center; justify-content:center; flex:0 0 auto;}
+.chat-input-barra{display:flex; align-items:center; gap:8px; padding:10px 12px calc(12px + env(safe-area-inset-bottom)); background:var(--blanco); border-top:1px solid var(--linea); flex:0 0 auto; min-height:60px;}
+.btn-chat-adjuntar{width:38px; height:38px; border-radius:50%; background:var(--morado-100); color:var(--morado-700); display:flex; align-items:center; justify-content:center; flex:0 0 auto; cursor:pointer; transition:transform .15s ease, background .15s ease;}
+.btn-chat-adjuntar:active{transform:scale(0.92); background:var(--morado-200);}
+.chat-input-barra input[type="text"]{flex:1; min-width:0; border:1.5px solid var(--linea); border-radius:22px; padding:10px 14px; font-size:14.5px; outline:none; background:var(--hueso); color:var(--texto-900);}
+.icono-btn.llamada-audio-input, .icono-btn.llamada-video-input{width:36px; height:36px; border-radius:50%; background:var(--morado-100); color:var(--morado-700); display:flex; align-items:center; justify-content:center; flex:0 0 auto; cursor:pointer; transition:transform .15s ease, background .15s ease;}
+.icono-btn.llamada-audio-input:active, .icono-btn.llamada-video-input:active{transform:scale(0.92); background:var(--morado-200);}
+.chat-input-barra button#chatBtnEnviar{width:40px; height:40px; border-radius:50%; background:linear-gradient(135deg,var(--morado-600),var(--morado-700)); color:#fff; display:flex; align-items:center; justify-content:center; flex:0 0 auto; border:none; cursor:pointer; box-shadow:0 4px 12px rgba(91,33,182,0.3); transition:transform .15s ease;}
+.chat-input-barra button#chatBtnEnviar:active{transform:scale(0.92);}
+
+/* ---- Live Photos (iOS & Android Compatible) ---- */
+.live-photo-container {
+  position: relative;
+  display: inline-block;
+  overflow: hidden;
+  border-radius: 12px;
+  max-width: 100%;
+}
+.live-photo-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(12px);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  letter-spacing: 0.5px;
+  z-index: 5;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+.live-photo-badge svg {
+  animation: livePulse 1.8s infinite ease-in-out;
+}
+@keyframes livePulse {
+  0%, 100% { transform: scale(1); opacity: 0.85; }
+  50% { transform: scale(1.18); opacity: 1; }
+}
+.live-photo-animating img {
+  animation: liveMotionKeyframes 1.2s ease-in-out;
+}
+@keyframes liveMotionKeyframes {
+  0% { transform: scale(1); filter: brightness(1); }
+  30% { transform: scale(1.05) rotate(0.8deg); filter: brightness(1.12); }
+  60% { transform: scale(1.02) rotate(-0.8deg); filter: brightness(1.06); }
+  100% { transform: scale(1); filter: brightness(1); }
+}
 
 /* ---- Ajustes ---- */
 .tarjeta-ajustes{background:var(--blanco); border-radius:16px; box-shadow:var(--sombra-tarjeta); overflow:hidden; margin-bottom:14px;}

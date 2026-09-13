@@ -470,7 +470,7 @@ function pintarPublicacion(p) {
           <div class="fecha">${tiempoRelativo(p.created_at)} ${p.visibility === 'friends' ? '🔒 Solo amigos' : '🌐 Público'}</div>
         </div>
       </div>
-      ${p.text ? `<div class="publicacion-texto">${escaparHTMLGlobal(p.text)}</div>` : ''}
+      ${p.text ? `<div class="publicacion-texto">${procesarTextosYDriveLinks(p.text)}</div>` : ''}
       ${p.image_data ? `<img class="publicacion-img" src="${p.image_data}" alt="" style="cursor:pointer;" onclick="window.abrirVisorImagen('${p.image_data.replace(/'/g, "\\'")}')">` : ''}
       ${p.edited_at ? `<div class="etiqueta-editado">Editada por un administrador</div>` : ''}
       ${puedeModerar ? `
@@ -513,6 +513,111 @@ function pintarPublicacion(p) {
 }
 
 function escaparHTMLGlobal(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+function procesarTextosYDriveLinks(texto) {
+  if (!texto) return '';
+  const driveRegex = /https?:\/\/(?:drive|docs)\.google\.com\/(?:file\/d\/([a-zA-Z0-9_-]+)|open\?id=([a-zA-Z0-9_-]+)|uc\?(?:[^&]+&)*id=([a-zA-Z0-9_-]+))[^\s]*/gi;
+
+  let html = escapingTextAndUrls(texto);
+  const matches = [...texto.matchAll(driveRegex)];
+
+  if (matches.length > 0) {
+    matches.forEach((match) => {
+      const fullUrl = match[0];
+      const fileId = match[1] || match[2] || match[3];
+      if (!fileId) return;
+
+      const isVideo = /video|\.mp4|\.mov|\.avi|\.mkv|\.webm/i.test(fullUrl);
+      const imgPreviewUrl = `https://lh3.googleusercontent.com/d/${fileId}`;
+      const videoEmbedUrl = `https://drive.google.com/file/d/${fileId}/preview`;
+
+      let replacement = '';
+      if (isVideo) {
+        replacement = `
+          <div class="drive-media-card video-card" style="margin-top:8px; padding:10px; background:rgba(0,0,0,0.05); border:1px solid var(--linea); border-radius:12px;">
+            <div style="font-weight:700; font-size:12.5px; display:flex; align-items:center; gap:6px; color:var(--morado-700);">
+              🎬 Video de Google Drive
+            </div>
+            <div style="font-size:11.5px; color:var(--texto-600); margin:4px 0;">Tamaño estimado: ~15 MB — Permiso requerido</div>
+            <div id="drive-video-container-${fileId}">
+              <button class="btn btn-primario mini-btn" style="padding:6px 12px; font-size:12px; border-radius:8px;" onclick="window.reproducirVideoDrive(event, '${fileId}', '${videoEmbedUrl.replace(/'/g, "\\'")}')">
+                ▶ Reproducir video (Pedir permiso)
+              </button>
+            </div>
+          </div>
+        `;
+      } else {
+        replacement = `
+          <div class="drive-media-card photo-card" style="margin-top:8px;">
+            <div style="font-size:11px; font-weight:600; color:var(--morado-700); margin-bottom:4px;">🖼️ Foto de Google Drive</div>
+            <img src="${imgPreviewUrl}" alt="Foto de Google Drive" style="max-width:100%; max-height:260px; object-fit:cover; border-radius:10px; cursor:pointer;" onclick="window.abrirVisorImagen('${imgPreviewUrl.replace(/'/g, "\\'")}')" onerror="this.onerror=null; this.src='https://docs.google.com/uc?export=view&id=${fileId}'">
+          </div>
+        `;
+      }
+
+      html = html.replace(fullUrl, `<a href="${fullUrl}" target="_blank" class="chip-link-url" onclick="event.stopPropagation()">🔗 Google Drive</a>${replacement}`);
+    });
+  }
+  return html;
+}
+
+function escapingTextAndUrls(texto) {
+  const d = document.createElement('div');
+  d.textContent = texto;
+  const safe = d.innerHTML;
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  return safe.replace(urlRegex, (url) => {
+    try {
+      const domain = new URL(url).hostname;
+      return `<a href="${url}" target="_blank" class="chip-link-url" onclick="event.stopPropagation()">🔗 ${domain}</a>`;
+    } catch (e) {
+      return `<a href="${url}" target="_blank" class="chip-link-url" onclick="event.stopPropagation()">${url}</a>`;
+    }
+  });
+}
+
+window.procesarTextosYDriveLinks = procesarTextosYDriveLinks;
+
+function renderizarLivePhotoHTML(imgUrl, isLive) {
+  if (!imgUrl) return '';
+  if (!isLive) {
+    return `<img src="${imgUrl}" alt="" style="cursor:pointer; max-width:100%; border-radius:10px; margin-top:4px;" onclick="window.abrirVisorImagen('${imgUrl.replace(/'/g, "\\'")}')">`;
+  }
+  return `
+    <div class="live-photo-container" ontouchstart="window.iniciarAnimacionLive(this)" ontouchend="window.detenerAnimacionLive(this)" onmouseenter="window.iniciarAnimacionLive(this)" onmouseleave="window.detenerAnimacionLive(this)">
+      <div class="live-photo-badge" onclick="window.toggleAnimacionLive(this)">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>
+        <span>LIVE</span>
+      </div>
+      <img src="${imgUrl}" alt="Live Photo" class="live-photo-img" style="cursor:pointer; max-width:100%; border-radius:10px;" onclick="window.abrirVisorImagen('${imgUrl.replace(/'/g, "\\'")}')">
+    </div>
+  `;
+}
+window.renderizarLivePhotoHTML = renderizarLivePhotoHTML;
+
+window.iniciarAnimacionLive = function(container) {
+  if (container) container.classList.add('live-photo-animating');
+};
+window.detenerAnimacionLive = function(container) {
+  if (container) setTimeout(() => container.classList.remove('live-photo-animating'), 300);
+};
+window.toggleAnimacionLive = function(badge) {
+  const container = badge ? badge.closest('.live-photo-container') : null;
+  if (container) {
+    container.classList.add('live-photo-animating');
+    setTimeout(() => container.classList.remove('live-photo-animating'), 1200);
+  }
+};
+
+window.reproducirVideoDrive = function(e, fileId, embedUrl) {
+  e.stopPropagation();
+  if (confirm('¿Deseas dar permiso para reproducir este video de Google Drive?')) {
+    const cont = document.getElementById(`drive-video-container-${fileId}`);
+    if (cont) {
+      cont.innerHTML = `<iframe src="${embedUrl}" width="100%" height="220" style="border:none; border-radius:10px; margin-top:6px;" allow="autoplay" allowfullscreen></iframe>`;
+    }
+  }
+};
 
 async function alternarLike(postId) {
   try {
