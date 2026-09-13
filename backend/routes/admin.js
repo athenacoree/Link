@@ -397,29 +397,20 @@ router.get('/exportar-db', async (req, res) => {
   try {
     const zip = new AdmZip();
 
-    const tables = [
-      'users',
-      'friendships',
-      'posts',
-      'post_likes',
-      'post_comments',
-      'stories',
-      'story_views',
-      'notifications',
-      'calls',
-      'contact_verifications',
-      'reports',
-      'messages',
-      'announcements',
-      'announcement_views',
-      'system_settings'
-    ];
+    // Obtener dinámicamente la lista de todas las tablas existentes en el esquema público
+    const { rows: tableRows } = await query(`
+      SELECT table_name
+      FROM information_schema.tables
+      WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
+      ORDER BY table_name;
+    `);
 
+    const tables = tableRows.map(t => t.table_name);
     const recordCounts = {};
 
     for (const table of tables) {
       try {
-        const { rows } = await query(`SELECT * FROM ${table}`);
+        const { rows } = await query(`SELECT * FROM "${table}"`);
         zip.addFile(`postgres_${table}.json`, Buffer.from(JSON.stringify(rows, null, 2), 'utf8'));
         recordCounts[`postgres_${table}`] = rows.length;
       } catch (e) {
@@ -434,6 +425,7 @@ router.get('/exportar-db', async (req, res) => {
       exported_by: req.userId,
       app: 'Enlace Red Social',
       environment: process.env.NODE_ENV || 'production',
+      tables_count: tables.length,
       records: recordCounts,
       description: 'Respaldo completo de base de datos de Enlace (PostgreSQL).'
     };
@@ -472,32 +464,17 @@ router.post('/importar-db', upload.single('archivo'), async (req, res) => {
     const manifest = JSON.parse(manifestEntry.getData().toString('utf8'));
     console.log(`[Import] Procesando respaldo versión ${manifest.version} exportado el ${manifest.exported_at}`);
 
-    const tableFiles = [
-      'postgres_users.json',
-      'postgres_friendships.json',
-      'postgres_posts.json',
-      'postgres_post_likes.json',
-      'postgres_post_comments.json',
-      'postgres_stories.json',
-      'postgres_story_views.json',
-      'postgres_notifications.json',
-      'postgres_calls.json',
-      'postgres_contact_verifications.json',
-      'postgres_reports.json',
-      'postgres_messages.json',
-      'postgres_announcements.json',
-      'postgres_announcement_views.json',
-      'postgres_system_settings.json'
-    ];
+    const entries = zip.getEntries();
+    const tableEntries = entries.filter(e => e.entryName.startsWith('postgres_') && e.entryName.endsWith('.json'));
 
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
 
-      for (const file of tableFiles) {
-        const entry = zip.getEntry(file);
-        if (!entry) continue;
-        const tableName = file.replace('postgres_', '').replace('.json', '');
+      for (const entry of tableEntries) {
+        const tableName = entry.entryName.replace('postgres_', '').replace('.json', '');
+        if (!/^[a-zA-Z0-9_]+$/.test(tableName)) continue;
+
         const rows = JSON.parse(entry.getData().toString('utf8'));
 
         for (const row of rows) {
@@ -505,12 +482,12 @@ router.post('/importar-db', upload.single('archivo'), async (req, res) => {
           if (!keys.length) continue;
           const columns = keys.map(k => `"${k}"`).join(', ');
           const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
-          const values = keys.map(k => row[k]);
+          const values = keys.map(k => {
+            const val = row[k];
+            return (typeof val === 'object' && val !== null) ? JSON.stringify(val) : val;
+          });
 
-          const conflictTarget = keys.includes('id') ? '("id")' : (keys.includes('user_a') && keys.includes('user_b') ? '("user_a", "user_b")' : (keys.includes('key') ? '("key")' : null));
-          const sql = conflictTarget
-            ? `INSERT INTO ${tableName} (${columns}) VALUES (${placeholders}) ON CONFLICT ${conflictTarget} DO NOTHING`
-            : `INSERT INTO ${tableName} (${columns}) VALUES (${placeholders}) ON CONFLICT DO NOTHING`;
+          const sql = `INSERT INTO "${tableName}" (${columns}) VALUES (${placeholders}) ON CONFLICT DO NOTHING`;
 
           await client.query(sql, values).catch(e => {
             console.warn(`[Import warning] Tabla ${tableName}:`, e.message);
