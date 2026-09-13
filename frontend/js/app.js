@@ -761,7 +761,8 @@ function procesarTextosYDriveLinks(texto) {
         `;
       }
 
-      html = html.replace(fullUrl, `<a href="${fullUrl}" target="_blank" class="chip-link-url" onclick="event.stopPropagation()">🔗 Google Drive</a>${replacement}`);
+      // Reemplazar la URL completa directamente por el elemento o tarjeta multimedia, sin forzar al usuario a ver la URL ni el enlace chip
+      html = html.replace(fullUrl, replacement);
     });
   }
   return html;
@@ -1042,19 +1043,32 @@ async function cargarDescubrir() {
   const soloOnline = $('filtroOnline') ? ($('filtroOnline').value === 'online') : false;
 
   const cachedFeed = await LocalStore.obtenerLista('feed', 'descubrir_feed');
+  let renderizadoCache = false;
+
   if (cachedFeed && cachedFeed.length) {
     let filtradas = cachedFeed;
     if (genero) filtradas = filtradas.filter(p => p.gender === genero);
     if (soloOnline) filtradas = filtradas.filter(p => p.is_online);
-    pintarListaPersonas(filtradas, 'listaBuscar');
+    if ($('listaBuscar').children.length === 0 || $('listaBuscar').querySelector('.aviso-vacio')) {
+      pintarListaPersonas(filtradas, 'listaBuscar');
+      renderizadoCache = true;
+    }
   }
+
   try {
     const { personas } = await api('/usuarios');
     LocalStore.guardarLista('feed', 'descubrir_feed', personas);
     let filtradas = personas;
     if (genero) filtradas = filtradas.filter(p => p.gender === genero);
     if (soloOnline) filtradas = filtradas.filter(p => p.is_online);
-    pintarListaPersonas(filtradas, 'listaBuscar');
+
+    // Solo volver a renderizar si el contenido cambió o si no se habia renderizado desde caché
+    const nuevoJson = JSON.stringify(filtradas.map(p => ({ id: p.id, v: p.verified, o: p.is_online, n: p.name, a: p.avatar_data })));
+    const actualJson = $('listaBuscar').dataset.cacheState;
+    if (!renderizadoCache || actualJson !== nuevoJson) {
+      pintarListaPersonas(filtradas, 'listaBuscar');
+      $('listaBuscar').dataset.cacheState = nuevoJson;
+    }
   } catch (e) {
     if (!cachedFeed || !cachedFeed.length) {
       $('listaBuscar').innerHTML = `<div class="aviso-vacio">${e.message} (Modo sin conexión)</div>`;
@@ -1764,18 +1778,29 @@ $('inputBuscarChats')?.addEventListener('input', (e) => {
 
 async function cargarConversaciones() {
   const cachedConvs = await LocalStore.obtenerLista('conversaciones', 'mis_conversaciones');
+  let renderizadoCache = false;
+
   if (cachedConvs && cachedConvs.length) {
     listaConversacionesGlobal = cachedConvs;
-    $('listaConversaciones').innerHTML = renderizarConversacionesHTML(cachedConvs);
-    adjuntarListenersConversaciones();
+    if ($('listaConversaciones').children.length === 0 || $('listaConversaciones').querySelector('.aviso-vacio')) {
+      $('listaConversaciones').innerHTML = renderizarConversacionesHTML(cachedConvs);
+      adjuntarListenersConversaciones();
+      renderizadoCache = true;
+    }
   }
 
   try {
     const { conversaciones } = await api('/mensajes');
     listaConversacionesGlobal = conversaciones || [];
     Chat.actualizarBadgeMensajes(false);
-    $('listaConversaciones').innerHTML = renderizarConversacionesHTML(conversaciones);
-    adjuntarListenersConversaciones();
+
+    const nuevoJson = JSON.stringify((conversaciones || []).map(c => ({ id: c.id, last: c.last_message, unread: c.unread_count })));
+    const actualJson = $('listaConversaciones').dataset.cacheState;
+    if (!renderizadoCache || actualJson !== nuevoJson) {
+      $('listaConversaciones').innerHTML = renderizarConversacionesHTML(conversaciones);
+      adjuntarListenersConversaciones();
+      $('listaConversaciones').dataset.cacheState = nuevoJson;
+    }
     LocalStore.guardarLista('conversaciones', 'mis_conversaciones', conversaciones);
   } catch (e) {
     if (!cachedConvs || !cachedConvs.length) {
