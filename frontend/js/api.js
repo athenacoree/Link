@@ -58,7 +58,21 @@ const LocalStore = (() => {
     return res ? res.data : null;
   }
 
-  return { guardarItem, obtenerItem, guardarLista, obtenerLista };
+  async function borrarStore(storeName) {
+    try {
+      const db = await abrirDB();
+      if (!db) {
+        Object.keys(localStorage).forEach((k) => {
+          if (k.startsWith(`cache_${storeName}_`)) localStorage.removeItem(k);
+        });
+        return;
+      }
+      const tx = db.transaction(storeName, 'readwrite');
+      tx.objectStore(storeName).clear();
+    } catch (e) { console.warn('Cache clear warning:', e); }
+  }
+
+  return { guardarItem, obtenerItem, guardarLista, obtenerLista, borrarStore };
 })();
 
 /* =========================================================

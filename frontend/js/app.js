@@ -549,35 +549,24 @@ async function comprobarAnuncioActivo() {
 document.querySelectorAll('nav.tabbar .tab').forEach((tab) => {
   tab.addEventListener('click', () => cambiarVista(tab.dataset.tab));
 });
-const VISTAS_CARGADAS = new Set();
+
 function cambiarVista(nombre) {
   cerrarTodosLosModales();
   if (typeof finalizarConteoPerfil === 'function') finalizarConteoPerfil();
   document.querySelectorAll('nav.tabbar .tab').forEach((t) => t.classList.toggle('activo', t.dataset.tab === nombre));
   document.querySelectorAll('.vista-app').forEach((v) => v.classList.toggle('activo', v.dataset.vista === nombre));
 
-  // Carga instantánea si ya fue cargado recientemente, refresco en background
+  // Refrescar siempre desde la API al cambiar de pestaña
   if (nombre === 'feed') {
-    if (!VISTAS_CARGADAS.has('feed') || !$('inputBuscar').value.trim()) {
+    if (!$('inputBuscar').value.trim()) {
       cargarDescubrir();
-      VISTAS_CARGADAS.add('feed');
     }
   }
   if (nombre === 'contactos') {
-    if (!VISTAS_CARGADAS.has('contactos')) {
-      cargarAmigosYSolicitudes();
-      VISTAS_CARGADAS.add('contactos');
-    } else {
-      setTimeout(cargarAmigosYSolicitudes, 100);
-    }
+    cargarAmigosYSolicitudes();
   }
   if (nombre === 'mensajes') {
-    if (!VISTAS_CARGADAS.has('mensajes')) {
-      cargarConversaciones();
-      VISTAS_CARGADAS.add('mensajes');
-    } else {
-      setTimeout(cargarConversaciones, 100);
-    }
+    cargarConversaciones();
   }
 }
 
@@ -1147,13 +1136,6 @@ function adjuntarInteraccionTarjeta(tarjeta, persona) {
 
 async function manejarDobleToquePersona(persona, tarjeta) {
   animarCorazonToque(tarjeta);
-  try {
-    const { reaccion } = await api(`/usuarios/${persona.id}/reaccion`, { method: 'PUT', body: { tipo: 'me_interesa' } });
-    persona.mi_reaccion = reaccion?.tipo || 'me_interesa';
-  } catch (e) {
-    mostrarToast(e.message);
-    return;
-  }
   abrirMiniEncuestaReaccion(persona);
 }
 
@@ -1170,9 +1152,18 @@ let reaccionPersonaActual = null;
 function abrirMiniEncuestaReaccion(persona) {
   reaccionPersonaActual = persona;
   $('reaccion-titulo').textContent = `Tocaste dos veces a ${(persona.name || 'esta persona').split(' ')[0]} — ¿qué te pareció? (opcional)`;
+  const tipoActual = persona.mi_reaccion || 'me_interesa';
   $('reaccionOpciones').innerHTML = OPCIONES_REACCION.map((o) => `
-    <div class="chip-toggle chip-reaccion ${o.negativa ? 'negativa' : ''} ${persona.mi_reaccion === o.tipo ? 'seleccionado' : ''}" data-tipo="${o.tipo}">${o.emoji} ${o.texto}</div>
+    <div class="chip-toggle chip-reaccion ${o.negativa ? 'negativa' : ''} ${tipoActual === o.tipo ? 'seleccionado' : ''}" data-tipo="${o.tipo}">${o.emoji} ${o.texto}</div>
   `).join('');
+
+  // Si aún no tiene reacción guardada en esta interacción, guardamos 'me_interesa' por defecto al abrir o interactuar
+  if (!persona.mi_reaccion) {
+    api(`/usuarios/${persona.id}/reaccion`, { method: 'PUT', body: { tipo: 'me_interesa' } })
+      .then(({ reaccion }) => { persona.mi_reaccion = reaccion?.tipo || 'me_interesa'; })
+      .catch((e) => console.warn('Error guardando reacción por defecto:', e.message));
+  }
+
   $('reaccionOpciones').querySelectorAll('.chip-reaccion').forEach((chip) => {
     chip.addEventListener('click', async () => {
       $('reaccionOpciones').querySelectorAll('.chip-reaccion').forEach((c) => c.classList.remove('seleccionado'));
@@ -2361,8 +2352,10 @@ async function adminAlternarVerificado(userId, ponerVerificado) {
   try {
     await api(`/admin/usuarios/${userId}/verificado`, { method: 'PUT', body: { verificado: ponerVerificado } });
     mostrarToast(ponerVerificado ? 'Cuenta verificada ✓' : 'Verificación retirada');
+    await LocalStore.borrarStore('feed');
     cargarAdminUsuarios($('adminBuscarUsuario').value.trim());
     if (perfilActualId === userId) abrirPerfil(userId);
+    if ($('vistaFeed').classList.contains('activo')) cargarDescubrir();
   } catch (e) { mostrarToast(e.message); }
 }
 window.adminAlternarVerificado = adminAlternarVerificado;
