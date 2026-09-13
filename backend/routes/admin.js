@@ -25,15 +25,30 @@ router.get('/usuarios', async (req, res) => {
   }
 });
 
+const isUuid = (val) => typeof val === 'string' && /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(val);
+
 // ---- Poner / quitar el check de verificado ----
 router.put('/usuarios/:id/verificado', async (req, res) => {
   try {
+    const targetUserId = req.params.id;
+    const adminUserId = req.userId;
+
+    if (!isUuid(adminUserId)) {
+      return res.status(400).json({ error: 'El ID del administrador no es un UUID válido.' });
+    }
+    if (!isUuid(targetUserId)) {
+      return res.status(400).json({ error: 'El ID del usuario a verificar no es un UUID válido.' });
+    }
+
     const verificadoInput = req.body.verificado;
     const isVerified = verificadoInput === true || verificadoInput === 'true';
     const { rows } = await query(
-      `UPDATE users SET verified=$1, verified_at = CASE WHEN $1 THEN now() ELSE NULL END, verified_by = CASE WHEN $1 THEN $2 ELSE NULL END
-        WHERE id=$3 RETURNING *`,
-      [isVerified, req.userId, req.params.id]
+      `UPDATE users
+       SET verified = $1,
+           verified_at = CASE WHEN $1 THEN now() ELSE NULL END,
+           verified_by = CASE WHEN $1 THEN $2::uuid ELSE NULL::uuid END
+       WHERE id = $3::uuid RETURNING *`,
+      [isVerified, adminUserId, targetUserId]
     );
     if (!rows.length) return res.status(404).json({ error: 'Persona no encontrada.' });
     res.json({ persona: meUser(rows[0]) });
@@ -46,17 +61,27 @@ router.put('/usuarios/:id/verificado', async (req, res) => {
 // ---- Banear / desbanear una cuenta ----
 router.put('/usuarios/:id/baneo', async (req, res) => {
   try {
+    const targetUserId = req.params.id;
+    const adminUserId = req.userId;
+
+    if (!isUuid(adminUserId)) {
+      return res.status(400).json({ error: 'El ID del administrador no es un UUID válido.' });
+    }
+    if (!isUuid(targetUserId)) {
+      return res.status(400).json({ error: 'El ID del usuario no es un UUID válido.' });
+    }
+
     const { baneado, motivo } = req.body;
-    if (req.params.id === req.userId && baneado) {
+    if (targetUserId === adminUserId && baneado) {
       return res.status(400).json({ error: 'No puedes banearte a ti mismo.' });
     }
     const { rows } = await query(
       `UPDATE users SET banned=$1,
           banned_reason = CASE WHEN $1 THEN $2 ELSE NULL END,
           banned_at = CASE WHEN $1 THEN now() ELSE NULL END,
-          banned_by = CASE WHEN $1 THEN $3 ELSE NULL END
-        WHERE id=$4 RETURNING *`,
-      [!!baneado, (motivo || '').slice(0, 300) || null, req.userId, req.params.id]
+          banned_by = CASE WHEN $1 THEN $3::uuid ELSE NULL::uuid END
+        WHERE id=$4::uuid RETURNING *`,
+      [!!baneado, (motivo || '').slice(0, 300) || null, adminUserId, targetUserId]
     );
     if (!rows.length) return res.status(404).json({ error: 'Persona no encontrada.' });
     res.json({ persona: meUser(rows[0]) });
