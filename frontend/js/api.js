@@ -1,4 +1,67 @@
 /* =========================================================
+   ALMACENAMIENTO LOCAL / CACHÉ (IndexedDB / LocalStorage)
+   ========================================================= */
+const LocalStore = (() => {
+  const DB_NAME = 'EnlaceOfflineDB';
+  const DB_VERSION = 1;
+  let dbPromise = null;
+
+  function abrirDB() {
+    if (dbPromise) return dbPromise;
+    dbPromise = new Promise((resolve) => {
+      if (!window.indexedDB) { return resolve(null); }
+      const req = window.indexedDB.open(DB_NAME, DB_VERSION);
+      req.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains('mensajes')) db.createObjectStore('mensajes', { keyPath: 'key' });
+        if (!db.objectStoreNames.contains('conversaciones')) db.createObjectStore('conversaciones', { keyPath: 'id' });
+        if (!db.objectStoreNames.contains('contactos')) db.createObjectStore('contactos', { keyPath: 'id' });
+        if (!db.objectStoreNames.contains('feed')) db.createObjectStore('feed', { keyPath: 'id' });
+      };
+      req.onsuccess = (e) => resolve(e.target.result);
+      req.onerror = () => resolve(null);
+    });
+    return dbPromise;
+  }
+
+  async function guardarItem(storeName, item) {
+    try {
+      const db = await abrirDB();
+      if (!db) { localStorage.setItem(`cache_${storeName}_${item.id || item.key}`, JSON.stringify(item)); return; }
+      const tx = db.transaction(storeName, 'readwrite');
+      tx.objectStore(storeName).put(item);
+    } catch (e) { console.warn('Cache write warning:', e); }
+  }
+
+  async function obtenerItem(storeName, key) {
+    try {
+      const db = await abrirDB();
+      if (!db) {
+        const raw = localStorage.getItem(`cache_${storeName}_${key}`);
+        return raw ? JSON.parse(raw) : null;
+      }
+      return new Promise((resolve) => {
+        const tx = db.transaction(storeName, 'readonly');
+        const req = tx.objectStore(storeName).get(key);
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => resolve(null);
+      });
+    } catch (e) { return null; }
+  }
+
+  async function guardarLista(storeName, key, items) {
+    await guardarItem(storeName, { id: key, key, data: items, updatedAt: Date.now() });
+  }
+
+  async function obtenerLista(storeName, key) {
+    const res = await obtenerItem(storeName, key);
+    return res ? res.data : null;
+  }
+
+  return { guardarItem, obtenerItem, guardarLista, obtenerLista };
+})();
+
+/* =========================================================
    Capa de comunicación real con el backend (fetch + JWT).
    Todo lo que hay aquí llama de verdad al servidor: nada de datos
    inventados ni "modo demo". Si el backend no responde, se avisa.
