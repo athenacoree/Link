@@ -15,7 +15,7 @@ router.get('/usuarios', async (req, res) => {
   try {
     const q = (req.query.q || '').trim();
     const { rows } = q
-      ? (await query(`SELECT * FROM users WHERE name ILIKE $1 OR email ILIKE $1 ORDER BY name ASC LIMIT 40`, [`%${q}%`]))
+      ? (await query(`SELECT * FROM users WHERE name ILIKE $1 OR email ILIKE $1 OR username ILIKE $1 ORDER BY name ASC LIMIT 40`, [`%${q}%`]))
       : (await query(`SELECT * FROM users ORDER BY created_at DESC LIMIT 40`))
     ;
     res.json({ personas: rows.map(meUser) });
@@ -25,14 +25,15 @@ router.get('/usuarios', async (req, res) => {
   }
 });
 
-// ---- Poner / quitar el check de verificado (como Instagram/WhatsApp) ----
+// ---- Poner / quitar el check de verificado ----
 router.put('/usuarios/:id/verificado', async (req, res) => {
   try {
-    const { verificado } = req.body;
+    const verificadoInput = req.body.verificado;
+    const isVerified = Boolean(verificadoInput) && verificadoInput !== 'false';
     const { rows } = await query(
       `UPDATE users SET verified=$1, verified_at = CASE WHEN $1 THEN now() ELSE NULL END, verified_by = CASE WHEN $1 THEN $2 ELSE NULL END
         WHERE id=$3 RETURNING *`,
-      [!!verificado, req.userId, req.params.id]
+      [isVerified, req.userId, req.params.id]
     );
     if (!rows.length) return res.status(404).json({ error: 'Persona no encontrada.' });
     res.json({ persona: publicUser(rows[0]) });
@@ -65,7 +66,7 @@ router.put('/usuarios/:id/baneo', async (req, res) => {
   }
 });
 
-// ---- Ver reportes (por defecto, solo los pendientes) ----
+// ---- Ver reportes ----
 router.get('/reportes', async (req, res) => {
   try {
     const estado = req.query.estado || 'pendiente';
@@ -108,6 +109,44 @@ router.put('/reportes/:id', async (req, res) => {
   }
 });
 
+// ---- ANUNCIOS GLOBALES DEL ADMIN ----
+router.post('/anuncios', async (req, res) => {
+  try {
+    const { title, content, expires_in_hours } = req.body;
+    if (!title || !content) return res.status(400).json({ error: 'Falta título o contenido.' });
+    const hours = Math.max(1, parseInt(expires_in_hours) || 24);
+    const { rows } = await query(
+      `INSERT INTO announcements (title, content, created_by, expires_at)
+       VALUES ($1, $2, $3, now() + ($4 || ' hours')::interval) RETURNING *`,
+      [title.trim(), content.trim(), req.userId, `${hours}`]
+    );
+    res.status(201).json({ anuncio: rows[0] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/anuncios', async (req, res) => {
+  try {
+    const { rows } = await query(`SELECT * FROM announcements ORDER BY created_at DESC LIMIT 50`);
+    res.json({ anuncios: rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/anuncios/:id', async (req, res) => {
+  try {
+    await query(`DELETE FROM announcements WHERE id = $1`, [req.params.id]);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ---- Publicaciones de una persona, para moderar desde el panel ----
 router.get('/usuarios/:id/publicaciones', async (req, res) => {
   try {
@@ -130,7 +169,6 @@ router.get('/exportar-db', async (req, res) => {
   try {
     const zip = new AdmZip();
 
-    // Export Postgres Tables
     const tables = [
       'users',
       'friendships',
@@ -142,7 +180,10 @@ router.get('/exportar-db', async (req, res) => {
       'notifications',
       'calls',
       'contact_verifications',
-      'reports'
+      'reports',
+      'messages',
+      'announcements',
+      'announcement_views'
     ];
 
     const recordCounts = {};
@@ -158,17 +199,6 @@ router.get('/exportar-db', async (req, res) => {
       }
     }
 
-    // Export MongoDB Messages
-    let mongoMessages = [];
-    try {
-      mongoMessages = await Message.find({}).lean();
-      zip.addFile('mongodb_messages.json', Buffer.from(JSON.stringify(mongoMessages, null, 2), 'utf8'));
-      recordCounts['mongodb_messages'] = mongoMessages.length;
-    } catch (e) {
-      console.error('Export warning for Mongo messages:', e.message);
-      recordCounts['mongodb_messages'] = 0;
-    }
-
     const manifest = {
       version: '1.0.0',
       exported_at: new Date().toISOString(),
@@ -176,7 +206,7 @@ router.get('/exportar-db', async (req, res) => {
       app: 'Enlace Red Social',
       environment: process.env.NODE_ENV || 'production',
       records: recordCounts,
-      description: 'Respaldo completo de base de datos de Enlace (PostgreSQL + MongoDB Atlas).'
+      description: 'Respaldo completo de base de datos de Enlace (PostgreSQL).'
     };
 
     zip.addFile('manifest.json', Buffer.from(JSON.stringify(manifest, null, 2), 'utf8'));
@@ -213,7 +243,6 @@ router.post('/importar-db', upload.single('archivo'), async (req, res) => {
     const manifest = JSON.parse(manifestEntry.getData().toString('utf8'));
     console.log(`[Import] Procesando respaldo versión ${manifest.version} exportado el ${manifest.exported_at}`);
 
-    // Non-destructive import for PostgreSQL tables
     const tableFiles = [
       'postgres_users.json',
       'postgres_friendships.json',
@@ -225,7 +254,10 @@ router.post('/importar-db', upload.single('archivo'), async (req, res) => {
       'postgres_notifications.json',
       'postgres_calls.json',
       'postgres_contact_verifications.json',
-      'postgres_reports.json'
+      'postgres_reports.json',
+      'postgres_messages.json',
+      'postgres_announcements.json',
+      'postgres_announcement_views.json'
     ];
 
     const client = await pool.connect();
@@ -245,14 +277,12 @@ router.post('/importar-db', upload.single('archivo'), async (req, res) => {
           const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
           const values = keys.map(k => row[k]);
 
-          // Non-destructive: ON CONFLICT DO NOTHING
           const conflictTarget = keys.includes('id') ? '("id")' : (keys.includes('user_a') && keys.includes('user_b') ? '("user_a", "user_b")' : null);
           const sql = conflictTarget
             ? `INSERT INTO ${tableName} (${columns}) VALUES (${placeholders}) ON CONFLICT ${conflictTarget} DO NOTHING`
             : `INSERT INTO ${tableName} (${columns}) VALUES (${placeholders}) ON CONFLICT DO NOTHING`;
 
           await client.query(sql, values).catch(e => {
-            // Log warning if conflict target signature doesn't match table constraint, keep moving non-destructively
             console.warn(`[Import warning] Tabla ${tableName}:`, e.message);
           });
         }
@@ -264,17 +294,6 @@ router.post('/importar-db', upload.single('archivo'), async (req, res) => {
       throw err;
     } finally {
       client.release();
-    }
-
-    // Import MongoDB Messages
-    const mongoEntry = zip.getEntry('mongodb_messages.json');
-    if (mongoEntry) {
-      const messages = JSON.parse(mongoEntry.getData().toString('utf8'));
-      for (const msg of messages) {
-        await Message.updateOne({ _id: msg._id }, { $setOnInsert: msg }, { upsert: true }).catch(e => {
-          console.warn('[Import Mongo warning]:', e.message);
-        });
-      }
     }
 
     res.json({

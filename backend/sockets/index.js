@@ -1,6 +1,5 @@
 const { verifyToken } = require('../utils/jwt');
 const { query } = require('../db/postgres');
-const Message = require('../models/Message');
 const { setIO, registerSocket, unregisterSocket, isOnline, emitToUser } = require('../utils/realtime');
 const { registrarSenal } = require('../utils/recomendaciones');
 
@@ -39,7 +38,7 @@ function initSockets(io) {
     await query('UPDATE users SET is_online=true WHERE id=$1', [userId]).catch(() => {});
     broadcastPresencia(io, userId, true);
 
-    // ---------------- MENSAJERÍA (persistida en MongoDB Atlas) ----------------
+    // ---------------- MENSAJERÍA (persistida en PostgreSQL) ----------------
     socket.on('mensaje:enviar', async ({ receiverId, text, imageData }, ack) => {
       try {
         if (!receiverId || (!text && !imageData)) {
@@ -49,14 +48,16 @@ function initSockets(io) {
           return ack && ack({ ok: false, error: 'No puedes enviar mensajes a esta persona.' });
         }
         const convId = conversationId(userId, receiverId);
-        const doc = await Message.create({
-          conversationId: convId,
-          senderId: userId,
-          receiverId,
-          text: text || '',
-          imageData: imageData || null,
-          delivered: isOnline(receiverId),
-        });
+        const isDelivered = isOnline(receiverId);
+
+        const { rows } = await query(
+          `INSERT INTO messages (conversation_id, sender_id, receiver_id, text, image_data, delivered)
+           VALUES ($1, $2, $3, $4, $5, $6)
+           RETURNING id, conversation_id AS "conversationId", sender_id AS "senderId", receiver_id AS "receiverId",
+                     text, image_data AS "imageData", delivered, read, created_at AS "createdAt"`,
+          [convId, userId, receiverId, text || '', imageData || null, isDelivered]
+        );
+        const doc = rows[0];
 
         const [a, b] = [userId, receiverId].sort();
         const preview = text ? text.slice(0, 80) : '📷 Foto';
@@ -67,8 +68,8 @@ function initSockets(io) {
           [a, b, preview]
         );
 
-        emitToUser(receiverId, 'mensaje:nuevo', doc.toObject());
-        ack && ack({ ok: true, mensaje: doc.toObject() });
+        emitToUser(receiverId, 'mensaje:nuevo', doc);
+        ack && ack({ ok: true, mensaje: doc });
         registrarSenal(userId, receiverId, 'mensaje', 3);
       } catch (err) {
         console.error('[socket] error enviando mensaje:', err.message);
@@ -81,8 +82,6 @@ function initSockets(io) {
     });
 
     // ---------------- LLAMADAS: señalización WebRTC ----------------
-    // El servidor solo transporta las señales (offer/answer/ICE); el
-    // audio y video viajan directo entre los dos navegadores (P2P real).
     socket.on('llamada:invitar', async ({ calleeId, callType }) => {
       if (await hayBloqueoEntre(userId, calleeId)) {
         socket.emit('llamada:no-disponible', { calleeId });
@@ -140,10 +139,6 @@ function initSockets(io) {
 
     socket.on('llamada:ice-candidate', ({ destinoId, candidate }) => {
       emitToUser(destinoId, 'llamada:ice-candidate', { deId: userId, candidate });
-    });
-
-    socket.on('llamada:colgar', ({ destinoId }) => {
-      emitToUser(destinoId, 'llamada:colgar', { deId: userId });
     });
 
     socket.on('llamada:chat', ({ destinoId, text }) => {

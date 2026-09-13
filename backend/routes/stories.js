@@ -34,6 +34,56 @@ router.get('/', requireAuth, async (req, res) => {
   res.json({ estados: rows });
 });
 
+// ---- Ver estados vigentes de un usuario específico ----
+router.get('/usuario/:userId', requireAuth, async (req, res) => {
+  try {
+    const { rows } = await query(
+      `SELECT s.*, u.name AS autor_nombre, u.avatar_data AS autor_avatar
+         FROM stories s JOIN users u ON u.id = s.user_id
+        WHERE s.user_id = $1 AND s.expires_at > now()
+        ORDER BY s.created_at DESC`,
+      [req.params.userId]
+    );
+    res.json({ estados: rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error al obtener estados.' });
+  }
+});
+
+// ---- Borrar un estado ----
+router.delete('/:id', requireAuth, async (req, res) => {
+  try {
+    const { rows: story } = await query('SELECT * FROM stories WHERE id = $1', [req.params.id]);
+    if (!story.length) return res.status(404).json({ error: 'Estado no encontrado.' });
+
+    const { rows: user } = await query('SELECT is_admin FROM users WHERE id = $1', [req.userId]);
+    const esDueno = story[0].user_id === req.userId;
+    const esAdmin = user[0]?.is_admin;
+
+    if (!esDueno && !esAdmin) {
+      return res.status(403).json({ error: 'No tienes permiso para borrar este estado.' });
+    }
+
+    await query('DELETE FROM stories WHERE id = $1', [req.params.id]);
+
+    const { rows: vigentes } = await query(
+      'SELECT text FROM stories WHERE user_id = $1 AND expires_at > now() ORDER BY created_at DESC LIMIT 1',
+      [story[0].user_id]
+    );
+    if (vigentes.length) {
+      await query('UPDATE users SET status_text = $1 WHERE id = $2', [vigentes[0].text || '📷', story[0].user_id]);
+    } else {
+      await query('UPDATE users SET status_text = NULL, status_updated_at = NULL WHERE id = $1', [story[0].user_id]);
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'No se pudo borrar el estado.' });
+  }
+});
+
 router.post('/:id/visto', requireAuth, async (req, res) => {
   await query(
     `INSERT INTO story_views (story_id, user_id) VALUES ($1,$2) ON CONFLICT DO NOTHING`,

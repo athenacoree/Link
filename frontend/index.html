@@ -15,7 +15,7 @@
 <body>
 
 <!-- =========================================================
-     PANTALLA DE AUTENTICACIÓN (registro / inicio de sesión reales)
+     PANTALLA DE AUTENTICACIÓN
      ========================================================= -->
 <div id="authScreen">
   <div class="auth-caja">
@@ -79,7 +79,6 @@
     <div class="feed" id="listaBuscar"></div>
   </main>
 
-
   <!-- ---------- CONTACTOS / AMIGOS ---------- -->
   <main class="vista-app" id="vistaContactos" data-vista="contactos">
     <div class="titulo-vista">Contactos</div>
@@ -141,7 +140,6 @@
         <div class="chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></div>
       </div>
     </div>
-    <div class="tarjeta-ajustes" id="filaAjustesLista"></div>
     <div class="tarjeta-ajustes">
       <div class="fila-ajustes peligro" id="btnCerrarSesion">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
@@ -225,6 +223,16 @@
   <div class="hoja-cancelar" id="cerrarBloqueados">Cerrar</div>
 </div>
 
+<!-- ---------- Anuncio global del Administrador ---------- -->
+<div class="velo" id="veloAnuncio"></div>
+<div class="hoja" id="hojaAnuncio" style="bottom:20px;">
+  <div class="hoja-grupo">
+    <div class="hoja-persona"><span style="font-weight:700; color:var(--morado-700); font-size:16px;" id="anuncioTitulo">Anuncio oficial</span></div>
+    <p id="anuncioTexto" style="font-size:14px; line-height:1.5; color:var(--texto-800); margin:10px 0 16px; padding:0 4px; white-space:pre-wrap;"></p>
+    <div class="btn btn-primario" id="btnCerrarAnuncio" style="width:100%;">Entendido</div>
+  </div>
+</div>
+
 <div class="toast" id="toast">
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
   <span id="toast-texto"></span>
@@ -239,8 +247,8 @@
     </div>
   </div>
   <div class="perfil-avatar-wrap">
-    <div class="anillo" id="p-anillo"><img id="p-avatar" src="" alt=""></div>
-    <div class="estado-24" id="p-estado"></div>
+    <div class="anillo" id="p-anillo" style="cursor:pointer;"><img id="p-avatar" src="" alt=""></div>
+    <div class="estado-24" id="p-estado" style="cursor:pointer;"></div>
   </div>
   <div class="perfil-info">
     <h2 id="p-nombre"></h2>
@@ -271,16 +279,13 @@
         <span id="p-amistad-texto">Hacerse amigos</span>
       </div>
 
-      <!-- Botón Flotante "+" de Opciones -->
       <div class="btn btn-secundario" id="p-btn-mas-opciones" style="padding:10px 14px; display:flex; align-items:center; gap:4px; font-weight:700;">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         <span>Acciones</span>
       </div>
     </div>
 
-    <!-- Menú/Extensión Flotante desplegable -->
     <div id="p-menu-flotante" class="oculto" style="position:absolute; right:20px; top:50px; z-index:100; background:var(--blanco); border:1px solid var(--borde); border-radius:14px; box-shadow:0 8px 24px rgba(0,0,0,0.12); width:240px; padding:12px 0;">
-      <!-- Categoría 1: Comunicación -->
       <div style="padding:4px 14px; font-size:11px; font-weight:700; color:var(--texto-500); text-transform:uppercase; letter-spacing:0.5px;">Comunicación</div>
       <div id="p-mensaje" style="padding:10px 14px; display:flex; align-items:center; gap:10px; cursor:pointer; font-size:13.5px; font-weight:500;">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.5 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7A8.4 8.4 0 0 1 3.5 11.5 8.5 8.5 0 1 1 21 11.5Z"/></svg>
@@ -297,7 +302,6 @@
 
       <div style="border-top:1px solid var(--borde); margin:6px 0;"></div>
 
-      <!-- Categoría 2: Contacto externo / Link -->
       <div style="padding:4px 14px; font-size:11px; font-weight:700; color:var(--texto-500); text-transform:uppercase; letter-spacing:0.5px;">Contacto Externo</div>
       <div id="p-link-desplegable" style="padding:6px 14px;"></div>
       <div id="p-exportar-vcard" style="padding:10px 14px; display:flex; align-items:center; gap:10px; cursor:pointer; font-size:13.5px; font-weight:500;">
@@ -307,7 +311,6 @@
 
       <div style="border-top:1px solid var(--borde); margin:6px 0;"></div>
 
-      <!-- Categoría 3: Otras acciones -->
       <div style="padding:4px 14px; font-size:11px; font-weight:700; color:var(--texto-500); text-transform:uppercase; letter-spacing:0.5px;">Otras Acciones</div>
       <div id="p-verificar" style="padding:10px 14px; display:flex; align-items:center; gap:10px; cursor:pointer; font-size:13.5px; font-weight:500;">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="m17.5 9 1.8 1.8L23 7"/></svg>
@@ -325,7 +328,6 @@
     </div>
   </div>
 
-  <!-- Compositor: solo visible cuando estás viendo TU PROPIO perfil -->
   <div class="compositor oculto" id="p-compositor" style="margin:0 20px 16px;">
     <div class="compositor-fila">
       <textarea id="pCompTexto" placeholder="¿Qué está pasando?" rows="1"></textarea>
@@ -357,6 +359,7 @@
     <div class="sub-tabs">
       <div class="sub-tab activo" data-admintab="usuarios">Usuarios</div>
       <div class="sub-tab" data-admintab="reportes">Reportes</div>
+      <div class="sub-tab" data-admintab="anuncios">Anuncios</div>
       <div class="sub-tab" data-admintab="base-datos">Base de Datos</div>
     </div>
 
@@ -377,9 +380,18 @@
       <div id="adminListaReportes"></div>
     </div>
 
+    <div id="adminVistaAnuncios" class="oculto" style="margin-top:16px;">
+      <p style="font-size:13.5px; color:var(--texto-600); margin-bottom:12px;">Publica un anuncio global que le aparecerá a todos los usuarios una sola vez durante el tiempo configurado.</p>
+      <div class="campo"><label>Título del anuncio</label><input type="text" id="adminAnuncioTitulo" placeholder="Ej. ¡Nueva función disponible!"></div>
+      <div class="campo"><label>Contenido del anuncio</label><textarea id="adminAnuncioTexto" rows="3" placeholder="Escribe el mensaje para la comunidad..."></textarea></div>
+      <div class="campo"><label>Duración del anuncio (horas)</label><input type="number" id="adminAnuncioHoras" value="24" min="1"></div>
+      <div class="btn btn-primario" id="adminBtnPublicarAnuncio" style="width:100%; margin-top:8px;">Publicar anuncio global</div>
+      <div id="adminListaAnuncios" style="margin-top:18px;"></div>
+    </div>
+
     <div id="adminVistaBaseDatos" class="oculto" style="margin-top:16px;">
       <p style="font-size:13.5px; color:var(--texto-600); margin-bottom:16px;">
-        Gestiona la copia de seguridad, exportación e importación de la base de datos (PostgreSQL + MongoDB Atlas). El archivo descargado incluye un manifiesto de versión (manifest.json) con la fecha y estado del sistema.
+        Gestiona la copia de seguridad, exportación e importación de la base de datos de Render (PostgreSQL). El archivo descargado incluye un manifiesto de versión (manifest.json).
       </p>
 
       <div class="btn btn-primario" id="adminBtnExportarDB" style="width:100%; margin-bottom:12px; display:flex; align-items:center; justify-content:center; gap:8px;">
@@ -418,6 +430,13 @@
   <div class="hoja-grupo">
     <div class="hoja-form">
       <div class="campo"><label>Nombre</label><input type="text" id="edNombre"></div>
+      <div class="campo"><label>Género</label>
+        <select id="edGenero">
+          <option value="Mujer">Mujer</option>
+          <option value="Hombre">Hombre</option>
+          <option value="Otro">Otro</option>
+        </select>
+      </div>
       <div class="grid-2">
         <div class="campo">
           <label>Código país</label>
@@ -450,7 +469,7 @@
   <div class="hoja-cancelar" id="cerrarEditar">Cancelar</div>
 </div>
 
-<!-- ---------- ¿Por qué se recomienda esta persona? (explicación del algoritmo) ---------- -->
+<!-- ---------- ¿Por qué se recomienda esta persona? ---------- -->
 <div class="velo" id="veloPorque"></div>
 <div class="hoja hoja-porque" id="hojaPorque" style="bottom:20px;">
   <div class="hoja-grupo">
@@ -475,7 +494,7 @@
   <div class="hoja-cancelar" id="cerrarPorque">Cerrar</div>
 </div>
 
-<!-- ---------- Encuesta inicial de intereses (breve y opcional) ---------- -->
+<!-- ---------- Encuesta inicial de intereses ---------- -->
 <div class="velo" id="veloEncuesta"></div>
 <div class="hoja" id="hojaEncuesta" style="bottom:20px;">
   <div class="hoja-grupo">
@@ -507,8 +526,7 @@
   </div>
 </div>
 
-
-<!-- ---------- Mini encuesta de reacción privada (doble toque en el feed) ---------- -->
+<!-- ---------- Mini encuesta de reacción privada ---------- -->
 <div class="velo" id="veloReaccion"></div>
 <div class="hoja" id="hojaReaccion" style="bottom:20px;">
   <div class="hoja-grupo">
@@ -537,7 +555,7 @@
   <div class="hoja-cancelar" id="cerrarEstado">Cancelar</div>
 </div>
 
-<!-- ---------- Ver estado de otro usuario ---------- -->
+<!-- ---------- Ver estado de un usuario ---------- -->
 <div class="velo" id="veloVerEstado"></div>
 <div class="hoja" id="hojaVerEstado" style="bottom:20px;">
   <div class="hoja-grupo">
@@ -545,6 +563,9 @@
     <div style="padding:16px;">
       <img id="ve-imagen" class="compositor-preview activo" style="display:none;">
       <p id="ve-texto" style="font-size:15px; line-height:1.5; margin-top:8px;"></p>
+    </div>
+    <div id="ve-acciones" style="padding:0 16px 16px; display:none;">
+      <div class="btn btn-secundario peligro" id="btnBorrarEstado" style="width:100%;">Borrar este estado</div>
     </div>
   </div>
   <div class="hoja-cancelar" id="cerrarVerEstado">Cerrar</div>
@@ -576,9 +597,7 @@
 </div>
 
 <!-- =========================================================
-     INTERFAZ DE LLAMADA (audio / video) — misma apariencia y
-     lógica del prototipo de videollamada, sin barra de navegación:
-     solo lo que se ve mientras se llama de verdad.
+     INTERFAZ DE LLAMADA
      ========================================================= -->
 <div id="vistaLlamada">
   <div class="ambient"><div class="orb orb1"></div><div class="orb orb2"></div></div>

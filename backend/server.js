@@ -37,6 +37,7 @@ app.use('/api/notificaciones', require('./routes/notifications'));
 app.use('/api/mensajes', require('./routes/messages'));
 app.use('/api/moderacion', require('./routes/moderacion'));
 app.use('/api/admin', require('./routes/admin'));
+app.use('/api/anuncios', require('./routes/announcements'));
 
 // ---------------- Frontend (PWA estática) ----------------
 const FRONTEND_DIR = path.join(__dirname, '..', 'frontend');
@@ -63,9 +64,9 @@ async function start() {
     console.error('[arranque] No se pudieron aplicar migraciones:', err.message);
   }
   try {
-    await connectMongo(); // conecta a MongoDB Atlas para los mensajes de chat
+    await connectMongo(); // conecta a MongoDB Atlas si existe
   } catch (err) {
-    console.error('[arranque] No se pudo conectar a MongoDB Atlas:', err.message);
+    console.warn('[arranque] Omitiendo Mongo (se usará PostgreSQL para la mensajería).');
   }
   startCleanupJob();
   server.listen(PORT, () => {
