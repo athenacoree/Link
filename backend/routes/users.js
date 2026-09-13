@@ -275,7 +275,7 @@ router.get('/:id/vcard', requireAuth, async (req, res) => {
 // ---- Editar mi perfil ----
 router.put('/me/perfil', requireAuth, async (req, res) => {
   const campos = [
-    'name', 'phone', 'country_code', 'instagram', 'other_links', 'birthdate', 'gender', 'skin_color', 'relationship_status',
+    'name', 'phone', 'country_code', 'instagram', 'social_links', 'other_links', 'birthdate', 'gender', 'skin_color', 'relationship_status',
     'profession', 'bio', 'city', 'country', 'flag_emoji', 'status_text',
   ];
   const sets = [];
@@ -284,7 +284,12 @@ router.put('/me/perfil', requireAuth, async (req, res) => {
   for (const campo of campos) {
     if (Object.prototype.hasOwnProperty.call(req.body, campo)) {
       sets.push(`${campo} = $${i++}`);
-      values.push(req.body[campo]);
+      const val = req.body[campo];
+      if (campo === 'social_links' && typeof val === 'object' && val !== null) {
+        values.push(JSON.stringify(val));
+      } else {
+        values.push(val);
+      }
     }
   }
   if (Object.prototype.hasOwnProperty.call(req.body, 'status_text')) {

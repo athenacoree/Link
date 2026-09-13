@@ -147,6 +147,234 @@ router.delete('/anuncios/:id', async (req, res) => {
   }
 });
 
+// ---- CONFIGURACIÓN DEL SISTEMA (AI OpenRouter, etc.) ----
+router.get('/system-settings', async (req, res) => {
+  try {
+    const { rows } = await query(`SELECT key, value, updated_at FROM system_settings`);
+    const settingsMap = {};
+    rows.forEach(r => { settingsMap[r.key] = r.value; });
+    res.json({ settings: settingsMap });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/system-settings', async (req, res) => {
+  try {
+    const settings = req.body.settings || req.body;
+    if (!settings || typeof settings !== 'object') {
+      return res.status(400).json({ error: 'Datos de configuración inválidos.' });
+    }
+
+    const keys = Object.keys(settings);
+    for (const key of keys) {
+      const val = String(settings[key] ?? '');
+      await query(
+        `INSERT INTO system_settings (key, value, updated_at) VALUES ($1, $2, now())
+         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
+        [key, val]
+      );
+    }
+    res.json({ ok: true, mensaje: 'Configuración del sistema actualizada correctamente.' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Comprobar OpenRouter API contra la API oficial en tiempo real
+router.post('/test-openrouter', async (req, res) => {
+  try {
+    const { openrouter_api_key, openrouter_model, ai_personality } = req.body;
+    if (!openrouter_api_key || !openrouter_api_key.trim()) {
+      return res.status(400).json({ error: 'Debes ingresar una clave API de OpenRouter.' });
+    }
+
+    const modelToUse = openrouter_model || 'meta-llama/llama-3.1-8b-instruct:free';
+    const testMessages = [
+      { role: 'system', content: ai_personality || 'Eres un asistente de pruebas.' },
+      { role: 'user', content: 'Responde sólo en 5 palabras probando la conexión de API.' }
+    ];
+
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openrouter_api_key.trim()}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': process.env.SITE_URL || 'https://link-app.onrender.com',
+        'X-Title': 'Link App Admin Test',
+      },
+      body: JSON.stringify({
+        model: modelToUse,
+        messages: testMessages,
+        max_tokens: 50
+      }),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      return res.status(response.status).json({ error: `Falló la prueba con OpenRouter (${response.status}): ${errText}` });
+    }
+
+    const data = await response.json();
+    const reply = data.choices?.[0]?.message?.content || 'Conexión exitosa pero sin contenido de respuesta.';
+
+    res.json({
+      success: true,
+      message: '¡Prueba exitosa! La API de OpenRouter respondió correctamente.',
+      model: data.model || modelToUse,
+      reply,
+      usage: data.usage || null
+    });
+  } catch (err) {
+    console.error('Error probando OpenRouter:', err);
+    res.status(500).json({ error: `Error de red al conectar con OpenRouter: ${err.message}` });
+  }
+});
+
+// ---- EDITOR DIRECTO DE TABLAS Y CONSOLA SQL ----
+router.get('/db/tables', async (req, res) => {
+  try {
+    const { rows: tables } = await query(`
+      SELECT table_name
+      FROM information_schema.tables
+      WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
+      ORDER BY table_name;
+    `);
+
+    const result = [];
+    for (const t of tables) {
+      const name = t.table_name;
+      try {
+        const { rows: countRows } = await query(`SELECT COUNT(*) AS total FROM "${name}"`);
+        result.push({ name, total: parseInt(countRows[0].total) || 0 });
+      } catch (e) {
+        result.push({ name, total: 0 });
+      }
+    }
+    res.json({ tables: result });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/db/tables/:table', async (req, res) => {
+  const tableName = req.params.table;
+  if (!/^[a-zA-Z0-9_]+$/.test(tableName)) {
+    return res.status(400).json({ error: 'Nombre de tabla inválido.' });
+  }
+
+  try {
+    const { rows: columns } = await query(`
+      SELECT column_name, data_type, is_nullable
+      FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = $1
+      ORDER BY ordinal_position;
+    `, [tableName]);
+
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = 50;
+    const offset = (page - 1) * limit;
+
+    const { rows: data } = await query(`SELECT * FROM "${tableName}" LIMIT $1 OFFSET $2`, [limit, offset]);
+    const { rows: totalRows } = await query(`SELECT COUNT(*) AS total FROM "${tableName}"`);
+
+    res.json({
+      table: tableName,
+      columns,
+      rows: data,
+      total: parseInt(totalRows[0].total) || 0,
+      page,
+      limit
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/db/tables/:table/row', async (req, res) => {
+  const tableName = req.params.table;
+  if (!/^[a-zA-Z0-9_]+$/.test(tableName)) {
+    return res.status(400).json({ error: 'Nombre de tabla inválido.' });
+  }
+
+  const { primaryKeyField, primaryKeyValue, data } = req.body;
+  if (!primaryKeyField || primaryKeyValue === undefined || !data || typeof data !== 'object') {
+    return res.status(400).json({ error: 'Debes proporcionar la clave primaria y los datos a actualizar.' });
+  }
+
+  if (!/^[a-zA-Z0-9_]+$/.test(primaryKeyField)) {
+    return res.status(400).json({ error: 'Campo de clave primaria inválido.' });
+  }
+
+  try {
+    const keys = Object.keys(data).filter(k => /^[a-zA-Z0-9_]+$/.test(k));
+    if (!keys.length) return res.status(400).json({ error: 'No se enviaron campos válidos para actualizar.' });
+
+    const setClauses = keys.map((k, i) => `"${k}" = $${i + 1}`).join(', ');
+    const values = keys.map(k => {
+      const val = data[k];
+      return (typeof val === 'object' && val !== null) ? JSON.stringify(val) : val;
+    });
+
+    values.push(primaryKeyValue);
+    const sql = `UPDATE "${tableName}" SET ${setClauses} WHERE "${primaryKeyField}" = $${values.length} RETURNING *`;
+
+    const { rows } = await query(sql, values);
+    if (!rows.length) return res.status(404).json({ error: 'Fila no encontrada para actualizar.' });
+    res.json({ ok: true, row: rows[0] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/db/tables/:table/row', async (req, res) => {
+  const tableName = req.params.table;
+  if (!/^[a-zA-Z0-9_]+$/.test(tableName)) {
+    return res.status(400).json({ error: 'Nombre de tabla inválido.' });
+  }
+
+  const { primaryKeyField, primaryKeyValue } = req.body;
+  if (!primaryKeyField || primaryKeyValue === undefined) {
+    return res.status(400).json({ error: 'Debes proporcionar la clave primaria para borrar.' });
+  }
+
+  if (!/^[a-zA-Z0-9_]+$/.test(primaryKeyField)) {
+    return res.status(400).json({ error: 'Campo de clave primaria inválido.' });
+  }
+
+  try {
+    const sql = `DELETE FROM "${tableName}" WHERE "${primaryKeyField}" = $1 RETURNING *`;
+    const { rows } = await query(sql, [primaryKeyValue]);
+    res.json({ ok: true, deleted: rows[0] || null });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/db/query', async (req, res) => {
+  try {
+    const { sql } = req.body;
+    if (!sql || !sql.trim()) return res.status(400).json({ error: 'Proporciona una consulta SQL.' });
+
+    const result = await query(sql.trim());
+    res.json({
+      command: result.command,
+      rowCount: result.rowCount,
+      fields: result.fields ? result.fields.map(f => f.name) : [],
+      rows: result.rows || []
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // ---- Publicaciones de una persona, para moderar desde el panel ----
 router.get('/usuarios/:id/publicaciones', async (req, res) => {
   try {
@@ -183,7 +411,8 @@ router.get('/exportar-db', async (req, res) => {
       'reports',
       'messages',
       'announcements',
-      'announcement_views'
+      'announcement_views',
+      'system_settings'
     ];
 
     const recordCounts = {};
@@ -257,7 +486,8 @@ router.post('/importar-db', upload.single('archivo'), async (req, res) => {
       'postgres_reports.json',
       'postgres_messages.json',
       'postgres_announcements.json',
-      'postgres_announcement_views.json'
+      'postgres_announcement_views.json',
+      'postgres_system_settings.json'
     ];
 
     const client = await pool.connect();
@@ -277,7 +507,7 @@ router.post('/importar-db', upload.single('archivo'), async (req, res) => {
           const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
           const values = keys.map(k => row[k]);
 
-          const conflictTarget = keys.includes('id') ? '("id")' : (keys.includes('user_a') && keys.includes('user_b') ? '("user_a", "user_b")' : null);
+          const conflictTarget = keys.includes('id') ? '("id")' : (keys.includes('user_a') && keys.includes('user_b') ? '("user_a", "user_b")' : (keys.includes('key') ? '("key")' : null));
           const sql = conflictTarget
             ? `INSERT INTO ${tableName} (${columns}) VALUES (${placeholders}) ON CONFLICT ${conflictTarget} DO NOTHING`
             : `INSERT INTO ${tableName} (${columns}) VALUES (${placeholders}) ON CONFLICT DO NOTHING`;
