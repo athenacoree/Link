@@ -243,6 +243,14 @@ const Chat = (() => {
           $('chatMensajes').scrollTop = $('chatMensajes').scrollHeight;
         })
         .catch((err) => {
+          const msgError = {
+            id: 'ai_bot_err_' + Date.now(),
+            senderId: 'link_ai_bot',
+            text: `⚠️ ${err.message || 'Error al comunicarse con OpenRouter AI.'}`,
+            createdAt: new Date().toISOString(),
+          };
+          $('chatMensajes').appendChild(pintarBurbuja(msgError, Sesion.usuario().id));
+          $('chatMensajes').scrollTop = $('chatMensajes').scrollHeight;
           mostrarToast(err.message || 'Error en IA');
         });
 
@@ -297,8 +305,23 @@ const Chat = (() => {
       }
     } else {
       mostrarToast('Nuevo mensaje recibido 💬');
+      if (window.SonidosYVibracion) {
+        window.SonidosYVibracion.reproducirMensaje();
+      }
       actualizarBadgeMensajes(true);
     }
+
+    if (document.hidden || !document.hasFocus()) {
+      if (window.mostrarNotificacionNativa) {
+        const remitenteNombre = msg.senderName || 'Nuevo mensaje';
+        window.mostrarNotificacionNativa(`Mensaje de ${remitenteNombre}`, {
+          body: msg.text || (msg.imageData ? '📷 Foto' : msg.audioData ? '🎤 Nota de voz' : 'Nuevo mensaje'),
+          tag: 'msg-' + msg.conversationId,
+          data: { url: '/?chat=' + msg.senderId }
+        });
+      }
+    }
+
     if (msg.conversationId) {
       const prev = (await LocalStore.obtenerLista('mensajes', msg.conversationId)) || [];
       LocalStore.guardarLista('mensajes', msg.conversationId, [...prev, msg]);

@@ -42,13 +42,14 @@ router.put('/usuarios/:id/verificado', async (req, res) => {
 
     const verificadoInput = req.body.verificado;
     const isVerified = verificadoInput === true || verificadoInput === 'true';
+    const verifiedByVal = isVerified ? adminUserId : null;
     const { rows } = await query(
       `UPDATE users
-       SET verified = $1,
-           verified_at = CASE WHEN $1 THEN now() ELSE NULL END,
-           verified_by = CASE WHEN $1 THEN $2::uuid ELSE NULL::uuid END
+       SET verified = $1::boolean,
+           verified_at = CASE WHEN $1::boolean THEN now() ELSE NULL END,
+           verified_by = $2::uuid
        WHERE id = $3::uuid RETURNING *`,
-      [isVerified, adminUserId, targetUserId]
+      [isVerified, verifiedByVal, targetUserId]
     );
     if (!rows.length) return res.status(404).json({ error: 'Persona no encontrada.' });
     res.json({ persona: meUser(rows[0]) });
@@ -496,11 +497,26 @@ router.post('/importar-db', upload.single('archivo'), async (req, res) => {
     try {
       await client.query('BEGIN');
 
+      // Ordenar inserción para respetar claves foráneas (ej. 'users' primero)
+      tableEntries.sort((a, b) => {
+        const nameA = a.entryName;
+        const nameB = b.entryName;
+        if (nameA.includes('users')) return -1;
+        if (nameB.includes('users')) return 1;
+        return 0;
+      });
+
       for (const entry of tableEntries) {
         const tableName = entry.entryName.replace('postgres_', '').replace('.json', '');
         if (!/^[a-zA-Z0-9_]+$/.test(tableName)) continue;
 
-        const rows = JSON.parse(entry.getData().toString('utf8'));
+        let rows = [];
+        try {
+          rows = JSON.parse(entry.getData().toString('utf8'));
+        } catch (e) {
+          console.warn(`[Import error] Falló lectura de JSON para ${tableName}:`, e.message);
+          continue;
+        }
 
         for (const row of rows) {
           const keys = Object.keys(row);
@@ -514,9 +530,14 @@ router.post('/importar-db', upload.single('archivo'), async (req, res) => {
 
           const sql = `INSERT INTO "${tableName}" (${columns}) VALUES (${placeholders}) ON CONFLICT DO NOTHING`;
 
-          await client.query(sql, values).catch(e => {
+          await client.query('SAVEPOINT sp_row');
+          try {
+            await client.query(sql, values);
+            await client.query('RELEASE SAVEPOINT sp_row');
+          } catch (e) {
+            await client.query('ROLLBACK TO SAVEPOINT sp_row');
             console.warn(`[Import warning] Tabla ${tableName}:`, e.message);
-          });
+          }
         }
       }
 

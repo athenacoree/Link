@@ -486,6 +486,10 @@ class SonidosYVibracion {
 
 window.SonidosYVibracion = SonidosYVibracion;
 
+// Desbloquear AudioContext en la primera interacción del usuario
+document.addEventListener('click', () => SonidosYVibracion.initContext(), { once: true });
+document.addEventListener('touchstart', () => SonidosYVibracion.initContext(), { once: true });
+
 function solicitarPermisoNotificaciones() {
   if ('Notification' in window && Notification.permission === 'default') {
     Notification.requestPermission().catch(() => {});
@@ -493,7 +497,42 @@ function solicitarPermisoNotificaciones() {
 }
 window.solicitarPermisoNotificaciones = solicitarPermisoNotificaciones;
 
+async function mostrarNotificacionNativa(titulo, opciones) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+
+  const defaultOpts = {
+    icon: '/icons/icon-192.png',
+    badge: '/icons/icon-192.png',
+    vibrate: [200, 100, 200, 100, 200],
+    renotify: true,
+    tag: 'enlace-notification',
+    data: { url: '/' },
+    ...opciones,
+  };
+
+  try {
+    if ('serviceWorker' in navigator) {
+      const reg = await navigator.serviceWorker.ready;
+      if (reg && reg.showNotification) {
+        await reg.showNotification(titulo, defaultOpts);
+        return;
+      }
+    }
+    new Notification(titulo, defaultOpts);
+  } catch (e) {
+    try {
+      new Notification(titulo, { body: defaultOpts.body, icon: defaultOpts.icon });
+    } catch (err) {
+      console.warn('No se pudo mostrar la notificación nativa:', err);
+    }
+  }
+}
+window.mostrarNotificacionNativa = mostrarNotificacionNativa;
+
 function conectarSocket() {
+  if (window.socket) {
+    try { window.socket.disconnect(); } catch (e) {}
+  }
   window.socket = io({ auth: { token: Sesion.token() } });
   Chat.enlazarSocket(window.socket);
   Llamada.enlazarSocket(window.socket);
@@ -505,10 +544,12 @@ function conectarSocket() {
     pintarBadgeCampana(true);
     if ($('vistaContactos').classList.contains('activo')) cargarAmigosYSolicitudes();
 
-    if ('Notification' in window && Notification.permission === 'granted' && document.hidden) {
-      try {
-        new Notification('Link', { body: n.text, icon: '/icons/icon-192.png' });
-      } catch (e) {}
+    if (document.hidden || !document.hasFocus()) {
+      mostrarNotificacionNativa('Link', {
+        body: n.text,
+        tag: 'notificacion-' + (n.id || Date.now()),
+        data: { url: '/' }
+      });
     }
   });
   window.socket.on('connect_error', (err) => {
@@ -1038,14 +1079,16 @@ $('inputBuscar').addEventListener('input', () => {
 $('filtroGenero')?.addEventListener('change', () => cargarDescubrir());
 $('filtroOnline')?.addEventListener('change', () => cargarDescubrir());
 
+let reqIdDescubrir = 0;
 async function cargarDescubrir() {
+  const currentReq = ++reqIdDescubrir;
   const genero = $('filtroGenero') ? $('filtroGenero').value : '';
   const soloOnline = $('filtroOnline') ? ($('filtroOnline').value === 'online') : false;
 
   const cachedFeed = await LocalStore.obtenerLista('feed', 'descubrir_feed');
   let renderizadoCache = false;
 
-  if (cachedFeed && cachedFeed.length) {
+  if (cachedFeed && cachedFeed.length && currentReq === reqIdDescubrir) {
     let filtradas = cachedFeed;
     if (genero) filtradas = filtradas.filter(p => p.gender === genero);
     if (soloOnline) filtradas = filtradas.filter(p => p.is_online);
@@ -1057,12 +1100,13 @@ async function cargarDescubrir() {
 
   try {
     const { personas } = await api('/usuarios');
+    if (currentReq !== reqIdDescubrir) return;
+
     LocalStore.guardarLista('feed', 'descubrir_feed', personas);
     let filtradas = personas;
     if (genero) filtradas = filtradas.filter(p => p.gender === genero);
     if (soloOnline) filtradas = filtradas.filter(p => p.is_online);
 
-    // Solo volver a renderizar si el contenido cambió o si no se habia renderizado desde caché
     const nuevoJson = JSON.stringify(filtradas.map(p => ({ id: p.id, v: p.verified, o: p.is_online, n: p.name, a: p.avatar_data })));
     const actualJson = $('listaBuscar').dataset.cacheState;
     if (!renderizadoCache || actualJson !== nuevoJson) {
@@ -1070,6 +1114,7 @@ async function cargarDescubrir() {
       $('listaBuscar').dataset.cacheState = nuevoJson;
     }
   } catch (e) {
+    if (currentReq !== reqIdDescubrir) return;
     if (!cachedFeed || !cachedFeed.length) {
       $('listaBuscar').innerHTML = `<div class="aviso-vacio">${e.message} (Modo sin conexión)</div>`;
     }
@@ -1776,11 +1821,13 @@ $('inputBuscarChats')?.addEventListener('input', (e) => {
   adjuntarListenersConversaciones();
 });
 
+let reqIdConversaciones = 0;
 async function cargarConversaciones() {
+  const currentReq = ++reqIdConversaciones;
   const cachedConvs = await LocalStore.obtenerLista('conversaciones', 'mis_conversaciones');
   let renderizadoCache = false;
 
-  if (cachedConvs && cachedConvs.length) {
+  if (cachedConvs && cachedConvs.length && currentReq === reqIdConversaciones) {
     listaConversacionesGlobal = cachedConvs;
     if ($('listaConversaciones').children.length === 0 || $('listaConversaciones').querySelector('.aviso-vacio')) {
       $('listaConversaciones').innerHTML = renderizarConversacionesHTML(cachedConvs);
@@ -1791,6 +1838,8 @@ async function cargarConversaciones() {
 
   try {
     const { conversaciones } = await api('/mensajes');
+    if (currentReq !== reqIdConversaciones) return;
+
     listaConversacionesGlobal = conversaciones || [];
     Chat.actualizarBadgeMensajes(false);
 
@@ -1803,6 +1852,7 @@ async function cargarConversaciones() {
     }
     LocalStore.guardarLista('conversaciones', 'mis_conversaciones', conversaciones);
   } catch (e) {
+    if (currentReq !== reqIdConversaciones) return;
     if (!cachedConvs || !cachedConvs.length) {
       $('listaConversaciones').innerHTML = `<div class="aviso-vacio">${e.message} (Modo sin conexión)</div>`;
     }
