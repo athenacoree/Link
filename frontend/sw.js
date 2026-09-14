@@ -70,6 +70,8 @@ self.addEventListener('push', (event) => {
     icon: '/icons/icon-192.png',
     badge: '/icons/icon-192.png',
     vibrate: [200, 100, 200, 100, 200],
+    tag: data.tag || 'enlace-notification',
+    renotify: true,
     data: { url: data.url || '/' },
   };
 

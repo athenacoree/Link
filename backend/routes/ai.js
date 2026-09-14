@@ -90,12 +90,54 @@ router.post('/chat', requireAuth, async (req, res) => {
       body: JSON.stringify(payload),
     });
 
-    if (!response.ok) {
-      const errText = await response.text();
-      return res.status(response.status).json({ error: `Error de OpenRouter AI: ${errText}` });
+    let openRouterResponse = response;
+    let data;
+
+    // Si el modelo principal falla (por ejemplo, rate limit o indisponibilidad del proveedor), intentar fallback
+    if (!openRouterResponse.ok) {
+      const primaryErrText = await openRouterResponse.text();
+      let primaryErrDetail = primaryErrText;
+      try {
+        const parsed = JSON.parse(primaryErrText);
+        if (parsed.error && parsed.error.message) primaryErrDetail = parsed.error.message;
+      } catch (e) {}
+
+      const fallbackModel = 'google/gemini-2.0-flash-lite-001';
+      if (payload.model !== fallbackModel) {
+        console.warn(`[OpenRouter AI] Modelo primario (${payload.model}) falló: ${primaryErrDetail}. Intentando modelo fallback (${fallbackModel})...`);
+        payload.model = fallbackModel;
+        const fallbackRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey.trim()}`,
+            'Content-Type': 'application/json',
+            'HTTP-Referer': process.env.SITE_URL || 'https://link-app.onrender.com',
+            'X-Title': 'Link App',
+          },
+          body: JSON.stringify(payload),
+        });
+
+        if (fallbackRes.ok) {
+          openRouterResponse = fallbackRes;
+        } else {
+          const fallbackErrText = await fallbackRes.text();
+          let fallbackErrDetail = fallbackErrText;
+          try {
+            const parsedFb = JSON.parse(fallbackErrText);
+            if (parsedFb.error && parsedFb.error.message) fallbackErrDetail = parsedFb.error.message;
+          } catch (e) {}
+          return res.status(openRouterResponse.status).json({
+            error: `Error de OpenRouter (Modelo ${settings.openrouter_model}): ${primaryErrDetail}. Fallback (${fallbackModel}): ${fallbackErrDetail}`
+          });
+        }
+      } else {
+        return res.status(openRouterResponse.status).json({
+          error: `Error de OpenRouter AI (${openRouterResponse.status}): ${primaryErrDetail}`
+        });
+      }
     }
 
-    const data = await response.json();
+    data = await openRouterResponse.json();
     const replyContent = data.choices?.[0]?.message?.content || 'No pude procesar la respuesta.';
 
     res.json({
@@ -103,11 +145,12 @@ router.post('/chat', requireAuth, async (req, res) => {
       reply: replyContent,
       name: settings.ai_name || 'Link AI',
       avatar: settings.ai_avatar || '',
+      model_used: data.model || payload.model,
       usage: data.usage || null,
     });
   } catch (err) {
     console.error('Error en /api/ai/chat:', err);
-    res.status(500).json({ error: 'No se pudo contactar al servicio de Inteligencia Artificial.' });
+    res.status(500).json({ error: `No se pudo contactar al servicio de Inteligencia Artificial: ${err.message}` });
   }
 });
 
