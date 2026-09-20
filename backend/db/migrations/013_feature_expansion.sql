@@ -2,7 +2,7 @@
 
 CREATE TABLE IF NOT EXISTS polls (
     id SERIAL PRIMARY KEY,
-    post_id INTEGER REFERENCES posts(id) ON DELETE CASCADE,
+    post_id UUID REFERENCES posts(id) ON DELETE CASCADE,
     question TEXT NOT NULL,
     options JSONB NOT NULL,
     votes JSONB DEFAULT '{}'::jsonb,
@@ -13,8 +13,8 @@ CREATE TABLE IF NOT EXISTS polls (
 
 CREATE TABLE IF NOT EXISTS saved_posts (
     id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-    post_id INTEGER REFERENCES posts(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    post_id UUID REFERENCES posts(id) ON DELETE CASCADE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     UNIQUE(user_id, post_id)
 );
@@ -24,21 +24,21 @@ CREATE TABLE IF NOT EXISTS chat_groups (
     name VARCHAR(100) NOT NULL,
     description TEXT,
     avatar TEXT,
-    created_by INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    created_by UUID REFERENCES users(id) ON DELETE CASCADE,
     members JSONB DEFAULT '[]'::jsonb,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS post_edits (
     id SERIAL PRIMARY KEY,
-    post_id INTEGER REFERENCES posts(id) ON DELETE CASCADE,
+    post_id UUID REFERENCES posts(id) ON DELETE CASCADE,
     old_content TEXT NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS user_activity_logs (
     id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
     action VARCHAR(100) NOT NULL,
     details JSONB DEFAULT '{}'::jsonb,
     ip_address VARCHAR(45),
@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS user_activity_logs (
 
 CREATE TABLE IF NOT EXISTS user_badges (
     id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
     badge_key VARCHAR(50) NOT NULL,
     title VARCHAR(100) NOT NULL,
     icon VARCHAR(100),
@@ -57,7 +57,7 @@ CREATE TABLE IF NOT EXISTS user_badges (
 
 CREATE TABLE IF NOT EXISTS story_highlights (
     id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
     title VARCHAR(100) NOT NULL,
     cover_image TEXT,
     story_ids JSONB DEFAULT '[]'::jsonb,
@@ -66,7 +66,7 @@ CREATE TABLE IF NOT EXISTS story_highlights (
 
 CREATE TABLE IF NOT EXISTS scheduled_posts (
     id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
     content TEXT,
     media_url TEXT,
     scheduled_for TIMESTAMP WITH TIME ZONE NOT NULL,
@@ -76,13 +76,13 @@ CREATE TABLE IF NOT EXISTS scheduled_posts (
 
 CREATE TABLE IF NOT EXISTS blocked_users (
     id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-    blocked_user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    blocked_user_id UUID REFERENCES users(id) ON DELETE CASCADE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     UNIQUE(user_id, blocked_user_id)
 );
 
-ALTER TABLE users ADD COLUMN IF NOT EXISTS pinned_post_id INTEGER;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS pinned_post_id UUID REFERENCES posts(id) ON DELETE SET NULL;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS is_incognito BOOLEAN DEFAULT FALSE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS app_pin VARCHAR(255);
 
