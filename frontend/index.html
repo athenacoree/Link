@@ -12,6 +12,7 @@
 <link rel="stylesheet" href="/css/app.css">
 <link rel="stylesheet" href="/css/call.css">
 <link rel="stylesheet" href="/css/features.css">
+<link rel="stylesheet" href="/css/ailab.css">
 </head>
 <body>
 
@@ -126,6 +127,117 @@
     <div class="lista-conversaciones" id="listaConversaciones"></div>
   </main>
 
+  <!-- ---------- LABORATORIO IA ---------- -->
+  <main class="vista-app" id="vistaAilab" data-vista="ailab">
+    <div class="ailab-header">
+      <div style="font-size:18px; font-weight:800; color:var(--morado-700); margin-bottom:4px;">🧪 Laboratorio IA</div>
+      <div style="font-size:12.5px; color:var(--texto-600);">Explora y experimenta con nuevas capacidades inteligentes integradas en Enlace.</div>
+    </div>
+
+    <div class="ailab-tabs">
+      <button class="ailab-tab-btn active" data-tab="personajes">🤖 Personajes</button>
+      <button class="ailab-tab-btn" data-tab="ai2ai">💬 IA ↔ IA</button>
+      <button class="ailab-tab-btn" data-tab="imagenes">🎨 Imágenes</button>
+      <button class="ailab-tab-btn" data-tab="voz">🎤 Voz</button>
+      <button class="ailab-tab-btn" data-tab="vision">👁️ Visión</button>
+      <button class="ailab-tab-btn" data-tab="afinidad">📊 Afinidad</button>
+      <button class="ailab-tab-btn" data-tab="traductor">🌐 Traductor</button>
+    </div>
+
+    <!-- Subsección: Personajes IA -->
+    <div class="ailab-section active" id="ailab-sec-personajes">
+      <div style="font-size:14px; font-weight:700; margin-bottom:10px; color:var(--texto-900);">Personajes Disponibles</div>
+      <div id="ailab-char-list"></div>
+
+      <div style="border-top:1px solid var(--borde); margin:18px 0;"></div>
+      <div style="font-size:14px; font-weight:700; margin-bottom:10px; color:var(--texto-900);">Crear Nuevo Personaje IA</div>
+      <div class="campo"><label>Nombre del Personaje</label><input type="text" id="ailab-new-char-name" placeholder="Ej. Einstein, Maya, Profe Juan"></div>
+      <div class="campo"><label>Emoji / Icono Avatar</label><input type="text" id="ailab-new-char-avatar" placeholder="🧠"></div>
+      <div class="campo"><label>Personalidad e Instrucciones</label><textarea id="ailab-new-char-personality" rows="2" placeholder="Describe cómo debe comportarse este personaje..."></textarea></div>
+      <div class="campo"><label>Mensaje de Saludo Inicial</label><input type="text" id="ailab-new-char-greeting" placeholder="¡Hola! ¿Qué quieres explorar hoy?"></div>
+      <button class="btn btn-primario" style="width:100%;" onclick="AILab.createCharacter()">Crear Personaje 🚀</button>
+
+      <div id="ailab-char-chat-results" style="margin-top:18px;"></div>
+    </div>
+
+    <!-- Subsección: IA ↔ IA -->
+    <div class="ailab-section" id="ailab-sec-ai2ai">
+      <div style="font-size:14px; font-weight:700; margin-bottom:10px; color:var(--texto-900);">Debate / Conversación entre 2 IAs</div>
+      <div class="campo">
+        <label>Primera IA (Personaje 1)</label>
+        <select id="ailab-ai1-select"></select>
+      </div>
+      <div class="campo">
+        <label>Segunda IA (Personaje 2)</label>
+        <select id="ailab-ai2-select"></select>
+      </div>
+      <div class="campo">
+        <label>Tema o Dilema a Debatir</label>
+        <input type="text" id="ailab-ai2ai-topic" placeholder="Ej. ¿La IA reemplazará la creatividad humana?">
+      </div>
+      <button class="btn btn-primario" style="width:100%;" onclick="AILab.runAiToAi()">Iniciar Conversación IA ↔ IA ⚡</button>
+      <div id="ailab-ai2ai-results" style="margin-top:16px;"></div>
+    </div>
+
+    <!-- Subsección: Generación / Mejora de Imágenes -->
+    <div class="ailab-section" id="ailab-sec-imagenes">
+      <div style="font-size:14px; font-weight:700; margin-bottom:10px; color:var(--texto-900);">Generador y Potenciador de Imágenes</div>
+      <div class="campo"><label>Idea o Descripción de la Imagen</label><textarea id="ailab-img-prompt" rows="3" placeholder="Un gato astronauta en Marte estilo cyberpunk..."></textarea></div>
+      <div class="campo" style="display:flex; align-items:center; gap:8px;">
+        <input type="checkbox" id="ailab-img-enhance-chk" checked style="width:18px; height:18px;">
+        <label for="ailab-img-enhance-chk" style="margin:0; font-size:13px; font-weight:600;">Mejorar prompt automáticamente con IA 🪄</label>
+      </div>
+      <button class="btn btn-primario" style="width:100%; margin-top:8px;" onclick="AILab.generateImage()">Generar Imagen 🎨</button>
+      <div id="ailab-img-results" style="margin-top:16px;"></div>
+    </div>
+
+    <!-- Subsección: Voz (Texto a Voz) -->
+    <div class="ailab-section" id="ailab-sec-voz">
+      <div style="font-size:14px; font-weight:700; margin-bottom:10px; color:var(--texto-900);">Texto a Voz (TTS)</div>
+      <div class="campo"><label>Texto a Pronunciar</label><textarea id="ailab-tts-text" rows="3" placeholder="Escribe el texto que deseas escuchar en voz alta..."></textarea></div>
+      <button class="btn btn-primario" style="width:100%;" onclick="AILab.speakText()">Reproducir Voz 🔊</button>
+    </div>
+
+    <!-- Subsección: Visión / Análisis -->
+    <div class="ailab-section" id="ailab-sec-vision">
+      <div style="font-size:14px; font-weight:700; margin-bottom:10px; color:var(--texto-900);">Análisis de Imágenes con Visión IA</div>
+      <div class="campo"><label>URL de la Imagen</label><input type="url" id="ailab-vision-url" placeholder="https://ejemplo.com/foto.jpg"></div>
+      <div class="campo"><label>Pregunta específica (Opcional)</label><input type="text" id="ailab-vision-q" placeholder="¿Qué objetos o texto hay en esta imagen?"></div>
+      <button class="btn btn-primario" style="width:100%;" onclick="AILab.analyzeVision()">Analizar Imagen 👁️</button>
+      <div id="ailab-vision-results" style="margin-top:16px;"></div>
+    </div>
+
+    <!-- Subsección: Embeddings y Afinidad -->
+    <div class="ailab-section" id="ailab-sec-afinidad">
+      <div style="font-size:14px; font-weight:700; margin-bottom:10px; color:var(--texto-900);">Calculadora de Afinidad Semántica</div>
+      <div class="campo"><label>Tus Intereses / Gustos</label><input type="text" id="ailab-aff-user" placeholder="Ej. Música rock, programación, videollamadas, tecnología"></div>
+      <div class="campo"><label>Perfil / Texto a Comparar</label><input type="text" id="ailab-aff-target" placeholder="Ej. Me apasiona el desarrollo de software y tocar la guitarra"></div>
+      <button class="btn btn-primario" style="width:100%;" onclick="AILab.checkAffinity()">Calcular Afinidad 📊</button>
+      <div id="ailab-aff-results" style="margin-top:16px;"></div>
+    </div>
+
+    <!-- Subsección: Traductor Multilenguaje -->
+    <div class="ailab-section" id="ailab-sec-traductor">
+      <div style="font-size:14px; font-weight:700; margin-bottom:10px; color:var(--texto-900);">Traductor Inteligente</div>
+      <div class="campo"><label>Texto Original</label><textarea id="ailab-trans-text" rows="3" placeholder="Texto a traducir..."></textarea></div>
+      <div class="campo">
+        <label>Idioma Destino</label>
+        <select id="ailab-trans-lang">
+          <option value="Inglés">Inglés</option>
+          <option value="Español">Español</option>
+          <option value="Francés">Francés</option>
+          <option value="Alemán">Alemán</option>
+          <option value="Portugués">Portugués</option>
+          <option value="Italiano">Italiano</option>
+          <option value="Ruso">Ruso</option>
+          <option value="Chino">Chino Mandarín</option>
+        </select>
+      </div>
+      <button class="btn btn-primario" style="width:100%;" onclick="AILab.translateText()">Traducir 🌐</button>
+      <div id="ailab-trans-results" style="margin-top:16px;"></div>
+    </div>
+  </main>
+
   <!-- ---------- AJUSTES ---------- -->
   <main class="vista-app" id="vistaAjustes" data-vista="ajustes">
     <div class="titulo-vista">Ajustes</div>
@@ -207,6 +319,10 @@
       <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.5 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7A8.4 8.4 0 0 1 3.5 11.5 8.5 8.5 0 1 1 21 11.5Z"/></svg>
       <span>Mensajes</span>
       <div class="badge" id="badgeMensajes">0</div>
+    </div>
+    <div class="tab" data-tab="ailab">
+      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v7.58a2 2 0 0 1-.59 1.42L3.59 16.83A2 2 0 0 0 5 20.24h14a2 2 0 0 0 1.41-3.41l-5.82-5.83A2 2 0 0 1 14 9.58V2"/><path d="M8.5 2h7"/></svg>
+      <span>IA Lab</span>
     </div>
     <div class="tab" data-tab="ajustes">
       <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
@@ -1111,6 +1227,7 @@
 <script src="/js/call.js"></script>
 <script src="/js/chat.js"></script>
 <script src="/js/features.js"></script>
+<script src="/js/ailab.js"></script>
 <script src="/js/app.js"></script>
 <script>
 if ('serviceWorker' in navigator) {

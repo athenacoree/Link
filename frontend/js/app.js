@@ -609,6 +609,9 @@ function cambiarVista(nombre) {
   if (nombre === 'mensajes') {
     cargarConversaciones();
   }
+  if (nombre === 'ailab') {
+    if (window.AILab) window.AILab.loadCharacters();
+  }
 }
 
 /* ================= PUBLICACIONES ================= */

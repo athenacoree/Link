@@ -40,6 +40,7 @@ app.use('/api/moderacion', require('./routes/moderacion'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/anuncios', require('./routes/announcements'));
 app.use('/api/ai', require('./routes/ai'));
+app.use('/api/ailab', require('./routes/ailab'));
 app.use('/api/features', require('./routes/features'));
 
 // ---------------- Frontend (PWA estática) ----------------
