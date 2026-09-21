@@ -1,91 +1,317 @@
-/* Estilos para el Laboratorio IA en Enlace */
+/* Estilos de Laboratorio IA en Enlace */
 
-.ailab-header {
-  background: linear-gradient(135deg, rgba(112, 0, 255, 0.12) 0%, rgba(157, 0, 255, 0.05) 100%);
-  border: 1px solid var(--borde, rgba(0,0,0,0.08));
-  border-radius: 18px;
-  padding: 16px;
-  margin-bottom: 16px;
+.ailab-messenger-container {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 120px);
+  position: relative;
+  background: var(--fondo, #f8fafc);
 }
 
-.ailab-tabs {
+.ailab-chat-header {
+  background: var(--fondo-tarjeta, #ffffff);
+  border-bottom: 1px solid var(--borde, #e2e8f0);
+  padding: 12px 16px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ailab-chat-title-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ailab-characters-strip {
   display: flex;
   gap: 8px;
   overflow-x: auto;
-  padding: 4px 0 12px;
-  margin-bottom: 8px;
+  padding-bottom: 4px;
   -webkit-overflow-scrolling: touch;
 }
 
-.ailab-tab-btn {
-  background: var(--fondo-tarjeta, #ffffff);
-  border: 1px solid var(--borde, #e5e7eb);
-  color: var(--texto-800, #1f2937);
-  padding: 8px 14px;
-  border-radius: 20px;
-  font-size: 0.8rem;
-  font-weight: 700;
-  white-space: nowrap;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  display: inline-flex;
+.ailab-char-chip {
+  display: flex;
   align-items: center;
   gap: 6px;
+  background: var(--blanco, #ffffff);
+  border: 1px solid var(--borde, #e2e8f0);
+  border-radius: 20px;
+  padding: 6px 12px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--texto-800, #334155);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
 }
 
-.ailab-tab-btn.active {
+.ailab-char-chip:hover, .ailab-char-chip.activo {
   background: var(--morado-600, #7000ff);
   color: #ffffff;
   border-color: var(--morado-600, #7000ff);
-  box-shadow: 0 4px 12px rgba(112, 0, 255, 0.25);
+  box-shadow: 0 2px 8px rgba(112, 0, 255, 0.2);
 }
 
-.ailab-section {
-  display: none;
+/* Feed principal de interacción */
+.ailab-messages-feed {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  -webkit-overflow-scrolling: touch;
 }
 
-.ailab-section.active {
-  display: block;
-  animation: fadeIn 0.25s ease-in-out;
-}
-
-.char-card {
-  background: var(--blanco, #ffffff);
-  border: 1px solid var(--borde, #e5e7eb);
-  border-radius: 16px;
-  padding: 14px;
-  margin-bottom: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+/* Estado dinámico de la IA (Pensando, Buscando, etc.) */
+.ailab-status-bar {
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: space-between;
+  background: linear-gradient(135deg, rgba(112,0,255,0.08) 0%, rgba(157,0,255,0.04) 100%);
+  border: 1px solid rgba(112,0,255,0.2);
+  border-radius: 12px;
+  padding: 8px 14px;
+  margin: 0 16px 8px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--morado-700, #6000e6);
 }
 
-.char-avatar-box {
-  width: 48px;
-  height: 48px;
-  border-radius: 14px;
+.ailab-status-pulse {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--morado-600, #7000ff);
+  margin-right: 6px;
+  animation: pulseStatus 1.4s infinite;
+}
+
+@keyframes pulseStatus {
+  0% { transform: scale(0.95); opacity: 0.7; }
+  50% { transform: scale(1.3); opacity: 1; }
+  100% { transform: scale(0.95); opacity: 0.7; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ailab-status-pulse { animation: none; }
+}
+
+/* Botón Flotante / Elegante para Abrir Compositor */
+.ailab-fab-container {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  z-index: 100;
+}
+
+.ailab-fab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   background: linear-gradient(135deg, #7000ff 0%, #9d00ff 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 28px;
+  padding: 12px 20px;
+  font-size: 0.9rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(112, 0, 255, 0.35);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ailab-fab-btn:active {
+  transform: scale(0.96);
+}
+
+.ailab-fab-btn-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.25);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.5rem;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+/* Compositor Desplegable (Bottom Sheet Drawer) */
+.ailab-composer-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(2px);
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+.ailab-composer-overlay.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.ailab-composer-sheet {
+  background: var(--fondo-tarjeta, #ffffff);
+  border-top-left-radius: 24px;
+  border-top-right-radius: 24px;
+  padding: 20px;
+  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.15);
+  transform: translateY(100%);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ailab-composer-overlay.open .ailab-composer-sheet {
+  transform: translateY(0);
+}
+
+.ailab-composer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--borde, #e2e8f0);
+  padding-bottom: 10px;
+}
+
+.ailab-composer-title {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--texto-900, #0f172a);
+}
+
+.ailab-composer-close {
+  background: var(--fondo, #f1f5f9);
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--texto-600, #64748b);
+}
+
+.ailab-composer-attachments {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.ailab-attachment-chip {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--fondo, #f1f5f9);
+  border: 1px solid var(--borde, #cbd5e1);
+  border-radius: 12px;
+  padding: 6px 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.ailab-attachment-chip img {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  object-fit: cover;
+}
+
+.ailab-attachment-remove {
+  background: rgba(0,0,0,0.15);
   color: #fff;
-  flex-shrink: 0;
+  border: none;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  font-size: 11px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.ai-dialog-box {
-  background: var(--blanco, #ffffff);
-  border: 1px solid var(--borde, #e5e7eb);
-  border-radius: 14px;
+.ailab-composer-textarea {
+  width: 100%;
+  min-height: 90px;
+  max-height: 200px;
   padding: 12px 14px;
-  margin-bottom: 10px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.02);
-  font-size: 0.9rem;
-  line-height: 1.4;
+  border-radius: 16px;
+  border: 1px solid var(--borde, #cbd5e1);
+  font-family: inherit;
+  font-size: 0.95rem;
+  background: var(--blanco, #ffffff);
+  color: var(--texto-900, #0f172a);
+  resize: vertical;
+  outline: none;
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
+.ailab-composer-textarea:focus {
+  border-color: var(--morado-600, #7000ff);
+  box-shadow: 0 0 0 3px rgba(112, 0, 255, 0.12);
+}
+
+.ailab-composer-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ailab-composer-tools-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--fondo, #f1f5f9);
+  border: 1px solid var(--borde, #e2e8f0);
+  padding: 8px 12px;
+  border-radius: 20px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  color: var(--texto-800, #334155);
+}
+
+.ailab-card-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.ailab-card-btn {
+  background: var(--fondo, #f1f5f9);
+  border: 1px solid var(--borde, #e2e8f0);
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--morado-700, #7000ff);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.ailab-card-btn:hover {
+  background: rgba(112, 0, 255, 0.1);
 }

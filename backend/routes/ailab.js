@@ -7,20 +7,28 @@ const ToolManager = require('../tools/ToolManager');
 const router = express.Router();
 
 /**
- * Middleware para validar límites de seguridad en Laboratorio IA
+ * Middleware de seguridad y limites para Laboratorio IA
  */
 async function validateAILabLimits(req, res, next) {
   try {
     const settings = await getAISettings();
     const maxMsgLen = parseInt(settings.ailab_max_msg_length, 10) || 2000;
     const maxPersLen = parseInt(settings.ailab_max_personality_length, 10) || 1000;
+    const maxImgMb = parseFloat(settings.ailab_max_image_size_mb) || 5;
 
     if (req.body.message && typeof req.body.message === 'string' && req.body.message.length > maxMsgLen) {
-      return res.status(400).json({ error: `El mensaje excede el límite máximo permitido de ${maxMsgLen} caracteres.` });
+      return res.status(400).json({ error: `El mensaje excede el límite máximo de ${maxMsgLen} caracteres.` });
     }
 
     if (req.body.personality && typeof req.body.personality === 'string' && req.body.personality.length > maxPersLen) {
-      return res.status(400).json({ error: `La personalidad excede el límite máximo permitido de ${maxPersLen} caracteres.` });
+      return res.status(400).json({ error: `La personalidad excede el límite de ${maxPersLen} caracteres.` });
+    }
+
+    if (req.body.file_data && req.body.file_data.content) {
+      const approxMb = (req.body.file_data.content.length * 0.75) / (1024 * 1024);
+      if (approxMb > maxImgMb) {
+        return res.status(400).json({ error: `El archivo adjunto excede el límite configurado de ${maxImgMb} MB.` });
+      }
     }
 
     req.aiSettings = settings;
@@ -66,11 +74,11 @@ router.post('/characters', requireAuth, validateAILabLimits, async (req, res) =>
   }
 });
 
-// POST /api/ailab/chat-character - Conversar con un personaje específico
+// POST /api/ailab/chat-character - Conversar con personaje o asistente
 router.post('/chat-character', requireAuth, validateAILabLimits, async (req, res) => {
-  const { character_id, message, history, image_url } = req.body;
-  if (!message && !image_url) {
-    return res.status(400).json({ error: 'El mensaje o la imagen son obligatorios.' });
+  const { character_id, message, history, image_url, file_data } = req.body;
+  if (!message && !image_url && !file_data) {
+    return res.status(400).json({ error: 'El mensaje, la imagen o el archivo adjunto son obligatorios.' });
   }
 
   try {
@@ -82,12 +90,17 @@ router.post('/chat-character', requireAuth, validateAILabLimits, async (req, res
 
     const settings = req.aiSettings || await getAISettings();
 
-    // Detectar intención de herramienta en el mensaje
-    const detectedTool = ToolManager.detectToolIntent(message);
-    let toolResult = null;
-    if (detectedTool) {
-      toolResult = await ToolManager.executeTool(detectedTool.tool, detectedTool.params, req.user.id);
+    let docResult = null;
+    let fullUserMsg = message || '';
+
+    if (file_data) {
+      docResult = await ToolManager.executeTool('doc.extract', file_data, req.user.id);
+      if (docResult && docResult.data && docResult.data.extracted_text) {
+        fullUserMsg += `\n\n[Documento Adjunto '${docResult.data.filename}']: ${docResult.data.extracted_text.slice(0, 3000)}`;
+      }
     }
+
+    const detectedTool = ToolManager.detectToolIntent(fullUserMsg);
 
     const maxHistoryCount = parseInt(settings.ailab_max_history, 10) || 10;
     const historyMsgs = Array.isArray(history) ? history.slice(-maxHistoryCount) : [];
@@ -95,7 +108,7 @@ router.post('/chat-character', requireAuth, validateAILabLimits, async (req, res
     const inputMessages = [
       { role: 'system', content: `Eres ${charInfo.name}. Tu personalidad e instrucciones son: ${charInfo.personality}. Responde manteniendo siempre este personaje en español.` },
       ...historyMsgs,
-      { role: 'user', content: message || 'Analiza esta imagen.' }
+      { role: 'user', content: fullUserMsg || 'Procesa la información enviada.' }
     ];
 
     const result = await chatCompletion({
@@ -104,12 +117,18 @@ router.post('/chat-character', requireAuth, validateAILabLimits, async (req, res
       visionImage: image_url || null,
     });
 
+    let toolResult = docResult;
+    if (detectedTool && !toolResult) {
+      toolResult = await ToolManager.executeTool(detectedTool.tool, detectedTool.params, req.user.id);
+    }
+
     return res.json({
       reply: result.reply,
       character: charInfo,
       provider: result.provider,
       finish_reason: result.finish_reason,
-      tool_result: toolResult
+      tool_result: toolResult,
+      continuations: result.continuations || 0,
     });
   } catch (err) {
     console.error('Error en chat-character:', err);
@@ -118,7 +137,7 @@ router.post('/chat-character', requireAuth, validateAILabLimits, async (req, res
 });
 
 // ---------------- 2. CONVERSACIÓN IA <-> IA ----------------
-// POST /api/ailab/ai-to-ai - Debate/conversación entre 2 personajes
+// POST /api/ailab/ai-to-ai - Arena / Debate entre 2 personajes
 router.post('/ai-to-ai', requireAuth, validateAILabLimits, async (req, res) => {
   const { char1_id, char2_id, topic, turns } = req.body;
   const numTurns = Math.min(Math.max(parseInt(turns, 10) || 3, 1), 6);
@@ -134,23 +153,23 @@ router.post('/ai-to-ai', requireAuth, validateAILabLimits, async (req, res) => {
 
     const conversation = [];
     const settings = req.aiSettings || await getAISettings();
-    let lastMessage = `Tema de debate: "${topic || 'La tecnología y el futuro de la sociedad'}"`;
+    let lastMessage = `Tema de conversación: "${topic || 'La tecnología y el futuro de la sociedad'}"`;
 
     for (let i = 0; i < numTurns; i++) {
       const currentSpeaker = (i % 2 === 0) ? char1 : char2;
       const otherSpeaker = (i % 2 === 0) ? char2 : char1;
 
-      const sysPrompt = `Eres ${currentSpeaker.name} (${currentSpeaker.personality}). Estás manteniendo un diálogo público con ${otherSpeaker.name} sobre: "${topic || 'el tema actual'}". Responde en 2-3 oraciones breves dirigidas a ${otherSpeaker.name}.`;
+      const sysPrompt = `Eres ${currentSpeaker.name} (${currentSpeaker.personality}). Estás manteniendo un diálogo constructivo con ${otherSpeaker.name} sobre: "${topic || 'el tema actual'}". Responde en 2-3 oraciones concisas dirigiéndote directamente a ${otherSpeaker.name}.`;
 
       const result = await chatCompletion({
         messages: [
           { role: 'system', content: sysPrompt },
           { role: 'user', content: lastMessage }
         ],
-        maxTokens: 250,
+        maxTokens: settings.ai_max_tokens,
       });
 
-      const replyText = result.reply || `Coincido en el análisis, ${otherSpeaker.name}.`;
+      const replyText = result.reply || `Coincido con tu punto, ${otherSpeaker.name}.`;
       lastMessage = replyText;
 
       conversation.push({
@@ -158,19 +177,19 @@ router.post('/ai-to-ai', requireAuth, validateAILabLimits, async (req, res) => {
         speaker_name: currentSpeaker.name,
         speaker_avatar: currentSpeaker.avatar,
         text: replyText,
-        turn: i + 1
+        turn: i + 1,
+        provider: result.provider,
       });
     }
 
-    res.json({ topic: topic || 'Debate general', conversation });
+    res.json({ topic: topic || 'Diálogo general', conversation });
   } catch (err) {
     console.error('Error en ai-to-ai:', err);
-    res.status(500).json({ error: '⚠️ No se pudo completar esta acción. El proveedor no respondió correctamente.' });
+    res.status(500).json({ error: '⚠️ No se pudo completar esta conversación.' });
   }
 });
 
 // ---------------- 3. GENERACIÓN DE IMÁGENES ----------------
-// POST /api/ailab/image-gen
 router.post('/image-gen', requireAuth, validateAILabLimits, async (req, res) => {
   const { prompt, enhance } = req.body;
   if (!prompt) {
@@ -182,35 +201,18 @@ router.post('/image-gen', requireAuth, validateAILabLimits, async (req, res) => 
     if (result.error) {
       return res.status(400).json({ error: result.error });
     }
-    res.json(result.data);
+    res.json(result);
   } catch (err) {
     console.error('Error en image-gen:', err);
     res.status(500).json({ error: '⚠️ No se pudo generar la imagen.' });
   }
 });
 
-// ---------------- 4. VOZ (TEXT-TO-SPEECH) ----------------
-// POST /api/ailab/voice-tts
-router.post('/voice-tts', requireAuth, validateAILabLimits, async (req, res) => {
-  const { text, voice } = req.body;
-  if (!text) {
-    return res.status(400).json({ error: 'El texto es obligatorio.' });
-  }
-
-  res.json({
-    ok: true,
-    text,
-    voice: voice || 'es-ES',
-    instructions: 'Utilizar síntesis nativa de navegador (SpeechSynthesisUtterance) para óptima calidad.'
-  });
-});
-
-// ---------------- 5. VISIÓN / ANÁLISIS DE IMÁGENES ----------------
-// POST /api/ailab/vision
+// ---------------- 4. VISIÓN / ANÁLISIS DE IMÁGENES ----------------
 router.post('/vision', requireAuth, validateAILabLimits, async (req, res) => {
   const { image_url, question } = req.body;
   if (!image_url) {
-    return res.status(400).json({ error: 'La URL o imagen base64 es requerida.' });
+    return res.status(400).json({ error: 'La URL o imagen en base64 es requerida.' });
   }
 
   const promptQuestion = question || 'Describe detalladamente los elementos principales presentes en esta imagen.';
@@ -232,33 +234,42 @@ router.post('/vision', requireAuth, validateAILabLimits, async (req, res) => {
   }
 });
 
-// ---------------- 6. EMBEDDINGS / AFINIDAD ----------------
-// POST /api/ailab/embeddings
-router.post('/embeddings', requireAuth, validateAILabLimits, async (req, res) => {
-  const { user_interests, target_text } = req.body;
-
-  if (!user_interests || !target_text) {
-    return res.status(400).json({ error: 'Se requieren tanto los intereses como el texto de contraste.' });
+// ---------------- 5. MODO MISIÓN ----------------
+router.post('/mission', requireAuth, validateAILabLimits, async (req, res) => {
+  const { goal } = req.body;
+  if (!goal) {
+    return res.status(400).json({ error: 'El objetivo de la misión es requerido.' });
   }
 
-  const words1 = user_interests.toLowerCase().split(/\W+/).filter(w => w.length > 3);
-  const words2 = target_text.toLowerCase().split(/\W+/).filter(w => w.length > 3);
+  try {
+    const settings = req.aiSettings || await getAISettings();
+    const maxSteps = parseInt(settings.ai_max_tool_steps, 10) || 5;
 
-  const match = words1.filter(w => words2.includes(w));
-  let similarityScore = Math.min(98, Math.max(45, Math.floor((match.length / Math.max(1, words1.length)) * 100) + 50));
-  if (words1.length === 0) similarityScore = 75;
+    const missionResult = await ToolManager.executeMission(goal, req.user.id, maxSteps);
+    res.json(missionResult);
+  } catch (err) {
+    console.error('Error en mission mode:', err);
+    res.status(500).json({ error: '⚠️ No se pudo completar la misión.' });
+  }
+});
 
-  res.json({
-    similarity_percentage: similarityScore,
-    matched_keywords: match,
-    recommendation: similarityScore > 75
-      ? '¡Súper recomendado! Alta afinidad de temas e intereses compartidos.'
-      : 'Afinidad moderada. Podría interesarte explorar nuevos puntos de vista.'
-  });
+// ---------------- 6. EJECUCIÓN DIRECTA DE HERRAMIENTAS ----------------
+router.post('/tool', requireAuth, validateAILabLimits, async (req, res) => {
+  const { name, params } = req.body;
+  if (!name) {
+    return res.status(400).json({ error: 'El nombre de la herramienta es requerido.' });
+  }
+
+  try {
+    const result = await ToolManager.executeTool(name, params || {}, req.user.id);
+    res.json(result);
+  } catch (err) {
+    console.error('Error al ejecutar herramienta:', err);
+    res.status(500).json({ error: '⚠️ Ocurrió un error al ejecutar la herramienta.' });
+  }
 });
 
 // ---------------- 7. TRADUCTOR MULTILENGUAJE ----------------
-// POST /api/ailab/translate
 router.post('/translate', requireAuth, validateAILabLimits, async (req, res) => {
   const { text, target_lang } = req.body;
   if (!text) {
@@ -285,23 +296,6 @@ router.post('/translate', requireAuth, validateAILabLimits, async (req, res) => 
   } catch (err) {
     console.error('Error en translate:', err);
     res.status(500).json({ error: '⚠️ No se pudo completar la traducción.' });
-  }
-});
-
-// ---------------- 8. EJECUCIÓN DIRECTA DE HERRAMIENTAS ----------------
-// POST /api/ailab/tool
-router.post('/tool', requireAuth, validateAILabLimits, async (req, res) => {
-  const { name, params } = req.body;
-  if (!name) {
-    return res.status(400).json({ error: 'El nombre de la herramienta es requerido.' });
-  }
-
-  try {
-    const result = await ToolManager.executeTool(name, params || {}, req.user.id);
-    res.json(result);
-  } catch (err) {
-    console.error('Error al ejecutar herramienta:', err);
-    res.status(500).json({ error: '⚠️ Ocurrió un error al ejecutar la herramienta.' });
   }
 });
 
