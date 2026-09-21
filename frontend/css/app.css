@@ -259,6 +259,52 @@ img{max-width:100%;}
 .editar-avatar-btn .lapiz{position:absolute; bottom:0; right:0; width:28px; height:28px; border-radius:50%; background:var(--morado-700); color:#fff; display:flex; align-items:center; justify-content:center; border:2px solid var(--blanco);}
 
 /* ============ Hoja de acciones / modales ============ */
+/* Accordion styles for Settings UI */
+.panel-acordeon {
+  border: 1px solid var(--linea);
+  border-radius: 14px;
+  background: var(--blanco);
+  margin-bottom: 10px;
+  overflow: hidden;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.panel-acordeon:hover {
+  border-color: var(--morado-300);
+}
+
+.panel-header {
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+  background: var(--blanco);
+  color: var(--texto-900);
+}
+
+.chevron-acordeon {
+  transition: transform 0.25s ease;
+  color: var(--texto-500);
+}
+
+.panel-acordeon.abierto .chevron-acordeon {
+  transform: rotate(180deg);
+  color: var(--morado-600);
+}
+
+.panel-body {
+  display: none;
+  padding: 14px 16px;
+  border-top: 1px solid var(--linea);
+  background: var(--hueso);
+}
+
+.panel-acordeon.abierto .panel-body {
+  display: block;
+}
+
 .velo{position:fixed; inset:0; z-index:2000; background:rgba(26,11,51,0.35); backdrop-filter:blur(2px); opacity:0; pointer-events:none; transition:opacity .28s ease;}
 .velo.activo{opacity:1; pointer-events:auto;}
 .hoja{position:fixed; left:50%; bottom:14px; z-index:2010; width:min(94%,402px); transform:translate(-50%,130%); transition:transform .38s cubic-bezier(.2,.9,.25,1.15); max-height:80vh; overflow-y:auto;}

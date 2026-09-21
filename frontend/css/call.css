@@ -65,6 +65,75 @@
 .call-timer{font-variant-numeric:tabular-nums; color:var(--text-lo); font-weight:500;}
 
 .stage-wrap{flex:1; padding:6px 14px 10px; display:flex; min-height:0; position:relative;}
+
+/* Escenario dedicado de audio */
+.audio-stage {
+  position: absolute;
+  inset: 6px 14px 10px;
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at center, #1e1136 0%, #0d0718 100%);
+  border-radius: 24px;
+}
+
+.audio-pulse-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 1.5px solid rgba(157, 92, 245, 0.35);
+  animation: audioPulse 3s infinite cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.audio-pulse-ring.r1 { width: 140px; height: 140px; animation-delay: 0s; }
+.audio-pulse-ring.r2 { width: 210px; height: 210px; animation-delay: 0.8s; }
+.audio-pulse-ring.r3 { width: 280px; height: 280px; animation-delay: 1.6s; }
+
+@keyframes audioPulse {
+  0% { transform: scale(0.85); opacity: 0.8; }
+  50% { transform: scale(1.15); opacity: 0.3; }
+  100% { transform: scale(1.35); opacity: 0; }
+}
+
+.audio-avatar-glow {
+  position: relative;
+  z-index: 2;
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--morado-600), var(--morado-800));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 35px rgba(124, 58, 237, 0.5);
+  border: 3px solid rgba(255, 255, 255, 0.2);
+}
+
+.audio-avatar {
+  font-size: 38px;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.audio-user-name {
+  margin-top: 24px;
+  font-size: 20px;
+  font-weight: 800;
+  color: #ffffff;
+  z-index: 2;
+}
+
+.audio-status-tag {
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--morado-300);
+  background: rgba(124, 58, 237, 0.18);
+  padding: 4px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(124, 58, 237, 0.3);
+  z-index: 2;
+}
 .stage{flex:1; border-radius:26px; background:linear-gradient(160deg,#12151D,#0A0C12); border:1px solid var(--stroke); overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 30px 60px rgba(0,0,0,.45);}
 #remoteVideo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#0A0C12;}
 .remote-fallback{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;z-index:2;}

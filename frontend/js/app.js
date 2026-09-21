@@ -2495,5 +2495,13 @@ async function adminResolverReporte(reporteId, status) {
 }
 window.adminResolverReporte = adminResolverReporte;
 
+function toggleAcordeon(headerElem) {
+  const panel = headerElem.closest('.panel-acordeon');
+  if (panel) {
+    panel.classList.toggle('abierto');
+  }
+}
+window.toggleAcordeon = toggleAcordeon;
+
 /* ================= ARRANQUE ================= */
 if (Sesion.activa()) { iniciarApp(); } else { $('authScreen').classList.remove('oculto'); }
