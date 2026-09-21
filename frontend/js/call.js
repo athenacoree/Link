@@ -13,6 +13,8 @@
 const ICE_SERVERS = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'stun:stun2.l.google.com:19302' },
+  { urls: 'stun:stun3.l.google.com:19302' }
 ];
 
 const Llamada = (() => {
@@ -30,6 +32,9 @@ const Llamada = (() => {
   let timerInterval = null;
   let segundos = 0;
   let timeoutSinRespuesta = null;
+  let audioContextTono = null;
+  let osciladorTono = null;
+  let candidatosPendientes = [];
 
   function iniciales(nombre) {
     if (!nombre) return '?';
@@ -59,6 +64,22 @@ const Llamada = (() => {
     $('entranteNombre').textContent = nombre;
     $('remoteAvatarInitial').innerHTML = av ? `<img src="${av}" alt="">` : iniciales(nombre);
     $('remoteFallbackName').textContent = tipoActual === 'video' ? 'Conectando video…' : 'Audio conectado';
+
+    // UI dedicada para llamadas de audio
+    if ($('audioAvatar')) $('audioAvatar').innerHTML = av ? `<img src="${av}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" alt="">` : iniciales(nombre);
+    if ($('audioUserName')) $('audioUserName').textContent = nombre;
+    if ($('audioStage')) {
+      if (tipoActual === 'audio') {
+        $('audioStage').classList.remove('hidden');
+        $('stage').style.display = 'none';
+        $('selfPip').style.display = 'none';
+      } else {
+        $('audioStage').classList.add('hidden');
+        $('stage').style.display = 'flex';
+        $('selfPip').style.display = 'flex';
+      }
+    }
+
     const yo = Sesion.usuario();
     $('selfAvatarInitial').textContent = iniciales(yo?.name);
   }
@@ -75,18 +96,61 @@ const Llamada = (() => {
   }
 
   function sonarTono(activar) {
-    const audio = $('ringtoneAudio');
     if (activar) {
-      // Tono simple generado con WebAudio para no depender de un archivo externo
-      audio.pause();
+      try {
+        if (!audioContextTono) audioContextTono = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioContextTono.state === 'suspended') audioContextTono.resume();
+
+        detenerTono();
+
+        const f1 = 440;
+        const f2 = 480;
+
+        function repetirTono() {
+          if (!audioContextTono) return;
+          const osc1 = audioContextTono.createOscillator();
+          const osc2 = audioContextTono.createOscillator();
+          const gain = audioContextTono.createGain();
+
+          osc1.frequency.value = f1;
+          osc2.frequency.value = f2;
+
+          gain.gain.setValueAtTime(0.12, audioContextTono.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioContextTono.currentTime + 1.8);
+
+          osc1.connect(gain);
+          osc2.connect(gain);
+          gain.connect(audioContextTono.destination);
+
+          osc1.start();
+          osc2.start();
+          osc1.stop(audioContextTono.currentTime + 1.8);
+          osc2.stop(audioContextTono.currentTime + 1.8);
+        }
+
+        repetirTono();
+        osciladorTono = setInterval(repetirTono, 2500);
+      } catch (e) { console.error('Error sonido tono:', e); }
     } else {
-      audio.pause();
+      detenerTono();
+    }
+  }
+
+  function detenerTono() {
+    if (osciladorTono) {
+      clearInterval(osciladorTono);
+      osciladorTono = null;
     }
   }
 
   // ---------------- Crear conexión WebRTC ----------------
   function crearPeerConnection(destinoId) {
-    const conexion = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+    const conexion = new RTCPeerConnection({
+      iceServers: ICE_SERVERS,
+      iceCandidatePoolSize: 10
+    });
+
+    candidatosPendientes = [];
 
     conexion.onicecandidate = (evt) => {
       if (evt.candidate) {
@@ -122,8 +186,17 @@ const Llamada = (() => {
 
   async function obtenerMedia(conVideo) {
     const constraints = {
-      audio: true,
-      video: conVideo ? { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } } : false,
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true
+      },
+      video: conVideo ? {
+        facingMode: 'user',
+        width: { min: 640, ideal: 1280 },
+        height: { min: 360, ideal: 720 },
+        frameRate: { ideal: 30 }
+      } : false,
     };
     return navigator.mediaDevices.getUserMedia(constraints);
   }
@@ -147,6 +220,7 @@ const Llamada = (() => {
     estado = 'llamando';
 
     pintarAvatarPersona();
+    sonarTono(true);
     $('entranteTipo').textContent = callType === 'video' ? 'Videollamada P2P' : 'Llamada de audio';
     $('connectingOverlay').classList.remove('hide');
     $('connectingText').textContent = 'Llamando…';
@@ -178,12 +252,14 @@ const Llamada = (() => {
     estado = 'entrante';
 
     pintarAvatarPersona();
+    sonarTono(true);
     $('entranteTipo').textContent = callType === 'video' ? 'Videollamada P2P entrante' : 'Llamada de audio entrante';
     mostrarPantallaEntrante(true);
   }
 
   async function aceptar() {
     if (estado !== 'entrante') return;
+    detenerTono();
     mostrarPantallaEntrante(false);
     estado = 'conectando';
     $('connectingOverlay').classList.remove('hide');
@@ -214,6 +290,7 @@ const Llamada = (() => {
   // ---------------- El otro lado respondió mi invitación ----------------
   async function onRespondida({ aceptar: fueAceptada, callId }) {
     clearTimeout(timeoutSinRespuesta);
+    detenerTono();
     if (callId) callIdActual = callId;
     if (!soyElCaller || estado !== 'llamando') return;
     if (!fueAceptada) {
@@ -243,6 +320,7 @@ const Llamada = (() => {
     if (!pc || estado !== 'conectando') return;
     try {
       await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+      vaciarCandidatosPendientes();
       const respuesta = await pc.createAnswer();
       await pc.setLocalDescription(respuesta);
       window.socket.emit('llamada:respuesta-sdp', { callerId, sdp: respuesta });
@@ -257,6 +335,7 @@ const Llamada = (() => {
     if (!pc) return;
     try {
       await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+      vaciarCandidatosPendientes();
     } catch (err) {
       console.error(err);
     }
@@ -264,7 +343,18 @@ const Llamada = (() => {
 
   async function onIceCandidate({ candidate }) {
     if (!pc || !candidate) return;
-    try { await pc.addIceCandidate(new RTCIceCandidate(candidate)); } catch (e) { /* ignorar candidatos tardíos */ }
+    if (pc.remoteDescription && pc.remoteDescription.type) {
+      try { await pc.addIceCandidate(new RTCIceCandidate(candidate)); } catch (e) {}
+    } else {
+      candidatosPendientes.push(candidate);
+    }
+  }
+
+  async function vaciarCandidatosPendientes() {
+    while (candidatosPendientes.length > 0) {
+      const cand = candidatosPendientes.shift();
+      try { await pc.addIceCandidate(new RTCIceCandidate(cand)); } catch (e) {}
+    }
   }
 
   function onColgarRemoto() {

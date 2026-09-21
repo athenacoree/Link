@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
 <title>Link — conecta con tu gente</title>
 <meta name="description" content="Link: encuentra personas, agrégalas, chatea y haz videollamadas reales.">
-<meta name="theme-color" content="#5b21b6">
+<meta name="theme-color" content="#faf8ff">
 <link rel="manifest" href="/manifest.json">
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <link rel="icon" href="/icons/icon-192.png">
@@ -742,65 +742,130 @@
   <div class="hoja-cancelar" id="cerrarEstado">Cancelar</div>
 </div>
 
-<!-- ---------- Modal de 10 Configuraciones del Usuario ---------- -->
+<!-- ---------- Modal de Configuraciones del Usuario (Paneles Modernos Expandibles) ---------- -->
 <div class="velo" id="veloConfiguraciones"></div>
 <div class="hoja" id="hojaConfiguraciones" style="bottom:20px; max-height:85vh;">
   <div class="hoja-grupo">
     <div class="hoja-persona"><span style="font-weight:700; color:var(--morado-700); font-size:16px;">Configuraciones de la Cuenta</span></div>
     <div class="hoja-form" style="max-height:65vh; overflow-y:auto;">
-      <div class="campo">
-        <label>1. Privacidad del Perfil</label>
-        <select id="cfgPrivacyProfile">
-          <option value="public">Público (Todos pueden ver mi perfil)</option>
-          <option value="friends">Solo Amigos</option>
-        </select>
+
+      <!-- Panel 1: Privacidad y Visibilidad -->
+      <div class="panel-acordeon">
+        <div class="panel-header" onclick="toggleAcordeon(this)">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            <span style="font-weight:700; font-size:14px;">Privacidad y Seguridad</span>
+          </div>
+          <svg class="chevron-acordeon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
+        </div>
+        <div class="panel-body">
+          <div class="campo">
+            <label>Privacidad del Perfil</label>
+            <select id="cfgPrivacyProfile">
+              <option value="public">Público (Todos pueden ver mi perfil)</option>
+              <option value="friends">Solo Amigos</option>
+            </select>
+          </div>
+          <div class="campo">
+            <label>Solicitudes de Amistad</label>
+            <select id="cfgPrivacyRequests">
+              <option value="everyone">Permitir de todos</option>
+              <option value="nobody">Nadie</option>
+            </select>
+          </div>
+          <div class="campo" style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <div style="font-size:13px; font-weight:700;">Estado "En línea"</div>
+              <div style="font-size:11px; color:var(--texto-500);">Permite que otros vean cuando estás activo</div>
+            </div>
+            <div class="interruptor" id="swShowOnline"><div class="bola"></div></div>
+          </div>
+        </div>
       </div>
-      <div class="campo">
-        <label>2. Solicitudes de Amistad</label>
-        <select id="cfgPrivacyRequests">
-          <option value="everyone">Permitir de todos</option>
-          <option value="nobody">Nadie</option>
-        </select>
+
+      <!-- Panel 2: Notificaciones y Sonidos -->
+      <div class="panel-acordeon">
+        <div class="panel-header" onclick="toggleAcordeon(this)">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            <span style="font-weight:700; font-size:14px;">Notificaciones y Sonidos</span>
+          </div>
+          <svg class="chevron-acordeon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
+        </div>
+        <div class="panel-body">
+          <div class="campo" style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <div style="font-size:13px; font-weight:700;">Sonidos de llamadas y tonos</div>
+              <div style="font-size:11px; color:var(--texto-500);">Efectos de audio y timbres en segundo plano</div>
+            </div>
+            <div class="interruptor" id="swNotifSounds"><div class="bola"></div></div>
+          </div>
+          <div class="campo" style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <div style="font-size:13px; font-weight:700;">Confirmaciones de lectura (Visto)</div>
+              <div style="font-size:11px; color:var(--texto-500);">Saber cuándo leen tus mensajes</div>
+            </div>
+            <div class="interruptor" id="swReadReceipts"><div class="bola"></div></div>
+          </div>
+        </div>
       </div>
-      <div class="campo" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-        <span style="font-size:13px; font-weight:700;">3. Mostrar estado "En línea"</span>
-        <div class="interruptor" id="swShowOnline"><div class="bola"></div></div>
+
+      <!-- Panel 3: Apariencia y Reproducción -->
+      <div class="panel-acordeon">
+        <div class="panel-header" onclick="toggleAcordeon(this)">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+            <span style="font-weight:700; font-size:14px;">Apariencia y Experiencia</span>
+          </div>
+          <svg class="chevron-acordeon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
+        </div>
+        <div class="panel-body">
+          <div class="campo">
+            <label>Tamaño de letra / Densidad visual</label>
+            <select id="cfgVisualDensity">
+              <option value="normal">Normal (Estándar)</option>
+              <option value="grande">Grande (Accesibilidad)</option>
+            </select>
+          </div>
+          <div class="campo">
+            <label>Duración predeterminada de Historias</label>
+            <select id="cfgDefaultStoryDur">
+              <option value="12">12 horas</option>
+              <option value="24" selected>24 horas</option>
+              <option value="48">48 horas</option>
+            </select>
+          </div>
+          <div class="campo" style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <div style="font-size:13px; font-weight:700;">Autoreproducir notas de voz</div>
+              <div style="font-size:11px; color:var(--texto-500);">Escuchar mensajes de voz consecutivamente</div>
+            </div>
+            <div class="interruptor" id="swAutoplayVoice"><div class="bola"></div></div>
+          </div>
+        </div>
       </div>
-      <div class="campo" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-        <span style="font-size:13px; font-weight:700;">4. Sonidos de notificación y llamadas</span>
-        <div class="interruptor" id="swNotifSounds"><div class="bola"></div></div>
+
+      <!-- Panel 4: Almacenamiento y Datos -->
+      <div class="panel-acordeon">
+        <div class="panel-header" onclick="toggleAcordeon(this)">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <span style="font-weight:700; font-size:14px;">Almacenamiento y Copia</span>
+          </div>
+          <svg class="chevron-acordeon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
+        </div>
+        <div class="panel-body">
+          <div class="campo">
+            <label>Memoria Caché Local</label>
+            <div class="btn btn-secundario" id="btnLimpiarCache" style="width:100%; font-size:13px;">Limpiar caché de la app</div>
+          </div>
+          <div class="campo" style="margin-top:10px;">
+            <label>Copia de Seguridad Personal</label>
+            <div class="btn btn-primario" id="btnExportarMisDatos" style="width:100%; font-size:13px;">Descargar mis datos (.json)</div>
+          </div>
+        </div>
       </div>
-      <div class="campo" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-        <span style="font-size:13px; font-weight:700;">5. Confirmaciones de lectura (Visto en Chat)</span>
-        <div class="interruptor" id="swReadReceipts"><div class="bola"></div></div>
-      </div>
-      <div class="campo" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-        <span style="font-size:13px; font-weight:700;">6. Autoreproducir notas de voz</span>
-        <div class="interruptor" id="swAutoplayVoice"><div class="bola"></div></div>
-      </div>
-      <div class="campo">
-        <label>7. Tamaño de letra / Densidad visual</label>
-        <select id="cfgVisualDensity">
-          <option value="normal">Normal (Estándar)</option>
-          <option value="grande">Grande (Accesibilidad)</option>
-        </select>
-      </div>
-      <div class="campo">
-        <label>8. Duración predeterminada de Historias</label>
-        <select id="cfgDefaultStoryDur">
-          <option value="12">12 horas</option>
-          <option value="24" selected>24 horas</option>
-          <option value="48">48 horas</option>
-        </select>
-      </div>
-      <div class="campo" style="margin-top:10px;">
-        <label>9. Memoria Caché Local</label>
-        <div class="btn btn-secundario" id="btnLimpiarCache" style="width:100%; font-size:13px;">Limpiar caché de la app</div>
-      </div>
-      <div class="campo" style="margin-top:10px;">
-        <label>10. Copia de Seguridad Personal</label>
-        <div class="btn btn-primario" id="btnExportarMisDatos" style="width:100%; font-size:13px;">Descargar mis datos (.json)</div>
-      </div>
+
       <div class="btn btn-primario" id="btnGuardarConfiguraciones" style="width:100%; margin-top:14px;">Guardar preferencias</div>
     </div>
   </div>
@@ -980,6 +1045,18 @@
     </div>
 
     <div class="stage-wrap">
+      <!-- Escenario dedicado de Llamada de Audio -->
+      <div class="audio-stage hidden" id="audioStage">
+        <div class="audio-pulse-ring r1"></div>
+        <div class="audio-pulse-ring r2"></div>
+        <div class="audio-pulse-ring r3"></div>
+        <div class="audio-avatar-glow">
+          <div class="audio-avatar" id="audioAvatar">?</div>
+        </div>
+        <div class="audio-user-name" id="audioUserName">Contacto</div>
+        <div class="audio-status-tag" id="audioStatusTag">Audio en Alta Definición HD</div>
+      </div>
+
       <div class="stage" id="stage">
         <div class="connecting-overlay" id="connectingOverlay">
           <div class="pulse-rings"><div class="ring r1"></div><div class="ring r2"></div><div class="ring r3"></div><div class="core"></div></div>
