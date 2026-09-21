@@ -1,0 +1,91 @@
+/* Estilos para el Laboratorio IA en Enlace */
+
+.ailab-header {
+  background: linear-gradient(135deg, rgba(112, 0, 255, 0.12) 0%, rgba(157, 0, 255, 0.05) 100%);
+  border: 1px solid var(--borde, rgba(0,0,0,0.08));
+  border-radius: 18px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.ailab-tabs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 4px 0 12px;
+  margin-bottom: 8px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.ailab-tab-btn {
+  background: var(--fondo-tarjeta, #ffffff);
+  border: 1px solid var(--borde, #e5e7eb);
+  color: var(--texto-800, #1f2937);
+  padding: 8px 14px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ailab-tab-btn.active {
+  background: var(--morado-600, #7000ff);
+  color: #ffffff;
+  border-color: var(--morado-600, #7000ff);
+  box-shadow: 0 4px 12px rgba(112, 0, 255, 0.25);
+}
+
+.ailab-section {
+  display: none;
+}
+
+.ailab-section.active {
+  display: block;
+  animation: fadeIn 0.25s ease-in-out;
+}
+
+.char-card {
+  background: var(--blanco, #ffffff);
+  border: 1px solid var(--borde, #e5e7eb);
+  border-radius: 16px;
+  padding: 14px;
+  margin-bottom: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.char-avatar-box {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #7000ff 0%, #9d00ff 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.ai-dialog-box {
+  background: var(--blanco, #ffffff);
+  border: 1px solid var(--borde, #e5e7eb);
+  border-radius: 14px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
