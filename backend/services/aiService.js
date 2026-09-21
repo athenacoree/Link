@@ -1,8 +1,9 @@
 const { query } = require('../db/postgres');
 
 /**
- * Servicio Centralizado de IA para Enlace
- * Soporta OpenRouter y Hugging Face Inference Providers.
+ * Centralized AI System Service for Enlace.
+ * Supports Provider Adapters, Automatic Fallback, Real Timeout (AbortController),
+ * Response Truncation Continuation, Context Budgeting, and Structured Tool Definitions.
  */
 
 async function getAISettings() {
@@ -10,9 +11,19 @@ async function getAISettings() {
     ai_provider: process.env.AI_PROVIDER || 'openrouter',
     openrouter_api_key: process.env.OPENROUTER_API_KEY || '',
     openrouter_model: process.env.OPENROUTER_MODEL || 'meta-llama/llama-3.1-8b-instruct:free',
+    fallback_provider: process.env.FALLBACK_PROVIDER || 'huggingface',
+    fallback_model: process.env.FALLBACK_MODEL || 'meta-llama/Llama-3.2-3B-Instruct',
     hf_token: process.env.HF_TOKEN || '',
     hf_model: process.env.HF_MODEL || 'meta-llama/Llama-3.2-3B-Instruct',
     hf_provider: process.env.HF_PROVIDER || 'hf-inference',
+    gemini_api_key: process.env.GEMINI_API_KEY || '',
+    gemini_model: process.env.GEMINI_MODEL || 'gemini-1.5-flash',
+    openai_api_key: process.env.OPENAI_API_KEY || '',
+    openai_model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+    anthropic_api_key: process.env.ANTHROPIC_API_KEY || '',
+    anthropic_model: process.env.ANTHROPIC_MODEL || 'claude-3-haiku-20240307',
+    groq_api_key: process.env.GROQ_API_KEY || '',
+    groq_model: process.env.GROQ_MODEL || 'llama-3.1-8b-instant',
     ai_name: 'Link AI',
     ai_avatar: '',
     ai_personality: 'Eres Link AI, un asistente inteligente integrado en la plataforma social Link. Responde siempre en español, con amabilidad y precisión.',
@@ -23,17 +34,26 @@ async function getAISettings() {
     ailab_max_image_size_mb: '5',
     ailab_max_history: '10',
     ailab_timeout_ms: '30000',
+    ai_max_continuations: '2',
+    ai_max_fallback_attempts: '3',
+    ai_max_tool_steps: '5',
   };
 
   try {
     const { rows } = await query(
       `SELECT key, value FROM system_settings WHERE key IN (
         'ai_provider', 'openrouter_api_key', 'openrouter_model',
+        'fallback_provider', 'fallback_model',
         'hf_token', 'hf_model', 'hf_provider',
+        'gemini_api_key', 'gemini_model',
+        'openai_api_key', 'openai_model',
+        'anthropic_api_key', 'anthropic_model',
+        'groq_api_key', 'groq_model',
         'ai_name', 'ai_avatar', 'ai_personality',
         'ai_max_tokens', 'ai_context_tokens',
         'ailab_max_msg_length', 'ailab_max_personality_length',
-        'ailab_max_image_size_mb', 'ailab_max_history', 'ailab_timeout_ms'
+        'ailab_max_image_size_mb', 'ailab_max_history', 'ailab_timeout_ms',
+        'ai_max_continuations', 'ai_max_fallback_attempts', 'ai_max_tool_steps'
       )`
     );
     rows.forEach(r => {
@@ -42,14 +62,14 @@ async function getAISettings() {
       }
     });
   } catch (err) {
-    // Si no se puede consultar system_settings, se utilizan los valores predeterminados
+    // If system_settings cannot be queried, fall back to defaults
   }
 
   return config;
 }
 
 /**
- * Controla y ajusta el contexto de mensajes según el límite de tokens configurado.
+ * Prunes and budgets message context safely without cutting system prompts or duplicating messages.
  */
 function pruneMessages(messages, maxContextTokens = 4000) {
   if (!Array.isArray(messages) || messages.length === 0) return [];
@@ -59,6 +79,7 @@ function pruneMessages(messages, maxContextTokens = 4000) {
   const nonSystemMsgs = [];
 
   for (const msg of messages) {
+    if (!msg) continue;
     if (msg.role === 'system' && !systemMsg) {
       systemMsg = msg;
     } else if (msg.role !== 'system') {
@@ -90,67 +111,11 @@ function pruneMessages(messages, maxContextTokens = 4000) {
 }
 
 /**
- * Petición centralizada de generación de chat / texto
+ * Base Adapter Invoker for OpenRouter / OpenAI Compatible Endpoints
  */
-async function chatCompletion({
-  messages = [],
-  systemPrompt = null,
-  maxTokens = null,
-  model = null,
-  provider = null,
-  visionImage = null,
-} = {}) {
-  const settings = await getAISettings();
-  const selectedProvider = (provider || settings.ai_provider || 'openrouter').toLowerCase();
+async function callOpenAICompatible({ endpoint, apiKey, model, messages, maxTokens, visionImage, extraHeaders = {}, signal }) {
+  let payloadMessages = messages.map(m => ({ ...m }));
 
-  const effectiveMaxTokens = parseInt(maxTokens || settings.ai_max_tokens || '1000', 10);
-  const effectiveContextTokens = parseInt(settings.ai_context_tokens || '4000', 10);
-
-  let formattedMessages = Array.isArray(messages) ? [...messages] : [];
-
-  if (systemPrompt && !formattedMessages.some(m => m.role === 'system')) {
-    formattedMessages.unshift({ role: 'system', content: systemPrompt });
-  } else if (!formattedMessages.some(m => m.role === 'system')) {
-    formattedMessages.unshift({ role: 'system', content: settings.ai_personality });
-  }
-
-  formattedMessages = pruneMessages(formattedMessages, effectiveContextTokens);
-
-  if (selectedProvider === 'huggingface') {
-    return callHuggingFace({
-      messages: formattedMessages,
-      settings,
-      maxTokens: effectiveMaxTokens,
-      modelOverride: model,
-      visionImage,
-    });
-  }
-
-  return callOpenRouter({
-    messages: formattedMessages,
-    settings,
-    maxTokens: effectiveMaxTokens,
-    modelOverride: model,
-    visionImage,
-  });
-}
-
-/**
- * Ejecución vía OpenRouter API
- */
-async function callOpenRouter({ messages, settings, maxTokens, modelOverride, visionImage }) {
-  const apiKey = (settings.openrouter_api_key || '').trim();
-  if (!apiKey) {
-    return {
-      available: false,
-      error: 'La API de OpenRouter no está configurada. Ingresa tu API Key en el Panel Administrativo.',
-      reply: '⚠️ No se pudo completar esta acción. El proveedor no respondió correctamente.',
-    };
-  }
-
-  const modelToUse = modelOverride || settings.openrouter_model || 'meta-llama/llama-3.1-8b-instruct:free';
-
-  let payloadMessages = [...messages];
   if (visionImage) {
     const lastUserIdx = payloadMessages.map(m => m.role).lastIndexOf('user');
     if (lastUserIdx !== -1) {
@@ -167,156 +132,389 @@ async function callOpenRouter({ messages, settings, maxTokens, modelOverride, vi
   }
 
   const payload = {
-    model: modelToUse,
+    model,
     messages: payloadMessages,
     max_tokens: maxTokens,
   };
 
-  try {
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': process.env.SITE_URL || 'https://link-app.onrender.com',
-        'X-Title': 'Link Social Platform',
-      },
-      body: JSON.stringify(payload),
-    });
+  const headers = {
+    'Authorization': `Bearer ${apiKey}`,
+    'Content-Type': 'application/json',
+    ...extraHeaders,
+  };
 
-    if (!response.ok) {
-      const errText = await response.text();
-      let errDetail = errText;
-      try {
-        const parsed = JSON.parse(errText);
-        if (parsed.error && parsed.error.message) errDetail = parsed.error.message;
-      } catch (e) {}
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload),
+    signal,
+  });
 
-      // Manejo de Vision no soportado en OpenRouter
-      if (visionImage && (errDetail.toLowerCase().includes('vision') || errDetail.toLowerCase().includes('multimodal') || errDetail.toLowerCase().includes('support'))) {
-        return {
-          available: false,
-          error: `El modelo seleccionado (${modelToUse}) no soporta análisis de imágenes/visión.`,
-          reply: '⚠️ El modelo de IA seleccionado no soporta análisis de visión. Cambia el modelo en Administración o intenta con un modelo compatible.',
-        };
+  if (!response.ok) {
+    const errText = await response.text();
+    let errDetail = errText;
+    try {
+      const parsed = JSON.parse(errText);
+      if (parsed.error && parsed.error.message) errDetail = parsed.error.message;
+      else if (parsed.error) errDetail = typeof parsed.error === 'string' ? parsed.error : JSON.stringify(parsed.error);
+    } catch (e) {}
+
+    const isVisionErr = visionImage && (
+      errDetail.toLowerCase().includes('vision') ||
+      errDetail.toLowerCase().includes('multimodal') ||
+      errDetail.toLowerCase().includes('support')
+    );
+
+    return {
+      ok: false,
+      status: response.status,
+      error: {
+        code: isVisionErr ? 'VISION_NOT_SUPPORTED' : `HTTP_${response.status}`,
+        message: errDetail,
+        retryable: response.status === 429 || response.status >= 500 || isVisionErr,
       }
-
-      console.error(`[OpenRouter Error ${response.status}]:`, errDetail);
-      return {
-        available: false,
-        error: `Error de OpenRouter (${response.status}): ${errDetail}`,
-        reply: '⚠️ No se pudo completar esta acción. El proveedor no respondió correctamente.',
-      };
-    }
-
-    const data = await response.json();
-    const choice = data.choices?.[0];
-    let reply = choice?.message?.content || 'Sin respuesta.';
-
-    if (choice?.finish_reason === 'length') {
-      reply += '\n\n[Nota: La respuesta alcanzó el límite máximo de tokens configurado.]';
-    }
-
-    return {
-      available: true,
-      reply,
-      finish_reason: choice?.finish_reason || 'stop',
-      model_used: data.model || modelToUse,
-      provider: 'openrouter',
-      usage: data.usage || null,
-    };
-  } catch (err) {
-    console.error('Error al conectar con OpenRouter:', err);
-    return {
-      available: false,
-      error: `Error de red con OpenRouter: ${err.message}`,
-      reply: '⚠️ No se pudo completar esta acción. El proveedor no respondió correctamente.',
     };
   }
+
+  const data = await response.json();
+  const choice = data.choices?.[0];
+  const reply = choice?.message?.content || '';
+
+  return {
+    ok: true,
+    reply,
+    finish_reason: choice?.finish_reason || 'stop',
+    model_used: data.model || model,
+    usage: data.usage || null,
+  };
 }
 
 /**
- * Ejecución vía Hugging Face Inference Providers
+ * Provider Adapters Registry
  */
-async function callHuggingFace({ messages, settings, maxTokens, modelOverride, visionImage }) {
-  const token = (settings.hf_token || '').trim();
-  if (!token) {
-    return {
-      available: false,
-      error: 'La API Key (HF_TOKEN) de Hugging Face no está configurada.',
-      reply: '⚠️ No se pudo completar esta acción. Hugging Face no está configurado en Administración.',
-    };
-  }
-
-  const modelToUse = modelOverride || settings.hf_model || 'meta-llama/Llama-3.2-3B-Instruct';
-
-  if (visionImage) {
-    return {
-      available: false,
-      error: 'Visión multimodal no configurada para este modelo en Hugging Face.',
-      reply: '⚠️ El modelo de Hugging Face configurado actualmente no soporta visión directa.',
-    };
-  }
-
-  try {
-    // Usar el endpoint OpenAI-compatible de Hugging Face Serverless Router
-    const response = await fetch('https://router.huggingface.co/hf-inference/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: modelToUse,
-        messages: messages,
-        max_tokens: maxTokens,
-      }),
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      let errDetail = errText;
-      try {
-        const parsed = JSON.parse(errText);
-        if (parsed.error) errDetail = typeof parsed.error === 'string' ? parsed.error : (parsed.error.message || errText);
-      } catch (e) {}
-
-      console.error(`[HuggingFace Error ${response.status}]:`, errDetail);
+const ProviderAdapters = {
+  openrouter: async ({ settings, messages, maxTokens, modelOverride, visionImage, signal }) => {
+    const apiKey = (settings.openrouter_api_key || '').trim();
+    if (!apiKey) {
       return {
-        available: false,
-        error: `Error de Hugging Face (${response.status}): ${errDetail}`,
-        reply: '⚠️ No se pudo completar esta acción. El proveedor no respondió correctamente.',
+        ok: false,
+        error: { code: 'NO_API_KEY', message: 'OpenRouter API Key no configurada.', retryable: true },
       };
     }
+    const model = modelOverride || settings.openrouter_model || 'meta-llama/llama-3.1-8b-instruct:free';
+    return callOpenAICompatible({
+      endpoint: 'https://openrouter.ai/api/v1/chat/completions',
+      apiKey,
+      model,
+      messages,
+      maxTokens,
+      visionImage,
+      extraHeaders: {
+        'HTTP-Referer': process.env.SITE_URL || 'https://link-app.onrender.com',
+        'X-Title': 'Link Social Platform',
+      },
+      signal,
+    });
+  },
 
-    const data = await response.json();
-    const choice = data.choices?.[0];
-    let reply = choice?.message?.content || 'Sin respuesta.';
+  huggingface: async ({ settings, messages, maxTokens, modelOverride, visionImage, signal }) => {
+    const token = (settings.hf_token || '').trim();
+    if (!token) {
+      return {
+        ok: false,
+        error: { code: 'NO_API_KEY', message: 'Hugging Face Token no configurado.', retryable: true },
+      };
+    }
+    if (visionImage) {
+      return {
+        ok: false,
+        error: { code: 'VISION_NOT_SUPPORTED', message: 'Hugging Face por defecto no tiene visión activa.', retryable: true },
+      };
+    }
+    const model = modelOverride || settings.hf_model || 'meta-llama/Llama-3.2-3B-Instruct';
+    return callOpenAICompatible({
+      endpoint: 'https://router.huggingface.co/hf-inference/v1/chat/completions',
+      apiKey: token,
+      model,
+      messages,
+      maxTokens,
+      visionImage: null,
+      signal,
+    });
+  },
 
-    if (choice?.finish_reason === 'length') {
-      reply += '\n\n[Nota: La respuesta alcanzó el límite máximo de tokens configurado.]';
+  openai: async ({ settings, messages, maxTokens, modelOverride, visionImage, signal }) => {
+    const apiKey = (settings.openai_api_key || '').trim();
+    if (!apiKey) {
+      return { ok: false, error: { code: 'NO_API_KEY', message: 'OpenAI API Key no configurada.', retryable: true } };
+    }
+    const model = modelOverride || settings.openai_model || 'gpt-4o-mini';
+    return callOpenAICompatible({
+      endpoint: 'https://api.openai.com/v1/chat/completions',
+      apiKey,
+      model,
+      messages,
+      maxTokens,
+      visionImage,
+      signal,
+    });
+  },
+
+  groq: async ({ settings, messages, maxTokens, modelOverride, visionImage, signal }) => {
+    const apiKey = (settings.groq_api_key || '').trim();
+    if (!apiKey) {
+      return { ok: false, error: { code: 'NO_API_KEY', message: 'Groq API Key no configurada.', retryable: true } };
+    }
+    const model = modelOverride || settings.groq_model || 'llama-3.1-8b-instant';
+    return callOpenAICompatible({
+      endpoint: 'https://api.groq.com/openai/v1/chat/completions',
+      apiKey,
+      model,
+      messages,
+      maxTokens,
+      visionImage,
+      signal,
+    });
+  },
+
+  gemini: async ({ settings, messages, maxTokens, modelOverride, visionImage, signal }) => {
+    const apiKey = (settings.gemini_api_key || '').trim();
+    if (!apiKey) {
+      return { ok: false, error: { code: 'NO_API_KEY', message: 'Gemini API Key no configurada.', retryable: true } };
+    }
+    const model = modelOverride || settings.gemini_model || 'gemini-1.5-flash';
+    return callOpenAICompatible({
+      endpoint: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+      apiKey,
+      model,
+      messages,
+      maxTokens,
+      visionImage,
+      signal,
+    });
+  },
+
+  anthropic: async ({ settings, messages, maxTokens, modelOverride, visionImage, signal }) => {
+    const apiKey = (settings.anthropic_api_key || '').trim();
+    if (!apiKey) {
+      return { ok: false, error: { code: 'NO_API_KEY', message: 'Anthropic API Key no configurada.', retryable: true } };
+    }
+    const model = modelOverride || settings.anthropic_model || 'claude-3-haiku-20240307';
+
+    let sysPrompt = '';
+    const formattedMsgs = [];
+    messages.forEach(m => {
+      if (m.role === 'system') sysPrompt = typeof m.content === 'string' ? m.content : '';
+      else formattedMsgs.push({ role: m.role === 'assistant' ? 'assistant' : 'user', content: m.content });
+    });
+
+    try {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model,
+          system: sysPrompt,
+          messages: formattedMsgs,
+          max_tokens: maxTokens,
+        }),
+        signal,
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        return { ok: false, status: response.status, error: { code: `HTTP_${response.status}`, message: errText, retryable: true } };
+      }
+
+      const data = await response.json();
+      const reply = data.content?.[0]?.text || '';
+      return {
+        ok: true,
+        reply,
+        finish_reason: data.stop_reason === 'max_tokens' ? 'length' : 'stop',
+        model_used: data.model || model,
+      };
+    } catch (e) {
+      return { ok: false, error: { code: 'NETWORK_ERROR', message: e.message, retryable: true } };
+    }
+  }
+};
+
+/**
+ * Main AI Chat Completion method with automatic fallback, real timeout, and response continuation.
+ */
+async function chatCompletion({
+  messages = [],
+  systemPrompt = null,
+  maxTokens = null,
+  model = null,
+  provider = null,
+  visionImage = null,
+  timeoutMs = null,
+} = {}) {
+  const settings = await getAISettings();
+
+  const primaryProvider = (provider || settings.ai_provider || 'openrouter').toLowerCase();
+  const fallbackProvider = (settings.fallback_provider || 'huggingface').toLowerCase();
+
+  const effectiveMaxTokens = Math.max(50, Math.min(16000, parseInt(maxTokens || settings.ai_max_tokens || '1000', 10)));
+  const effectiveContextTokens = parseInt(settings.ai_context_tokens || '4000', 10);
+  const effectiveTimeout = parseInt(timeoutMs || settings.ailab_timeout_ms || '30000', 10);
+  const maxContinuations = Math.min(3, Math.max(0, parseInt(settings.ai_max_continuations || '2', 10)));
+  const maxFallbackAttempts = Math.min(5, Math.max(1, parseInt(settings.ai_max_fallback_attempts || '3', 10)));
+
+  let formattedMessages = Array.isArray(messages) ? [...messages] : [];
+
+  if (systemPrompt && !formattedMessages.some(m => m && m.role === 'system')) {
+    formattedMessages.unshift({ role: 'system', content: systemPrompt });
+  } else if (!formattedMessages.some(m => m && m.role === 'system')) {
+    formattedMessages.unshift({ role: 'system', content: settings.ai_personality });
+  }
+
+  formattedMessages = pruneMessages(formattedMessages, effectiveContextTokens);
+
+  // Fallback sequence building
+  const attemptsSequence = [
+    { provider: primaryProvider, model: model || null },
+  ];
+
+  if (primaryProvider === 'openrouter' && !model) {
+    attemptsSequence.push({ provider: 'openrouter', model: 'meta-llama/llama-3.1-8b-instruct:free' });
+  }
+
+  if (fallbackProvider && fallbackProvider !== primaryProvider) {
+    attemptsSequence.push({ provider: fallbackProvider, model: settings.fallback_model || null });
+  }
+
+  // Backup openrouter / huggingface defaults
+  if (!attemptsSequence.some(a => a.provider === 'openrouter')) {
+    attemptsSequence.push({ provider: 'openrouter', model: 'meta-llama/llama-3.1-8b-instruct:free' });
+  }
+  if (!attemptsSequence.some(a => a.provider === 'huggingface')) {
+    attemptsSequence.push({ provider: 'huggingface', model: 'meta-llama/Llama-3.2-3B-Instruct' });
+  }
+
+  let lastError = null;
+  let successfulResult = null;
+  let attemptsCount = 0;
+
+  for (const attempt of attemptsSequence) {
+    if (attemptsCount >= maxFallbackAttempts) break;
+
+    const adapter = ProviderAdapters[attempt.provider];
+    if (!adapter) continue;
+
+    attemptsCount++;
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), effectiveTimeout);
+
+    try {
+      const res = await adapter({
+        settings,
+        messages: formattedMessages,
+        maxTokens: effectiveMaxTokens,
+        modelOverride: attempt.model,
+        visionImage,
+        signal: controller.signal,
+      });
+
+      clearTimeout(timer);
+
+      if (res.ok) {
+        successfulResult = { ...res, provider: attempt.provider };
+        break;
+      } else {
+        lastError = res.error;
+        console.warn(`[AI Service Attempt ${attemptsCount}] Provider ${attempt.provider} failed: ${res.error?.message || 'Error desconocido'}`);
+      }
+    } catch (err) {
+      clearTimeout(timer);
+      const isTimeout = err.name === 'AbortError';
+      lastError = {
+        code: isTimeout ? 'TIMEOUT' : 'NETWORK_ERROR',
+        message: isTimeout ? `El proveedor ${attempt.provider} superó el tiempo de espera (${effectiveTimeout}ms).` : err.message,
+        retryable: true,
+      };
+      console.warn(`[AI Service Attempt ${attemptsCount}] Exception on ${attempt.provider}: ${lastError.message}`);
+    }
+  }
+
+  if (!successfulResult) {
+    let friendlyMsg = '⚠️ Estoy teniendo problemas técnicos para comunicarme con el modelo de IA.';
+    if (lastError?.code === 'VISION_NOT_SUPPORTED') {
+      friendlyMsg = '⚠️ El modelo de IA seleccionado no soporta análisis de imágenes en este momento.';
+    } else if (lastError?.code === 'NO_API_KEY') {
+      friendlyMsg = '⚠️ La clave API de Inteligencia Artificial no está configurada en el panel de Administración.';
     }
 
     return {
-      available: true,
-      reply,
-      finish_reason: choice?.finish_reason || 'stop',
-      model_used: data.model || modelToUse,
-      provider: 'huggingface',
-      usage: data.usage || null,
-    };
-  } catch (err) {
-    console.error('Error al conectar con Hugging Face:', err);
-    return {
       available: false,
-      error: `Error de red con Hugging Face: ${err.message}`,
-      reply: '⚠️ No se pudo completar esta acción. El proveedor no respondió correctamente.',
+      reply: friendlyMsg,
+      error: lastError || { code: 'UNKNOWN_ERROR', message: 'Todos los intentos de proveedores fallaron.' },
     };
   }
+
+  // Handle Automatic Continuations if finish_reason === 'length'
+  let fullReply = successfulResult.reply;
+  let finishReason = successfulResult.finish_reason;
+  let continuationCount = 0;
+
+  while (finishReason === 'length' && continuationCount < maxContinuations) {
+    continuationCount++;
+    console.log(`[AI Service] Answer truncated (length). Triggering automatic continuation ${continuationCount}/${maxContinuations}...`);
+
+    const contMessages = [
+      ...formattedMessages,
+      { role: 'assistant', content: fullReply },
+      { role: 'user', content: 'Por favor continúa exactamente donde te quedaste, sin repetir el texto previo.' }
+    ];
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), effectiveTimeout);
+
+    try {
+      const adapter = ProviderAdapters[successfulResult.provider];
+      const contRes = await adapter({
+        settings,
+        messages: contMessages,
+        maxTokens: effectiveMaxTokens,
+        modelOverride: successfulResult.model_used,
+        visionImage: null,
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+
+      if (contRes.ok && contRes.reply) {
+        fullReply = fullReply.trim() + ' ' + contRes.reply.trim();
+        finishReason = contRes.finish_reason;
+      } else {
+        break;
+      }
+    } catch (e) {
+      clearTimeout(timer);
+      break;
+    }
+  }
+
+  return {
+    available: true,
+    reply: fullReply,
+    finish_reason: finishReason,
+    model_used: successfulResult.model_used,
+    provider: successfulResult.provider,
+    usage: successfulResult.usage || null,
+    continuations: continuationCount,
+  };
 }
 
 module.exports = {
   getAISettings,
   pruneMessages,
   chatCompletion,
+  ProviderAdapters,
 };

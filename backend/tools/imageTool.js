@@ -1,5 +1,6 @@
 /**
- * Herramientas de imagen: image.generate() / image.analyze()
+ * Herramientas de imagen: image.generate()
+ * Soporta Pollinations, HuggingFace u otros proveedores configurables.
  */
 async function generateImage(prompt, enhance = false) {
   let finalPrompt = (prompt || '').trim();
@@ -7,7 +8,7 @@ async function generateImage(prompt, enhance = false) {
 
   let enhancedPrompt = null;
   if (enhance) {
-    enhancedPrompt = `${finalPrompt}, highly detailed 8k, cinematic lighting, masterpiece, trending on artstation`;
+    enhancedPrompt = `${finalPrompt}, highly detailed, 8k resolution, realistic cinematic lighting, masterpiece`;
     finalPrompt = enhancedPrompt;
   }
 
@@ -19,7 +20,10 @@ async function generateImage(prompt, enhance = false) {
     data: {
       prompt: prompt,
       enhanced_prompt: enhancedPrompt,
-      image_url: imageUrl
+      image_url: imageUrl,
+      provider: 'Pollinations AI',
+      seed: seed,
+      actions: ['open', 'save', 'regenerate', 'vary', 'enhance_prompt']
     }
   };
 }
