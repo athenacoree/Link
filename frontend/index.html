@@ -557,23 +557,71 @@
     <!-- CONFIGURACIÓN DE ASISTENTE DE IA -->
     <div id="adminVistaAIConfig" class="oculto" style="margin-top:16px;">
       <p style="font-size:13.5px; color:var(--texto-600); margin-bottom:14px;">
-        Configura la integración con OpenRouter. El chat con el asistente solo estará disponible para los usuarios una vez que guardes una clave válida.
+        Configura la integración central de Inteligencia Artificial (OpenRouter o Hugging Face Inference Providers).
       </p>
 
-      <div class="campo"><label>Clave API de OpenRouter (sk-or-v1-...)</label><input type="password" id="adminOpenRouterKey" placeholder="sk-or-v1-..."></div>
-      <div class="campo"><label>Modelo de Inteligencia Artificial</label><input type="text" id="adminOpenRouterModel" placeholder="meta-llama/llama-3.1-8b-instruct:free"></div>
-      <div class="grid-2">
-        <div class="campo"><label>Nombre del Asistente</label><input type="text" id="adminAIName" placeholder="Link AI"></div>
-        <div class="campo"><label>URL o Foto del Asistente</label><input type="text" id="adminAIAvatar" placeholder="https://... o avatar data"></div>
+      <div class="campo">
+        <label>Proveedor de IA</label>
+        <select id="adminAIProvider">
+          <option value="openrouter">OpenRouter API</option>
+          <option value="huggingface">Hugging Face Inference</option>
+        </select>
       </div>
+
+      <!-- Configuración OpenRouter -->
+      <div id="boxConfigOpenRouter">
+        <div class="campo"><label>Clave API de OpenRouter (sk-or-v1-...)</label><input type="password" id="adminOpenRouterKey" placeholder="sk-or-v1-..."></div>
+        <div class="campo"><label>Modelo de OpenRouter</label><input type="text" id="adminOpenRouterModel" placeholder="meta-llama/llama-3.1-8b-instruct:free"></div>
+      </div>
+
+      <!-- Configuración Hugging Face -->
+      <div id="boxConfigHuggingFace" style="display:none;">
+        <div class="campo"><label>Token API de Hugging Face (hf_...)</label><input type="password" id="adminHFToken" placeholder="hf_..."></div>
+        <div class="campo"><label>Modelo de Hugging Face</label><input type="text" id="adminHFModel" placeholder="meta-llama/Llama-3.2-3B-Instruct"></div>
+      </div>
+
+      <div class="campo"><label>Nombre del Asistente</label><input type="text" id="adminAIName" placeholder="Link AI"></div>
+
+      <!-- Avatar con URL o Carga de Archivo del Dispositivo -->
+      <div class="campo">
+        <label>Avatar / Foto del Asistente</label>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <input type="text" id="adminAIAvatar" placeholder="https://... o imagen cargada" style="flex:1;">
+          <button class="btn btn-secundario" id="adminBtnUploadAvatar" style="padding:8px 12px; font-size:12px;">Subir foto 📷</button>
+          <input type="file" id="adminAIAvatarFileInput" accept="image/*" style="display:none">
+        </div>
+      </div>
+
       <div class="campo"><label>Personalidad del Asistente (Instrucciones del sistema)</label><textarea id="adminAIPersonality" rows="3" placeholder="Eres Link AI, un asistente inteligente..."></textarea></div>
+
       <div class="grid-2">
         <div class="campo"><label>Máximo de Tokens de Salida</label><input type="number" id="adminAIMaxTokens" value="1000"></div>
         <div class="campo"><label>Límite de Tokens de Contexto</label><input type="number" id="adminAIContextTokens" value="4000"></div>
       </div>
 
-      <div style="display:flex; gap:10px; margin-top:12px;">
-        <div class="btn btn-secundario" id="adminBtnTestAI" style="flex:1;">Comprobar con la API 🧪</div>
+      <!-- Límites específicos para Laboratorio IA -->
+      <div class="panel-acordeon" style="margin-top:10px;">
+        <div class="panel-header" onclick="toggleAcordeon(this)">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            <span style="font-weight:700; font-size:13px;">Límites de Seguridad de Laboratorio IA</span>
+          </div>
+          <svg class="chevron-acordeon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
+        </div>
+        <div class="panel-body">
+          <div class="grid-2">
+            <div class="campo"><label>Máx. longitud de mensaje</label><input type="number" id="adminAILabMaxMsgLen" value="2000"></div>
+            <div class="campo"><label>Máx. longitud personalidad</label><input type="number" id="adminAILabMaxPersLen" value="1000"></div>
+          </div>
+          <div class="grid-2">
+            <div class="campo"><label>Máx. mensajes historial</label><input type="number" id="adminAILabMaxHistory" value="10"></div>
+            <div class="campo"><label>Timeout (ms)</label><input type="number" id="adminAILabTimeoutMs" value="30000"></div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex; gap:10px; margin-top:14px;">
+        <div class="btn btn-secundario" id="adminBtnTestAI" style="flex:1;">Comprobar Proveedor 🧪</div>
         <div class="btn btn-primario" id="adminBtnSaveAI" style="flex:1;">Guardar Configuración 💾</div>
       </div>
 

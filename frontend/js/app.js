@@ -2126,16 +2126,51 @@ document.querySelectorAll('#vistaAdmin > .admin-body > .sub-tabs > .sub-tab[data
 });
 
 // Admin AI Config
+$('adminAIProvider')?.addEventListener('change', (e) => {
+  const val = e.target.value;
+  if ($('boxConfigOpenRouter')) $('boxConfigOpenRouter').style.display = val === 'openrouter' ? 'block' : 'none';
+  if ($('boxConfigHuggingFace')) $('boxConfigHuggingFace').style.display = val === 'huggingface' ? 'block' : 'none';
+});
+
+$('adminBtnUploadAvatar')?.addEventListener('click', () => {
+  $('adminAIAvatarFileInput')?.click();
+});
+
+$('adminAIAvatarFileInput')?.addEventListener('change', async (e) => {
+  if (e.target.files && e.target.files[0]) {
+    try {
+      const base64 = await archivoABase64(e.target.files[0], 400, 0.8);
+      if ($('adminAIAvatar')) $('adminAIAvatar').value = base64;
+      mostrarToast('Foto de avatar cargada ✓');
+    } catch (err) {
+      mostrarToast('Error al procesar la foto.');
+    }
+  }
+});
+
 async function cargarAdminAIConfig() {
   try {
     const { settings } = await api('/admin/system-settings');
+    const provider = settings.ai_provider || 'openrouter';
+    if ($('adminAIProvider')) $('adminAIProvider').value = provider;
+    if ($('boxConfigOpenRouter')) $('boxConfigOpenRouter').style.display = provider === 'openrouter' ? 'block' : 'none';
+    if ($('boxConfigHuggingFace')) $('boxConfigHuggingFace').style.display = provider === 'huggingface' ? 'block' : 'none';
+
     if ($('adminOpenRouterKey')) $('adminOpenRouterKey').value = settings.openrouter_api_key || '';
     if ($('adminOpenRouterModel')) $('adminOpenRouterModel').value = settings.openrouter_model || 'meta-llama/llama-3.1-8b-instruct:free';
+    if ($('adminHFToken')) $('adminHFToken').value = settings.hf_token || '';
+    if ($('adminHFModel')) $('adminHFModel').value = settings.hf_model || 'meta-llama/Llama-3.2-3B-Instruct';
+
     if ($('adminAIName')) $('adminAIName').value = settings.ai_name || 'Link AI';
     if ($('adminAIAvatar')) $('adminAIAvatar').value = settings.ai_avatar || '';
     if ($('adminAIPersonality')) $('adminAIPersonality').value = settings.ai_personality || 'Eres Link AI, un asistente inteligente integrado en la plataforma social Link. Responde siempre en español, con amabilidad y precisión.';
     if ($('adminAIMaxTokens')) $('adminAIMaxTokens').value = settings.ai_max_tokens || 1000;
     if ($('adminAIContextTokens')) $('adminAIContextTokens').value = settings.ai_context_tokens || 4000;
+
+    if ($('adminAILabMaxMsgLen')) $('adminAILabMaxMsgLen').value = settings.ailab_max_msg_length || 2000;
+    if ($('adminAILabMaxPersLen')) $('adminAILabMaxPersLen').value = settings.ailab_max_personality_length || 1000;
+    if ($('adminAILabMaxHistory')) $('adminAILabMaxHistory').value = settings.ailab_max_history || 10;
+    if ($('adminAILabTimeoutMs')) $('adminAILabTimeoutMs').value = settings.ailab_timeout_ms || 30000;
   } catch (e) {
     mostrarToast('Error al cargar configuración de IA.');
   }
@@ -2145,14 +2180,17 @@ $('adminBtnTestAI')?.addEventListener('click', async () => {
   const resultEl = $('adminAITestResult');
   if (!resultEl) return;
   resultEl.style.color = 'var(--texto-800)';
-  resultEl.textContent = 'Probando conexión directamente con la API de OpenRouter...';
+  resultEl.textContent = 'Probando conexión con el proveedor de IA...';
 
   try {
     const res = await api('/admin/test-openrouter', {
       method: 'POST',
       body: {
+        ai_provider: $('adminAIProvider').value,
         openrouter_api_key: $('adminOpenRouterKey').value,
         openrouter_model: $('adminOpenRouterModel').value,
+        hf_token: $('adminHFToken').value,
+        hf_model: $('adminHFModel').value,
         ai_personality: $('adminAIPersonality').value,
       }
     });
@@ -2173,17 +2211,24 @@ $('adminBtnTestAI')?.addEventListener('click', async () => {
 $('adminBtnSaveAI')?.addEventListener('click', async () => {
   try {
     const payload = {
+      ai_provider: $('adminAIProvider').value,
       openrouter_api_key: $('adminOpenRouterKey').value.trim(),
       openrouter_model: $('adminOpenRouterModel').value.trim() || 'meta-llama/llama-3.1-8b-instruct:free',
+      hf_token: $('adminHFToken').value.trim(),
+      hf_model: $('adminHFModel').value.trim() || 'meta-llama/Llama-3.2-3B-Instruct',
       ai_name: $('adminAIName').value.trim() || 'Link AI',
       ai_avatar: $('adminAIAvatar').value.trim(),
       ai_personality: $('adminAIPersonality').value.trim(),
       ai_max_tokens: $('adminAIMaxTokens').value || '1000',
       ai_context_tokens: $('adminAIContextTokens').value || '4000',
+      ailab_max_msg_length: $('adminAILabMaxMsgLen').value || '2000',
+      ailab_max_personality_length: $('adminAILabMaxPersLen').value || '1000',
+      ailab_max_history: $('adminAILabMaxHistory').value || '10',
+      ailab_timeout_ms: $('adminAILabTimeoutMs').value || '30000',
     };
 
     await api('/admin/system-settings', { method: 'POST', body: { settings: payload } });
-    mostrarToast('Configuración del asistente de IA guardada correctamente ✓');
+    mostrarToast('Configuración de IA guardada correctamente ✓');
     await comprobarAIConfig();
     cargarConversaciones();
   } catch (e) {

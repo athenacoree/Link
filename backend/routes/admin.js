@@ -5,6 +5,7 @@ const { query, pool } = require('../db/postgres');
 const Message = require('../models/Message');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { publicUser, meUser } = require('../utils/serialize');
+const { chatCompletion } = require('../services/aiService');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 const router = express.Router();
@@ -173,7 +174,7 @@ router.delete('/anuncios/:id', async (req, res) => {
   }
 });
 
-// ---- CONFIGURACIÓN DEL SISTEMA (AI OpenRouter, etc.) ----
+// ---- CONFIGURACIÓN DEL SISTEMA (AI OpenRouter, Hugging Face, etc.) ----
 router.get('/system-settings', async (req, res) => {
   try {
     const { rows } = await query(`SELECT key, value, updated_at FROM system_settings`);
@@ -209,53 +210,52 @@ router.post('/system-settings', async (req, res) => {
   }
 });
 
-// Comprobar OpenRouter API contra la API oficial en tiempo real
+// Comprobar la conexión con el proveedor de IA configurado
 router.post('/test-openrouter', async (req, res) => {
   try {
-    const { openrouter_api_key, openrouter_model, ai_personality } = req.body;
-    if (!openrouter_api_key || !openrouter_api_key.trim()) {
+    const { ai_provider, openrouter_api_key, openrouter_model, hf_token, hf_model, ai_personality } = req.body;
+    const provider = (ai_provider || 'openrouter').toLowerCase();
+
+    if (provider === 'huggingface' && (!hf_token || !hf_token.trim())) {
+      return res.status(400).json({ error: 'Debes ingresar un Token API de Hugging Face (HF_TOKEN).' });
+    }
+
+    if (provider === 'openrouter' && (!openrouter_api_key || !openrouter_api_key.trim())) {
       return res.status(400).json({ error: 'Debes ingresar una clave API de OpenRouter.' });
     }
 
-    const modelToUse = openrouter_model || 'meta-llama/llama-3.1-8b-instruct:free';
-    const testMessages = [
-      { role: 'system', content: ai_personality || 'Eres un asistente de pruebas.' },
-      { role: 'user', content: 'Responde sólo en 5 palabras probando la conexión de API.' }
-    ];
-
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openrouter_api_key.trim()}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': process.env.SITE_URL || 'https://link-app.onrender.com',
-        'X-Title': 'Link App Admin Test',
-      },
-      body: JSON.stringify({
-        model: modelToUse,
-        messages: testMessages,
-        max_tokens: 50
-      }),
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      return res.status(response.status).json({ error: `Falló la prueba con OpenRouter (${response.status}): ${errText}` });
+    // Temporalmente actualizar temporalmente para probar vía aiService
+    if (provider === 'openrouter') {
+      await query(`INSERT INTO system_settings (key, value, updated_at) VALUES ('openrouter_api_key', $1, now()), ('openrouter_model', $2, now()), ('ai_provider', 'openrouter', now()) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`, [openrouter_api_key.trim(), openrouter_model || 'meta-llama/llama-3.1-8b-instruct:free']);
+    } else {
+      await query(`INSERT INTO system_settings (key, value, updated_at) VALUES ('hf_token', $1, now()), ('hf_model', $2, now()), ('ai_provider', 'huggingface', now()) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`, [hf_token.trim(), hf_model || 'meta-llama/Llama-3.2-3B-Instruct']);
     }
 
-    const data = await response.json();
-    const reply = data.choices?.[0]?.message?.content || 'Conexión exitosa pero sin contenido de respuesta.';
+    const testMessages = [
+      { role: 'system', content: ai_personality || 'Eres un asistente de pruebas.' },
+      { role: 'user', content: 'Hola, prueba de conexión a la API.' }
+    ];
+
+    const result = await chatCompletion({
+      messages: testMessages,
+      maxTokens: 50,
+      provider
+    });
+
+    if (!result.available) {
+      return res.status(400).json({ error: result.error || 'Falló la prueba del proveedor de IA.' });
+    }
 
     res.json({
       success: true,
-      message: '¡Prueba exitosa! La API de OpenRouter respondió correctamente.',
-      model: data.model || modelToUse,
-      reply,
-      usage: data.usage || null
+      message: `¡Prueba exitosa! El proveedor (${provider}) respondió correctamente.`,
+      model: result.model_used,
+      reply: result.reply,
+      usage: result.usage || null
     });
   } catch (err) {
-    console.error('Error probando OpenRouter:', err);
-    res.status(500).json({ error: `Error de red al conectar con OpenRouter: ${err.message}` });
+    console.error('Error probando proveedor de IA:', err);
+    res.status(500).json({ error: `Error de red al conectar con el proveedor: ${err.message}` });
   }
 });
 
