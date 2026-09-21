@@ -1,7 +1,19 @@
 /* Lógica cliente para el Laboratorio IA en Enlace */
 
+function escapeHTML(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 window.AILab = {
-  activeTab: 'personajes',
+  activeCharacterId: null,
+  attachmentBase64: null,
+  chatHistory: [],
 
   init() {
     this.bindEvents();
@@ -9,305 +21,276 @@ window.AILab = {
   },
 
   bindEvents() {
-    const tabs = document.querySelectorAll('.ailab-tab-btn');
-    tabs.forEach(tab => {
-      tab.addEventListener('click', (e) => {
-        const target = e.currentTarget.getAttribute('data-tab');
-        this.switchTab(target);
+    const btnSend = document.getElementById('ailabBtnSend');
+    const inputTxt = document.getElementById('ailabInputText');
+    const btnAttach = document.getElementById('ailabBtnAttachImage');
+    const fileInput = document.getElementById('ailabFileInput');
+
+    if (btnSend) {
+      btnSend.addEventListener('click', () => this.sendMessage());
+    }
+
+    if (inputTxt) {
+      inputTxt.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          this.sendMessage();
+        }
       });
-    });
+    }
+
+    if (btnAttach && fileInput) {
+      btnAttach.addEventListener('click', () => fileInput.click());
+      fileInput.addEventListener('change', async (e) => {
+        if (e.target.files && e.target.files[0]) {
+          try {
+            this.attachmentBase64 = await archivoABase64(e.target.files[0], 1024, 0.8);
+            const previewBox = document.getElementById('ailabAttachmentPreview');
+            const previewImg = document.getElementById('ailabAttachmentImg');
+            if (previewBox && previewImg) {
+              previewImg.src = this.attachmentBase64;
+              previewBox.style.display = 'flex';
+            }
+          } catch (err) {
+            alert('No se pudo procesar la imagen.');
+          }
+        }
+      });
+    }
   },
 
-  switchTab(tabName) {
-    this.activeTab = tabName;
-    document.querySelectorAll('.ailab-tab-btn').forEach(btn => {
-      btn.classList.toggle('active', btn.getAttribute('data-tab') === tabName);
-    });
-    document.querySelectorAll('.ailab-section').forEach(sec => {
-      sec.classList.toggle('active', sec.id === `ailab-sec-${tabName}`);
-    });
-
-    if (tabName === 'personajes') this.loadCharacters();
-    if (tabName === 'ai2ai') this.loadAi2AiOptions();
+  removeAttachment() {
+    this.attachmentBase64 = null;
+    const previewBox = document.getElementById('ailabAttachmentPreview');
+    const fileInput = document.getElementById('ailabFileInput');
+    if (previewBox) previewBox.style.display = 'none';
+    if (fileInput) fileInput.value = '';
   },
 
   async loadCharacters() {
-    const container = document.getElementById('ailab-char-list');
+    const container = document.getElementById('ailabActiveCharacters');
     if (!container) return;
 
     try {
-      const res = await fetchAPI('/api/ailab/characters');
-      if (!res.ok) throw new Error('Error al cargar personajes');
-      const chars = await res.json();
-
-      if (!chars || chars.length === 0) {
-        container.innerHTML = '<div class="card p-3 text-center text-muted">No hay personajes creados aún.</div>';
-        return;
-      }
-
-      container.innerHTML = chars.map(c => `
-        <div class="char-card">
-          <div class="char-avatar-box">${c.avatar || '🤖'}</div>
-          <div style="flex:1;">
-            <div style="font-weight:700; font-size:1rem; color:var(--text-color);">${escapeHTML(c.name)}</div>
-            <div style="font-size:0.82rem; color:#6b7280; line-height:1.3; margin-top:2px;">${escapeHTML(c.personality)}</div>
-          </div>
-          <button class="btn btn-sm btn-primary" onclick="AILab.openCharChat('${c.id}', '${escapeHTML(c.name)}', '${escapeHTML(c.avatar || '🤖')}')">
-            Conversar
-          </button>
-        </div>
-      `).join('');
-    } catch (err) {
-      console.error(err);
-      container.innerHTML = '<div class="card p-3 text-center text-danger">Error al conectar con Laboratorio IA.</div>';
-    }
-  },
-
-  async createCharacter() {
-    const name = document.getElementById('ailab-new-char-name').value.trim();
-    const avatar = document.getElementById('ailab-new-char-avatar').value.trim() || '🤖';
-    const personality = document.getElementById('ailab-new-char-personality').value.trim();
-    const greeting = document.getElementById('ailab-new-char-greeting').value.trim();
-
-    if (!name || !personality) {
-      alert('Por favor ingresa el nombre y la personalidad del personaje.');
-      return;
-    }
-
-    try {
-      const res = await fetchAPI('/api/ailab/characters', {
-        method: 'POST',
-        body: JSON.stringify({ name, avatar, personality, greeting })
-      });
-      if (res.ok) {
-        alert('¡Personaje IA creado exitosamente!');
-        document.getElementById('ailab-new-char-name').value = '';
-        document.getElementById('ailab-new-char-personality').value = '';
-        document.getElementById('ailab-new-char-greeting').value = '';
-        this.loadCharacters();
-      } else {
-        const err = await res.json();
-        alert(err.error || 'No se pudo crear el personaje.');
-      }
-    } catch (e) {
-      alert('Error de conexión.');
-    }
-  },
-
-  async openCharChat(charId, name, avatar) {
-    const promptMsg = prompt(`Escribe un mensaje para ${name}:`);
-    if (!promptMsg) return;
-
-    const chatBox = document.getElementById('ailab-char-chat-results');
-    if (chatBox) {
-      chatBox.innerHTML += `
-        <div class="ai-dialog-box" style="border-left: 4px solid var(--primary-color);">
-          <strong>Tú:</strong> ${escapeHTML(promptMsg)}
-        </div>
-        <div class="ai-dialog-box" id="temp-loading-${Date.now()}">
-          <em>${avatar} ${escapeHTML(name)} está pensando...</em>
-        </div>
-      `;
-    }
-
-    try {
-      const res = await fetchAPI('/api/ailab/chat-character', {
-        method: 'POST',
-        body: JSON.stringify({ character_id: charId, message: promptMsg })
-      });
-      const data = await res.json();
-
-      const lastTemp = chatBox.querySelector('[id^="temp-loading-"]');
-      if (lastTemp) lastTemp.remove();
-
-      chatBox.innerHTML += `
-        <div class="ai-dialog-box" style="background: rgba(112, 0, 255, 0.05); border-left: 4px solid #9d00ff;">
-          <strong>${avatar} ${escapeHTML(name)}:</strong> ${escapeHTML(data.reply)}
-        </div>
-      `;
-    } catch (e) {
-      alert('Error al enviar mensaje.');
-    }
-  },
-
-  async loadAi2AiOptions() {
-    try {
-      const res = await fetchAPI('/api/ailab/characters');
-      if (!res.ok) return;
-      const chars = await res.json();
-
-      const sel1 = document.getElementById('ailab-ai1-select');
-      const sel2 = document.getElementById('ailab-ai2-select');
-      if (!sel1 || !sel2) return;
-
-      const opts = chars.map(c => `<option value="${c.id}">${c.avatar || '🤖'} ${escapeHTML(c.name)}</option>`).join('');
-      sel1.innerHTML = opts;
-      sel2.innerHTML = opts;
-      if (chars.length > 1) sel2.selectedIndex = 1;
-    } catch (e) {}
-  },
-
-  async runAiToAi() {
-    const char1_id = document.getElementById('ailab-ai1-select').value;
-    const char2_id = document.getElementById('ailab-ai2-select').value;
-    const topic = document.getElementById('ailab-ai2ai-topic').value.trim();
-
-    if (char1_id === char2_id) {
-      alert('Por favor selecciona dos personajes diferentes para la conversación.');
-      return;
-    }
-
-    const container = document.getElementById('ailab-ai2ai-results');
-    container.innerHTML = '<div class="text-center p-3"><em>Simulando conversación e intercambio de ideas...</em></div>';
-
-    try {
-      const res = await fetchAPI('/api/ailab/ai-to-ai', {
-        method: 'POST',
-        body: JSON.stringify({ char1_id, char2_id, topic, turns: 4 })
-      });
-      const data = await res.json();
-
-      if (!res.ok) {
-        container.innerHTML = `<div class="text-danger p-2">${data.error || 'Error'}</div>`;
+      const chars = await api('/ailab/characters');
+      if (!Array.isArray(chars) || chars.length === 0) {
+        container.innerHTML = '<div style="font-size:12px; color:var(--texto-500); padding:4px;">Asistente Principal Activo</div>';
         return;
       }
 
       container.innerHTML = `
-        <div style="font-weight:700; margin-bottom:10px; color:var(--primary-color);">📌 Tema: "${escapeHTML(data.topic)}"</div>
-        ${data.conversation.map(turn => `
-          <div class="ai-dialog-box" style="margin-bottom:8px;">
-            <strong>${turn.speaker_avatar} ${escapeHTML(turn.speaker_name)}:</strong>
-            <p style="margin:4px 0 0 0;">${escapeHTML(turn.text)}</p>
+        <div class="ailab-char-chip ${!this.activeCharacterId ? 'activo' : ''}" onclick="AILab.selectCharacter(null)">
+          <span style="font-size:16px;">🤖</span>
+          <span>Link AI</span>
+        </div>
+        ${chars.map(c => `
+          <div class="ailab-char-chip ${this.activeCharacterId === c.id ? 'activo' : ''}" onclick="AILab.selectCharacter('${c.id}')">
+            <span style="font-size:16px;">${escapeHTML(c.avatar || '🤖')}</span>
+            <span>${escapeHTML(c.name)}</span>
           </div>
         `).join('')}
       `;
-    } catch (e) {
-      container.innerHTML = '<div class="text-danger p-2">Error al iniciar conversación IA ↔ IA.</div>';
+    } catch (err) {
+      console.error('Error al cargar personajes de IA:', err);
     }
   },
 
-  async generateImage() {
-    const promptText = document.getElementById('ailab-img-prompt').value.trim();
-    const enhance = document.getElementById('ailab-img-enhance-chk').checked;
+  selectCharacter(charId) {
+    this.activeCharacterId = charId;
+    this.chatHistory = [];
+    this.loadCharacters();
 
-    if (!promptText) {
-      alert('Ingresa una descripción para generar la imagen.');
-      return;
-    }
-
-    const resBox = document.getElementById('ailab-img-results');
-    resBox.innerHTML = '<div class="text-center p-3"><em>Generando y mejorando prompt con IA...</em></div>';
-
-    try {
-      const res = await fetchAPI('/api/ailab/image-gen', {
-        method: 'POST',
-        body: JSON.stringify({ prompt: promptText, enhance })
-      });
-      const data = await res.json();
-
-      resBox.innerHTML = `
-        <div class="card p-3 text-center">
-          ${data.enhanced_prompt ? `<div style="font-size:0.8rem; color:#6b7280; margin-bottom:8px;"><strong>Prompt optimizado:</strong> ${escapeHTML(data.enhanced_prompt)}</div>` : ''}
-          <img src="${data.image_url}" style="width:100%; max-width:400px; border-radius:12px; margin:0 auto; box-shadow:0 4px 12px rgba(0,0,0,0.1);" alt="Imagen IA" />
+    const feed = document.getElementById('ailabChatMessages');
+    if (feed) {
+      feed.innerHTML = `
+        <div class="chat-fecha" style="text-align:center; font-size:11px; color:var(--texto-500); margin:10px 0;">
+          Modo de conversación actualizado.
         </div>
       `;
-    } catch (e) {
-      resBox.innerHTML = '<div class="text-danger p-2">Error al generar la imagen.</div>';
     }
   },
 
-  speakText() {
-    const text = document.getElementById('ailab-tts-text').value.trim();
-    if (!text) return alert('Ingresa texto para convertir a voz.');
+  async sendMessage() {
+    const inputTxt = document.getElementById('ailabInputText');
+    if (!inputTxt) return;
 
-    if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'es-ES';
-      window.speechSynthesis.speak(utterance);
-    } else {
-      alert('Tu navegador no soporta reproducción directa de voz.');
-    }
-  },
+    const message = inputTxt.value.trim();
+    const image = this.attachmentBase64;
 
-  async analyzeVision() {
-    const imgUrl = document.getElementById('ailab-vision-url').value.trim();
-    const question = document.getElementById('ailab-vision-q').value.trim();
+    if (!message && !image) return;
 
-    if (!imgUrl) return alert('Ingresa la URL de la imagen a analizar.');
+    inputTxt.value = '';
+    const feed = document.getElementById('ailabChatMessages');
 
-    const resBox = document.getElementById('ailab-vision-results');
-    resBox.innerHTML = '<div class="text-center p-3"><em>Analizando elementos de la imagen con visión IA...</em></div>';
+    // Renderizar mensaje del usuario
+    if (feed) {
+      let contentHtml = escapeHTML(message);
+      if (image) {
+        contentHtml = `<img src="${image}" style="max-width:220px; border-radius:12px; margin-bottom:6px; display:block;" />` + contentHtml;
+      }
 
-    try {
-      const res = await fetchAPI('/api/ailab/vision', {
-        method: 'POST',
-        body: JSON.stringify({ image_url: imgUrl, question })
-      });
-      const data = await res.json();
-      resBox.innerHTML = `
-        <div class="ai-dialog-box">
-          <strong>Análisis Visión:</strong>
-          <p style="margin-top:4px;">${escapeHTML(data.analysis)}</p>
+      feed.innerHTML += `
+        <div class="mensaje-fila me" style="display:flex; justify-content:flex-end; margin-bottom:10px;">
+          <div class="mensaje-burbuja me" style="background:var(--morado-600); color:#fff; padding:10px 14px; border-radius:18px 18px 2px 18px; max-width:80%; font-size:14px; line-height:1.4; box-shadow:0 2px 6px rgba(0,0,0,0.1);">
+            ${contentHtml}
+          </div>
         </div>
       `;
-    } catch (e) {
-      resBox.innerHTML = '<div class="text-danger p-2">Error al analizar imagen.</div>';
+      feed.scrollTop = feed.scrollHeight;
+    }
+
+    // Limpiar adjunto
+    this.removeAttachment();
+
+    // Indicador de "pensando..."
+    const tempId = `loading-${Date.now()}`;
+    if (feed) {
+      feed.innerHTML += `
+        <div class="mensaje-fila ot" id="${tempId}" style="display:flex; justify-content:flex-start; margin-bottom:10px;">
+          <div class="mensaje-burbuja ot" style="background:var(--fondo-tarjeta); border:1px solid var(--borde); color:var(--texto-800); padding:10px 14px; border-radius:18px 18px 18px 2px; max-width:80%; font-size:13px; font-style:italic;">
+            Escribiendo respuesta...
+          </div>
+        </div>
+      `;
+      feed.scrollTop = feed.scrollHeight;
+    }
+
+    try {
+      let data;
+      if (this.activeCharacterId) {
+        data = await api('/ailab/chat-character', {
+          method: 'POST',
+          body: {
+            character_id: this.activeCharacterId,
+            message,
+            image_url: image,
+            history: this.chatHistory
+          }
+        });
+      } else {
+        data = await api('/ai/chat', {
+          method: 'POST',
+          body: {
+            prompt: message,
+            messages: [...this.chatHistory, { role: 'user', content: message }]
+          }
+        });
+      }
+
+      const tempLoading = document.getElementById(tempId);
+      if (tempLoading) tempLoading.remove();
+
+      const replyText = data.reply || 'Sin respuesta del asistente.';
+      const toolResult = data.tool_result;
+
+      // Actualizar historial
+      this.chatHistory.push({ role: 'user', content: message });
+      this.chatHistory.push({ role: 'assistant', content: replyText });
+      if (this.chatHistory.length > 10) this.chatHistory = this.chatHistory.slice(-10);
+
+      let cardHtml = '';
+      if (toolResult && toolResult.type) {
+        cardHtml = this.renderToolCard(toolResult);
+      }
+
+      if (feed) {
+        const botAvatar = data.character?.avatar || data.avatar || '🤖';
+        const botName = data.character?.name || data.name || 'Link AI';
+
+        feed.innerHTML += `
+          <div class="mensaje-fila ot" style="display:flex; flex-direction:column; align-items:flex-start; margin-bottom:12px;">
+            <div style="font-size:11px; font-weight:700; color:var(--morado-700); margin-bottom:3px; margin-left:4px;">
+              ${botAvatar} ${escapeHTML(botName)}
+            </div>
+            <div class="mensaje-burbuja ot" style="background:var(--fondo-tarjeta); border:1px solid var(--borde); color:var(--texto-900); padding:10px 14px; border-radius:18px 18px 18px 2px; max-width:85%; font-size:14px; line-height:1.45; box-shadow:0 2px 6px rgba(0,0,0,0.05);">
+              ${escapeHTML(replyText)}
+              ${cardHtml}
+            </div>
+          </div>
+        `;
+        feed.scrollTop = feed.scrollHeight;
+      }
+    } catch (err) {
+      const tempLoading = document.getElementById(tempId);
+      if (tempLoading) tempLoading.remove();
+
+      if (feed) {
+        feed.innerHTML += `
+          <div class="mensaje-fila ot" style="display:flex; justify-content:flex-start; margin-bottom:10px;">
+            <div class="mensaje-burbuja ot" style="background:#fee2e2; border:1px solid #fca5a5; color:#991b1b; padding:10px 14px; border-radius:14px; font-size:13px; font-weight:600;">
+              ⚠️ No se pudo completar esta acción. El proveedor no respondió correctamente.
+            </div>
+          </div>
+        `;
+        feed.scrollTop = feed.scrollHeight;
+      }
     }
   },
 
-  async checkAffinity() {
-    const userInterests = document.getElementById('ailab-aff-user').value.trim();
-    const targetText = document.getElementById('ailab-aff-target').value.trim();
+  renderToolCard(toolResult) {
+    if (!toolResult || !toolResult.type) return '';
+    const d = toolResult.data || {};
 
-    if (!userInterests || !targetText) return alert('Por favor completa ambos campos.');
-
-    const resBox = document.getElementById('ailab-aff-results');
-    resBox.innerHTML = '<div class="text-center p-3"><em>Calculando afinidad semántica con embeddings...</em></div>';
-
-    try {
-      const res = await fetchAPI('/api/ailab/embeddings', {
-        method: 'POST',
-        body: JSON.stringify({ user_interests: userInterests, target_text: targetText })
-      });
-      const data = await res.json();
-
-      resBox.innerHTML = `
-        <div class="card p-3 text-center">
-          <div style="font-size:2rem; font-weight:800; color:var(--primary-color);">${data.similarity_percentage}%</div>
-          <div style="font-weight:600; margin-top:4px;">Coincidencia de Afinidad</div>
-          <div style="font-size:0.85rem; color:#6b7280; margin-top:6px;">${escapeHTML(data.recommendation)}</div>
+    if (toolResult.type === 'webcam_card') {
+      return `
+        <div class="card" style="margin-top:10px; padding:12px; border-radius:14px; background:var(--blanco); border:1px solid var(--borde);">
+          <div style="font-weight:800; font-size:13.5px; color:var(--morado-700); margin-bottom:4px;">📷 ${escapeHTML(d.title || 'Cámara Pública')}</div>
+          <div style="font-size:12px; color:var(--texto-600); margin-bottom:8px;">📍 ${escapeHTML(d.location || '')}</div>
+          <img src="${d.preview}" style="width:100%; height:180px; object-fit:cover; border-radius:10px; margin-bottom:8px;" alt="Cámara" />
+          <a href="${d.official_url}" target="_blank" rel="noopener" class="btn btn-primario" style="display:inline-block; text-align:center; width:100%; padding:8px 0; font-size:12px; text-decoration:none;">
+            Ver Cámara en vivo 🔴
+          </a>
         </div>
       `;
-    } catch (e) {
-      resBox.innerHTML = '<div class="text-danger p-2">Error al calcular afinidad.</div>';
     }
-  },
 
-  async translateText() {
-    const text = document.getElementById('ailab-trans-text').value.trim();
-    const lang = document.getElementById('ailab-trans-lang').value;
-
-    if (!text) return alert('Ingresa el texto a traducir.');
-
-    const resBox = document.getElementById('ailab-trans-results');
-    resBox.innerHTML = '<div class="text-center p-3"><em>Traduciendo...</em></div>';
-
-    try {
-      const res = await fetchAPI('/api/ailab/translate', {
-        method: 'POST',
-        body: JSON.stringify({ text, target_lang: lang })
-      });
-      const data = await res.json();
-
-      resBox.innerHTML = `
-        <div class="ai-dialog-box">
-          <strong>Traducción a ${escapeHTML(data.target_lang)}:</strong>
-          <p style="font-size:1.05rem; margin-top:4px; font-weight:500;">${escapeHTML(data.translation)}</p>
+    if (toolResult.type === 'video_card') {
+      return `
+        <div class="card" style="margin-top:10px; padding:12px; border-radius:14px; background:var(--blanco); border:1px solid var(--borde);">
+          <div style="font-size:11px; font-weight:800; color:var(--morado-600); margin-bottom:4px;">▶️ ${escapeHTML(d.platform || 'Vídeo')}</div>
+          <div style="font-weight:700; font-size:13.5px; color:var(--texto-900); margin-bottom:2px;">${escapeHTML(d.title || '')}</div>
+          <div style="font-size:12px; color:var(--texto-600); margin-bottom:8px;">👤 ${escapeHTML(d.channel || '')} • ${escapeHTML(d.views || '')}</div>
+          <img src="${d.thumbnail}" style="width:100%; height:160px; object-fit:cover; border-radius:10px; margin-bottom:8px;" alt="Video Miniatura" />
+          <a href="${d.url}" target="_blank" rel="noopener" class="btn btn-secundario" style="display:inline-block; text-align:center; width:100%; padding:8px 0; font-size:12px; text-decoration:none; font-weight:700;">
+            Ver en ${escapeHTML(d.platform || 'Plataforma')}
+          </a>
         </div>
       `;
-    } catch (e) {
-      resBox.innerHTML = '<div class="text-danger p-2">Error al traducir.</div>';
     }
+
+    if (toolResult.type === 'social_profile_card') {
+      return `
+        <div class="card" style="margin-top:10px; padding:12px; border-radius:14px; background:var(--blanco); border:1px solid var(--borde); display:flex; gap:12px; align-items:center;">
+          <img src="${d.avatar || '/icons/icon-192.png'}" style="width:50px; height:50px; border-radius:50%; object-fit:cover;" />
+          <div style="flex:1; min-width:0;">
+            <div style="font-weight:800; font-size:14px; color:var(--texto-900);">${escapeHTML(d.name)} ${d.verified ? '✓' : ''}</div>
+            <div style="font-size:12px; color:var(--morado-700); font-weight:600;">@${escapeHTML(d.username)}</div>
+            <div style="font-size:11.5px; color:var(--texto-600);">${escapeHTML(d.profession || '')}</div>
+          </div>
+        </div>
+      `;
+    }
+
+    if (toolResult.type === 'weather_card') {
+      return `
+        <div class="card" style="margin-top:10px; padding:12px; border-radius:14px; background:var(--blanco); border:1px solid var(--borde);">
+          <div style="font-weight:800; font-size:14px; color:var(--texto-900);">🌤️ Clima en ${escapeHTML(d.city)}</div>
+          <div style="font-size:24px; font-weight:900; color:var(--morado-700); margin:4px 0;">${escapeHTML(d.temp_c)}</div>
+          <div style="font-size:12px; color:var(--texto-700);">${escapeHTML(d.condition)} • Humedad: ${escapeHTML(d.humidity)} • Viento: ${escapeHTML(d.wind)}</div>
+        </div>
+      `;
+    }
+
+    if (toolResult.type === 'image_card') {
+      return `
+        <div class="card" style="margin-top:10px; padding:10px; border-radius:14px; background:var(--blanco); border:1px solid var(--borde); text-center;">
+          <img src="${d.image_url}" style="width:100%; border-radius:10px; margin-bottom:6px;" alt="Imagen generada" />
+          <div style="font-size:11px; color:var(--texto-500);">Prompt: "${escapeHTML(d.prompt)}"</div>
+        </div>
+      `;
+    }
+
+    return '';
   }
 };
 
