@@ -60,10 +60,26 @@ const Monetizacion = (() => {
     }
   }
 
+  async function getPreciosMonetizacion() {
+    try {
+      const res = await api('/monetizacion/precios');
+      return {
+        price_verification: res.price_verification || 5.00,
+        price_username: res.price_username || 10.00
+      };
+    } catch (e) {
+      return { price_verification: 5.00, price_username: 10.00 };
+    }
+  }
+
   // ---------------- 1. VERIFICACIÓN PAGADA ----------------
   async function renderVerificacion(cont) {
-    const data = await api('/monetizacion/verificacion/mi-solicitud');
+    const [data, precios] = await Promise.all([
+      api('/monetizacion/verificacion/mi-solicitud'),
+      getPreciosMonetizacion()
+    ]);
     const sol = data.solicitud;
+    const priceStr = parseFloat(precios.price_verification).toFixed(2);
 
     let estadoHTML = '';
     if (!sol) {
@@ -72,13 +88,13 @@ const Monetizacion = (() => {
           <div style="font-size:32px; margin-bottom:6px;">☑️</div>
           <div style="font-weight:800; font-size:16px; color:var(--morado-700);">Obtén la Insignia de Verificado</div>
           <p style="font-size:13px; color:var(--texto-600); margin:8px 0 14px; line-height:1.4;">
-            Solicita la revisión oficial de tu perfil. Al abonar el costo del servicio de revisión ($5.00 USD mediante QvaPay), tu solicitud pasará directamente a la cola de revisión de nuestro equipo de administración.
+            Solicita la revisión oficial de tu perfil. Al abonar el costo del servicio de revisión ($${priceStr} USD mediante QvaPay), tu solicitud pasará directamente a la cola de revisión de nuestro equipo de administración.
           </p>
           <div style="font-size:11.5px; color:var(--texto-500); margin-bottom:14px; background:var(--blanco); padding:8px 12px; border-radius:10px;">
             ⚠️ <strong>Aviso importante:</strong> El pago cubre el servicio de revisión humana. No garantiza la aprobación automática de la verificación si el perfil incumple nuestras normas comunitarias.
           </div>
           <button class="btn btn-primario" id="btnSolicitarVerif" style="width:100%; border-radius:14px; padding:12px;">
-            Solicitar Revisión ($5.00 USD) 🚀
+            Solicitar Revisión ($${priceStr} USD) 🚀
           </button>
         </div>
       `;
@@ -117,7 +133,7 @@ const Monetizacion = (() => {
             <div style="margin-top:12px; padding:10px; background:var(--rojo-100); color:var(--rojo-700); border-radius:10px; font-size:12.5px;">
               <strong>Motivo de rechazo:</strong> ${sol.rejection_reason}
             </div>
-            <button class="btn btn-primario" id="btnSolicitarVerif" style="width:100%; margin-top:12px;">Volver a Solicitar ($5.00 USD)</button>
+            <button class="btn btn-primario" id="btnSolicitarVerif" style="width:100%; margin-top:12px;">Volver a Solicitar ($${priceStr} USD)</button>
           ` : ''}
         </div>
       `;
@@ -165,11 +181,14 @@ const Monetizacion = (() => {
 
   // ---------------- 2. USERNAMES CORTOS ----------------
   async function renderUsername(cont) {
+    const precios = await getPreciosMonetizacion();
+    const priceStr = parseFloat(precios.price_username).toFixed(2);
+
     cont.innerHTML = `
       <div style="background:var(--blanco); border:1px solid var(--borde); border-radius:14px; padding:16px; margin-bottom:16px;">
         <div style="font-weight:800; font-size:15px; color:var(--morado-700); margin-bottom:6px;">Adquiere un Username Corto (1 a 3 caracteres)</div>
         <p style="font-size:13px; color:var(--texto-600); margin-bottom:14px; line-height:1.4;">
-          Destácate en Link con un nombre de usuario exclusivo y ultra corto como <code>@max</code>, <code>@al</code> o <code>@io</code>. Costo único: <strong>$10.00 USD</strong> vía QvaPay.
+          Destácate en Link con un nombre de usuario exclusivo y ultra corto como <code>@max</code>, <code>@al</code> o <code>@io</code>. Costo único: <strong>$${priceStr} USD</strong> vía QvaPay.
         </p>
 
         <div class="campo">
@@ -185,7 +204,7 @@ const Monetizacion = (() => {
         <div id="usernameStatusBox" style="margin-top:10px; font-size:13px;"></div>
 
         <button class="btn btn-primario" id="btnComprarUsername" style="width:100%; margin-top:14px; display:none;">
-          Comprar Username ($10.00 USD) 🛒
+          Comprar Username ($${priceStr} USD) 🛒
         </button>
       </div>
     `;
