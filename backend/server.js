@@ -42,6 +42,7 @@ app.use('/api/anuncios', require('./routes/announcements'));
 app.use('/api/ai', require('./routes/ai'));
 app.use('/api/ailab', require('./routes/ailab'));
 app.use('/api/features', require('./routes/features'));
+app.use('/api/monetizacion', require('./routes/monetization'));
 
 // ---------------- Frontend (PWA estática) ----------------
 const FRONTEND_DIR = path.join(__dirname, '..', 'frontend');
