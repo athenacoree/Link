@@ -86,18 +86,41 @@ const INITIAL_DISCOVERY_CATALOG = [
 function isUrlAllowed(urlStr) {
   try {
     const parsed = new URL(urlStr);
-    const hostname = parsed.hostname.toLowerCase();
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return false;
+    }
+
+    const hostname = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '');
+
     if (
       hostname === 'localhost' ||
       hostname === '127.0.0.1' ||
       hostname === '0.0.0.0' ||
-      hostname.startsWith('192.168.') ||
-      hostname.startsWith('10.') ||
+      hostname === '::1' ||
       hostname.endsWith('.local') ||
-      hostname.endsWith('.internal')
+      hostname.endsWith('.internal') ||
+      hostname.endsWith('.localhost')
     ) {
       return false;
     }
+
+    // Comprobar rangos de IP privadas IPv4
+    if (/^(10\.|192\.168\.|169\.254\.|100\.64\.|127\.)/.test(hostname)) {
+      return false;
+    }
+
+    // Rango 172.16.0.0 - 172.31.255.255
+    const match172 = hostname.match(/^172\.(\d+)\./);
+    if (match172) {
+      const secondOctet = parseInt(match172[1], 10);
+      if (secondOctet >= 16 && secondOctet <= 31) return false;
+    }
+
+    // IPv6 privadas/link-local
+    if (hostname.startsWith('fe80:') || hostname.startsWith('fd') || hostname.startsWith('fc00:')) {
+      return false;
+    }
+
     return true;
   } catch (e) {
     return false;
@@ -200,12 +223,91 @@ async function executeDynamicApiRequest(apiConfig, userParams = {}) {
 /**
  * Buscar y registrar nuevas APIs descubiertas en la base de datos
  */
+/**
+ * Descubrir e interpretar especificación OpenAPI / Swagger (v2 o v3)
+ */
+async function discoverFromOpenApiSpec(specSource) {
+  let specObj = null;
+
+  if (typeof specSource === 'string' && (specSource.startsWith('http://') || specSource.startsWith('https://'))) {
+    if (!isUrlAllowed(specSource)) {
+      throw new Error(`URL de especificación OpenAPI '${specSource}' rechazada por políticas SSRF.`);
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10000);
+    const res = await fetch(specSource, { signal: controller.signal });
+    clearTimeout(timer);
+    if (!res.ok) throw new Error(`HTTP Error ${res.status} al descargar OpenAPI spec de ${specSource}`);
+    specObj = await res.json();
+  } else if (typeof specSource === 'object' && specSource !== null) {
+    specObj = specSource;
+  }
+
+  if (!specObj) return [];
+
+  const discovered = [];
+  let baseUrl = '';
+
+  if (specObj.servers && specObj.servers[0] && specObj.servers[0].url) {
+    baseUrl = specObj.servers[0].url;
+  } else if (specObj.host) {
+    const scheme = (specObj.schemes && specObj.schemes[0]) || 'https';
+    baseUrl = `${scheme}://${specObj.host}${specObj.basePath || ''}`;
+  }
+
+  const paths = specObj.paths || {};
+  const apiTitle = specObj.info?.title || 'OpenAPI Service';
+
+  Object.keys(paths).forEach(pathKey => {
+    const pathItem = paths[pathKey];
+    if (pathItem.get) {
+      const getOp = pathItem.get;
+      const paramsSchema = {};
+
+      if (Array.isArray(getOp.parameters)) {
+        getOp.parameters.forEach(p => {
+          if (p.name && p.in === 'query') {
+            paramsSchema[p.name] = p.type || (p.schema ? p.schema.type : 'string') || 'string';
+          }
+        });
+      }
+
+      discovered.push({
+        name: `${apiTitle} - ${getOp.summary || pathKey}`,
+        source: 'OpenAPI Spec',
+        description: getOp.description || getOp.summary || `Endpoint ${pathKey} de ${apiTitle}`,
+        base_url: baseUrl || 'https://api.example.com',
+        endpoint_path: pathKey,
+        method: 'GET',
+        params_schema: paramsSchema,
+        auth_type: 'none',
+      });
+    }
+  });
+
+  return discovered;
+}
+
+/**
+ * Buscar y registrar nuevas APIs descubiertas en la base de datos
+ */
 async function discoverAndRegisterApis(searchTopic) {
   const discovered = [];
 
+  // 1. Catálogo inicial estático
   for (const item of INITIAL_DISCOVERY_CATALOG) {
     if (!searchTopic || item.name.toLowerCase().includes(searchTopic.toLowerCase()) || item.description.toLowerCase().includes(searchTopic.toLowerCase())) {
       discovered.push(item);
+    }
+  }
+
+  // 2. Si el parámetro es una URL de OpenAPI/Swagger doc, descubrir dinámicamente sus endpoints
+  if (typeof searchTopic === 'string' && (searchTopic.startsWith('http://') || searchTopic.startsWith('https://')) && (searchTopic.includes('swagger') || searchTopic.includes('openapi') || searchTopic.endsWith('.json'))) {
+    try {
+      const openApiDiscovered = await discoverFromOpenApiSpec(searchTopic);
+      discovered.push(...openApiDiscovered);
+    } catch (err) {
+      console.warn('[DynamicAPIEngine] No se pudo analizar OpenAPI spec:', err.message);
     }
   }
 
@@ -264,6 +366,7 @@ async function syncDynamicApisWithToolManager(ToolManager) {
 module.exports = {
   executeDynamicApiRequest,
   discoverAndRegisterApis,
+  discoverFromOpenApiSpec,
   getRegisteredDynamicApis,
   syncDynamicApisWithToolManager,
   INITIAL_DISCOVERY_CATALOG,
