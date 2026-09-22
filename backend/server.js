@@ -57,8 +57,6 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Error interno del servidor.' });
 });
 
-initSockets(io);
-
 const PORT = process.env.PORT || 10000;
 
 async function start() {
@@ -72,7 +70,11 @@ async function start() {
   } catch (err) {
     console.warn('[arranque] Omitiendo Mongo (se usará PostgreSQL para la mensajería).');
   }
+
+  // Inicializar sockets y trabajadores en segundo plano una vez completadas las migraciones
+  initSockets(io);
   startCleanupJob();
+
   server.listen(PORT, () => {
     console.log(`[arranque] Enlace escuchando en el puerto ${PORT}`);
   });
