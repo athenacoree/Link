@@ -31,39 +31,59 @@
      ========================================================= -->
 <div id="authScreen">
   <div class="auth-caja">
-    <div class="auth-titulo">Link</div>
-    <div class="auth-sub">Encuentra personas, conversa y llama de verdad</div>
+    <div style="display:flex; justify-space-between; align-items:center; margin-bottom:6px;">
+      <div class="auth-titulo" style="margin:0;">Link</div>
+      <select id="authIdiomaSelect" class="select-idioma-app" onchange="cambiarIdioma(this.value)" style="padding:4px 8px; border-radius:10px; border:1px solid var(--borde); font-size:12px; background:var(--blanco); font-weight:700; cursor:pointer;">
+        <option value="es">🇪🇸 Español</option>
+        <option value="en">🇺🇸 English</option>
+      </select>
+    </div>
+    <div class="auth-sub" data-i18n="auth_subtitulo">Encuentra personas, conversa y llama de verdad</div>
 
     <div class="auth-tabs">
-      <div class="auth-tab activo" id="tabLogin">Iniciar sesión</div>
-      <div class="auth-tab" id="tabRegistro">Crear cuenta</div>
+      <div class="auth-tab activo" id="tabLogin" data-i18n="tab_login">Iniciar sesión</div>
+      <div class="auth-tab" id="tabRegistro" data-i18n="tab_registro">Crear cuenta</div>
     </div>
 
     <div class="vista-auth activo" id="vistaLogin">
-      <div class="campo"><label>Correo</label><input type="email" id="loginEmail" autocomplete="username" placeholder="tú@correo.com"></div>
-      <div class="campo"><label>Contraseña</label><input type="password" id="loginPassword" autocomplete="current-password" placeholder="••••••••"></div>
+      <div class="campo"><label data-i18n="lbl_email">Correo</label><input type="email" id="loginEmail" autocomplete="username" placeholder="tú@correo.com" data-i18n-ph="ph_email"></div>
+      <div class="campo"><label data-i18n="lbl_password">Contraseña</label><input type="password" id="loginPassword" autocomplete="current-password" placeholder="••••••••" data-i18n-ph="ph_password"></div>
       <div class="campo-error" id="loginError"></div>
-      <div class="btn btn-primario" id="btnLogin" style="width:100%; margin-top:6px;"><span>Entrar</span></div>
+      <div class="btn btn-primario" id="btnLogin" style="width:100%; margin-top:6px;"><span data-i18n="btn_entrar">Entrar</span></div>
     </div>
 
     <div class="vista-auth" id="vistaRegistro">
-      <div class="campo"><label>Nombre completo</label><input type="text" id="regNombre" placeholder="Yaditza Fonseca"></div>
-      <div class="campo"><label>Usuario (@username)</label><input type="text" id="regUsername" placeholder="yaditza_fonseca"></div>
-      <div class="campo"><label>Correo</label><input type="email" id="regEmail" placeholder="tú@correo.com"></div>
-      <div class="campo"><label>Contraseña</label><input type="password" id="regPassword" placeholder="Mínimo 6 caracteres"></div>
+      <div class="campo"><label data-i18n="lbl_nombre">Nombre completo</label><input type="text" id="regNombre" placeholder="Yaditza Fonseca" data-i18n-ph="ph_nombre"></div>
+      <div class="campo"><label data-i18n="lbl_username">Usuario (@username)</label><input type="text" id="regUsername" placeholder="yaditza_fonseca" data-i18n-ph="ph_username"></div>
+      <div class="campo"><label data-i18n="lbl_email">Correo</label><input type="email" id="regEmail" placeholder="tú@correo.com" data-i18n-ph="ph_email"></div>
+      <div class="campo"><label data-i18n="lbl_password">Contraseña</label><input type="password" id="regPassword" placeholder="Mínimo 6 caracteres" data-i18n-ph="ph_password"></div>
       <div class="grid-2">
-        <div class="campo"><label>Fecha nacimiento</label><input type="date" id="regNacimiento"></div>
-        <div class="campo"><label>Género</label>
+        <div class="campo"><label data-i18n="lbl_nacimiento">Fecha nacimiento</label><input type="date" id="regNacimiento"></div>
+        <div class="campo"><label data-i18n="lbl_genero">Género</label>
           <select id="regGenero">
-            <option value="Mujer">Mujer</option>
-            <option value="Hombre">Hombre</option>
-            <option value="Otro">Otro</option>
+            <option value="Mujer" data-i18n="opt_mujer">Mujer</option>
+            <option value="Hombre" data-i18n="opt_hombre">Hombre</option>
+            <option value="Otro" data-i18n="opt_otro">Otro</option>
           </select>
         </div>
       </div>
-      <div class="campo"><label>Municipio / ciudad</label><input type="text" id="regCiudad" placeholder="Playa, La Habana"></div>
+      <div class="grid-2">
+        <div class="campo"><label data-i18n="lbl_pais">País</label>
+          <select id="regPais"></select>
+        </div>
+        <div class="campo"><label data-i18n="lbl_estado">Estado / Provincia</label>
+          <select id="regEstado"></select>
+        </div>
+      </div>
+      <div class="campo"><label data-i18n="lbl_ciudad">Municipio / ciudad</label><input type="text" id="regCiudad" placeholder="Ej. Playa, La Habana o Miami" data-i18n-ph="ph_ciudad"></div>
+      <div class="grid-2">
+        <div class="campo"><label data-i18n="lbl_codigo_pais">Código país</label>
+          <select id="regCodigoPais"></select>
+        </div>
+        <div class="campo"><label data-i18n="lbl_telefono">Teléfono (WhatsApp)</label><input type="tel" id="regTelefono" placeholder="51234567" data-i18n-ph="ph_telefono"></div>
+      </div>
       <div class="campo-error" id="regError"></div>
-      <div class="btn btn-primario" id="btnRegistro" style="width:100%; margin-top:6px;"><span>Crear mi cuenta</span></div>
+      <div class="btn btn-primario" id="btnRegistro" style="width:100%; margin-top:6px;"><span data-i18n="btn_registro">Crear mi cuenta</span></div>
     </div>
   </div>
 </div>
@@ -791,30 +811,28 @@
 <div class="hoja" id="hojaEditar" style="bottom:20px; max-height:85vh;">
   <div class="hoja-grupo">
     <div class="hoja-form" style="max-height:70vh; overflow-y:auto;">
-      <div class="campo"><label>Nombre</label><input type="text" id="edNombre"></div>
-      <div class="campo"><label>Género</label>
+      <div class="campo"><label data-i18n="lbl_nombre">Nombre</label><input type="text" id="edNombre"></div>
+      <div class="campo"><label data-i18n="lbl_genero">Género</label>
         <select id="edGenero">
-          <option value="Mujer">Mujer</option>
-          <option value="Hombre">Hombre</option>
-          <option value="Otro">Otro</option>
+          <option value="Mujer" data-i18n="opt_mujer">Mujer</option>
+          <option value="Hombre" data-i18n="opt_hombre">Hombre</option>
+          <option value="Otro" data-i18n="opt_otro">Otro</option>
         </select>
       </div>
       <div class="grid-2">
-        <div class="campo">
-          <label>Código país</label>
-          <select id="edCodigoPais">
-            <option value="+53"> Cuba (+53)</option>
-            <option value="+1"> EE.UU. / Canadá (+1)</option>
-            <option value="+34"> España (+34)</option>
-            <option value="+52"> México (+52)</option>
-            <option value="+57"> Colombia (+57)</option>
-            <option value="+54"> Argentina (+54)</option>
-            <option value="+56"> Chile (+56)</option>
-            <option value="+58"> Venezuela (+58)</option>
-            <option value="+51"> Perú (+51)</option>
-          </select>
+        <div class="campo"><label data-i18n="lbl_pais">País</label>
+          <select id="edPais"></select>
         </div>
-        <div class="campo"><label>Teléfono (WhatsApp)</label><input type="tel" id="edTelefono" placeholder="51234567"></div>
+        <div class="campo"><label data-i18n="lbl_estado">Estado / Provincia</label>
+          <select id="edEstadoSelect"></select>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="campo">
+          <label data-i18n="lbl_codigo_pais">Código país</label>
+          <select id="edCodigoPais"></select>
+        </div>
+        <div class="campo"><label data-i18n="lbl_telefono">Teléfono (WhatsApp)</label><input type="tel" id="edTelefono" placeholder="51234567"></div>
       </div>
       <div class="grid-2">
         <div class="campo"><label>Telegram (@)</label><input type="text" id="edTelegram" placeholder="tu_usuario"></div>
@@ -831,7 +849,7 @@
       <div class="campo"><label>Otros enlaces / Redes</label><input type="text" id="edOtrosLinks" placeholder="https://..."></div>
 
       <div class="campo"><label>Profesión</label><input type="text" id="edProfesion"></div>
-      <div class="campo"><label>Municipio / ciudad</label><input type="text" id="edCiudad"></div>
+      <div class="campo"><label data-i18n="lbl_ciudad">Municipio / ciudad</label><input type="text" id="edCiudad"></div>
       <div class="grid-2">
         <div class="campo"><label>Color de piel</label><input type="text" id="edPiel"></div>
         <div class="campo"><label>Situación</label><input type="text" id="edSituacion"></div>
@@ -960,8 +978,28 @@
 <div class="velo" id="veloConfiguraciones"></div>
 <div class="hoja" id="hojaConfiguraciones" style="bottom:20px; max-height:85vh;">
   <div class="hoja-grupo">
-    <div class="hoja-persona"><span style="font-weight:700; color:var(--morado-700); font-size:16px;">Configuraciones de la Cuenta</span></div>
+    <div class="hoja-persona"><span style="font-weight:700; color:var(--morado-700); font-size:16px;" data-i18n="cfg_titulo">Configuraciones de la Cuenta</span></div>
     <div class="hoja-form" style="max-height:65vh; overflow-y:auto;">
+
+      <!-- Panel Idioma de la Aplicación -->
+      <div class="panel-acordeon">
+        <div class="panel-header" onclick="toggleAcordeon(this)">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            <span style="font-weight:700; font-size:14px;" data-i18n="lbl_idioma">Idioma de la Aplicación</span>
+          </div>
+          <svg class="chevron-acordeon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
+        </div>
+        <div class="panel-body">
+          <div class="campo">
+            <label data-i18n="lbl_idioma">Selecciona el idioma</label>
+            <select id="cfgLanguage" class="select-idioma-app" onchange="cambiarIdioma(this.value)">
+              <option value="es" data-i18n="idioma_es">🇪🇸 Español (Spanish)</option>
+              <option value="en" data-i18n="idioma_en">🇺🇸 English (Inglés)</option>
+            </select>
+          </div>
+        </div>
+      </div>
 
       <!-- Panel 1: Privacidad y Visibilidad -->
       <div class="panel-acordeon">
@@ -1322,6 +1360,8 @@
 
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 <script src="/js/api.js"></script>
+<script src="/js/paises.js"></script>
+<script src="/js/i18n.js"></script>
 <script src="/js/call.js"></script>
 <script src="/js/chat.js"></script>
 <script src="/js/features.js"></script>

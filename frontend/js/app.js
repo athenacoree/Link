@@ -333,8 +333,53 @@ $('btnLogin').addEventListener('click', async () => {
   } catch (e) { $('loginError').textContent = e.message; }
 });
 
+function inicializarSelectsUbicacion() {
+  if (typeof poblarSelectPaises !== 'function') return;
+  const lang = window.IDIOMA_ACTUAL || 'es';
+
+  const regPais = $('regPais');
+  const regEstado = $('regEstado');
+  const regCodigoPais = $('regCodigoPais');
+
+  if (regPais) {
+    poblarSelectPaises(regPais, lang, 'CU');
+    poblarSelectEstados(regEstado, 'CU', lang);
+    poblarSelectPrefijos(regCodigoPais, '+53');
+
+    regPais.addEventListener('change', () => {
+      const p = obtenerPaisPorCodigo(regPais.value);
+      if (p) {
+        if (regCodigoPais) regCodigoPais.value = p.prefix;
+        poblarSelectEstados(regEstado, p, lang);
+      }
+    });
+  }
+
+  const edPais = $('edPais');
+  const edEstadoSelect = $('edEstadoSelect');
+  const edCodigoPais = $('edCodigoPais');
+
+  if (edPais) {
+    edPais.addEventListener('change', () => {
+      const p = obtenerPaisPorCodigo(edPais.value);
+      if (p) {
+        if (edCodigoPais) edCodigoPais.value = p.prefix;
+        poblarSelectEstados(edEstadoSelect, p, lang);
+      }
+    });
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  inicializarSelectsUbicacion();
+});
+
 $('btnRegistro').addEventListener('click', async () => {
   $('regError').textContent = '';
+  const selPaisCode = $('regPais') ? $('regPais').value : 'CU';
+  const selPais = typeof obtenerPaisPorCodigo === 'function' ? obtenerPaisPorCodigo(selPaisCode) : null;
+  const selEstado = $('regEstado') ? $('regEstado').value : '';
+
   const body = {
     name: $('regNombre').value.trim(),
     username: $('regUsername').value.trim(),
@@ -342,9 +387,14 @@ $('btnRegistro').addEventListener('click', async () => {
     password: $('regPassword').value,
     birthdate: $('regNacimiento').value || null,
     gender: $('regGenero').value,
-    city: $('regCiudad').value.trim(),
+    country: selPais ? selPais.nombreEs : 'Cuba',
+    flag_emoji: selPais ? selPais.flag : '🇨🇺',
+    state: selEstado && selEstado !== 'OTRO' ? selEstado : null,
+    city: $('regCiudad') ? $('regCiudad').value.trim() : '',
+    country_code: $('regCodigoPais') ? $('regCodigoPais').value : '+53',
+    phone: $('regTelefono') ? $('regTelefono').value.trim() : null,
   };
-  if (!body.name || !body.username || !body.email || !body.password) { $('regError').textContent = 'Completa nombre, usuario, correo y contraseña.'; return; }
+  if (!body.name || !body.username || !body.email || !body.password) { $('regError').textContent = typeof t === 'function' ? t('regError') || 'Completa nombre, usuario, correo y contraseña.' : 'Completa nombre, usuario, correo y contraseña.'; return; }
   try {
     const { token, user } = await api('/auth/registro', { method: 'POST', body, sinAuth: true });
     Sesion.guardar(token, user);
@@ -576,6 +626,11 @@ async function refrescarMiPerfil() {
     $('ajustesNombre').innerHTML = nombreConBadge(user);
     MI_ES_ADMIN = !!user.is_admin;
     $('btnPanelAdmin').classList.toggle('oculto', !MI_ES_ADMIN);
+    if (user.settings && user.settings.language) {
+      if (typeof cambiarIdioma === 'function' && user.settings.language !== window.IDIOMA_ACTUAL) {
+        cambiarIdioma(user.settings.language);
+      }
+    }
   } catch (e) { /* token vencido ya redirige */ }
 }
 
@@ -1575,7 +1630,8 @@ async function abrirPerfil(personaId) {
     $('p-estado').style.display = persona.status_text ? 'block' : 'none';
     $('p-nombre').innerHTML = nombreConBadge(persona);
     $('p-profesion').textContent = persona.profession || '';
-    $('p-ubicacion').textContent = `${persona.flag_emoji || '🇨🇺'} ${persona.country || 'Cuba'} · ${persona.city || ''}`;
+    const partesUbicacion = [persona.city, persona.state, persona.country || 'Cuba'].filter(Boolean);
+    $('p-ubicacion').textContent = `${persona.flag_emoji || '🇨🇺'} ${partesUbicacion.join(' · ')}`;
     $('p-descripcion').textContent = persona.bio || '';
     $('p-chips').innerHTML = [persona.gender, persona.skin_color, persona.relationship_status].filter(Boolean).map((c) => `<div class="chip">${c}</div>`).join('');
     $('p-reputacion').innerHTML = chipReputacion(reputacion);
@@ -1932,10 +1988,18 @@ $('inputAvatar').addEventListener('change', async (e) => {
 $('btnEditarPerfil').addEventListener('click', abrirEditarPerfil);
 function abrirEditarPerfil() {
   const u = Sesion.usuario();
+  const lang = window.IDIOMA_ACTUAL || 'es';
   const sl = u.social_links || {};
   $('edNombre').value = u.name || '';
   if ($('edGenero')) $('edGenero').value = u.gender || 'Mujer';
-  if ($('edCodigoPais')) $('edCodigoPais').value = u.country_code || '+53';
+
+  const paisObj = typeof obtenerPaisPorNombre === 'function' ? (obtenerPaisPorNombre(u.country) || obtenerPaisPorCodigo('CU')) : null;
+  const paisCode = paisObj ? paisObj.code : 'CU';
+
+  if ($('edPais')) poblarSelectPaises($('edPais'), lang, paisCode);
+  if ($('edEstadoSelect')) poblarSelectEstados($('edEstadoSelect'), paisCode, lang, u.state || '');
+  if ($('edCodigoPais')) poblarSelectPrefijos($('edCodigoPais'), u.country_code || (paisObj ? paisObj.prefix : '+53'));
+
   if ($('edTelefono')) $('edTelefono').value = u.phone || '';
   if ($('edTelegram')) $('edTelegram').value = sl.telegram || u.telegram || '';
   if ($('edInstagram')) $('edInstagram').value = sl.instagram || u.instagram || '';
@@ -1968,11 +2032,18 @@ $('btnGuardarPerfil').addEventListener('click', async () => {
       otros: $('edOtrosLinks')?.value.trim() || '',
     };
 
+    const selPaisCode = $('edPais') ? $('edPais').value : 'CU';
+    const selPais = typeof obtenerPaisPorCodigo === 'function' ? obtenerPaisPorCodigo(selPaisCode) : null;
+    const selEstado = $('edEstadoSelect') ? $('edEstadoSelect').value : '';
+
     const { user } = await api('/usuarios/me/perfil', {
       method: 'PUT',
       body: {
         name: $('edNombre').value.trim(),
         gender: $('edGenero') ? $('edGenero').value : undefined,
+        country: selPais ? selPais.nombreEs : 'Cuba',
+        flag_emoji: selPais ? selPais.flag : '🇨🇺',
+        state: selEstado && selEstado !== 'OTRO' ? selEstado : null,
         country_code: $('edCodigoPais') ? $('edCodigoPais').value : '+53',
         phone: $('edTelefono') ? $('edTelefono').value.trim() : '',
         instagram: $('edInstagram') ? $('edInstagram').value.trim().replace(/^@/, '') : '',

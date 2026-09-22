@@ -15,7 +15,7 @@ function ordenar(x, y) {
 
 router.post('/registro', async (req, res) => {
   try {
-    const { email, password, name, username, birthdate, gender, phone, city } = req.body;
+    const { email, password, name, username, birthdate, gender, phone, city, state, country, country_code, flag_emoji } = req.body;
     if (!email || !password || !name || !username) {
       return res.status(400).json({ error: 'Faltan campos obligatorios: email, password, name, username.' });
     }
@@ -41,9 +41,12 @@ router.post('/registro', async (req, res) => {
     const hash = await bcrypt.hash(password, 10);
     const esAdmin = esCorreoDeAdmin(emailNorm);
     const result = await query(
-      `INSERT INTO users (email, password_hash, name, username, birthdate, gender, phone, city, is_admin)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
-      [emailNorm, hash, name, usernameNorm, birthdate || null, gender || null, phone || null, city || null, esAdmin]
+      `INSERT INTO users (email, password_hash, name, username, birthdate, gender, phone, city, is_admin, country, state, country_code, flag_emoji)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
+      [
+        emailNorm, hash, name, usernameNorm, birthdate || null, gender || null, phone || null, city || null, esAdmin,
+        country || 'Cuba', state || null, country_code || '+53', flag_emoji || '🇨🇺'
+      ]
     );
     const user = result.rows[0];
 
