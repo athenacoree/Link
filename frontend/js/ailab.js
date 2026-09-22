@@ -436,7 +436,9 @@ window.AILab = {
         <div class="card" style="margin-top:10px; padding:10px; border-radius:14px; background:var(--blanco); border:1px solid var(--borde);">
           <img src="${d.image_url}" style="width:100%; border-radius:10px; margin-bottom:8px; display:block; cursor:pointer;" onclick="window.abrirVisorImagen('${d.image_url.replace(/'/g, "\\'")}')" alt="Imagen generada" />
           <div style="font-size:11px; color:var(--texto-600); margin-bottom:8px;">Prompt: "${escapeHTMLAILab(d.prompt)}"</div>
-          <div class="ailab-card-actions">
+          <div class="ailab-card-actions" style="display:flex; gap:6px; flex-wrap:wrap;">
+            <button class="ailab-card-btn" onclick="AILab.downloadPhoto('${d.image_url.replace(/'/g, "\\'")}')">📥 Descargar</button>
+            <button class="ailab-card-btn" onclick="AILab.editWithBridgeApp('${d.image_url.replace(/'/g, "\\'")}')">🎨 Editar (Bridge App)</button>
             <button class="ailab-card-btn" onclick="AILab.quickPrompt('Genera una variación de esta imagen: ${escapeHTMLAILab(d.prompt)}')">🔄 Variar</button>
             <button class="ailab-card-btn" onclick="AILab.quickPrompt('Mejora el prompt visual: ${escapeHTMLAILab(d.prompt)}')">✨ Mejorar Prompt</button>
           </div>
@@ -482,6 +484,25 @@ window.AILab = {
     if (input) {
       input.value = promptText;
       input.focus();
+    }
+  },
+
+  downloadPhoto(imgUrl) {
+    if (!imgUrl) return;
+    const a = document.createElement('a');
+    a.href = imgUrl;
+    a.download = `ailab_photo_${Date.now()}.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    if (typeof mostrarToast === 'function') {
+      mostrarToast('Foto generada descargada 📥');
+    }
+  },
+
+  editWithBridgeApp(imgUrl) {
+    if (typeof window.requerirAppEdicionFotos === 'function') {
+      window.requerirAppEdicionFotos();
     }
   }
 };
