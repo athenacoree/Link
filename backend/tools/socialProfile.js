@@ -4,15 +4,20 @@
  */
 const { query } = require('../db/postgres');
 
-async function getProfile(username, requesterId = null) {
-  const cleanUsername = (username || '').replace(/^@/, '').trim();
-  if (!cleanUsername) return { error: 'Nombre de usuario no proporcionado.' };
+async function getProfile(queryOrUsername, requesterId = null) {
+  const cleanTerm = (queryOrUsername || '').replace(/^@/, '').trim();
+  if (!cleanTerm) return { error: 'Nombre de usuario o término de búsqueda no proporcionado.' };
 
   try {
     const { rows } = await query(
       `SELECT id, name, username, avatar_data, profession, city, bio, verified, social_links, created_at
-       FROM users WHERE LOWER(username) = LOWER($1) OR LOWER(name) = LOWER($1) LIMIT 1`,
-      [cleanUsername]
+       FROM users
+       WHERE LOWER(username) = LOWER($1)
+          OR LOWER(name) ILIKE $2
+          OR LOWER(username) ILIKE $2
+       ORDER BY (CASE WHEN LOWER(username) = LOWER($1) THEN 1 ELSE 2 END), created_at DESC
+       LIMIT 1`,
+      [cleanTerm, `%${cleanTerm}%`]
     );
 
     if (rows.length > 0) {
@@ -25,6 +30,7 @@ async function getProfile(username, requesterId = null) {
       return {
         type: 'social_profile_card',
         data: {
+          id: u.id,
           name: u.name,
           username: u.username,
           avatar: u.avatar_data || '',
@@ -43,18 +49,19 @@ async function getProfile(username, requesterId = null) {
     return {
       type: 'social_profile_card',
       data: {
-        name: cleanUsername,
-        username: cleanUsername,
+        name: cleanTerm,
+        username: cleanTerm,
         avatar: '',
         profession: 'Perfil público',
         city: 'Redes Sociales',
-        bio: `Información de perfil público para @${cleanUsername}.`,
+        bio: `Información de perfil público para @${cleanTerm}.`,
         verified: false,
-        instagram: cleanUsername,
-        url: `https://instagram.com/${cleanUsername}`
+        instagram: cleanTerm,
+        url: `https://instagram.com/${cleanTerm}`
       }
     };
   } catch (err) {
+    console.error('Error en social.profile:', err);
     return { error: 'Error al consultar perfil social.' };
   }
 }

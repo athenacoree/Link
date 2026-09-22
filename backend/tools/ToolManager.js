@@ -147,6 +147,30 @@ function detectToolIntent(text) {
   if (!text || typeof text !== 'string') return null;
   const lower = text.toLowerCase().trim();
 
+  // Búsqueda de perfil de persona/usuario en la plataforma Enlace
+  if (
+    lower.includes('perfil de') ||
+    lower.includes('busca a') ||
+    lower.includes('buscar usuario') ||
+    lower.includes('ver perfil') ||
+    lower.includes('quién es') ||
+    lower.includes('quien es') ||
+    lower.includes('muéstrame a') ||
+    lower.includes('muestrame a') ||
+    lower.includes('encuentra a')
+  ) {
+    const userMatch = text.match(/(?:perfil\s+de|busca\s+a|buscar\s+usuario|ver\s+perfil|quién\s+es|quien\s+es|muéstrame\s+a|muestrame\s+a|encuentra\s+a)\s+@?([a-záéíóúñ0-9._\s]+)/i);
+    if (userMatch && userMatch[1]) {
+      let cleanTarget = userMatch[1]
+        .replace(/\b(en\s+la\s+plataforma|en\s+enlace|por\s+favor|en\s+la\s+red)\b/gi, '')
+        .replace(/(\.|\?|!)+$/, '')
+        .trim();
+      if (cleanTarget) {
+        return { tool: 'social.profile', params: { username: cleanTarget } };
+      }
+    }
+  }
+
   // Cámara pública
   if (lower.includes('cámara') || lower.includes('camara') || lower.includes('webcam') || lower.includes('muéstrame una cámara')) {
     const locMatch = text.match(/(?:cámara|camara|webcam|de)\s+(?:de\s+)?([a-záéíóúñ\s]+)/i);
@@ -166,14 +190,6 @@ function detectToolIntent(text) {
     const locMatch = text.match(/(?:hora\s+(?:en|de)?)\s*([a-záéíóúñ\s]+)/i);
     const loc = locMatch ? locMatch[1].trim() : 'La Habana';
     return { tool: 'world.time', params: { location: loc || 'La Habana' } };
-  }
-
-  // Perfil social
-  if (lower.includes('perfil de') || lower.includes('instagram de') || lower.includes('buscar usuario') || lower.includes('ver perfil')) {
-    const userMatch = text.match(/(?:perfil|instagram|usuario)\s+(?:de\s+)?@?([a-z0-9._]+)/i);
-    if (userMatch) {
-      return { tool: 'social.profile', params: { username: userMatch[1] } };
-    }
   }
 
   // Vídeo YouTube
