@@ -260,20 +260,19 @@ router.post('/system-settings', async (req, res) => {
 // Comprobar la conexión con el proveedor de IA configurado
 router.post('/test-openrouter', async (req, res) => {
   try {
-    const { ai_provider, openrouter_api_key, openrouter_model, hf_token, hf_model, ai_personality } = req.body;
+    const { ai_provider, openrouter_model, hf_token, hf_model, ai_personality } = req.body;
     const provider = (ai_provider || 'openrouter').toLowerCase();
 
     if (provider === 'huggingface' && (!hf_token || !hf_token.trim())) {
       return res.status(400).json({ error: 'Debes ingresar un Token API de Hugging Face (HF_TOKEN).' });
     }
 
-    if (provider === 'openrouter' && (!openrouter_api_key || !openrouter_api_key.trim())) {
-      return res.status(400).json({ error: 'Debes ingresar una clave API de OpenRouter.' });
+    if (provider === 'openrouter' && !process.env.OPENROUTER_API_KEY) {
+      return res.status(400).json({ error: 'No se detectó la variable de entorno OPENROUTER_API_KEY en el servidor/Render.' });
     }
 
-    // Temporalmente actualizar temporalmente para probar vía aiService
     if (provider === 'openrouter') {
-      await query(`INSERT INTO system_settings (key, value, updated_at) VALUES ('openrouter_api_key', $1, now()), ('openrouter_model', $2, now()), ('ai_provider', 'openrouter', now()) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`, [openrouter_api_key.trim(), openrouter_model || 'meta-llama/llama-3.1-8b-instruct:free']);
+      await query(`INSERT INTO system_settings (key, value, updated_at) VALUES ('openrouter_model', $1, now()), ('ai_provider', 'openrouter', now()) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`, [openrouter_model || 'meta-llama/llama-3.1-8b-instruct:free']);
     } else {
       await query(`INSERT INTO system_settings (key, value, updated_at) VALUES ('hf_token', $1, now()), ('hf_model', $2, now()), ('ai_provider', 'huggingface', now()) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`, [hf_token.trim(), hf_model || 'meta-llama/Llama-3.2-3B-Instruct']);
     }

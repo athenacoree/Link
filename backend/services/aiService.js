@@ -42,7 +42,7 @@ async function getAISettings() {
   try {
     const { rows } = await query(
       `SELECT key, value FROM system_settings WHERE key IN (
-        'ai_provider', 'openrouter_api_key', 'openrouter_model',
+        'ai_provider', 'openrouter_model',
         'fallback_provider', 'fallback_model',
         'hf_token', 'hf_model', 'hf_provider',
         'gemini_api_key', 'gemini_model',
@@ -64,6 +64,9 @@ async function getAISettings() {
   } catch (err) {
     // If system_settings cannot be queried, fall back to defaults
   }
+
+  // La clave de OpenRouter se obtiene exclusivamente de process.env.OPENROUTER_API_KEY
+  config.openrouter_api_key = process.env.OPENROUTER_API_KEY || '';
 
   return config;
 }

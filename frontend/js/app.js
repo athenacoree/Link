@@ -2178,15 +2178,19 @@ async function cargarAdminAIConfig() {
     if ($('adminAIMaxTokens')) $('adminAIMaxTokens').value = settings.ai_max_tokens || 1000;
     if ($('adminAIContextTokens')) $('adminAIContextTokens').value = settings.ai_context_tokens || 4000;
 
-    if ($('adminAILabRoomTitle')) $('adminAILabRoomTitle').value = settings.ailab_room_title || '🧪 Laboratorio IA Global';
-    if ($('adminAILabRoomSubtitle')) $('adminAILabRoomSubtitle').value = settings.ailab_room_subtitle || 'Sala viva de interacción continua, herramientas y multimedia';
-    if ($('adminAILabAutoEnabled')) $('adminAILabAutoEnabled').value = settings.ailab_auto_enabled || 'true';
-    if ($('adminAILabAutoIntervalSec')) $('adminAILabAutoIntervalSec').value = settings.ailab_auto_interval_sec || '30';
+    if ($('adminAILabAutoIntervalMin')) {
+      const intervalMin = settings.ailab_auto_interval_min || (parseInt(settings.ailab_auto_interval_sec || '30', 10) / 60);
+      $('adminAILabAutoIntervalMin').value = intervalMin;
+    }
     if ($('adminAILabAutoMaxTurns')) $('adminAILabAutoMaxTurns').value = settings.ailab_auto_max_consecutive_turns || '10';
-    if ($('adminAILabRetentionDays')) $('adminAILabRetentionDays').value = settings.ailab_retention_days || '0';
 
     if ($('adminAILabMaxMsgLen')) $('adminAILabMaxMsgLen').value = settings.ailab_max_msg_length || 2000;
     if ($('adminAILabTimeoutMs')) $('adminAILabTimeoutMs').value = settings.ailab_timeout_ms || 30000;
+
+    const isPaused = settings.ailab_auto_paused === 'true';
+    if ($('adminBtnTogglePauseAI')) {
+      $('adminBtnTogglePauseAI').textContent = isPaused ? '▶️ Reanudar Conversación de IA' : '⏸️ Pausar Conversación de IA';
+    }
 
     await cargarAdminAICharacters();
   } catch (e) {
@@ -2197,7 +2201,7 @@ async function cargarAdminAIConfig() {
 async function cargarAdminAICharacters() {
   try {
     const { characters } = await api('/admin/ai-characters');
-    const cont = $('adminListaAICharacters');
+    const cont = $('adminListaPersonajesIA') || $('adminListaAICharacters');
     if (!cont) return;
 
     if (!characters || !characters.length) {
@@ -2205,21 +2209,28 @@ async function cargarAdminAICharacters() {
       return;
     }
 
-    cont.innerHTML = characters.map(c => `
-      <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 10px; background:var(--blanco); border:1px solid var(--borde); border-radius:10px;">
-        <div style="display:flex; align-items:center; gap:8px;">
-          <span style="font-size:20px;">${escaparHTMLGlobal(c.avatar || '🤖')}</span>
-          <div>
-            <div style="font-size:13px; font-weight:700; color:var(--texto-900);">${escaparHTMLGlobal(c.name)}</div>
-            <div style="font-size:11px; color:var(--texto-500); max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escaparHTMLGlobal(c.personality)}</div>
+    cont.innerHTML = characters.map(c => {
+      const isImg = c.avatar && (c.avatar.startsWith('http') || c.avatar.startsWith('data:image'));
+      const avatarHTML = isImg
+        ? `<img src="${c.avatar}" style="width:28px; height:28px; border-radius:50%; object-fit:cover;" />`
+        : `<span style="font-size:20px;">${escaparHTMLGlobal(c.avatar || '🤖')}</span>`;
+
+      return `
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 10px; background:var(--blanco); border:1px solid var(--borde); border-radius:10px;">
+          <div style="display:flex; align-items:center; gap:8px; min-width:0;">
+            ${avatarHTML}
+            <div style="min-width:0;">
+              <div style="font-size:13px; font-weight:700; color:var(--texto-900);">${escaparHTMLGlobal(c.name)}</div>
+              <div style="font-size:11px; color:var(--texto-500); max-width:180px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escaparHTMLGlobal(c.personality)}</div>
+            </div>
+          </div>
+          <div style="display:flex; gap:4px; flex-shrink:0;">
+            <button class="mini-btn secundario" onclick='adminEditarPersonaje(${JSON.stringify(c).replace(/'/g, "&apos;")})'>Editar</button>
+            <button class="mini-btn peligro" onclick="adminBorrarPersonaje('${c.id}')">Borrar</button>
           </div>
         </div>
-        <div style="display:flex; gap:4px;">
-          <button class="mini-btn secundario" onclick='adminEditarPersonaje(${JSON.stringify(c).replace(/'/g, "&apos;")})'>Editar</button>
-          <button class="mini-btn peligro" onclick="adminBorrarPersonaje('${c.id}')">Borrar</button>
-        </div>
-      </div>
-    `).join('');
+      `;
+    }).join('');
   } catch (e) {
     console.error('Error cargando personajes:', e);
   }
@@ -2227,11 +2238,12 @@ async function cargarAdminAICharacters() {
 
 function adminEditarPersonaje(c) {
   if (!c) return;
-  if ($('adminCharId')) $('adminCharId').value = c.id || '';
-  if ($('adminCharName')) $('adminCharName').value = c.name || '';
-  if ($('adminCharAvatar')) $('adminCharAvatar').value = c.avatar || '🤖';
-  if ($('adminCharPersonality')) $('adminCharPersonality').value = c.personality || '';
-  if ($('adminCharGreeting')) $('adminCharGreeting').value = c.greeting || '';
+  if ($('adminPersonajeId')) $('adminPersonajeId').value = c.id || '';
+  if ($('adminPersonajeNombre')) $('adminPersonajeNombre').value = c.name || '';
+  if ($('adminPersonajeAvatar')) $('adminPersonajeAvatar').value = c.avatar || '🤖';
+  if ($('adminPersonajePersonalidad')) $('adminPersonajePersonalidad').value = c.personality || '';
+  if ($('adminPersonajeSaludo')) $('adminPersonajeSaludo').value = c.greeting || '';
+  if ($('adminTituloFormPersonaje')) $('adminTituloFormPersonaje').textContent = `Editar Personaje: ${c.name}`;
   mostrarToast(`Editando personaje ${c.name}`);
 }
 window.adminEditarPersonaje = adminEditarPersonaje;
@@ -2249,13 +2261,13 @@ async function adminBorrarPersonaje(id) {
 }
 window.adminBorrarPersonaje = adminBorrarPersonaje;
 
-$('adminBtnSaveChar')?.addEventListener('click', async () => {
+$('adminBtnGuardarPersonaje')?.addEventListener('click', async () => {
   try {
-    const id = $('adminCharId')?.value;
-    const name = $('adminCharName')?.value.trim();
-    const avatar = $('adminCharAvatar')?.value.trim();
-    const personality = $('adminCharPersonality')?.value.trim();
-    const greeting = $('adminCharGreeting')?.value.trim();
+    const id = $('adminPersonajeId')?.value;
+    const name = $('adminPersonajeNombre')?.value.trim();
+    const avatar = $('adminPersonajeAvatar')?.value.trim();
+    const personality = $('adminPersonajePersonalidad')?.value.trim();
+    const greeting = $('adminPersonajeSaludo')?.value.trim();
 
     if (!name || !personality) {
       mostrarToast('Ingresa nombre y personalidad.');
@@ -2264,15 +2276,10 @@ $('adminBtnSaveChar')?.addEventListener('click', async () => {
 
     await api('/admin/ai-characters', {
       method: 'POST',
-      body: { id: id || undefined, name, avatar, personality, greeting }
+      body: { id: id || undefined, name, avatar: avatar || '🤖', personality, greeting: greeting || '¡Hola!' }
     });
 
-    if ($('adminCharId')) $('adminCharId').value = '';
-    if ($('adminCharName')) $('adminCharName').value = '';
-    if ($('adminCharAvatar')) $('adminCharAvatar').value = '';
-    if ($('adminCharPersonality')) $('adminCharPersonality').value = '';
-    if ($('adminCharGreeting')) $('adminCharGreeting').value = '';
-
+    limpiarFormularioPersonaje();
     mostrarToast('Personaje guardado correctamente ✓');
     await cargarAdminAICharacters();
     if (window.AILab) window.AILab.loadCharacters();
@@ -2281,7 +2288,33 @@ $('adminBtnSaveChar')?.addEventListener('click', async () => {
   }
 });
 
-$('adminBtnTogglePauseAILab')?.addEventListener('click', async () => {
+function limpiarFormularioPersonaje() {
+  if ($('adminPersonajeId')) $('adminPersonajeId').value = '';
+  if ($('adminPersonajeNombre')) $('adminPersonajeNombre').value = '';
+  if ($('adminPersonajeAvatar')) $('adminPersonajeAvatar').value = '';
+  if ($('adminPersonajePersonalidad')) $('adminPersonajePersonalidad').value = '';
+  if ($('adminPersonajeSaludo')) $('adminPersonajeSaludo').value = '';
+  if ($('adminTituloFormPersonaje')) $('adminTituloFormPersonaje').textContent = 'Crear Nuevo Personaje';
+}
+
+$('adminBtnLimpiarPersonaje')?.addEventListener('click', limpiarFormularioPersonaje);
+
+$('adminBtnUploadPersonajeFoto')?.addEventListener('click', () => {
+  $('adminPersonajeFotoInput')?.click();
+});
+
+$('adminPersonajeFotoInput')?.addEventListener('change', async (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    if ($('adminPersonajeAvatar')) $('adminPersonajeAvatar').value = ev.target.result;
+    mostrarToast('Foto de personaje cargada ✓');
+  };
+  reader.readAsDataURL(file);
+});
+
+$('adminBtnTogglePauseAI')?.addEventListener('click', async () => {
   try {
     const { settings } = await api('/admin/system-settings');
     const isPaused = settings.ailab_auto_paused === 'true';
@@ -2292,7 +2325,11 @@ $('adminBtnTogglePauseAILab')?.addEventListener('click', async () => {
       body: { settings: { ailab_auto_paused: nextState, ailab_auto_consecutive_counter: '0' } }
     });
 
-    mostrarToast(nextState === 'true' ? 'Conversación autónoma pausada ⏸️' : 'Conversación autónoma reanudada ▶️');
+    if ($('adminBtnTogglePauseAI')) {
+      $('adminBtnTogglePauseAI').textContent = nextState === 'true' ? '▶️ Reanudar Conversación de IA' : '⏸️ Pausar Conversación de IA';
+    }
+
+    mostrarToast(nextState === 'true' ? 'Conversación de IA pausada ⏸️' : 'Conversación de IA reanudada ▶️');
   } catch (e) {
     mostrarToast(e.message);
   }
@@ -2343,7 +2380,6 @@ $('adminBtnSaveAI')?.addEventListener('click', async () => {
   try {
     const payload = {
       ai_provider: $('adminAIProvider').value,
-      openrouter_api_key: $('adminOpenRouterKey').value.trim(),
       openrouter_model: $('adminOpenRouterModel').value.trim() || 'meta-llama/llama-3.1-8b-instruct:free',
       hf_token: $('adminHFToken').value.trim(),
       hf_model: $('adminHFModel').value.trim() || 'meta-llama/Llama-3.2-3B-Instruct',
@@ -2356,6 +2392,8 @@ $('adminBtnSaveAI')?.addEventListener('click', async () => {
       ailab_max_personality_length: $('adminAILabMaxPersLen').value || '1000',
       ailab_max_history: $('adminAILabMaxHistory').value || '10',
       ailab_timeout_ms: $('adminAILabTimeoutMs').value || '30000',
+      ailab_auto_interval_min: $('adminAILabAutoIntervalMin')?.value || '0.5',
+      ailab_auto_max_consecutive_turns: $('adminAILabAutoMaxTurns')?.value || '10',
     };
 
     await api('/admin/system-settings', { method: 'POST', body: { settings: payload } });
