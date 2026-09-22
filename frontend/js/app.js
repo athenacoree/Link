@@ -2793,10 +2793,104 @@ function toggleAcordeon(headerElem) {
 }
 window.toggleAcordeon = toggleAcordeon;
 
+/* ================= RUTAS UNIVERSALES Y VINCULACIÓN ENLACE BRIDGE ================= */
+function procesarRutaUniversal(rawPath) {
+  if (!rawPath) return;
+  const path = rawPath.replace(/^#\/?/, '/');
+
+  // Normalizar /app/...
+  if (path.startsWith('/app/')) {
+    const partes = path.slice(5).split('/').filter(Boolean);
+    const comando = partes[0] ? partes[0].toLowerCase() : 'home';
+    const param = partes[1] || null;
+
+    switch (comando) {
+      case 'home':
+      case 'feed':
+        cambiarVista('feed');
+        break;
+      case 'profile':
+      case 'perfil':
+        if (param) abrirPerfil(param);
+        else cambiarVista('feed');
+        break;
+      case 'chat':
+        if (param) Chat.abrirConversacion({ id: param, name: 'Usuario' });
+        else cambiarVista('mensajes');
+        break;
+      case 'call':
+        if (param) {
+          cambiarVista('feed');
+          Llamada.iniciar({ id: param, name: 'Llamada Enlace' }, 'audio');
+        }
+        break;
+      case 'payment':
+      case 'pago':
+        if (window.Monetizacion) window.Monetizacion.abrirMonetizacionModal();
+        mostrarToast(`Procesando pago/acción: ${param || 'General'}`);
+        break;
+      case 'security':
+        mostrarToast(`🔒 Confirmación de seguridad solicitada (${param || 'ID'})`);
+        break;
+      case 'verification':
+      case 'verificacion':
+        if (window.Monetizacion) window.Monetizacion.abrirSolicitudVerificacion();
+        break;
+      case 'username':
+        if (window.Monetizacion) window.Monetizacion.abrirComprarUsername();
+        break;
+      case 'ads':
+        if (window.Monetizacion) window.Monetizacion.abrirCrearAnuncio();
+        break;
+      case 'settings':
+      case 'configuraciones':
+        $('btnAbrirConfiguraciones')?.click();
+        break;
+      case 'notifications':
+      case 'notificaciones':
+        $('campana')?.click();
+        break;
+      case 'market':
+        if (window.Monetizacion) window.Monetizacion.abrirMonetizacionModal();
+        break;
+      default:
+        cambiarVista('feed');
+    }
+  }
+}
+window.procesarRutaUniversal = procesarRutaUniversal;
+
+async function generarCodigoVinculacionBridge() {
+  try {
+    const res = await api('/bridge/pairing/generate', { method: 'POST', body: { device_name: 'Android Bridge' } });
+    if (res.ok) {
+      alert(`🔑 Código de vinculación para Enlace Bridge:\n\n${res.pairing_code}\n\nIngresa este código en tu app Enlace Bridge en Android. Expirará en 10 minutos.`);
+    }
+  } catch (e) {
+    mostrarToast(e.message || 'Error al generar código de vinculación.');
+  }
+}
+window.generarCodigoVinculacionBridge = generarCodigoVinculacionBridge;
+
+window.addEventListener('popstate', () => {
+  if (window.location.pathname.startsWith('/app/')) {
+    procesarRutaUniversal(window.location.pathname);
+  } else if (window.location.hash) {
+    procesarRutaUniversal(window.location.hash);
+  }
+});
+
 /* ================= ARRANQUE ================= */
 if (Sesion.activa()) {
   iniciarApp().finally(() => {
-    setTimeout(ocultarSplashScreen, 400);
+    setTimeout(() => {
+      ocultarSplashScreen();
+      if (window.location.pathname.startsWith('/app/')) {
+        procesarRutaUniversal(window.location.pathname);
+      } else if (window.location.hash) {
+        procesarRutaUniversal(window.location.hash);
+      }
+    }, 400);
   });
 } else {
   $('authScreen').classList.remove('oculto');
