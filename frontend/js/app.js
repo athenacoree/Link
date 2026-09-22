@@ -2450,9 +2450,6 @@ $('adminBtnTestAI')?.addEventListener('click', async () => {
       method: 'POST',
       body: {
         ai_provider: $('adminAIProvider').value,
-        openrouter_api_key: $('adminOpenRouterKey')?.value || '',
-        hf_token: $('adminHFToken')?.value || '',
-        hf_model: $('adminHFModel')?.value || '',
         ai_personality: $('adminAIPersonality')?.value || '',
       }
     });
@@ -2474,16 +2471,14 @@ $('adminBtnSaveAI')?.addEventListener('click', async () => {
   try {
     const payload = {
       ai_provider: $('adminAIProvider').value,
-      hf_token: $('adminHFToken').value.trim(),
-      hf_model: $('adminHFModel').value.trim() || 'meta-llama/Llama-3.2-3B-Instruct',
       ai_name: $('adminAIName').value.trim() || 'Link AI',
       ai_avatar: $('adminAIAvatar').value.trim(),
       ai_personality: $('adminAIPersonality').value.trim(),
       ai_max_tokens: $('adminAIMaxTokens').value || '1000',
       ai_context_tokens: $('adminAIContextTokens').value || '4000',
       ailab_max_msg_length: $('adminAILabMaxMsgLen').value || '2000',
-      ailab_max_personality_length: $('adminAILabMaxPersLen').value || '1000',
-      ailab_max_history: $('adminAILabMaxHistory').value || '10',
+      ailab_max_personality_length: $('adminAILabMaxPersLen')?.value || '1000',
+      ailab_max_history: $('adminAILabMaxHistory')?.value || '10',
       ailab_timeout_ms: $('adminAILabTimeoutMs').value || '30000',
       ailab_auto_interval_min: $('adminAILabAutoIntervalMin')?.value || '0.5',
       ailab_auto_max_consecutive_turns: $('adminAILabAutoMaxTurns')?.value || '10',

@@ -232,7 +232,7 @@ const Chat = (() => {
 
       api('/ai/chat', { method: 'POST', body: { prompt: texto } })
         .then((res) => {
-          const aiReplyText = res.available ? res.reply : (res.message || 'Inteligencia artificial no configurada.');
+          const aiReplyText = res.reply || res.message || (res.error && res.error.message) || '⚠️ No se pudo obtener respuesta de la IA.';
           const msgAi = {
             id: 'ai_bot_' + Date.now(),
             senderId: 'link_ai_bot',
