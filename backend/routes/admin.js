@@ -262,9 +262,14 @@ router.post('/system-settings', async (req, res) => {
       return res.status(400).json({ error: 'Datos de configuración inválidos.' });
     }
 
+    const sensitiveKeys = [
+      'openrouter_api_key', 'openrouter_key', 'hf_token', 'openai_api_key',
+      'anthropic_api_key', 'groq_api_key', 'gemini_api_key', 'xai_api_key', 'grok_api_key'
+    ];
+
     const keys = Object.keys(settings);
     for (const key of keys) {
-      if (key === 'openrouter_model' || key === 'openrouter_api_key' || key === 'openrouter_key') {
+      if (sensitiveKeys.includes(key.toLowerCase())) {
         continue;
       }
       const val = String(settings[key] ?? '');
@@ -284,22 +289,22 @@ router.post('/system-settings', async (req, res) => {
 // Comprobar la conexión con el proveedor de IA configurado
 router.post('/test-openrouter', async (req, res) => {
   try {
-    const { ai_provider, openrouter_model, hf_token, hf_model, ai_personality } = req.body;
+    const { ai_provider, hf_model, ai_personality } = req.body;
     const provider = (ai_provider || 'openrouter').toLowerCase();
-
-    if (provider === 'huggingface' && (!hf_token || !hf_token.trim())) {
-      return res.status(400).json({ error: 'Debes ingresar un Token API de Hugging Face (HF_TOKEN).' });
-    }
 
     if (provider === 'openrouter' && !process.env.OPENROUTER_API_KEY) {
       return res.status(400).json({ error: 'No se detectó la variable de entorno OPENROUTER_API_KEY en el servidor/Render.' });
     }
 
-    if (provider === 'openrouter') {
-      await query(`INSERT INTO system_settings (key, value, updated_at) VALUES ('ai_provider', 'openrouter', now()) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`);
-    } else {
-      await query(`INSERT INTO system_settings (key, value, updated_at) VALUES ('hf_token', $1, now()), ('hf_model', $2, now()), ('ai_provider', 'huggingface', now()) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`, [hf_token.trim(), hf_model || 'meta-llama/Llama-3.2-3B-Instruct']);
+    if (provider === 'huggingface' && !process.env.HF_TOKEN) {
+      return res.status(400).json({ error: 'No se detectó la variable de entorno HF_TOKEN en el servidor/Render.' });
     }
+
+    if (provider === 'xai' && !process.env.XAI_API_KEY && !process.env.GROK_API_KEY) {
+      return res.status(400).json({ error: 'No se detectó la variable de entorno XAI_API_KEY o GROK_API_KEY en el servidor/Render.' });
+    }
+
+    await query(`INSERT INTO system_settings (key, value, updated_at) VALUES ('ai_provider', $1, now()) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`, [provider]);
 
     const testMessages = [
       { role: 'system', content: ai_personality || 'Eres un asistente de pruebas.' },

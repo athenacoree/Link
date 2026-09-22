@@ -632,21 +632,14 @@
       <div class="campo">
         <label>Proveedor de IA</label>
         <select id="adminAIProvider">
-          <option value="openrouter">OpenRouter API</option>
+          <option value="openrouter">OpenRouter API (Gratuito / Render Env)</option>
+          <option value="xai">xAI / Grok (xAI API / Render Env)</option>
           <option value="huggingface">Hugging Face Inference</option>
         </select>
       </div>
 
-      <!-- Configuración OpenRouter -->
-      <div id="boxConfigOpenRouter">
-        <div class="campo"><label>Clave API de OpenRouter (sk-or-v1-...)</label><input type="password" id="adminOpenRouterKey" placeholder="sk-or-v1-..."></div>
-        <p style="font-size:12px; color:var(--texto-600); margin-top:4px;">El modelo de IA se lee automáticamente desde las variables de entorno de Render (OPENROUTER_MODEL).</p>
-      </div>
-
-      <!-- Configuración Hugging Face -->
-      <div id="boxConfigHuggingFace" style="display:none;">
-        <div class="campo"><label>Token API de Hugging Face (hf_...)</label><input type="password" id="adminHFToken" placeholder="hf_..."></div>
-        <div class="campo"><label>Modelo de Hugging Face</label><input type="text" id="adminHFModel" placeholder="meta-llama/Llama-3.2-3B-Instruct"></div>
+      <div style="background:var(--morado-50); border:1px solid var(--morado-200); border-radius:12px; padding:12px; margin-bottom:14px; font-size:12.5px; color:var(--texto-800);">
+        💡 <strong>Gestión Segura de Claves API:</strong> Las claves secreta API (OPENROUTER_API_KEY, XAI_API_KEY, HF_TOKEN, etc.) y los límites (AI_MAX_TOKENS, AILAB_AUTO_INTERVAL_MIN) se leen directamente desde las variables de entorno de Render para máxima seguridad y no se almacenan en la base de datos.
       </div>
 
       <div class="campo"><label>Nombre del Asistente</label><input type="text" id="adminAIName" placeholder="Link AI"></div>

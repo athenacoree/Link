@@ -11,8 +11,10 @@ async function getAISettings() {
     ai_provider: process.env.AI_PROVIDER || 'openrouter',
     openrouter_api_key: process.env.OPENROUTER_API_KEY || '',
     openrouter_model: process.env.OPENROUTER_MODEL || 'openrouter/free',
+    xai_api_key: process.env.XAI_API_KEY || process.env.GROK_API_KEY || '',
+    xai_model: process.env.XAI_MODEL || process.env.GROK_MODEL || 'grok-beta',
     fallback_provider: process.env.FALLBACK_PROVIDER || 'huggingface',
-    fallback_model: process.env.FALLBACK_MODEL || 'meta-llama/Llama-3.2-3B-Instruct',
+    fallback_model: process.env.FALLBACK_MODEL || process.env.HF_MODEL || 'meta-llama/Llama-3.2-3B-Instruct',
     hf_token: process.env.HF_TOKEN || '',
     hf_model: process.env.HF_MODEL || 'meta-llama/Llama-3.2-3B-Instruct',
     hf_provider: process.env.HF_PROVIDER || 'hf-inference',
@@ -24,19 +26,20 @@ async function getAISettings() {
     anthropic_model: process.env.ANTHROPIC_MODEL || 'claude-3-haiku-20240307',
     groq_api_key: process.env.GROQ_API_KEY || '',
     groq_model: process.env.GROQ_MODEL || 'llama-3.1-8b-instant',
-    ai_name: 'Link AI',
-    ai_avatar: '',
-    ai_personality: 'Eres Link AI, un asistente inteligente integrado en la plataforma social Link. Responde siempre en español, con amabilidad y precisión.',
-    ai_max_tokens: '1000',
-    ai_context_tokens: '4000',
-    ailab_max_msg_length: '2000',
-    ailab_max_personality_length: '1000',
-    ailab_max_image_size_mb: '5',
-    ailab_max_history: '10',
-    ailab_timeout_ms: '30000',
-    ai_max_continuations: '2',
-    ai_max_fallback_attempts: '3',
-    ai_max_tool_steps: '5',
+    ai_name: process.env.AI_NAME || 'Link AI',
+    ai_avatar: process.env.AI_AVATAR || '',
+    ai_personality: process.env.AI_PERSONALITY || 'Eres Link AI, un asistente inteligente integrado en la plataforma social Link. Responde siempre en español, con amabilidad y precisión.',
+    ai_max_tokens: process.env.AI_MAX_TOKENS || '1000',
+    ai_context_tokens: process.env.AI_CONTEXT_TOKENS || '4000',
+    ailab_max_msg_length: process.env.AILAB_MAX_MSG_LENGTH || '2000',
+    ailab_max_personality_length: process.env.AILAB_MAX_PERSONALITY_LENGTH || '1000',
+    ailab_max_image_size_mb: process.env.AILAB_MAX_IMAGE_SIZE_MB || '5',
+    ailab_max_history: process.env.AILAB_MAX_HISTORY || '10',
+    ailab_timeout_ms: process.env.AILAB_TIMEOUT_MS || '30000',
+    ailab_auto_interval_min: process.env.AILAB_AUTO_INTERVAL_MIN || '0.5',
+    ai_max_continuations: process.env.AI_MAX_CONTINUATIONS || '2',
+    ai_max_fallback_attempts: process.env.AI_MAX_FALLBACK_ATTEMPTS || '3',
+    ai_max_tool_steps: process.env.AI_MAX_TOOL_STEPS || '5',
   };
 
   try {
@@ -44,15 +47,16 @@ async function getAISettings() {
       `SELECT key, value FROM system_settings WHERE key IN (
         'ai_provider',
         'fallback_provider', 'fallback_model',
-        'hf_token', 'hf_model', 'hf_provider',
-        'gemini_api_key', 'gemini_model',
-        'openai_api_key', 'openai_model',
-        'anthropic_api_key', 'anthropic_model',
-        'groq_api_key', 'groq_model',
+        'hf_model', 'hf_provider',
+        'gemini_model',
+        'openai_model',
+        'anthropic_model',
+        'groq_model',
+        'xai_model',
         'ai_name', 'ai_avatar', 'ai_personality',
         'ai_max_tokens', 'ai_context_tokens',
         'ailab_max_msg_length', 'ailab_max_personality_length',
-        'ailab_max_image_size_mb', 'ailab_max_history', 'ailab_timeout_ms',
+        'ailab_max_image_size_mb', 'ailab_max_history', 'ailab_timeout_ms', 'ailab_auto_interval_min',
         'ai_max_continuations', 'ai_max_fallback_attempts', 'ai_max_tool_steps'
       )`
     );
@@ -65,9 +69,20 @@ async function getAISettings() {
     // If system_settings cannot be queried, fall back to defaults
   }
 
-  // La clave y modelo de OpenRouter se obtienen exclusivamente de process.env
+  // Las claves y límites principales provienen prioritariamente de process.env en Render
+  if (process.env.AI_MAX_TOKENS) config.ai_max_tokens = process.env.AI_MAX_TOKENS;
+  if (process.env.AI_CONTEXT_TOKENS) config.ai_context_tokens = process.env.AI_CONTEXT_TOKENS;
+  if (process.env.AILAB_AUTO_INTERVAL_MIN) config.ailab_auto_interval_min = process.env.AILAB_AUTO_INTERVAL_MIN;
+
   config.openrouter_api_key = process.env.OPENROUTER_API_KEY || '';
-  config.openrouter_model = process.env.OPENROUTER_MODEL || 'openrouter/free';
+  config.openrouter_model = process.env.OPENROUTER_MODEL || config.openrouter_model || 'openrouter/free';
+
+  config.hf_token = process.env.HF_TOKEN || '';
+  config.gemini_api_key = process.env.GEMINI_API_KEY || '';
+  config.openai_api_key = process.env.OPENAI_API_KEY || '';
+  config.anthropic_api_key = process.env.ANTHROPIC_API_KEY || '';
+  config.groq_api_key = process.env.GROQ_API_KEY || '';
+  config.xai_api_key = process.env.XAI_API_KEY || process.env.GROK_API_KEY || '';
 
   return config;
 }
@@ -345,6 +360,23 @@ const ProviderAdapters = {
     } catch (e) {
       return { ok: false, error: { code: 'NETWORK_ERROR', message: e.message, retryable: true } };
     }
+  },
+
+  xai: async ({ settings, messages, maxTokens, modelOverride, visionImage, signal }) => {
+    const apiKey = (settings.xai_api_key || process.env.XAI_API_KEY || process.env.GROK_API_KEY || '').trim();
+    if (!apiKey) {
+      return { ok: false, error: { code: 'NO_API_KEY', message: 'xAI / Grok API Key no configurada.', retryable: true } };
+    }
+    const model = modelOverride || settings.xai_model || process.env.XAI_MODEL || process.env.GROK_MODEL || 'grok-beta';
+    return callOpenAICompatible({
+      endpoint: 'https://api.x.ai/v1/chat/completions',
+      apiKey,
+      model,
+      messages,
+      maxTokens,
+      visionImage,
+      signal,
+    });
   }
 };
 
@@ -472,7 +504,9 @@ async function chatCompletion({
     if (lastError?.code === 'VISION_NOT_SUPPORTED') {
       friendlyMsg = '⚠️ El modelo de IA seleccionado no soporta análisis de imágenes en este momento.';
     } else if (lastError?.code === 'NO_API_KEY') {
-      friendlyMsg = '⚠️ La clave API de Inteligencia Artificial no está configurada en el panel de Administración.';
+      friendlyMsg = `⚠️ Error de autenticación en la IA: ${lastError.message || 'Clave API no provista en las variables de entorno.'}`;
+    } else if (lastError?.message) {
+      friendlyMsg = `⚠️ Error al conectar con la IA: ${lastError.message}`;
     }
 
     return {
