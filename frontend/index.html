@@ -137,18 +137,8 @@
   <!-- ---------- LABORATORIO IA ---------- -->
   <main class="vista-app" id="vistaAilab" data-vista="ailab">
     <div class="ailab-messenger-container">
-      <!-- Encabezado Laboratorio IA -->
+      <!-- Encabezado Laboratorio IA (Compacto y sin elementos sobrantes) -->
       <div class="ailab-chat-header">
-        <div class="ailab-chat-title-box">
-          <div style="font-size:17px; font-weight:800; color:var(--morado-700); display:flex; align-items:center; gap:6px;">
-            <span id="ailabHeaderTitle">🧪 Laboratorio IA Global</span>
-          </div>
-          <div style="display:flex; align-items:center; gap:8px;">
-            <div class="ailab-live-badge"><span class="ailab-live-dot"></span><span>EN VIVO</span></div>
-          </div>
-        </div>
-        <div style="font-size:12px; color:var(--texto-600);" id="ailabHeaderSubtitle">Sala viva de interacción continua, herramientas y multimedia</div>
-
         <!-- Franja de Personajes IA Activos -->
         <div class="ailab-characters-strip" id="ailabActiveCharacters">
           <!-- Personajes renderizados dinámicamente -->
@@ -169,11 +159,10 @@
         <!-- Mensajes renderizados dinámicamente -->
       </div>
 
-      <!-- Botón Flotante Elegante para abrir Compositor -->
+      <!-- Botón Flotante Discreto para abrir Compositor -->
       <div class="ailab-fab-container">
-        <button class="ailab-fab-btn" id="ailabFabOpenComposer" onclick="AILab.openComposer()" title="Escribir o adjuntar archivo">
+        <button class="ailab-fab-btn" id="ailabFabOpenComposer" onclick="AILab.openComposer()" title="Escribir a la IA" aria-label="Escribir a la IA">
           <span class="ailab-fab-btn-icon">+</span>
-          <span>Mensaje / Adjunto</span>
         </button>
       </div>
 
@@ -181,7 +170,7 @@
       <div class="ailab-composer-overlay" id="ailabComposerOverlay" onclick="if(event.target===this) AILab.closeComposer()">
         <div class="ailab-composer-sheet">
           <div class="ailab-composer-header">
-            <span class="ailab-composer-title">✍️ Escribir a la IA</span>
+            <span class="ailab-composer-title">Escribir mensaje</span>
             <button class="ailab-composer-close" onclick="AILab.closeComposer()">✕</button>
           </div>
 
@@ -191,25 +180,24 @@
           </div>
 
           <!-- Área de Texto del Mensaje -->
-          <textarea class="ailab-composer-textarea" id="ailabComposerInput" placeholder="Escribe tu mensaje, pregunta, o pide análisis/generación..."></textarea>
+          <textarea class="ailab-composer-textarea" id="ailabComposerInput" placeholder="Escribe tu mensaje..."></textarea>
 
           <!-- Acciones e Insumos del Compositor -->
           <div class="ailab-composer-actions">
-            <div style="display:flex; gap:8px;">
+            <div style="display:flex; gap:6px;">
               <button class="ailab-composer-tools-btn" onclick="document.getElementById('ailabFileInputImage').click()" title="Adjuntar Imagen">
-                📷 Imagen
+                📷
               </button>
               <input type="file" id="ailabFileInputImage" accept="image/*" style="display:none">
 
               <button class="ailab-composer-tools-btn" onclick="document.getElementById('ailabFileInputDoc').click()" title="Adjuntar Documento">
-                📄 Archivo (PDF/TXT/CSV/JSON)
+                📄
               </button>
               <input type="file" id="ailabFileInputDoc" accept=".pdf,.txt,.csv,.json,text/plain,application/pdf,application/json,text/csv" multiple style="display:none">
             </div>
 
-            <div style="display:flex; gap:8px;">
-              <button class="btn btn-secundario" onclick="AILab.closeComposer()" style="border-radius:18px; padding:8px 16px;">Cancelar</button>
-              <button class="btn btn-primario" id="ailabComposerBtnSend" onclick="AILab.sendMessageFromComposer()" style="border-radius:18px; padding:8px 20px; font-weight:800;">Enviar 🚀</button>
+            <div style="display:flex; gap:6px; align-items:center;">
+              <button class="btn btn-primario" id="ailabComposerBtnSend" onclick="AILab.sendMessageFromComposer()" style="border-radius:20px; padding:8px 16px; font-weight:800;">🚀</button>
             </div>
           </div>
         </div>
@@ -619,7 +607,7 @@
       <!-- Configuración OpenRouter -->
       <div id="boxConfigOpenRouter">
         <div class="campo"><label>Clave API de OpenRouter (sk-or-v1-...)</label><input type="password" id="adminOpenRouterKey" placeholder="sk-or-v1-..."></div>
-        <div class="campo"><label>Modelo de OpenRouter</label><input type="text" id="adminOpenRouterModel" placeholder="openrouter/free"></div>
+        <p style="font-size:12px; color:var(--texto-600); margin-top:4px;">El modelo de IA se lee automáticamente desde las variables de entorno de Render (OPENROUTER_MODEL).</p>
       </div>
 
       <!-- Configuración Hugging Face -->

@@ -120,13 +120,34 @@ async function processConfirmedPayment(remoteId, rawPayload = {}) {
   }
 }
 
+async function getPriceSetting(key, defaultVal) {
+  try {
+    const { rows } = await query(`SELECT value FROM system_settings WHERE key = $1`, [key]);
+    if (rows.length && rows[0].value) {
+      const parsed = parseFloat(rows[0].value);
+      if (!isNaN(parsed) && parsed > 0) return parsed;
+    }
+  } catch (e) {}
+  return defaultVal;
+}
+
+router.get('/precios', requireAuth, async (req, res) => {
+  try {
+    const verifPrice = await getPriceSetting('price_verification', 5.00);
+    const unamePrice = await getPriceSetting('price_username', 10.00);
+    res.json({ price_verification: verifPrice, price_username: unamePrice });
+  } catch (e) {
+    res.json({ price_verification: 5.00, price_username: 10.00 });
+  }
+});
+
 // ============================================================
 //  1. VERIFICACIÓN PAGADA DE PERFIL
 // ============================================================
 
 router.post('/verificacion/solicitar', requireAuth, async (req, res) => {
   const userId = req.userId;
-  const VERIFICATION_PRICE = 5.00;
+  const VERIFICATION_PRICE = await getPriceSetting('price_verification', 5.00);
 
   // Check if user already has an active verification or pending request
   const existingReq = await query(
@@ -257,7 +278,7 @@ router.post('/username/comprobar', requireAuth, async (req, res) => {
 router.post('/username/comprar', requireAuth, async (req, res) => {
   const userId = req.userId;
   const rawName = (req.body.username || '').trim().toLowerCase().replace(/^@/, '');
-  const USERNAME_PRICE = 10.00;
+  const USERNAME_PRICE = await getPriceSetting('price_username', 10.00);
 
   if (!rawName || rawName.length < 1 || rawName.length >= 4 || !/^[a-z0-9_]+$/.test(rawName)) {
     return res.status(400).json({ error: 'Username no válido. Debe tener entre 1 y 3 caracteres alfanuméricos.' });

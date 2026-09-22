@@ -121,13 +121,10 @@ async function processUserMessageInGlobalRoom({
   fileData = null,
   characterId = null,
 }) {
-  // 1. Reiniciar contador de respuestas consecutivas de IA (un humano ha intervenido)
-  await query(
-    `INSERT INTO system_settings (key, value, updated_at) VALUES ('ailab_auto_consecutive_counter', '0', NOW())
-     ON CONFLICT (key) DO UPDATE SET value = '0', updated_at = NOW()`
-  ).catch(() => {});
+  const settings = await getAISettings();
+  const isPaused = settings.ailab_auto_paused === 'true';
 
-  // 2. Extraer archivo si existe
+  // 1. Extraer archivo si existe
   let docResult = null;
   let fullUserMsg = messageText || '';
 
@@ -156,6 +153,17 @@ async function processUserMessageInGlobalRoom({
     attachments: fileData ? [{ filename: fileData.filename, mime: fileData.mimeType }] : null,
     toolResult,
   });
+
+  // Si la IA está pausada por el administrador, se preserva el estado de pausa y no se genera respuesta
+  if (isPaused) {
+    return { userMessage: userMsgObj, aiMessage: null };
+  }
+
+  // Reiniciar contador de respuestas consecutivas de IA (un humano ha intervenido y la IA está activa)
+  await query(
+    `INSERT INTO system_settings (key, value, updated_at) VALUES ('ailab_auto_consecutive_counter', '0', NOW())
+     ON CONFLICT (key) DO UPDATE SET value = '0', updated_at = NOW()`
+  ).catch(() => {});
 
   // 5. Seleccionar personaje de IA
   let activeChar = null;
@@ -210,7 +218,6 @@ async function processUserMessageInGlobalRoom({
     }
   });
 
-  const settings = await getAISettings();
   const sysPrompt = `Eres ${activeChar.name} (${activeChar.personality}). Estás en la sala global pública de Enlace con todos los usuarios. Responde amablemente en español manteniendo siempre tu personaje. Puedes usar formato conciso y emojis si aplica.`;
 
   let toolContextText = '';

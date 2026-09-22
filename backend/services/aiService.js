@@ -205,7 +205,7 @@ const ProviderAdapters = {
         error: { code: 'NO_API_KEY', message: 'OpenRouter API Key no configurada.', retryable: true },
       };
     }
-    const model = modelOverride || settings.openrouter_model || process.env.OPENROUTER_MODEL || 'openrouter/free';
+    const model = process.env.OPENROUTER_MODEL || modelOverride || settings.openrouter_model || 'openrouter/free';
     return callOpenAICompatible({
       endpoint: 'https://openrouter.ai/api/v1/chat/completions',
       apiKey,
@@ -390,7 +390,7 @@ async function chatCompletion({
   if (model) {
     attemptsSequence.push({ provider: primaryProvider, model });
   } else if (primaryProvider === 'openrouter') {
-    const mainModel = settings.openrouter_model || process.env.OPENROUTER_MODEL || 'openrouter/free';
+    const mainModel = process.env.OPENROUTER_MODEL || settings.openrouter_model || 'openrouter/free';
     attemptsSequence.push({ provider: 'openrouter', model: mainModel });
   } else {
     attemptsSequence.push({ provider: primaryProvider, model: null });
