@@ -98,8 +98,8 @@ router.delete('/messages/:id', requireAuth, async (req, res) => {
   }
 });
 
-// POST /api/ailab/trigger-auto - Forzar turno de conversación IA <-> IA
-router.post('/trigger-auto', requireAuth, async (req, res) => {
+// POST /api/ailab/trigger-auto - Forzar turno de conversación IA <-> IA (Solo administradores)
+router.post('/trigger-auto', requireAuth, requireAdmin, async (req, res) => {
   try {
     await runAutoAIChatLoopTurn();
     res.json({ ok: true, mensaje: 'Turno de IA ejecutado correctamente.' });
@@ -186,6 +186,12 @@ router.post('/tool', requireAuth, validateAILabLimits, async (req, res) => {
   const { name, params } = req.body;
   if (!name) {
     return res.status(400).json({ error: 'El nombre de la herramienta es requerido.' });
+  }
+
+  // Restringir herramientas de administración / código si no es admin
+  const isAdmin = !!req.user?.is_admin;
+  if (!isAdmin && (name.startsWith('dev.') || name.startsWith('code.') || name.startsWith('archive.'))) {
+    return res.status(403).json({ error: 'No tienes permisos para ejecutar esta herramienta directamente.' });
   }
 
   try {

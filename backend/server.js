@@ -18,7 +18,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: { origin: process.env.CORS_ORIGIN || '*' },
-  maxHttpBufferSize: 3e6, // permite fotos base64 razonables en el chat
+  maxHttpBufferSize: 5e6, // consistente con los 5MB de express.json
 });
 
 app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
@@ -63,7 +63,8 @@ async function start() {
   try {
     await runMigrations(); // crea/actualiza el esquema de Postgres solo, sin destruir nada
   } catch (err) {
-    console.error('[arranque] No se pudieron aplicar migraciones:', err.message);
+    console.error('[arranque CRÍTICO] No se pudieron aplicar migraciones:', err.message);
+    process.exit(1); // Detener el servidor si la migración falla para prevenir corrupción
   }
   try {
     await connectMongo(); // conecta a MongoDB Atlas si existe

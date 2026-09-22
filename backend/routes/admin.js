@@ -26,6 +26,25 @@ router.get('/usuarios', async (req, res) => {
   }
 });
 
+router.put('/ai-characters/:id', async (req, res) => {
+  try {
+    const { name, avatar, personality, greeting, is_public } = req.body;
+    if (!name || !personality) {
+      return res.status(400).json({ error: 'Nombre y personalidad son requeridos.' });
+    }
+
+    const { rows } = await query(
+      `UPDATE ai_characters SET name=$1, avatar=$2, personality=$3, greeting=$4, is_public=$5 WHERE id=$6 RETURNING *`,
+      [name.trim(), avatar || '🤖', personality.trim(), greeting || '¡Hola!', is_public !== false, req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Personaje no encontrado.' });
+    res.json({ character: rows[0] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 const isUuid = (val) => typeof val === 'string' && /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(val);
 
 // ---- Poner / quitar el check de verificado ----

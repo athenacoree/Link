@@ -380,23 +380,42 @@ async function chatCompletion({
 
   formattedMessages = pruneMessages(formattedMessages, effectiveContextTokens);
 
-  // Fallback sequence building
-  const attemptsSequence = [
-    { provider: primaryProvider, model: model || null },
-  ];
+  // Obtención dinámica de modelos gratuitos de OpenRouter para la secuencia de rotación
+  const freeModelsList = await getOpenRouterFreeModels();
 
-  if (primaryProvider === 'openrouter' && !model) {
-    attemptsSequence.push({ provider: 'openrouter', model: 'meta-llama/llama-3.1-8b-instruct:free' });
+  // Fallback sequence building
+  const attemptsSequence = [];
+
+  if (model) {
+    attemptsSequence.push({ provider: primaryProvider, model });
+  } else if (primaryProvider === 'openrouter') {
+    const mainModel = settings.openrouter_model || 'meta-llama/llama-3.1-8b-instruct:free';
+    attemptsSequence.push({ provider: 'openrouter', model: mainModel });
+  } else {
+    attemptsSequence.push({ provider: primaryProvider, model: null });
+  }
+
+  // Agregar modelos free de OpenRouter como fallback dinámico, priorizando visión si hay imagen
+  if (visionImage) {
+    const visionFreeModels = freeModelsList.filter(m => m.isVision);
+    for (const vm of visionFreeModels) {
+      if (!attemptsSequence.some(a => a.provider === 'openrouter' && a.model === vm.id)) {
+        attemptsSequence.push({ provider: 'openrouter', model: vm.id });
+      }
+    }
+  }
+
+  for (const fm of freeModelsList) {
+    if (!attemptsSequence.some(a => a.provider === 'openrouter' && a.model === fm.id)) {
+      attemptsSequence.push({ provider: 'openrouter', model: fm.id });
+    }
   }
 
   if (fallbackProvider && fallbackProvider !== primaryProvider) {
     attemptsSequence.push({ provider: fallbackProvider, model: settings.fallback_model || null });
   }
 
-  // Backup openrouter / huggingface defaults
-  if (!attemptsSequence.some(a => a.provider === 'openrouter')) {
-    attemptsSequence.push({ provider: 'openrouter', model: 'meta-llama/llama-3.1-8b-instruct:free' });
-  }
+  // Backup huggingface default
   if (!attemptsSequence.some(a => a.provider === 'huggingface')) {
     attemptsSequence.push({ provider: 'huggingface', model: 'meta-llama/Llama-3.2-3B-Instruct' });
   }
@@ -515,9 +534,67 @@ async function chatCompletion({
   };
 }
 
+let openRouterFreeModelsCache = { models: [], timestamp: 0 };
+const OPENROUTER_CACHE_TTL = 15 * 60 * 1000; // 15 minutos
+
+/**
+ * Consulta la API de OpenRouter para obtener la lista dinámica de modelos gratuitos disponibles.
+ */
+async function getOpenRouterFreeModels() {
+  const now = Date.now();
+  if (openRouterFreeModelsCache.models.length > 0 && (now - openRouterFreeModelsCache.timestamp < OPENROUTER_CACHE_TTL)) {
+    return openRouterFreeModelsCache.models;
+  }
+
+  const fallbackFreeModels = [
+    { id: 'meta-llama/llama-3.1-8b-instruct:free', isVision: false },
+    { id: 'google/gemma-2-9b-it:free', isVision: false },
+    { id: 'mistralai/mistral-7b-instruct:free', isVision: false },
+    { id: 'qwen/qwen-2.5-7b-instruct:free', isVision: false },
+  ];
+
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch('https://openrouter.ai/api/v1/models', { signal: controller.signal });
+    clearTimeout(timer);
+
+    if (!res.ok) {
+      return fallbackFreeModels;
+    }
+
+    const data = await res.json();
+    if (!data || !Array.isArray(data.data)) {
+      return fallbackFreeModels;
+    }
+
+    const freeModels = [];
+    for (const item of data.data) {
+      const isFreeById = item.id && item.id.endsWith(':free');
+      const isFreeByPrice = item.pricing && parseFloat(item.pricing.prompt || '1') === 0 && parseFloat(item.pricing.completion || '1') === 0;
+
+      if (isFreeById || isFreeByPrice) {
+        const modality = (item.architecture?.modality || '').toLowerCase();
+        const description = (item.description || '').toLowerCase();
+        const isVision = modality.includes('image') || modality.includes('multimodal') || description.includes('vision') || item.id.includes('vision');
+        freeModels.push({ id: item.id, isVision });
+      }
+    }
+
+    if (freeModels.length > 0) {
+      openRouterFreeModelsCache = { models: freeModels, timestamp: now };
+      return freeModels;
+    }
+    return fallbackFreeModels;
+  } catch (err) {
+    return fallbackFreeModels;
+  }
+}
+
 module.exports = {
   getAISettings,
   pruneMessages,
   chatCompletion,
+  getOpenRouterFreeModels,
   ProviderAdapters,
 };

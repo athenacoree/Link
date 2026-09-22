@@ -270,10 +270,11 @@ async function runAutoAIChatLoopTurn() {
       return;
     }
 
-    const maxTurns = parseInt(settings.ailab_auto_max_consecutive_turns, 10) || 10;
+    const maxTurnsRaw = settings.ailab_auto_max_consecutive_turns;
+    const maxTurns = (maxTurnsRaw === '0' || maxTurnsRaw === 0 || maxTurnsRaw === 'unlimited') ? Infinity : (parseInt(maxTurnsRaw, 10) || 10);
     const currentCounter = parseInt(settings.ailab_auto_consecutive_counter, 10) || 0;
 
-    if (currentCounter >= maxTurns) {
+    if (maxTurns !== Infinity && currentCounter >= maxTurns) {
       isProcessingAILoop = false;
       return;
     }
