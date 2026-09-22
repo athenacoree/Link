@@ -1,9 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<data-extraction-rules>
-    <cloud-backup>
-        <exclude domain="sharedpref" path="." />
-    </cloud-backup>
-    <device-transfer>
-        <exclude domain="sharedpref" path="." />
-    </device-transfer>
-</data-extraction-rules>
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

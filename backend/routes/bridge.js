@@ -6,6 +6,18 @@ const { isUUID } = require('../utils/validation');
 
 const router = express.Router();
 
+const ALLOWED_ACTION_TYPES = new Set([
+  'NOTIFICATION',
+  'MESSAGE',
+  'CALL',
+  'INCOMING_CALL',
+  'PAYMENT',
+  'SECURITY_CONFIRMATION',
+  'OPEN_SCREEN',
+  'NEW_CONNECTION',
+  'SYSTEM_EVENT'
+]);
+
 function hashToken(token) {
   return crypto.createHash('sha256').update(token).digest('hex');
 }
@@ -20,7 +32,41 @@ function generatePairingCode() {
   return code;
 }
 
-// Middleware para autenticar requests enviados directamente por el Bridge (vía Header o Bearer device token)
+// Helper para crear acciones nativas desde cualquier módulo del backend
+async function createBridgeActionForUser({ userId, actionType, payload, targetRoute, deviceId = null, expiresInMinutes = 15 }) {
+  if (!userId || !actionType || !targetRoute) return null;
+  if (!targetRoute.startsWith('/app/')) return null;
+
+  const validActionType = ALLOWED_ACTION_TYPES.has(actionType) ? actionType : 'NOTIFICATION';
+  const expiresAt = new Date(Date.now() + (Number(expiresInMinutes) || 15) * 60 * 1000);
+  const nonce = crypto.randomBytes(16).toString('hex');
+  const signature = crypto.createHmac('sha256', nonce).update(`${userId}:${targetRoute}:${validActionType}`).digest('hex');
+
+  try {
+    let targetDeviceId = deviceId;
+    if (!targetDeviceId) {
+      const devRes = await query(
+        `SELECT id FROM bridge_devices WHERE user_id = $1 ORDER BY last_active_at DESC LIMIT 1`,
+        [userId]
+      );
+      targetDeviceId = devRes.rows[0]?.id || null;
+    }
+
+    const { rows } = await query(
+      `INSERT INTO bridge_actions (user_id, device_id, action_type, payload, target_route, status, signature, expires_at)
+       VALUES ($1, $2, $3, $4, $5, 'pending', $6, $7)
+       RETURNING id, action_type, payload, target_route, status, signature, expires_at, created_at`,
+      [userId, targetDeviceId, validActionType, payload || {}, targetRoute, signature, expiresAt]
+    );
+
+    return rows[0] || null;
+  } catch (err) {
+    console.error('[bridge] Error creando acción para usuario:', err);
+    return null;
+  }
+}
+
+// Middleware para autenticar requests enviados directamente por el Bridge (vía Header x-bridge-token + x-bridge-device-id)
 async function requireDeviceAuth(req, res, next) {
   const authHeader = req.headers['x-bridge-token'] || req.headers.authorization || '';
   const rawToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
@@ -146,7 +192,7 @@ router.post('/pairing/claim', async (req, res) => {
 router.get('/devices', requireAuth, async (req, res) => {
   try {
     const { rows } = await query(
-      `SELECT id, device_name, bridge_version, capabilities, permissions, push_token IS NOT NULL as push_enabled, last_active_at, created_at
+      `SELECT id, device_name, bridge_version, capabilities, permissions, last_active_at, created_at
        FROM bridge_devices WHERE user_id = $1 ORDER BY last_active_at DESC`,
       [req.userId]
     );
@@ -191,19 +237,6 @@ router.post('/device/heartbeat', requireDeviceAuth, async (req, res) => {
   }
 });
 
-// Push token registration (FCM)
-router.post('/device/push-token', requireDeviceAuth, async (req, res) => {
-  const { push_token } = req.body;
-  if (!push_token) return res.status(400).json({ error: 'push_token es requerido.' });
-
-  try {
-    await query(`UPDATE bridge_devices SET push_token = $1, last_active_at = now() WHERE id = $2`, [push_token, req.bridgeDevice.id]);
-    res.json({ ok: true });
-  } catch (err) {
-    res.status(500).json({ error: 'Error guardando push token.' });
-  }
-});
-
 // ---------------------------------------------------------------------------
 // 3. SISTEMA DE ACCIONES NATIVAS SEGURAS (PAYMENT, SECURITY, CALLS, NOTIFS)
 // ---------------------------------------------------------------------------
@@ -216,39 +249,24 @@ router.post('/actions/create', requireAuth, async (req, res) => {
     return res.status(400).json({ error: 'action_type y target_route son requeridos.' });
   }
 
-  const expMinutes = Number(expires_in_minutes) || 15;
-  const expiresAt = new Date(Date.now() + expMinutes * 60 * 1000);
-
-  try {
-    // Si no se especifica device_id, se asigna al dispositivo activo más reciente del usuario
-    let targetDeviceId = device_id;
-    if (!targetDeviceId) {
-      const devRes = await query(
-        `SELECT id FROM bridge_devices WHERE user_id = $1 ORDER BY last_active_at DESC LIMIT 1`,
-        [req.userId]
-      );
-      targetDeviceId = devRes.rows[0]?.id || null;
-    }
-
-    if (targetDeviceId && !isUUID(targetDeviceId)) {
-      return res.status(400).json({ error: 'ID de dispositivo destino inválido.' });
-    }
-
-    const nonce = crypto.randomBytes(16).toString('hex');
-    const signature = crypto.createHmac('sha256', nonce).update(`${req.userId}:${target_route}:${action_type}`).digest('hex');
-
-    const { rows } = await query(
-      `INSERT INTO bridge_actions (user_id, device_id, action_type, payload, target_route, status, signature, expires_at)
-       VALUES ($1, $2, $3, $4, $5, 'pending', $6, $7)
-       RETURNING id, action_type, payload, target_route, status, signature, expires_at, created_at`,
-      [req.userId, targetDeviceId, action_type, payload || {}, target_route, signature, expiresAt]
-    );
-
-    res.json({ ok: true, action: rows[0] });
-  } catch (err) {
-    console.error('[bridge] Error creando acción nativa:', err);
-    res.status(500).json({ error: 'Error creando la acción segura.' });
+  if (!target_route.startsWith('/app/')) {
+    return res.status(400).json({ error: 'target_route debe ser una ruta interna válida (/app/...)' });
   }
+
+  const action = await createBridgeActionForUser({
+    userId: req.userId,
+    actionType: action_type,
+    payload,
+    targetRoute: target_route,
+    deviceId: device_id,
+    expiresInMinutes: expires_in_minutes
+  });
+
+  if (!action) {
+    return res.status(500).json({ error: 'Error creando la acción segura.' });
+  }
+
+  res.json({ ok: true, action });
 });
 
 // Fetch pending actions for device
@@ -345,3 +363,4 @@ router.post('/actions/:id/complete', requireDeviceAuth, async (req, res) => {
 });
 
 module.exports = router;
+module.exports.createBridgeActionForUser = createBridgeActionForUser;

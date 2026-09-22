@@ -2,28 +2,12 @@ package com.enlace.bridge.auth
 
 import android.content.Context
 import android.content.SharedPreferences
-import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKey
 import java.util.UUID
 
 class DeviceIdentityManager(private val context: Context) {
 
     private val prefs: SharedPreferences by lazy {
-        try {
-            val masterKey = MasterKey.Builder(context)
-                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-                .build()
-
-            EncryptedSharedPreferences.create(
-                context,
-                "enlace_bridge_secure_prefs",
-                masterKey,
-                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SKEY_RAW,
-                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-            )
-        } catch (e: Exception) {
-            context.getSharedPreferences("enlace_bridge_fallback_prefs", Context.MODE_PRIVATE)
-        }
+        context.getSharedPreferences("enlace_bridge_prefs", Context.MODE_PRIVATE)
     }
 
     fun getDeviceId(): String? = prefs.getString(KEY_DEVICE_ID, null)
