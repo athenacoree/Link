@@ -23,6 +23,26 @@ function abrirVisorImagen(src) {
   }
 }
 
+function descargarImagenActualVisor() {
+  const img = $('imgVisorAgrandada');
+  if (!img || !img.src) return;
+  const a = document.createElement('a');
+  a.href = img.src;
+  a.download = `enlace_photo_${Date.now()}.png`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  if (typeof mostrarToast === 'function') {
+    mostrarToast(typeof t === 'function' ? t('toast_foto_descargada') || 'Foto descargada' : 'Foto descargada');
+  }
+}
+window.descargarImagenActualVisor = descargarImagenActualVisor;
+
+async function requerirAppEdicionFotos() {
+  await abrirModalBridgePairing();
+}
+window.requerirAppEdicionFotos = requerirAppEdicionFotos;
+
 function cerrarVisorImagen() {
   const visor = $('modalVisorImagen');
   const velo = $('veloVisorImagen');
@@ -2860,14 +2880,32 @@ function procesarRutaUniversal(rawPath) {
 }
 window.procesarRutaUniversal = procesarRutaUniversal;
 
+async function abrirModalBridgePairing() {
+  const velo = $('veloBridgePairing');
+  const hoja = $('hojaBridgePairing');
+  if (velo && hoja) {
+    velo.classList.add('activo');
+    hoja.classList.add('activo');
+    await generarCodigoVinculacionBridge();
+  }
+}
+window.abrirModalBridgePairing = abrirModalBridgePairing;
+
+$('btnDescargarBridgeApp')?.addEventListener('click', abrirModalBridgePairing);
+
 async function generarCodigoVinculacionBridge() {
   try {
     const res = await api('/bridge/pairing/generate', { method: 'POST', body: { device_name: 'Android Bridge' } });
     if (res.ok) {
-      alert(`🔑 Código de vinculación para Enlace Bridge:\n\n${res.pairing_code}\n\nIngresa este código en tu app Enlace Bridge en Android. Expirará en 10 minutos.`);
+      const codeDisplay = $('bridgePairingCodeDisplay');
+      if (codeDisplay) {
+        codeDisplay.textContent = res.pairing_code;
+      }
     }
   } catch (e) {
-    mostrarToast(e.message || 'Error al generar código de vinculación.');
+    if (typeof mostrarToast === 'function') {
+      mostrarToast(e.message || 'Error al generar código de vinculación.');
+    }
   }
 }
 window.generarCodigoVinculacionBridge = generarCodigoVinculacionBridge;

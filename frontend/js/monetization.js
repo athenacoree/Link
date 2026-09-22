@@ -155,7 +155,7 @@ const Monetizacion = (() => {
         } catch (e) {
           alert(e.message);
           btnSol.disabled = false;
-          btnSol.textContent = 'Solicitar Revisión ($5.00 USD)';
+          btnSol.textContent = `Solicitar Revisión ($${priceStr} USD)`;
         }
       });
     }
@@ -266,7 +266,7 @@ const Monetizacion = (() => {
       } catch (err) {
         alert(err.message);
         btnComprar.disabled = false;
-        btnComprar.textContent = 'Comprar Username ($10.00 USD) 🛒';
+        btnComprar.textContent = `Comprar Username ($${priceStr} USD) 🛒`;
       }
     });
   }

@@ -109,6 +109,17 @@ const DICCIONARIO_I18N = {
     btn_exportar_datos: 'Descargar mis datos (.json)',
     btn_guardar_pref: 'Guardar preferencias',
 
+    // Enlace Bridge & Descarga Fotos
+    opt_descargar_bridge_app: 'App Bridge Android (Edición de Fotos)',
+    btn_descargar_foto: 'Descargar Foto',
+    btn_editar_app: 'Editar con App Bridge',
+    bridge_modal_titulo: 'Vinculación con Enlace Bridge',
+    bridge_modal_sub: 'Para la edición avanzada de fotos e integración nativa, la plataforma exige tener instalada la App Enlace Bridge en tu dispositivo.',
+    bridge_codigo_label: 'Tu Código de Vinculación',
+    bridge_codigo_expira: 'Válido por 10 minutos. Ingrésalo en tu App Bridge.',
+    btn_generar_codigo: 'Generar nuevo código',
+    btn_descargar_apk: 'Descargar App Bridge (.apk)',
+
     // Idioma
     idioma_es: 'Español (Spanish)',
     idioma_en: 'English (Inglés)',
@@ -218,6 +229,17 @@ const DICCIONARIO_I18N = {
     btn_limpiar_cache: 'Clear app local cache',
     btn_exportar_datos: 'Download my data (.json)',
     btn_guardar_pref: 'Save preferences',
+
+    // Enlace Bridge & Photo Download
+    opt_descargar_bridge_app: 'Android Bridge App (Photo Editing)',
+    btn_descargar_foto: 'Download Photo',
+    btn_editar_app: 'Edit with Bridge App',
+    bridge_modal_titulo: 'Pairing with Enlace Bridge',
+    bridge_modal_sub: 'For advanced photo editing and native integration, the platform requires having the Enlace Bridge App installed on your device.',
+    bridge_codigo_label: 'Your Pairing Code',
+    bridge_codigo_expira: 'Valid for 10 minutes. Enter it in your Bridge App.',
+    btn_generar_codigo: 'Generate new code',
+    btn_descargar_apk: 'Download Bridge App (.apk)',
 
     // Language
     idioma_es: 'Spanish (Español)',
