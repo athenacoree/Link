@@ -630,4 +630,223 @@ router.post('/importar-db', upload.single('archivo'), async (req, res) => {
   }
 });
 
+// ---- MONETIZACIÓN Y GESTIÓN DE QVAPAY ----
+router.get('/monetizacion/resumen', async (req, res) => {
+  try {
+    const [revRes, txRes, verifRes, adRes, activeAdsRes, unameRes] = await Promise.all([
+      query(`SELECT COALESCE(SUM(amount), 0) AS total FROM payment_transactions WHERE status IN ('paid', 'completed')`),
+      query(`SELECT service_type, COUNT(*) AS count, COALESCE(SUM(amount), 0) AS total FROM payment_transactions GROUP BY service_type`),
+      query(`SELECT COUNT(*) AS count FROM verification_requests WHERE status = 'pending_review'`),
+      query(`SELECT COUNT(*) AS count FROM ad_campaigns WHERE status = 'pending_review'`),
+      query(`SELECT COUNT(*) AS count FROM ad_campaigns WHERE status = 'active'`),
+      query(`SELECT COUNT(*) AS count FROM username_purchases WHERE status = 'completed'`),
+    ]);
+
+    res.json({
+      ingresos_totales: parseFloat(revRes.rows[0]?.total || 0),
+      desglose_servicios: txRes.rows,
+      verificaciones_pendientes: parseInt(verifRes.rows[0]?.count || 0),
+      campanas_pendientes: parseInt(adRes.rows[0]?.count || 0),
+      campanas_activas: parseInt(activeAdsRes.rows[0]?.count || 0),
+      usernames_comprados: parseInt(unameRes.rows[0]?.count || 0),
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/monetizacion/transacciones', async (req, res) => {
+  try {
+    const { rows } = await query(
+      `SELECT pt.*, u.name AS usuario_nombre, u.email AS usuario_correo, u.username AS usuario_username
+         FROM payment_transactions pt
+         JOIN users u ON u.id = pt.user_id
+        ORDER BY pt.created_at DESC LIMIT 100`
+    );
+    res.json({ transacciones: rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/monetizacion/verificaciones', async (req, res) => {
+  try {
+    const estado = req.query.estado || 'pending_review';
+    const { rows } = await query(
+      `SELECT vr.*, u.name AS usuario_nombre, u.email AS usuario_correo, u.username AS usuario_username, u.avatar_data AS usuario_avatar,
+              pt.status AS tx_status, pt.qvapay_trans_id, pt.qvapay_url
+         FROM verification_requests vr
+         JOIN users u ON u.id = vr.user_id
+         LEFT JOIN payment_transactions pt ON pt.id = vr.transaction_id
+        WHERE ($1 = 'todos' OR vr.status = $1)
+        ORDER BY vr.created_at DESC LIMIT 100`,
+      [estado]
+    );
+    res.json({ verificaciones: rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/monetizacion/verificaciones/:id', async (req, res) => {
+  try {
+    const { accion, motivo_rechazo } = req.body;
+    const reqId = req.params.id;
+    const adminId = req.userId;
+
+    const vRes = await query(`SELECT * FROM verification_requests WHERE id = $1`, [reqId]);
+    if (!vRes.rows.length) {
+      return res.status(404).json({ error: 'Solicitud de verificación no encontrada.' });
+    }
+
+    const vReq = vRes.rows[0];
+
+    if (accion === 'aprobar') {
+      const { rows } = await query(
+        `UPDATE verification_requests
+            SET status = 'approved', reviewed_by = $1, reviewed_at = now()
+          WHERE id = $2 RETURNING *`,
+        [adminId, reqId]
+      );
+
+      // Grant verification badge on user account
+      await query(
+        `UPDATE users
+            SET verified = true, verified_at = now(), verified_by = $1::uuid
+          WHERE id = $2`,
+        [adminId, vReq.user_id]
+      );
+
+      return res.json({ ok: true, solicitud: rows[0] });
+    } else if (accion === 'rechazar') {
+      const { rows } = await query(
+        `UPDATE verification_requests
+            SET status = 'rejected', rejection_reason = $1, reviewed_by = $2, reviewed_at = now()
+          WHERE id = $3 RETURNING *`,
+        [(motivo_rechazo || '').trim() || 'No cumple con las políticas de verificación.', adminId, reqId]
+      );
+
+      return res.json({ ok: true, solicitud: rows[0] });
+    } else {
+      return res.status(400).json({ error: 'Acción no válida. Usa "aprobar" o "rechazar".' });
+    }
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/monetizacion/usernames', async (req, res) => {
+  try {
+    const { rows } = await query(
+      `SELECT up.*, u.name AS usuario_nombre, u.email AS usuario_correo
+         FROM username_purchases up
+         JOIN users u ON u.id = up.user_id
+        ORDER BY up.created_at DESC LIMIT 100`
+    );
+    res.json({ usernames: rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/monetizacion/campanas', async (req, res) => {
+  try {
+    const estado = req.query.estado || 'todos';
+    const { rows } = await query(
+      `SELECT c.*, u.name AS usuario_nombre, u.email AS usuario_correo,
+              ROUND((c.clicks_count::numeric / NULLIF(c.impressions_count, 0) * 100), 2) AS ctr
+         FROM ad_campaigns c
+         JOIN users u ON u.id = c.user_id
+        WHERE ($1 = 'todos' OR c.status = $1)
+        ORDER BY c.created_at DESC LIMIT 100`,
+      [estado]
+    );
+    res.json({ campanas: rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/monetizacion/campanas/:id', async (req, res) => {
+  try {
+    const { accion, motivo_rechazo } = req.body;
+    const campaignId = req.params.id;
+    const adminId = req.userId;
+
+    const cRes = await query(`SELECT * FROM ad_campaigns WHERE id = $1`, [campaignId]);
+    if (!cRes.rows.length) {
+      return res.status(404).json({ error: 'Campaña no encontrada.' });
+    }
+
+    const campaign = cRes.rows[0];
+
+    if (accion === 'aprobar') {
+      const days = campaign.duration_days || 7;
+      const { rows } = await query(
+        `UPDATE ad_campaigns
+            SET status = 'active',
+                reviewed_by = $1,
+                reviewed_at = now(),
+                starts_at = now(),
+                ends_at = now() + ($2 || ' days')::interval
+          WHERE id = $3 RETURNING *`,
+        [adminId, `${days}`, campaignId]
+      );
+      return res.json({ ok: true, campana: rows[0] });
+    } else if (accion === 'rechazar') {
+      const { rows } = await query(
+        `UPDATE ad_campaigns
+            SET status = 'rejected', rejection_reason = $1, reviewed_by = $2, reviewed_at = now()
+          WHERE id = $3 RETURNING *`,
+        [(motivo_rechazo || '').trim() || 'Campaña rechazada por el administrador.', adminId, campaignId]
+      );
+      return res.json({ ok: true, campana: rows[0] });
+    } else if (accion === 'pausar') {
+      const { rows } = await query(
+        `UPDATE ad_campaigns SET status = 'paused', updated_at = now() WHERE id = $1 RETURNING *`,
+        [campaignId]
+      );
+      return res.json({ ok: true, campana: rows[0] });
+    } else if (accion === 'activar') {
+      const { rows } = await query(
+        `UPDATE ad_campaigns SET status = 'active', updated_at = now() WHERE id = $1 RETURNING *`,
+        [campaignId]
+      );
+      return res.json({ ok: true, campana: rows[0] });
+    } else {
+      return res.status(400).json({ error: 'Acción no válida.' });
+    }
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/monetizacion/reembolsar/:id', async (req, res) => {
+  try {
+    const txId = req.params.id;
+    const { rows } = await query(
+      `UPDATE payment_transactions
+          SET status = 'refunded', updated_at = now()
+        WHERE id = $1 RETURNING *`,
+      [txId]
+    );
+
+    if (!rows.length) {
+      return res.status(404).json({ error: 'Transacción no encontrada.' });
+    }
+
+    res.json({ ok: true, transaccion: rows[0] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

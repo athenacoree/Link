@@ -248,6 +248,11 @@
         <div class="txt">Publicaciones guardadas</div>
         <div class="chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></div>
       </div>
+      <div class="fila-ajustes" id="btnMonetizacion">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        <div class="txt">Monetización y Servicios QvaPay</div>
+        <div class="chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></div>
+      </div>
     </div>
     <div class="tarjeta-ajustes">
       <div class="fila-ajustes" id="btnAbrirConfiguraciones">
@@ -559,6 +564,7 @@
       <div class="sub-tab" data-admintab="ai-config">Asistente IA 🤖</div>
       <div class="sub-tab" data-admintab="base-datos">Base de Datos</div>
       <div class="sub-tab" data-admintab="editor-db">Editor SQL / Tablas 🗄️</div>
+      <div class="sub-tab" data-admintab="monetizacion">Monetización 💰</div>
     </div>
 
     <div id="adminVistaUsuarios">
@@ -776,6 +782,9 @@
       <div class="btn btn-primario" id="adminBtnRunSQL" style="width:100%;">Ejecutar Consulta SQL ⚡</div>
       <div id="adminSQLResult" style="margin-top:12px; max-height:250px; overflow:auto; font-family:monospace; font-size:12px; background:var(--hueso); padding:10px; border-radius:10px; border:1px solid var(--borde);"></div>
     </div>
+
+    <!-- SECCIÓN ADMINISTRATIVA DE MONETIZACIÓN -->
+    <div id="adminVistaMonetizacion" class="oculto" style="margin-top:16px;"></div>
   </div>
 </div>
 
@@ -939,6 +948,24 @@
     </div>
   </div>
   <div class="hoja-cancelar" id="cerrarEstado">Cancelar</div>
+</div>
+
+<!-- ---------- Modal Monetización y Servicios QvaPay ---------- -->
+<div class="velo" id="veloMonetizacion"></div>
+<div class="hoja" id="hojaMonetizacion" style="bottom:20px; max-height:85vh;">
+  <div class="hoja-grupo">
+    <div class="hoja-persona"><span style="font-weight:700; color:var(--morado-700); font-size:16px;">Servicios y Monetización QvaPay</span></div>
+    <div class="sub-tabs" style="margin-bottom:12px;">
+      <div class="sub-tab activo" data-montab="verificacion">Verificación</div>
+      <div class="sub-tab" data-montab="username">Usernames Cortos</div>
+      <div class="sub-tab" data-montab="campanas">Anuncios / Ads</div>
+      <div class="sub-tab" data-montab="historial">Historial</div>
+    </div>
+    <div class="hoja-form" style="max-height:65vh; overflow-y:auto; padding:0 4px;">
+      <div id="monetizacionContenido"></div>
+    </div>
+  </div>
+  <div class="hoja-cancelar" id="cerrarMonetizacion">Cerrar</div>
 </div>
 
 <!-- ---------- Modal de Configuraciones del Usuario (Paneles Modernos Expandibles) ---------- -->
@@ -1311,6 +1338,7 @@
 <script src="/js/chat.js"></script>
 <script src="/js/features.js"></script>
 <script src="/js/ailab.js"></script>
+<script src="/js/monetization.js"></script>
 <script src="/js/app.js"></script>
 <script>
 if ('serviceWorker' in navigator) {

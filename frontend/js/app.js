@@ -1127,6 +1127,9 @@ async function cargarDescubrir() {
       pintarListaPersonas(filtradas, 'listaBuscar');
       $('listaBuscar').dataset.cacheState = nuevoJson;
     }
+    if (window.Monetizacion) {
+      window.Monetizacion.renderizarAnuncioPatrocinado($('listaBuscar'));
+    }
   } catch (e) {
     if (currentReq !== reqIdDescubrir) return;
     if (!cachedFeed || !cachedFeed.length) {
@@ -2129,10 +2132,12 @@ document.querySelectorAll('#vistaAdmin > .admin-body > .sub-tabs > .sub-tab[data
     $('adminVistaAIConfig')?.classList.toggle('oculto', target !== 'ai-config');
     $('adminVistaBaseDatos')?.classList.toggle('oculto', target !== 'base-datos');
     $('adminVistaEditorDB')?.classList.toggle('oculto', target !== 'editor-db');
+    $('adminVistaMonetizacion')?.classList.toggle('oculto', target !== 'monetizacion');
     if (target === 'reportes') cargarAdminReportes('pendiente');
     if (target === 'anuncios') cargarAdminAnuncios();
     if (target === 'ai-config') cargarAdminAIConfig();
     if (target === 'editor-db') cargarAdminEditorDB();
+    if (target === 'monetizacion' && window.Monetizacion) window.Monetizacion.renderAdminMonetizacion($('adminVistaMonetizacion'));
   });
 });
 
