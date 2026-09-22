@@ -15,8 +15,11 @@ const ARCHIVOS_SHELL = [
   '/js/chat.js',
   '/js/call.js',
   '/manifest.json',
+  '/favicon.ico',
+  '/images/mascot.png',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
+  '/icons/icon-maskable-512.png',
 ];
 
 self.addEventListener('install', (event) => {

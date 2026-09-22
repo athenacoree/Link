@@ -365,6 +365,17 @@ async function comprobarAIConfig() {
 }
 
 /* ================= ARRANQUE DE LA APP ================= */
+function ocultarSplashScreen() {
+  const splash = $('splashScreen');
+  if (splash) {
+    splash.classList.add('oculto');
+    setTimeout(() => {
+      splash.style.display = 'none';
+    }, 500);
+  }
+}
+window.ocultarSplashScreen = ocultarSplashScreen;
+
 async function iniciarApp() {
   $('authScreen').classList.add('oculto');
   $('appShell').classList.remove('oculto');
@@ -2672,4 +2683,11 @@ function toggleAcordeon(headerElem) {
 window.toggleAcordeon = toggleAcordeon;
 
 /* ================= ARRANQUE ================= */
-if (Sesion.activa()) { iniciarApp(); } else { $('authScreen').classList.remove('oculto'); }
+if (Sesion.activa()) {
+  iniciarApp().finally(() => {
+    setTimeout(ocultarSplashScreen, 400);
+  });
+} else {
+  $('authScreen').classList.remove('oculto');
+  setTimeout(ocultarSplashScreen, 400);
+}
