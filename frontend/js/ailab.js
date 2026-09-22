@@ -1,6 +1,6 @@
-/* Lógica para el Laboratorio IA en Enlace */
+/* Lógica para el Laboratorio IA Global en Enlace */
 
-function escapeHTML(str) {
+function escapeHTMLAILab(str) {
   if (!str) return '';
   return String(str)
     .replace(/&/g, '&amp;')
@@ -13,17 +13,46 @@ function escapeHTML(str) {
 window.AILab = {
   activeCharacterId: null,
   attachments: [],
-  chatHistory: [],
-  currentAbortController: null,
-  isGenerating: false,
   initialized: false,
-  lastSentPayload: null,
+  isGenerating: false,
+  socketConnected: false,
 
   init() {
     if (this.initialized) return;
     this.initialized = true;
     this.bindEvents();
+    this.bindSocketEvents();
+    this.loadGlobalMessages();
     this.loadCharacters();
+  },
+
+  bindSocketEvents() {
+    if (window.socket) {
+      window.socket.emit('ailab:unirse');
+      this.socketConnected = true;
+
+      window.socket.off('ailab:nuevo_mensaje');
+      window.socket.on('ailab:nuevo_mensaje', (msg) => {
+        this.appendSingleMessage(msg);
+      });
+
+      window.socket.off('ailab:status');
+      window.socket.on('ailab:status', (data) => {
+        this.setStatus(data.text, data.isWorking !== false);
+      });
+
+      window.socket.off('ailab:mensaje_eliminado');
+      window.socket.on('ailab:mensaje_eliminado', (data) => {
+        if (data && data.id) {
+          const el = document.getElementById(`ailab-msg-${data.id}`);
+          if (el) {
+            el.style.opacity = '0';
+            el.style.transform = 'scale(0.95)';
+            setTimeout(() => el.remove(), 200);
+          }
+        }
+      });
+    }
   },
 
   bindEvents() {
@@ -59,7 +88,6 @@ window.AILab = {
         }
       });
 
-      // Soporte para pegar imágenes directamente del portapapeles
       composerInput.addEventListener('paste', async (e) => {
         const items = e.clipboardData?.items;
         if (items) {
@@ -124,8 +152,8 @@ window.AILab = {
       const isImg = att.type === 'image';
       return `
         <div class="ailab-attachment-chip">
-          ${isImg ? `<img src="${att.preview}" alt="${escapeHTML(att.name)}" />` : `<span>📄</span>`}
-          <span style="max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHTML(att.name)}</span>
+          ${isImg ? `<img src="${att.preview}" alt="${escapeHTMLAILab(att.name)}" />` : `<span>📄</span>`}
+          <span style="max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHTMLAILab(att.name)}</span>
           <button class="ailab-attachment-remove" onclick="AILab.removeAttachment('${att.id}')">✕</button>
         </div>
       `;
@@ -162,35 +190,24 @@ window.AILab = {
         return;
       }
 
-      container.innerHTML = `
-        <div class="ailab-char-chip ${!this.activeCharacterId ? 'activo' : ''}" onclick="AILab.selectCharacter(null)">
-          <span style="font-size:16px;">🤖</span>
-          <span>Link AI</span>
+      container.innerHTML = chars.map(c => `
+        <div class="ailab-char-chip ${this.activeCharacterId === c.id ? 'activo' : ''}" onclick="AILab.selectCharacter('${c.id}', '${escapeHTMLAILab(c.name)}')">
+          <span style="font-size:16px;">${escapeHTMLAILab(c.avatar || '🤖')}</span>
+          <span>${escapeHTMLAILab(c.name)}</span>
         </div>
-        ${chars.map(c => `
-          <div class="ailab-char-chip ${this.activeCharacterId === c.id ? 'activo' : ''}" onclick="AILab.selectCharacter('${c.id}')">
-            <span style="font-size:16px;">${escapeHTML(c.avatar || '🤖')}</span>
-            <span>${escapeHTML(c.name)}</span>
-          </div>
-        `).join('')}
-      `;
+      `).join('');
     } catch (err) {
       console.error('Error al cargar personajes de IA:', err);
     }
   },
 
-  selectCharacter(charId) {
+  selectCharacter(charId, charName) {
     this.activeCharacterId = charId;
-    this.chatHistory = [];
-    this.loadCharacters();
-
-    const feed = document.getElementById('ailabChatMessages');
-    if (feed) {
-      feed.innerHTML = `
-        <div style="text-align:center; font-size:12px; color:var(--texto-600); margin:12px 0;">
-          Modo de conversación actualizado. Los personajes interactúan directamente en el feed.
-        </div>
-      `;
+    this.openComposer();
+    const input = document.getElementById('ailabComposerInput');
+    if (input) {
+      input.value = `@${charName} `;
+      input.focus();
     }
   },
 
@@ -200,8 +217,8 @@ window.AILab = {
     this.isGenerating = isWorking;
 
     if (statusBar && statusText) {
-      if (isWorking) {
-        statusText.textContent = text || 'Pensando...';
+      if (isWorking && text) {
+        statusText.textContent = text;
         statusBar.style.display = 'flex';
       } else {
         statusBar.style.display = 'none';
@@ -210,11 +227,104 @@ window.AILab = {
   },
 
   cancelGeneration() {
-    if (this.currentAbortController) {
-      this.currentAbortController.abort();
-      this.currentAbortController = null;
-    }
     this.setStatus(null, false);
+  },
+
+  async loadGlobalMessages() {
+    const feed = document.getElementById('ailabChatMessages');
+    if (!feed) return;
+
+    try {
+      const res = await api('/ailab/messages?limit=60');
+      feed.innerHTML = '';
+
+      if (!res.messages || res.messages.length === 0) {
+        feed.innerHTML = `
+          <div style="text-align:center; padding:30px 16px; color:var(--texto-600); font-size:13px; line-height:1.5;">
+            <div style="font-size:32px; margin-bottom:8px;">🧪</div>
+            <div style="font-weight:800; color:var(--morado-700); font-size:15px;">¡Bienvenido a la Sala Global de IA!</div>
+            <div>Todos los usuarios comparten este mismo espacio en vivo. La IA conversa continuamente y tú puedes intervenir en cualquier momento.</div>
+          </div>
+        `;
+        return;
+      }
+
+      res.messages.forEach(msg => {
+        this.appendSingleMessage(msg, false);
+      });
+
+      feed.scrollTop = feed.scrollHeight;
+    } catch (err) {
+      console.error('Error al cargar historial de sala global:', err);
+      feed.innerHTML = `<div class="aviso-vacio">No se pudo cargar el historial de la sala global.</div>`;
+    }
+  },
+
+  appendSingleMessage(msg, autoScroll = true) {
+    const feed = document.getElementById('ailabChatMessages');
+    if (!feed || !msg) return;
+
+    if (document.getElementById(`ailab-msg-${msg.id}`)) return;
+
+    const currentUser = typeof Sesion !== 'undefined' ? Sesion.usuario() : null;
+    const isMe = msg.sender_type === 'user' && currentUser && msg.sender_id === currentUser.id;
+    const isAdmin = currentUser && currentUser.is_admin;
+    const canDelete = isMe || isAdmin;
+
+    let toolResultObj = msg.tool_result;
+    if (typeof toolResultObj === 'string') {
+      try { toolResultObj = JSON.parse(toolResultObj); } catch (e) {}
+    }
+
+    let attachmentsObj = msg.attachments;
+    if (typeof attachmentsObj === 'string') {
+      try { attachmentsObj = JSON.parse(attachmentsObj); } catch (e) {}
+    }
+
+    let cardHtml = this.renderToolCard(toolResultObj);
+
+    let imageHtml = '';
+    if (msg.image_url) {
+      imageHtml = `<img src="${msg.image_url}" style="max-width:100%; max-height:260px; border-radius:12px; margin-bottom:8px; cursor:pointer; display:block;" onclick="window.abrirVisorImagen('${msg.image_url.replace(/'/g, "\\'")}')" />`;
+    }
+
+    const timeStr = msg.created_at ? new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+
+    const msgHtml = `
+      <div class="ailab-msg-row ${isMe ? 'me' : 'ot'}" id="ailab-msg-${msg.id}">
+        <div class="ailab-msg-meta ${isMe ? 'me' : 'ot'}">
+          <span>${msg.sender_type === 'ai' ? (msg.sender_avatar || '🤖') : '👤'} ${escapeHTMLAILab(msg.sender_name)} <span style="font-weight:400; opacity:0.7; font-size:10.5px;">• ${timeStr}</span></span>
+          ${canDelete ? `<button class="ailab-msg-delete-btn" onclick="AILab.deleteMessage('${msg.id}')" title="Eliminar mensaje">🗑️</button>` : ''}
+        </div>
+        <div class="ailab-msg-bubble ${isMe ? 'me' : 'ot'}">
+          ${imageHtml}
+          <div>${procesarTextosYDriveLinks(msg.text || '')}</div>
+          ${cardHtml}
+        </div>
+      </div>
+    `;
+
+    feed.insertAdjacentHTML('beforeend', msgHtml);
+
+    if (autoScroll) {
+      feed.scrollTop = feed.scrollHeight;
+    }
+  },
+
+  async deleteMessage(msgId) {
+    if (!confirm('¿Deseas borrar este mensaje de la sala global?')) return;
+
+    try {
+      await api(`/ailab/messages/${msgId}`, { method: 'DELETE' });
+      const el = document.getElementById(`ailab-msg-${msgId}`);
+      if (el) {
+        el.style.opacity = '0';
+        el.style.transform = 'scale(0.95)';
+        setTimeout(() => el.remove(), 200);
+      }
+    } catch (err) {
+      alert('Error al borrar el mensaje.');
+    }
   },
 
   async sendMessageFromComposer() {
@@ -226,125 +336,26 @@ window.AILab = {
 
     if (!message && currentAttachments.length === 0) return;
 
-    // Resetear compositor
     input.value = '';
     this.attachments = [];
     this.renderComposerAttachments();
     this.closeComposer();
 
-    this.lastSentPayload = { message, attachments: currentAttachments };
-    await this.executeSendMessage(message, currentAttachments);
-  },
-
-  async retryLastMessage() {
-    if (!this.lastSentPayload) return;
-    await this.executeSendMessage(this.lastSentPayload.message, this.lastSentPayload.attachments);
-  },
-
-  async executeSendMessage(message, currentAttachments = []) {
-    const feed = document.getElementById('ailabChatMessages');
     const imageAttachment = currentAttachments.find(a => a.type === 'image');
     const docAttachment = currentAttachments.find(a => a.type === 'document');
-
-    // Renderizar mensaje del usuario
-    if (feed) {
-      let attachmentsHtml = '';
-      if (imageAttachment) {
-        attachmentsHtml += `<img src="${imageAttachment.data}" style="max-width:220px; border-radius:12px; margin-bottom:6px; display:block;" />`;
-      }
-      if (docAttachment) {
-        attachmentsHtml += `<div style="font-size:12px; background:rgba(255,255,255,0.2); padding:6px 10px; border-radius:8px; margin-bottom:6px;">📄 Adjunto: ${escapeHTML(docAttachment.name)}</div>`;
-      }
-
-      feed.innerHTML += `
-        <div class="mensaje-fila me" style="display:flex; justify-content:flex-end; margin-bottom:12px;">
-          <div class="mensaje-burbuja me" style="background:var(--morado-600); color:#fff; padding:10px 14px; border-radius:18px 18px 2px 18px; max-width:82%; font-size:14px; line-height:1.45; box-shadow:0 2px 8px rgba(0,0,0,0.12);">
-            ${attachmentsHtml}
-            <div>${escapeHTML(message)}</div>
-          </div>
-        </div>
-      `;
-      feed.scrollTop = feed.scrollHeight;
-    }
-
-    // Activar barra de estado
-    this.setStatus('Pensando y procesando respuesta...', true);
-
-    this.currentAbortController = new AbortController();
+    const fileDataObj = docAttachment ? { content: docAttachment.data, filename: docAttachment.name, mimeType: docAttachment.mime } : null;
 
     try {
-      let data;
-      const fileDataObj = docAttachment ? { content: docAttachment.data, filename: docAttachment.name, mimeType: docAttachment.mime } : null;
-
-      if (this.activeCharacterId) {
-        data = await api('/ailab/chat-character', {
-          method: 'POST',
-          body: {
-            character_id: this.activeCharacterId,
-            message,
-            image_url: imageAttachment ? imageAttachment.data : null,
-            file_data: fileDataObj,
-            history: this.chatHistory
-          }
-        });
-      } else {
-        data = await api('/ai/chat', {
-          method: 'POST',
-          body: {
-            prompt: message,
-            messages: [...this.chatHistory, { role: 'user', content: message }],
-            vision_image: imageAttachment ? imageAttachment.data : null,
-            file_data: fileDataObj,
-          }
-        });
-      }
-
-      this.setStatus(null, false);
-
-      const replyText = data.reply || 'Sin respuesta del asistente.';
-      const toolResult = data.tool_result;
-
-      // Actualizar historial
-      this.chatHistory.push({ role: 'user', content: message });
-      this.chatHistory.push({ role: 'assistant', content: replyText });
-      if (this.chatHistory.length > 10) this.chatHistory = this.chatHistory.slice(-10);
-
-      let cardHtml = '';
-      if (toolResult) {
-        cardHtml = this.renderToolCard(toolResult);
-      }
-
-      if (feed) {
-        const botAvatar = data.character?.avatar || data.avatar || '🤖';
-        const botName = data.character?.name || data.name || 'Link AI';
-
-        feed.innerHTML += `
-          <div class="mensaje-fila ot" style="display:flex; flex-direction:column; align-items:flex-start; margin-bottom:14px;">
-            <div style="font-size:11.5px; font-weight:800; color:var(--morado-700); margin-bottom:4px; margin-left:4px;">
-              ${botAvatar} ${escapeHTML(botName)}
-            </div>
-            <div class="mensaje-burbuja ot" style="background:var(--fondo-tarjeta); border:1px solid var(--borde); color:var(--texto-900); padding:12px 16px; border-radius:18px 18px 18px 2px; max-width:88%; font-size:14px; line-height:1.5; box-shadow:0 2px 8px rgba(0,0,0,0.04);">
-              <div>${escapeHTML(replyText)}</div>
-              ${cardHtml}
-            </div>
-          </div>
-        `;
-        feed.scrollTop = feed.scrollHeight;
-      }
+      await api('/ailab/messages', {
+        method: 'POST',
+        body: {
+          message,
+          image_url: imageAttachment ? imageAttachment.data : null,
+          file_data: fileDataObj,
+        }
+      });
     } catch (err) {
-      this.setStatus(null, false);
-
-      if (feed) {
-        feed.innerHTML += `
-          <div class="mensaje-fila ot" style="display:flex; justify-content:flex-start; margin-bottom:12px;">
-            <div class="mensaje-burbuja ot" style="background:#fee2e2; border:1px solid #fca5a5; color:#991b1b; padding:12px 16px; border-radius:16px; font-size:13px; font-weight:600; max-width:85%;">
-              <div>⚠️ Estoy teniendo problemas técnicos para completar la solicitud.</div>
-              <button class="btn btn-secundario" onclick="AILab.retryLastMessage()" style="margin-top:8px; padding:4px 12px; font-size:12px; border-radius:10px;">Reintentar 🔄</button>
-            </div>
-          </div>
-        `;
-        feed.scrollTop = feed.scrollHeight;
-      }
+      mostrarToast('No se pudo enviar el mensaje.');
     }
   },
 
@@ -353,11 +364,35 @@ window.AILab = {
     const d = toolResult.data || {};
     const type = toolResult.type;
 
+    if (type === 'social_profile_card') {
+      const avatarSrc = d.avatar || 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><rect width="80" height="80" fill="#efe3fe"/><text x="50%" y="55%" font-size="30" text-anchor="middle" fill="#5b21b6" font-family="sans-serif">👤</text></svg>');
+      return `
+        <div class="ailab-profile-card">
+          <div class="ailab-profile-header">
+            <img class="ailab-profile-avatar" src="${avatarSrc}" alt="${escapeHTMLAILab(d.name)}" />
+            <div class="ailab-profile-info">
+              <div class="ailab-profile-name">
+                ${escapeHTMLAILab(d.name)}
+                ${d.verified ? ' <span style="color:#3897f0;">✓</span>' : ''}
+              </div>
+              <div class="ailab-profile-username">@${escapeHTMLAILab(d.username || 'usuario')} • ${escapeHTMLAILab(d.profession || 'Miembro')}</div>
+              <div style="font-size:11px; color:var(--texto-500);">📍 ${escapeHTMLAILab(d.city || 'Cuba')}</div>
+            </div>
+          </div>
+          ${d.bio ? `<div class="ailab-profile-bio">${escapeHTMLAILab(d.bio)}</div>` : ''}
+          <div class="ailab-profile-actions">
+            ${d.id ? `<button class="btn btn-primario mini-btn" style="flex:1; padding:6px 12px; font-size:12px;" onclick="abrirPerfil('${d.id}')">Ver perfil completo 👤</button>` : ''}
+            ${d.id ? `<button class="btn btn-secundario mini-btn" style="flex:1; padding:6px 12px; font-size:12px;" onclick="solicitarContactoAccion('${d.id}')">Solicitar contacto 📩</button>` : ''}
+          </div>
+        </div>
+      `;
+    }
+
     if (type === 'webcam_card') {
       return `
         <div class="card" style="margin-top:10px; padding:12px; border-radius:14px; background:var(--blanco); border:1px solid var(--borde);">
-          <div style="font-weight:800; font-size:13.5px; color:var(--morado-700); margin-bottom:4px;">📷 ${escapeHTML(d.title || 'Cámara Pública')}</div>
-          <div style="font-size:12px; color:var(--texto-600); margin-bottom:8px;">📍 ${escapeHTML(d.location || '')} • <span style="font-weight:700;">${escapeHTML(d.source_type || 'Fuente Pública')}</span></div>
+          <div style="font-weight:800; font-size:13.5px; color:var(--morado-700); margin-bottom:4px;">📷 ${escapeHTMLAILab(d.title || 'Cámara Pública')}</div>
+          <div style="font-size:12px; color:var(--texto-600); margin-bottom:8px;">📍 ${escapeHTMLAILab(d.location || '')} • <span style="font-weight:700;">${escapeHTMLAILab(d.source_type || 'Fuente Pública')}</span></div>
           <img src="${d.preview}" style="width:100%; height:180px; object-fit:cover; border-radius:10px; margin-bottom:8px;" alt="Cámara" />
           <a href="${d.official_url}" target="_blank" rel="noopener" class="btn btn-primario" style="display:block; text-align:center; width:100%; padding:8px 0; font-size:12px; text-decoration:none; font-weight:800;">
             Abrir Fuente Oficial 🔴
@@ -369,12 +404,12 @@ window.AILab = {
     if (type === 'video_card') {
       return `
         <div class="card" style="margin-top:10px; padding:12px; border-radius:14px; background:var(--blanco); border:1px solid var(--borde);">
-          <div style="font-size:11px; font-weight:800; color:var(--morado-600); margin-bottom:4px;">▶️ ${escapeHTML(d.platform || 'Vídeo')}</div>
-          <div style="font-weight:700; font-size:13.5px; color:var(--texto-900); margin-bottom:2px;">${escapeHTML(d.title || '')}</div>
-          <div style="font-size:12px; color:var(--texto-600); margin-bottom:8px;">👤 ${escapeHTML(d.channel || '')}</div>
+          <div style="font-size:11px; font-weight:800; color:var(--morado-600); margin-bottom:4px;">▶️ ${escapeHTMLAILab(d.platform || 'Vídeo')}</div>
+          <div style="font-weight:700; font-size:13.5px; color:var(--texto-900); margin-bottom:2px;">${escapeHTMLAILab(d.title || '')}</div>
+          <div style="font-size:12px; color:var(--texto-600); margin-bottom:8px;">👤 ${escapeHTMLAILab(d.channel || '')}</div>
           <img src="${d.thumbnail}" style="width:100%; height:160px; object-fit:cover; border-radius:10px; margin-bottom:8px;" alt="Video Miniatura" />
           <a href="${d.url}" target="_blank" rel="noopener" class="btn btn-secundario" style="display:block; text-align:center; width:100%; padding:8px 0; font-size:12px; text-decoration:none; font-weight:800;">
-            Ver en ${escapeHTML(d.platform || 'Plataforma')}
+            Ver en ${escapeHTMLAILab(d.platform || 'Plataforma')}
           </a>
         </div>
       `;
@@ -383,12 +418,11 @@ window.AILab = {
     if (type === 'image_card') {
       return `
         <div class="card" style="margin-top:10px; padding:10px; border-radius:14px; background:var(--blanco); border:1px solid var(--borde);">
-          <img src="${d.image_url}" style="width:100%; border-radius:10px; margin-bottom:8px; display:block;" alt="Imagen generada" />
-          <div style="font-size:11px; color:var(--texto-600); margin-bottom:8px;">Prompt: "${escapeHTML(d.prompt)}"</div>
+          <img src="${d.image_url}" style="width:100%; border-radius:10px; margin-bottom:8px; display:block; cursor:pointer;" onclick="window.abrirVisorImagen('${d.image_url.replace(/'/g, "\\'")}')" alt="Imagen generada" />
+          <div style="font-size:11px; color:var(--texto-600); margin-bottom:8px;">Prompt: "${escapeHTMLAILab(d.prompt)}"</div>
           <div class="ailab-card-actions">
-            <a href="${d.image_url}" target="_blank" class="ailab-card-btn" style="text-decoration:none;">🔍 Abrir</a>
-            <button class="ailab-card-btn" onclick="AILab.quickPrompt('Genera una variación de esta imagen: ${escapeHTML(d.prompt)}')">🔄 Variar</button>
-            <button class="ailab-card-btn" onclick="AILab.quickPrompt('Mejora el prompt visual: ${escapeHTML(d.prompt)}')">✨ Mejorar Prompt</button>
+            <button class="ailab-card-btn" onclick="AILab.quickPrompt('Genera una variación de esta imagen: ${escapeHTMLAILab(d.prompt)}')">🔄 Variar</button>
+            <button class="ailab-card-btn" onclick="AILab.quickPrompt('Mejora el prompt visual: ${escapeHTMLAILab(d.prompt)}')">✨ Mejorar Prompt</button>
           </div>
         </div>
       `;
@@ -397,8 +431,8 @@ window.AILab = {
     if (type === 'doc_card') {
       return `
         <div class="card" style="margin-top:10px; padding:12px; border-radius:14px; background:var(--blanco); border:1px solid var(--borde);">
-          <div style="font-weight:800; font-size:13px; color:var(--morado-700);">📄 Documento Extráido (${escapeHTML(d.filename)})</div>
-          <div style="font-size:12px; color:var(--texto-700); margin:6px 0;">${escapeHTML(d.summary_preview)}</div>
+          <div style="font-weight:800; font-size:13px; color:var(--morado-700);">📄 Documento Extraído (${escapeHTMLAILab(d.filename)})</div>
+          <div style="font-size:12px; color:var(--texto-700); margin:6px 0;">${escapeHTMLAILab(d.summary_preview)}</div>
           <div style="font-size:11px; color:var(--texto-500);">${d.char_count} caracteres procesados.</div>
         </div>
       `;
@@ -407,8 +441,8 @@ window.AILab = {
     if (type === 'math_card') {
       return `
         <div class="card" style="margin-top:10px; padding:10px 14px; border-radius:12px; background:var(--blanco); border:1px solid var(--borde);">
-          <div style="font-size:12px; color:var(--texto-600);">🔢 Cálculo: <b>${escapeHTML(d.expression)}</b></div>
-          <div style="font-size:18px; font-weight:800; color:var(--morado-700); margin-top:2px;">= ${escapeHTML(d.result)}</div>
+          <div style="font-size:12px; color:var(--texto-600);">🔢 Cálculo: <b>${escapeHTMLAILab(d.expression)}</b></div>
+          <div style="font-size:18px; font-weight:800; color:var(--morado-700); margin-top:2px;">= ${escapeHTMLAILab(d.result)}</div>
         </div>
       `;
     }
@@ -416,9 +450,9 @@ window.AILab = {
     if (type === 'weather_card') {
       return `
         <div class="card" style="margin-top:10px; padding:12px; border-radius:14px; background:var(--blanco); border:1px solid var(--borde);">
-          <div style="font-weight:800; font-size:14px; color:var(--texto-900);">🌤️ Clima en ${escapeHTML(d.city)}</div>
-          <div style="font-size:24px; font-weight:900; color:var(--morado-700); margin:4px 0;">${escapeHTML(d.temp_c)}</div>
-          <div style="font-size:12px; color:var(--texto-700);">${escapeHTML(d.condition)} • Humedad: ${escapeHTML(d.humidity)} • Viento: ${escapeHTML(d.wind)}</div>
+          <div style="font-weight:800; font-size:14px; color:var(--texto-900);">🌤️ Clima en ${escapeHTMLAILab(d.city)}</div>
+          <div style="font-size:24px; font-weight:900; color:var(--morado-700); margin:4px 0;">${escapeHTMLAILab(d.temp_c)}</div>
+          <div style="font-size:12px; color:var(--texto-700);">${escapeHTMLAILab(d.condition)} • Humedad: ${escapeHTMLAILab(d.humidity)} • Viento: ${escapeHTMLAILab(d.wind)}</div>
         </div>
       `;
     }

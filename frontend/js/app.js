@@ -2167,14 +2167,134 @@ async function cargarAdminAIConfig() {
     if ($('adminAIMaxTokens')) $('adminAIMaxTokens').value = settings.ai_max_tokens || 1000;
     if ($('adminAIContextTokens')) $('adminAIContextTokens').value = settings.ai_context_tokens || 4000;
 
+    if ($('adminAILabRoomTitle')) $('adminAILabRoomTitle').value = settings.ailab_room_title || '🧪 Laboratorio IA Global';
+    if ($('adminAILabRoomSubtitle')) $('adminAILabRoomSubtitle').value = settings.ailab_room_subtitle || 'Sala viva de interacción continua, herramientas y multimedia';
+    if ($('adminAILabAutoEnabled')) $('adminAILabAutoEnabled').value = settings.ailab_auto_enabled || 'true';
+    if ($('adminAILabAutoIntervalSec')) $('adminAILabAutoIntervalSec').value = settings.ailab_auto_interval_sec || '30';
+    if ($('adminAILabAutoMaxTurns')) $('adminAILabAutoMaxTurns').value = settings.ailab_auto_max_consecutive_turns || '10';
+    if ($('adminAILabRetentionDays')) $('adminAILabRetentionDays').value = settings.ailab_retention_days || '0';
+
     if ($('adminAILabMaxMsgLen')) $('adminAILabMaxMsgLen').value = settings.ailab_max_msg_length || 2000;
-    if ($('adminAILabMaxPersLen')) $('adminAILabMaxPersLen').value = settings.ailab_max_personality_length || 1000;
-    if ($('adminAILabMaxHistory')) $('adminAILabMaxHistory').value = settings.ailab_max_history || 10;
     if ($('adminAILabTimeoutMs')) $('adminAILabTimeoutMs').value = settings.ailab_timeout_ms || 30000;
+
+    await cargarAdminAICharacters();
   } catch (e) {
     mostrarToast('Error al cargar configuración de IA.');
   }
 }
+
+async function cargarAdminAICharacters() {
+  try {
+    const { characters } = await api('/admin/ai-characters');
+    const cont = $('adminListaAICharacters');
+    if (!cont) return;
+
+    if (!characters || !characters.length) {
+      cont.innerHTML = '<div style="font-size:12px; color:var(--texto-500); padding:4px;">No hay personajes registrados.</div>';
+      return;
+    }
+
+    cont.innerHTML = characters.map(c => `
+      <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 10px; background:var(--blanco); border:1px solid var(--borde); border-radius:10px;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="font-size:20px;">${escaparHTMLGlobal(c.avatar || '🤖')}</span>
+          <div>
+            <div style="font-size:13px; font-weight:700; color:var(--texto-900);">${escaparHTMLGlobal(c.name)}</div>
+            <div style="font-size:11px; color:var(--texto-500); max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escaparHTMLGlobal(c.personality)}</div>
+          </div>
+        </div>
+        <div style="display:flex; gap:4px;">
+          <button class="mini-btn secundario" onclick='adminEditarPersonaje(${JSON.stringify(c).replace(/'/g, "&apos;")})'>Editar</button>
+          <button class="mini-btn peligro" onclick="adminBorrarPersonaje('${c.id}')">Borrar</button>
+        </div>
+      </div>
+    `).join('');
+  } catch (e) {
+    console.error('Error cargando personajes:', e);
+  }
+}
+
+function adminEditarPersonaje(c) {
+  if (!c) return;
+  if ($('adminCharId')) $('adminCharId').value = c.id || '';
+  if ($('adminCharName')) $('adminCharName').value = c.name || '';
+  if ($('adminCharAvatar')) $('adminCharAvatar').value = c.avatar || '🤖';
+  if ($('adminCharPersonality')) $('adminCharPersonality').value = c.personality || '';
+  if ($('adminCharGreeting')) $('adminCharGreeting').value = c.greeting || '';
+  mostrarToast(`Editando personaje ${c.name}`);
+}
+window.adminEditarPersonaje = adminEditarPersonaje;
+
+async function adminBorrarPersonaje(id) {
+  if (!confirm('¿Seguro que deseas eliminar este personaje de IA?')) return;
+  try {
+    await api(`/admin/ai-characters/${id}`, { method: 'DELETE' });
+    mostrarToast('Personaje eliminado correctamente ✓');
+    await cargarAdminAICharacters();
+    if (window.AILab) window.AILab.loadCharacters();
+  } catch (e) {
+    mostrarToast(e.message);
+  }
+}
+window.adminBorrarPersonaje = adminBorrarPersonaje;
+
+$('adminBtnSaveChar')?.addEventListener('click', async () => {
+  try {
+    const id = $('adminCharId')?.value;
+    const name = $('adminCharName')?.value.trim();
+    const avatar = $('adminCharAvatar')?.value.trim();
+    const personality = $('adminCharPersonality')?.value.trim();
+    const greeting = $('adminCharGreeting')?.value.trim();
+
+    if (!name || !personality) {
+      mostrarToast('Ingresa nombre y personalidad.');
+      return;
+    }
+
+    await api('/admin/ai-characters', {
+      method: 'POST',
+      body: { id: id || undefined, name, avatar, personality, greeting }
+    });
+
+    if ($('adminCharId')) $('adminCharId').value = '';
+    if ($('adminCharName')) $('adminCharName').value = '';
+    if ($('adminCharAvatar')) $('adminCharAvatar').value = '';
+    if ($('adminCharPersonality')) $('adminCharPersonality').value = '';
+    if ($('adminCharGreeting')) $('adminCharGreeting').value = '';
+
+    mostrarToast('Personaje guardado correctamente ✓');
+    await cargarAdminAICharacters();
+    if (window.AILab) window.AILab.loadCharacters();
+  } catch (e) {
+    mostrarToast(e.message);
+  }
+});
+
+$('adminBtnTogglePauseAILab')?.addEventListener('click', async () => {
+  try {
+    const { settings } = await api('/admin/system-settings');
+    const isPaused = settings.ailab_auto_paused === 'true';
+    const nextState = isPaused ? 'false' : 'true';
+
+    await api('/admin/system-settings', {
+      method: 'POST',
+      body: { settings: { ailab_auto_paused: nextState, ailab_auto_consecutive_counter: '0' } }
+    });
+
+    mostrarToast(nextState === 'true' ? 'Conversación autónoma pausada ⏸️' : 'Conversación autónoma reanudada ▶️');
+  } catch (e) {
+    mostrarToast(e.message);
+  }
+});
+
+$('adminBtnForceAILabTurn')?.addEventListener('click', async () => {
+  try {
+    await api('/ailab/trigger-auto', { method: 'POST' });
+    mostrarToast('Turno de conversación IA forzado con éxito ⚡');
+  } catch (e) {
+    mostrarToast(e.message);
+  }
+});
 
 $('adminBtnTestAI')?.addEventListener('click', async () => {
   const resultEl = $('adminAITestResult');

@@ -24,6 +24,33 @@
   justify-content: space-between;
 }
 
+.ailab-live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #fee2e2;
+  color: #dc2626;
+  border: 1px solid #fca5a5;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 12px;
+}
+
+.ailab-live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #dc2626;
+  animation: pulseLive 1.2s infinite;
+}
+
+@keyframes pulseLive {
+  0% { opacity: 0.4; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.2); }
+  100% { opacity: 0.4; transform: scale(0.8); }
+}
+
 .ailab-characters-strip {
   display: flex;
   gap: 8px;
@@ -66,6 +93,83 @@
   -webkit-overflow-scrolling: touch;
 }
 
+.ailab-msg-row {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 12px;
+  animation: slideUpFade 0.22s ease-out forwards;
+}
+
+@keyframes slideUpFade {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.ailab-msg-row.me {
+  align-items: flex-end;
+}
+
+.ailab-msg-row.ot {
+  align-items: flex-start;
+}
+
+.ailab-msg-bubble {
+  position: relative;
+  max-width: 88%;
+  font-size: 14px;
+  line-height: 1.48;
+  padding: 10px 14px;
+  border-radius: 18px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.ailab-msg-bubble.me {
+  background: linear-gradient(135deg, #7000ff 0%, #9d00ff 100%);
+  color: #ffffff;
+  border-bottom-right-radius: 2px;
+}
+
+.ailab-msg-bubble.ot {
+  background: var(--fondo-tarjeta, #ffffff);
+  border: 1px solid var(--borde, #e2e8f0);
+  color: var(--texto-900, #0f172a);
+  border-bottom-left-radius: 2px;
+}
+
+.ailab-msg-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  margin-bottom: 4px;
+  margin-left: 2px;
+}
+
+.ailab-msg-meta.me {
+  color: var(--morado-700, #7000ff);
+}
+
+.ailab-msg-meta.ot {
+  color: var(--morado-700, #7000ff);
+}
+
+.ailab-msg-delete-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: color 0.15s ease;
+}
+
+.ailab-msg-delete-btn:hover {
+  color: #ef4444;
+}
+
 /* Estado dinámico de la IA (Pensando, Buscando, etc.) */
 .ailab-status-bar {
   display: flex;
@@ -99,6 +203,62 @@
 
 @media (prefers-reduced-motion: reduce) {
   .ailab-status-pulse { animation: none; }
+}
+
+/* Tarjeta de Perfil de Persona en Chat */
+.ailab-profile-card {
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 16px;
+  background: var(--blanco, #ffffff);
+  border: 1px solid var(--borde, #e2e8f0);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+}
+
+.ailab-profile-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.ailab-profile-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--morado-600, #7000ff);
+}
+
+.ailab-profile-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.ailab-profile-name {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--texto-900, #0f172a);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ailab-profile-username {
+  font-size: 0.8rem;
+  color: var(--texto-500, #64748b);
+}
+
+.ailab-profile-bio {
+  font-size: 0.82rem;
+  color: var(--texto-700, #334155);
+  margin: 6px 0 10px;
+  line-height: 1.4;
+}
+
+.ailab-profile-actions {
+  display: flex;
+  gap: 8px;
 }
 
 /* Botón Flotante / Elegante para Abrir Compositor */

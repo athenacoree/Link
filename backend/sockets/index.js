@@ -2,6 +2,7 @@ const { verifyToken } = require('../utils/jwt');
 const { query } = require('../db/postgres');
 const { setIO, registerSocket, unregisterSocket, isOnline, emitToUser } = require('../utils/realtime');
 const { registrarSenal } = require('../utils/recomendaciones');
+const { initAILabBackgroundJobs } = require('../services/aiLabService');
 
 function conversationId(a, b) {
   return [a, b].sort().join('_');
@@ -17,6 +18,7 @@ async function hayBloqueoEntre(a, b) {
 
 function initSockets(io) {
   setIO(io);
+  initAILabBackgroundJobs(io);
 
   io.use((socket, next) => {
     try {
@@ -38,7 +40,16 @@ function initSockets(io) {
     await query('UPDATE users SET is_online=true WHERE id=$1', [userId]).catch(() => {});
     broadcastPresencia(io, userId, true);
 
-    // ---------------- MENSAJERÍA (persistida en PostgreSQL) ----------------
+    // ---------------- SALA GLOBAL DE LABORATORIO IA ----------------
+    socket.on('ailab:unirse', () => {
+      socket.join('room:ailab');
+    });
+
+    socket.on('ailab:salir', () => {
+      socket.leave('room:ailab');
+    });
+
+    // ---------------- MENSAJERÍA PRIVADA (persistida en PostgreSQL) ----------------
     socket.on('mensaje:enviar', async ({ receiverId, text, imageData, audioData, audioDuration, replyToId }, ack) => {
       try {
         if (!receiverId || (!text && !imageData && !audioData)) {

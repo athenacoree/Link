@@ -174,6 +174,53 @@ router.delete('/anuncios/:id', async (req, res) => {
   }
 });
 
+// ---- GESTIÓN DE PERSONAJES IA DESDE EL PANEL DE ADMINISTRACIÓN ----
+router.get('/ai-characters', async (req, res) => {
+  try {
+    const { rows } = await query(`SELECT * FROM ai_characters ORDER BY created_at DESC`);
+    res.json({ characters: rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/ai-characters', async (req, res) => {
+  try {
+    const { id, name, avatar, personality, greeting, is_public } = req.body;
+    if (!name || !personality) {
+      return res.status(400).json({ error: 'Nombre y personalidad son requeridos.' });
+    }
+
+    if (id) {
+      const { rows } = await query(
+        `UPDATE ai_characters SET name=$1, avatar=$2, personality=$3, greeting=$4, is_public=$5 WHERE id=$6 RETURNING *`,
+        [name.trim(), avatar || '🤖', personality.trim(), greeting || '¡Hola!', is_public !== false, id]
+      );
+      return res.json({ character: rows[0] });
+    } else {
+      const { rows } = await query(
+        `INSERT INTO ai_characters (name, avatar, personality, greeting, is_public) VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+        [name.trim(), avatar || '🤖', personality.trim(), greeting || '¡Hola!', is_public !== false]
+      );
+      return res.status(201).json({ character: rows[0] });
+    }
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/ai-characters/:id', async (req, res) => {
+  try {
+    await query(`DELETE FROM ai_characters WHERE id = $1`, [req.params.id]);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ---- CONFIGURACIÓN DEL SISTEMA (AI OpenRouter, Hugging Face, etc.) ----
 router.get('/system-settings', async (req, res) => {
   try {
