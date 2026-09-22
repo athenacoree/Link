@@ -43,6 +43,21 @@ app.use('/api/ai', require('./routes/ai'));
 app.use('/api/ailab', require('./routes/ailab'));
 app.use('/api/features', require('./routes/features'));
 app.use('/api/monetizacion', require('./routes/monetization'));
+app.use('/api/bridge', require('./routes/bridge'));
+
+// Endpoint para Android App Links (Digital Asset Links)
+app.get('/.well-known/assetlinks.json', (req, res) => {
+  res.json([{
+    relation: ["delegate_permission/common.handle_all_urls"],
+    target: {
+      namespace: "android_app",
+      package_name: "com.enlace.bridge",
+      sha256_cert_fingerprints: [
+        process.env.ANDROID_APP_SHA256 || "00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00"
+      ]
+    }
+  }]);
+});
 
 // ---------------- Frontend (PWA estática) ----------------
 const FRONTEND_DIR = path.join(__dirname, '..', 'frontend');

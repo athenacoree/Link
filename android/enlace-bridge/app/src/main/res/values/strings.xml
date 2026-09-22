@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">Enlace Bridge</string>
+    <string name="bridge_status_unpaired">Bridge no vinculado</string>
+    <string name="bridge_status_paired">Bridge conectado y vinculado ✓</string>
+    <string name="enter_pairing_code">Ingresa código de vinculación</string>
+    <string name="btn_pair">Vincular Dispositivo</string>
+    <string name="btn_unlink">Desvincular Dispositivo</string>
+    <string name="capabilities_label">Capacidades del dispositivo detectadas:</string>
+</resources>
