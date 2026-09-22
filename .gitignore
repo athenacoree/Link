@@ -6,3 +6,9 @@ backend/package-lock.json
 *.log
 .DS_Store
 .env
+
+# Android build outputs and Gradle caches
+**/.gradle/
+**/build/
+*.jks
+*.keystore

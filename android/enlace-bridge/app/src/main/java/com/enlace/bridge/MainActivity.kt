@@ -3,23 +3,30 @@ package com.enlace.bridge
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.view.View
 import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
-import com.enlace.bridge.api.BridgeApiClient
+import androidx.work.Constraints
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.NetworkType
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
 import com.enlace.bridge.actions.NativeActionManager
+import com.enlace.bridge.api.BridgeApiClient
 import com.enlace.bridge.auth.DeviceIdentityManager
 import com.enlace.bridge.auth.PairingManager
-import com.enlace.bridge.capabilities.DeviceCapabilitiesRegistry
 import com.enlace.bridge.calls.CallBridgeManager
+import com.enlace.bridge.capabilities.DeviceCapabilitiesRegistry
 import com.enlace.bridge.router.UniversalRouter
+import com.enlace.bridge.sync.BridgeSyncWorker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import java.util.concurrent.TimeUnit
 
 class MainActivity : AppCompatActivity() {
 
@@ -38,6 +45,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var etPairingCode: EditText
     private lateinit var btnPair: Button
     private lateinit var btnUnlink: Button
+    private lateinit var btnSyncNow: Button
     private lateinit var btnOpenEnlace: Button
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -51,7 +59,7 @@ class MainActivity : AppCompatActivity() {
         callManager = CallBridgeManager(this)
         actionManager = NativeActionManager(this, apiClient, router, callManager)
 
-        // Handle Deep / App Link when opened via intent
+        // Handle Universal / Deep Links when opened via intent
         intent?.data?.let { uri ->
             val route = uri.path ?: "/app/home"
             router.openUniversalRoute(route)
@@ -59,7 +67,14 @@ class MainActivity : AppCompatActivity() {
 
         setupUI()
         requestInitialPermissions()
+        scheduleBackgroundSync()
         refreshUIState()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        refreshUIState()
+        syncPendingActionsInBg()
     }
 
     private fun setupUI() {
@@ -99,7 +114,7 @@ class MainActivity : AppCompatActivity() {
         layout.addView(etServerUrl)
 
         etPairingCode = EditText(this).apply {
-            hint = "Código de vinculación (8 caracteres)"
+            hint = "Código de vinculación (6 caracteres)"
             textSize = 16f
             setPadding(0, 20, 0, 20)
         }
@@ -113,6 +128,26 @@ class MainActivity : AppCompatActivity() {
         }
         layout.addView(btnPair)
 
+        btnSyncNow = Button(this).apply {
+            text = "🔄 Sincronizar Acciones Pendientes"
+            setBackgroundColor(android.graphics.Color.parseColor("#059669"))
+            setTextColor(android.graphics.Color.WHITE)
+            setOnClickListener {
+                syncPendingActionsInBg(showToast = true)
+            }
+        }
+        layout.addView(btnSyncNow)
+
+        btnOpenEnlace = Button(this).apply {
+            text = "🌐 Abrir Enlace Web (/app/home)"
+            setBackgroundColor(android.graphics.Color.parseColor("#2563EB"))
+            setTextColor(android.graphics.Color.WHITE)
+            setOnClickListener {
+                router.openUniversalRoute("/app/home")
+            }
+        }
+        layout.addView(btnOpenEnlace)
+
         btnUnlink = Button(this).apply {
             text = getString(R.string.btn_unlink)
             setBackgroundColor(android.graphics.Color.parseColor("#DC2626"))
@@ -124,16 +159,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
         layout.addView(btnUnlink)
-
-        btnOpenEnlace = Button(this).apply {
-            text = "🌐 Abrir Enlace (/app/home)"
-            setBackgroundColor(android.graphics.Color.parseColor("#2563EB"))
-            setTextColor(android.graphics.Color.WHITE)
-            setOnClickListener {
-                router.openUniversalRoute("/app/home")
-            }
-        }
-        layout.addView(btnOpenEnlace)
 
         tvCapabilities = TextView(this).apply {
             textSize = 12f
@@ -149,7 +174,7 @@ class MainActivity : AppCompatActivity() {
         val serverUrl = etServerUrl.text.toString().trim()
 
         if (code.isEmpty()) {
-            Toast.makeText(this, "Ingresa un código de vinculación de Enlace Web", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Ingresa un código de vinculación generado en Enlace Web", Toast.LENGTH_SHORT).show()
             return
         }
 
@@ -172,6 +197,7 @@ class MainActivity : AppCompatActivity() {
                 etPairingCode.text.clear()
                 refreshUIState()
                 sendHeartbeat()
+                syncPendingActionsInBg(showToast = true)
             } else {
                 val err = result.exceptionOrNull()?.message ?: "Error al vincular"
                 Toast.makeText(this@MainActivity, "Error: $err", Toast.LENGTH_LONG).show()
@@ -187,22 +213,57 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun syncPendingActionsInBg(showToast: Boolean = false) {
+        if (!identityManager.isPaired()) return
+
+        CoroutineScope(Dispatchers.Main).launch {
+            val count = actionManager.syncPendingActions()
+            if (showToast) {
+                if (count > 0) {
+                    Toast.makeText(this@MainActivity, "Sincronizadas $count acciones pendientes", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(this@MainActivity, "Sin acciones pendientes", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    private fun scheduleBackgroundSync() {
+        if (!identityManager.isPaired()) return
+
+        val constraints = Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .build()
+
+        val syncRequest = PeriodicWorkRequestBuilder<BridgeSyncWorker>(15, TimeUnit.MINUTES)
+            .setConstraints(constraints)
+            .build()
+
+        WorkManager.getInstance(applicationContext).enqueueUniquePeriodicWork(
+            BridgeSyncWorker.WORK_NAME,
+            ExistingPeriodicWorkPolicy.KEEP,
+            syncRequest
+        )
+    }
+
     private fun refreshUIState() {
         val isPaired = identityManager.isPaired()
         if (isPaired) {
             tvStatus.text = "✅ Dispositivo Vinculado"
             tvStatus.setTextColor(android.graphics.Color.parseColor("#16A34A"))
             tvDeviceDetails.text = "ID Dispositivo: ${identityManager.getDeviceId()}\nUsuario ID: ${identityManager.getUserId()}"
-            btnPair.visibility = android.view.View.GONE
-            etPairingCode.visibility = android.view.View.GONE
-            btnUnlink.visibility = android.view.View.VISIBLE
+            btnPair.visibility = View.GONE
+            etPairingCode.visibility = View.GONE
+            btnSyncNow.visibility = View.VISIBLE
+            btnUnlink.visibility = View.VISIBLE
         } else {
             tvStatus.text = "❌ No Vinculado"
             tvStatus.setTextColor(android.graphics.Color.parseColor("#DC2626"))
             tvDeviceDetails.text = "Genera un código de vinculación en Enlace Web e ingrésalo a continuación."
-            btnPair.visibility = android.view.View.VISIBLE
-            etPairingCode.visibility = android.view.View.VISIBLE
-            btnUnlink.visibility = android.view.View.GONE
+            btnPair.visibility = View.VISIBLE
+            etPairingCode.visibility = View.VISIBLE
+            btnSyncNow.visibility = View.GONE
+            btnUnlink.visibility = View.GONE
         }
 
         val caps = capabilitiesRegistry.getCapabilitiesMap()
