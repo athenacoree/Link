@@ -10,7 +10,7 @@ async function getAISettings() {
   const config = {
     ai_provider: process.env.AI_PROVIDER || 'openrouter',
     openrouter_api_key: process.env.OPENROUTER_API_KEY || '',
-    openrouter_model: process.env.OPENROUTER_MODEL || 'meta-llama/llama-3.1-8b-instruct:free',
+    openrouter_model: process.env.OPENROUTER_MODEL || 'openrouter/free',
     fallback_provider: process.env.FALLBACK_PROVIDER || 'huggingface',
     fallback_model: process.env.FALLBACK_MODEL || 'meta-llama/Llama-3.2-3B-Instruct',
     hf_token: process.env.HF_TOKEN || '',
@@ -42,7 +42,7 @@ async function getAISettings() {
   try {
     const { rows } = await query(
       `SELECT key, value FROM system_settings WHERE key IN (
-        'ai_provider', 'openrouter_model',
+        'ai_provider',
         'fallback_provider', 'fallback_model',
         'hf_token', 'hf_model', 'hf_provider',
         'gemini_api_key', 'gemini_model',
@@ -65,8 +65,9 @@ async function getAISettings() {
     // If system_settings cannot be queried, fall back to defaults
   }
 
-  // La clave de OpenRouter se obtiene exclusivamente de process.env.OPENROUTER_API_KEY
+  // La clave y modelo de OpenRouter se obtienen exclusivamente de process.env
   config.openrouter_api_key = process.env.OPENROUTER_API_KEY || '';
+  config.openrouter_model = process.env.OPENROUTER_MODEL || 'openrouter/free';
 
   return config;
 }
@@ -197,14 +198,14 @@ async function callOpenAICompatible({ endpoint, apiKey, model, messages, maxToke
  */
 const ProviderAdapters = {
   openrouter: async ({ settings, messages, maxTokens, modelOverride, visionImage, signal }) => {
-    const apiKey = (settings.openrouter_api_key || '').trim();
+    const apiKey = (settings.openrouter_api_key || process.env.OPENROUTER_API_KEY || '').trim();
     if (!apiKey) {
       return {
         ok: false,
         error: { code: 'NO_API_KEY', message: 'OpenRouter API Key no configurada.', retryable: true },
       };
     }
-    const model = modelOverride || settings.openrouter_model || 'meta-llama/llama-3.1-8b-instruct:free';
+    const model = modelOverride || settings.openrouter_model || process.env.OPENROUTER_MODEL || 'openrouter/free';
     return callOpenAICompatible({
       endpoint: 'https://openrouter.ai/api/v1/chat/completions',
       apiKey,
@@ -389,7 +390,7 @@ async function chatCompletion({
   if (model) {
     attemptsSequence.push({ provider: primaryProvider, model });
   } else if (primaryProvider === 'openrouter') {
-    const mainModel = settings.openrouter_model || 'meta-llama/llama-3.1-8b-instruct:free';
+    const mainModel = settings.openrouter_model || process.env.OPENROUTER_MODEL || 'openrouter/free';
     attemptsSequence.push({ provider: 'openrouter', model: mainModel });
   } else {
     attemptsSequence.push({ provider: primaryProvider, model: null });
@@ -547,10 +548,7 @@ async function getOpenRouterFreeModels() {
   }
 
   const fallbackFreeModels = [
-    { id: 'meta-llama/llama-3.1-8b-instruct:free', isVision: false },
-    { id: 'google/gemma-2-9b-it:free', isVision: false },
-    { id: 'mistralai/mistral-7b-instruct:free', isVision: false },
-    { id: 'qwen/qwen-2.5-7b-instruct:free', isVision: false },
+    { id: process.env.OPENROUTER_MODEL || 'openrouter/free', isVision: true },
   ];
 
   try {

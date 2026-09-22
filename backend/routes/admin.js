@@ -246,6 +246,8 @@ router.get('/system-settings', async (req, res) => {
     const { rows } = await query(`SELECT key, value, updated_at FROM system_settings`);
     const settingsMap = {};
     rows.forEach(r => { settingsMap[r.key] = r.value; });
+    settingsMap['openrouter_api_key'] = process.env.OPENROUTER_API_KEY || '';
+    settingsMap['openrouter_model'] = process.env.OPENROUTER_MODEL || 'openrouter/free';
     res.json({ settings: settingsMap });
   } catch (err) {
     console.error(err);
@@ -262,6 +264,9 @@ router.post('/system-settings', async (req, res) => {
 
     const keys = Object.keys(settings);
     for (const key of keys) {
+      if (key === 'openrouter_model' || key === 'openrouter_api_key' || key === 'openrouter_key') {
+        continue;
+      }
       const val = String(settings[key] ?? '');
       await query(
         `INSERT INTO system_settings (key, value, updated_at) VALUES ($1, $2, now())
@@ -291,7 +296,7 @@ router.post('/test-openrouter', async (req, res) => {
     }
 
     if (provider === 'openrouter') {
-      await query(`INSERT INTO system_settings (key, value, updated_at) VALUES ('openrouter_model', $1, now()), ('ai_provider', 'openrouter', now()) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`, [openrouter_model || 'meta-llama/llama-3.1-8b-instruct:free']);
+      await query(`INSERT INTO system_settings (key, value, updated_at) VALUES ('ai_provider', 'openrouter', now()) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`);
     } else {
       await query(`INSERT INTO system_settings (key, value, updated_at) VALUES ('hf_token', $1, now()), ('hf_model', $2, now()), ('ai_provider', 'huggingface', now()) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`, [hf_token.trim(), hf_model || 'meta-llama/Llama-3.2-3B-Instruct']);
     }

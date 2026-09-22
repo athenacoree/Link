@@ -1,9 +1,22 @@
 const assert = require('assert');
-const { pruneMessages, chatCompletion, ProviderAdapters } = require('../services/aiService');
+const { getAISettings, pruneMessages, chatCompletion, getOpenRouterFreeModels, ProviderAdapters } = require('../services/aiService');
 const ToolManager = require('../tools/ToolManager');
 
 async function runSystemTests() {
   console.log('=== INICIANDO PRUEBAS DEL SISTEMA IA DE ENLACE ===');
+
+  // 0. Prueba de Configuración OpenRouter desde Entorno
+  console.log('0. Probando getAISettings() y prioridad de variables de entorno de OpenRouter...');
+  process.env.OPENROUTER_MODEL = 'openrouter/free';
+  process.env.OPENROUTER_API_KEY = 'sk-or-v1-test-key';
+  const settings = await getAISettings();
+  assert.strictEqual(settings.openrouter_model, 'openrouter/free', 'openrouter_model debe coincidir con process.env.OPENROUTER_MODEL');
+  assert.strictEqual(settings.openrouter_api_key, 'sk-or-v1-test-key', 'openrouter_api_key debe coincidir con process.env.OPENROUTER_API_KEY');
+
+  const freeModels = await getOpenRouterFreeModels();
+  assert.ok(Array.isArray(freeModels) && freeModels.length > 0, 'getOpenRouterFreeModels debe devolver al menos un modelo');
+  console.log(`   ℹ️ Se obtuvieron ${freeModels.length} modelos gratuitos de OpenRouter.`);
+  console.log('   ✅ Configuración de OpenRouter en entorno validada.');
 
   // 1. Prueba de Prune Messages (Context Budgeting)
   console.log('1. Probando pruneMessages()...');

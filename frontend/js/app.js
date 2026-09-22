@@ -2168,7 +2168,7 @@ async function cargarAdminAIConfig() {
     if ($('boxConfigHuggingFace')) $('boxConfigHuggingFace').style.display = provider === 'huggingface' ? 'block' : 'none';
 
     if ($('adminOpenRouterKey')) $('adminOpenRouterKey').value = settings.openrouter_api_key || '';
-    if ($('adminOpenRouterModel')) $('adminOpenRouterModel').value = settings.openrouter_model || 'meta-llama/llama-3.1-8b-instruct:free';
+    if ($('adminOpenRouterModel')) $('adminOpenRouterModel').value = settings.openrouter_model || 'openrouter/free';
     if ($('adminHFToken')) $('adminHFToken').value = settings.hf_token || '';
     if ($('adminHFModel')) $('adminHFModel').value = settings.hf_model || 'meta-llama/Llama-3.2-3B-Instruct';
 
@@ -2380,7 +2380,7 @@ $('adminBtnSaveAI')?.addEventListener('click', async () => {
   try {
     const payload = {
       ai_provider: $('adminAIProvider').value,
-      openrouter_model: $('adminOpenRouterModel').value.trim() || 'meta-llama/llama-3.1-8b-instruct:free',
+        openrouter_model: $('adminOpenRouterModel').value.trim() || 'openrouter/free',
       hf_token: $('adminHFToken').value.trim(),
       hf_model: $('adminHFModel').value.trim() || 'meta-llama/Llama-3.2-3B-Instruct',
       ai_name: $('adminAIName').value.trim() || 'Link AI',
