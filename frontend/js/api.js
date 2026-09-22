@@ -123,7 +123,12 @@ async function api(path, { method = 'GET', body, sinAuth = false } = {}) {
   if (!res.ok) {
     if (res.status === 401 && !sinAuth) {
       Sesion.cerrar();
-      window.location.reload();
+      const authScreen = document.getElementById('authScreen');
+      const appShell = document.getElementById('appShell');
+      if (authScreen && appShell) {
+        authScreen.classList.remove('oculto');
+        appShell.classList.add('oculto');
+      }
     }
     throw new Error(data.error || `Error ${res.status}`);
   }
