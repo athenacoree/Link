@@ -86,13 +86,36 @@ router.post('/chat', requireAuth, aiRateLimiter, async (req, res) => {
       }
     }
 
-    // Detectar intención de herramienta automática
+    // Detectar intención de herramienta automática y ejecutar antes de llamar a la IA
     const detectedTool = ToolManager.detectToolIntent(userPrompt);
+    let toolResult = docResult;
+    if (detectedTool && !toolResult) {
+      toolResult = await ToolManager.executeTool(detectedTool.tool, detectedTool.params, req.user.id);
+    }
 
-    const inputMessages = messages || [
+    let toolContextText = '';
+    if (toolResult) {
+      if (toolResult.error) {
+        toolContextText = `\n\n[Información de Herramienta '${detectedTool?.tool || 'desconocida'}']: Ocurrió un error al consultar: ${toolResult.error}`;
+      } else if (toolResult.data) {
+        toolContextText = `\n\n[Datos obtenidos de la herramienta '${detectedTool?.tool || toolResult.type || 'ejecutada'}']: ${JSON.stringify(toolResult.data)}`;
+      }
+    }
+
+    const inputMessages = messages ? [...messages] : [
       { role: 'system', content: settings.ai_personality },
-      { role: 'user', content: userPrompt || 'Hola' },
+      { role: 'user', content: (userPrompt || 'Hola') + toolContextText },
     ];
+
+    if (messages && toolContextText && inputMessages.length > 0) {
+      const lastMsg = { ...inputMessages[inputMessages.length - 1] };
+      if (lastMsg.role === 'user') {
+        lastMsg.content = (lastMsg.content || '') + toolContextText;
+        inputMessages[inputMessages.length - 1] = lastMsg;
+      } else {
+        inputMessages.push({ role: 'user', content: toolContextText });
+      }
+    }
 
     const result = await chatCompletion({
       messages: inputMessages,
@@ -100,11 +123,6 @@ router.post('/chat', requireAuth, aiRateLimiter, async (req, res) => {
       maxTokens: settings.ai_max_tokens,
       visionImage: vision_image || null,
     });
-
-    let toolResult = docResult;
-    if (detectedTool && !toolResult) {
-      toolResult = await ToolManager.executeTool(detectedTool.tool, detectedTool.params, req.user.id);
-    }
 
     res.json({
       available: result.available,

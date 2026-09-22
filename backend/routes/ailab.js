@@ -61,7 +61,7 @@ router.get('/messages', requireAuth, async (req, res) => {
 
 // POST /api/ailab/messages - Enviar mensaje a la sala global
 router.post('/messages', requireAuth, validateAILabLimits, async (req, res) => {
-  const { message, image_url, file_data } = req.body;
+  const { message, image_url, file_data, character_id } = req.body;
   if (!message && !image_url && !file_data) {
     return res.status(400).json({ error: 'Debes enviar un mensaje, imagen o archivo.' });
   }
@@ -74,6 +74,7 @@ router.post('/messages', requireAuth, validateAILabLimits, async (req, res) => {
       messageText: message,
       imageUrl: image_url || null,
       fileData: file_data || null,
+      characterId: character_id || null,
     });
 
     res.json(result);

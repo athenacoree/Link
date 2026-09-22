@@ -352,6 +352,7 @@ window.AILab = {
           message,
           image_url: imageAttachment ? imageAttachment.data : null,
           file_data: fileDataObj,
+          character_id: this.activeCharacterId || null,
         }
       });
     } catch (err) {

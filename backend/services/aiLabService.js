@@ -119,6 +119,7 @@ async function processUserMessageInGlobalRoom({
   messageText,
   imageUrl = null,
   fileData = null,
+  characterId = null,
 }) {
   // 1. Reiniciar contador de respuestas consecutivas de IA (un humano ha intervenido)
   await query(
@@ -156,20 +157,48 @@ async function processUserMessageInGlobalRoom({
     toolResult,
   });
 
+  // 5. Seleccionar personaje de IA
+  let activeChar = null;
+
+  if (characterId) {
+    const { rows } = await query(
+      `SELECT * FROM ai_characters WHERE id = $1 AND (is_public = true OR user_id = $2)`,
+      [characterId, userId]
+    );
+    if (rows.length > 0) activeChar = rows[0];
+  }
+
+  if (!activeChar && fullUserMsg.includes('@')) {
+    const mentionMatch = fullUserMsg.match(/@([a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ\s]+)/);
+    if (mentionMatch) {
+      const charName = mentionMatch[1].trim();
+      const { rows } = await query(
+        `SELECT * FROM ai_characters WHERE LOWER(name) LIKE LOWER($1) AND (is_public = true OR user_id = $2) LIMIT 1`,
+        [`%${charName}%`, userId]
+      );
+      if (rows.length > 0) activeChar = rows[0];
+    }
+  }
+
+  if (!activeChar) {
+    const { rows: chars } = await query(`SELECT * FROM ai_characters WHERE is_public = true ORDER BY RANDOM() LIMIT 1`);
+    if (chars.length > 0) activeChar = chars[0];
+  }
+
+  if (!activeChar) {
+    activeChar = {
+      id: null,
+      name: 'Link AI',
+      avatar: '🤖',
+      personality: 'Eres Link AI, el asistente inteligente principal de la sala global. Responde en español con precisión y dinamismo.'
+    };
+  }
+
   // Avisar estado "Pensando..."
   broadcastToGlobalRoom('ailab:status', {
     isWorking: true,
-    text: '🤖 Asistente IA procesando respuesta...'
+    text: `${activeChar.avatar || '🤖'} ${activeChar.name} está procesando respuesta...`
   });
-
-  // 5. Seleccionar un personaje de IA disponible o el asistente principal
-  const { rows: chars } = await query(`SELECT * FROM ai_characters WHERE is_public = true ORDER BY RANDOM() LIMIT 1`);
-  const activeChar = chars.length > 0 ? chars[0] : {
-    id: null,
-    name: 'Link AI',
-    avatar: '🤖',
-    personality: 'Eres Link AI, el asistente inteligente principal de la sala global. Responde en español con precisión y dinamismo.'
-  };
 
   // 6. Obtener contexto reciente de la sala global
   const recentHistory = await getGlobalMessages(12);
@@ -184,12 +213,21 @@ async function processUserMessageInGlobalRoom({
   const settings = await getAISettings();
   const sysPrompt = `Eres ${activeChar.name} (${activeChar.personality}). Estás en la sala global pública de Enlace con todos los usuarios. Responde amablemente en español manteniendo siempre tu personaje. Puedes usar formato conciso y emojis si aplica.`;
 
+  let toolContextText = '';
+  if (toolResult) {
+    if (toolResult.error) {
+      toolContextText = `\n\n[Información de Herramienta '${detectedTool?.tool || 'desconocida'}']: Ocurrió un error al consultar: ${toolResult.error}`;
+    } else if (toolResult.data) {
+      toolContextText = `\n\n[Datos obtenidos de la herramienta '${detectedTool?.tool || toolResult.type || 'ejecutada'}']: ${JSON.stringify(toolResult.data)}`;
+    }
+  }
+
   try {
     const aiResult = await chatCompletion({
       messages: [
         { role: 'system', content: sysPrompt },
         ...formattedHistory,
-        { role: 'user', content: `${userName}: ${fullUserMsg}` }
+        { role: 'user', content: `${userName}: ${fullUserMsg}${toolContextText}` }
       ],
       maxTokens: settings.ai_max_tokens,
       visionImage: imageUrl || null,
@@ -339,21 +377,41 @@ async function runRetentionCleanupJob() {
 }
 
 /**
+ * Programar la siguiente ejecución del bucle autómata usando el intervalo configurado en ailab_auto_interval_sec
+ */
+async function scheduleNextAutoLoopTurn() {
+  if (autoLoopTimer) {
+    clearTimeout(autoLoopTimer);
+    autoLoopTimer = null;
+  }
+
+  let intervalSec = 30;
+  try {
+    const settings = await getAISettings();
+    intervalSec = Math.max(5, parseInt(settings.ailab_auto_interval_sec, 10) || 30);
+  } catch (e) {}
+
+  autoLoopTimer = setTimeout(async () => {
+    try {
+      await runAutoAIChatLoopTurn();
+    } catch (e) {
+      console.error('Error en turno de bucle IA:', e);
+    } finally {
+      scheduleNextAutoLoopTurn();
+    }
+  }, intervalSec * 1000);
+}
+
+/**
  * Iniciar contadores y tareas en segundo plano
  */
 function initAILabBackgroundJobs(io) {
   if (io) setAILabIO(io);
 
-  if (autoLoopTimer) clearInterval(autoLoopTimer);
+  if (autoLoopTimer) clearTimeout(autoLoopTimer);
   if (retentionJobTimer) clearInterval(retentionJobTimer);
 
-  autoLoopTimer = setInterval(async () => {
-    try {
-      const settings = await getAISettings();
-      const intervalSec = Math.max(10, parseInt(settings.ailab_auto_interval_sec, 10) || 30);
-      await runAutoAIChatLoopTurn();
-    } catch (e) {}
-  }, 25000);
+  scheduleNextAutoLoopTurn();
 
   retentionJobTimer = setInterval(() => {
     runRetentionCleanupJob();

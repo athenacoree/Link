@@ -26,6 +26,7 @@ const devTools = require('./devTools');
 const mediaTools = require('./mediaTools');
 const socialDataTools = require('./socialDataTools');
 const utilityTools = require('./utilityTools');
+const dynamicEngine = require('./dynamicApiEngine');
 
 const tools = {
   'web.search': webSearch.search,
@@ -270,7 +271,22 @@ function getToolDefinitions() {
       parameters: { type: 'object', properties: { number: { type: 'string' } } }
     }
   ];
+
+  const dynamicApis = dynamicEngine.INITIAL_DISCOVERY_CATALOG || [];
+  dynamicApis.forEach(api => {
+    const toolName = `dynamic.${api.name.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+    baseDefs.push({
+      name: toolName,
+      description: api.description,
+      parameters: { type: 'object', properties: api.params_schema || {} }
+    });
+  });
+
+  return baseDefs;
 }
+
+// Sincronizar de forma síncrona/inicial el catálogo de APIs dinámicas
+dynamicEngine.syncDynamicApisWithToolManager({ tools }).catch(() => {});
 
 async function executeTool(name, params = {}, requesterId = null) {
   const toolFn = tools[name];
