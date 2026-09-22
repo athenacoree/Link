@@ -388,7 +388,11 @@ async function scheduleNextAutoLoopTurn() {
   let intervalSec = 30;
   try {
     const settings = await getAISettings();
-    intervalSec = Math.max(5, parseInt(settings.ailab_auto_interval_sec, 10) || 30);
+    if (settings.ailab_auto_interval_min) {
+      intervalSec = Math.max(5, Math.round((parseFloat(settings.ailab_auto_interval_min) || 0.5) * 60));
+    } else {
+      intervalSec = Math.max(5, parseInt(settings.ailab_auto_interval_sec, 10) || 30);
+    }
   } catch (e) {}
 
   autoLoopTimer = setTimeout(async () => {

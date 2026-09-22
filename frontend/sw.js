@@ -4,7 +4,7 @@
    y "network-first" para todo lo que empiece con /api, porque esos datos
    deben ser siempre reales y frescos (perfiles, mensajes, feed...).
    ========================================================= */
-const CACHE_NAME = 'enlace-shell-v2';
+const CACHE_NAME = 'enlace-shell-v3';
 const ARCHIVOS_SHELL = [
   '/',
   '/index.html',

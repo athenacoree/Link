@@ -645,6 +645,62 @@
         <div class="campo"><label>Límite de Tokens de Contexto</label><input type="number" id="adminAIContextTokens" value="4000"></div>
       </div>
 
+      <!-- Pausa y Configuración de Frecuencia / Tiempos del Chat de IA -->
+      <div class="panel-acordeon" style="margin-top:10px;">
+        <div class="panel-header" onclick="toggleAcordeon(this)">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+            <span style="font-weight:700; font-size:13px;">Control del Chat de IA (Pausa y Tiempos)</span>
+          </div>
+          <svg class="chevron-acordeon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
+        </div>
+        <div class="panel-body">
+          <div class="campo">
+            <label>Estado del Chat Autónomo de IA</label>
+            <div style="display:flex; gap:10px; align-items:center;">
+              <button class="btn btn-secundario" id="adminBtnTogglePauseAI" style="flex:1;">⏸️ Pausar Conversación de IA</button>
+            </div>
+          </div>
+          <div class="grid-2">
+            <div class="campo"><label>Frecuencia / Intervalo (Minutos)</label><input type="number" id="adminAILabAutoIntervalMin" value="0.5" step="0.1" min="0.1"></div>
+            <div class="campo"><label>Límite de Turnos Consecutivos</label><input type="number" id="adminAILabAutoMaxTurns" value="10" min="1"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Gestión de Personajes e Identidades de IA -->
+      <div class="panel-acordeon" style="margin-top:10px;">
+        <div class="panel-header" onclick="toggleAcordeon(this)">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="7" r="4"/><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/></svg>
+            <span style="font-weight:700; font-size:13px;">Personajes de IA (Añadir / Personalizar Nombre, Rasgos y Fotos)</span>
+          </div>
+          <svg class="chevron-acordeon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
+        </div>
+        <div class="panel-body">
+          <div id="adminListaPersonajesIA" style="display:flex; flex-direction:column; gap:8px; margin-bottom:12px;"></div>
+          <div style="border-top:1px solid var(--borde); padding-top:10px;">
+            <div style="font-weight:700; font-size:12px; margin-bottom:6px; color:var(--morado-700);" id="adminTituloFormPersonaje">Crear Nuevo Personaje</div>
+            <input type="hidden" id="adminPersonajeId">
+            <div class="campo"><label>Nombre del Personaje</label><input type="text" id="adminPersonajeNombre" placeholder="Ej: Sophia (Asistente), Link AI, etc."></div>
+            <div class="campo">
+              <label>Avatar / Foto (URL o Emoji)</label>
+              <div style="display:flex; gap:8px;">
+                <input type="text" id="adminPersonajeAvatar" placeholder="🤖 o https://..." style="flex:1;">
+                <button class="btn btn-secundario" id="adminBtnUploadPersonajeFoto" style="padding:6px 12px; font-size:12px;">Foto 📷</button>
+                <input type="file" id="adminPersonajeFotoInput" accept="image/*" style="display:none">
+              </div>
+            </div>
+            <div class="campo"><label>Personalidad y Rasgos</label><textarea id="adminPersonajePersonalidad" rows="2" placeholder="Describe los rasgos, estilo de conversación y personalidad..."></textarea></div>
+            <div class="campo"><label>Mensaje de Saludo</label><input type="text" id="adminPersonajeSaludo" placeholder="¡Hola! ¿En qué puedo ayudarte hoy?"></div>
+            <div style="display:flex; gap:8px; margin-top:8px;">
+              <button class="btn btn-primario" id="adminBtnGuardarPersonaje" style="flex:1; font-size:12px;">Guardar Personaje 💾</button>
+              <button class="btn btn-secundario" id="adminBtnLimpiarPersonaje" style="font-size:12px;">Limpiar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Límites específicos para Laboratorio IA -->
       <div class="panel-acordeon" style="margin-top:10px;">
         <div class="panel-header" onclick="toggleAcordeon(this)">

@@ -190,12 +190,19 @@ window.AILab = {
         return;
       }
 
-      container.innerHTML = chars.map(c => `
-        <div class="ailab-char-chip ${this.activeCharacterId === c.id ? 'activo' : ''}" onclick="AILab.selectCharacter('${c.id}', '${escapeHTMLAILab(c.name)}')">
-          <span style="font-size:16px;">${escapeHTMLAILab(c.avatar || '🤖')}</span>
-          <span>${escapeHTMLAILab(c.name)}</span>
-        </div>
-      `).join('');
+      container.innerHTML = chars.map(c => {
+        const isImg = c.avatar && (c.avatar.startsWith('http') || c.avatar.startsWith('data:image'));
+        const avatarHTML = isImg
+          ? `<img src="${c.avatar}" style="width:20px; height:20px; border-radius:50%; object-fit:cover;" />`
+          : `<span style="font-size:16px;">${escapeHTMLAILab(c.avatar || '🤖')}</span>`;
+
+        return `
+          <div class="ailab-char-chip ${this.activeCharacterId === c.id ? 'activo' : ''}" onclick="AILab.selectCharacter('${c.id}', '${escapeHTMLAILab(c.name)}')">
+            ${avatarHTML}
+            <span>${escapeHTMLAILab(c.name)}</span>
+          </div>
+        `;
+      }).join('');
     } catch (err) {
       console.error('Error al cargar personajes de IA:', err);
     }
@@ -293,7 +300,15 @@ window.AILab = {
     const msgHtml = `
       <div class="ailab-msg-row ${isMe ? 'me' : 'ot'}" id="ailab-msg-${msg.id}">
         <div class="ailab-msg-meta ${isMe ? 'me' : 'ot'}">
-          <span>${msg.sender_type === 'ai' ? (msg.sender_avatar || '🤖') : '👤'} ${escapeHTMLAILab(msg.sender_name)} <span style="font-weight:400; opacity:0.7; font-size:10.5px;">• ${timeStr}</span></span>
+          <span style="display:inline-flex; align-items:center; gap:4px;">
+            ${msg.sender_type === 'ai' ? (
+              (msg.sender_avatar && (msg.sender_avatar.startsWith('http') || msg.sender_avatar.startsWith('data:image')))
+                ? `<img src="${msg.sender_avatar}" style="width:16px; height:16px; border-radius:50%; object-fit:cover; vertical-align:middle;" />`
+                : (msg.sender_avatar || '🤖')
+            ) : '👤'}
+            ${escapeHTMLAILab(msg.sender_name)}
+            <span style="font-weight:400; opacity:0.7; font-size:10.5px;">• ${timeStr}</span>
+          </span>
           ${canDelete ? `<button class="ailab-msg-delete-btn" onclick="AILab.deleteMessage('${msg.id}')" title="Eliminar mensaje">🗑️</button>` : ''}
         </div>
         <div class="ailab-msg-bubble ${isMe ? 'me' : 'ot'}">
