@@ -276,7 +276,7 @@ router.get('/:id/vcard', requireAuth, async (req, res) => {
 router.put('/me/perfil', requireAuth, async (req, res) => {
   const campos = [
     'name', 'phone', 'country_code', 'instagram', 'social_links', 'other_links', 'birthdate', 'gender', 'skin_color', 'relationship_status',
-    'profession', 'bio', 'city', 'country', 'flag_emoji', 'status_text',
+    'profession', 'bio', 'city', 'state', 'country', 'flag_emoji', 'status_text',
   ];
   const sets = [];
   const values = [];
