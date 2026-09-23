@@ -65,10 +65,11 @@ const Monetizacion = (() => {
       const res = await api('/monetizacion/precios');
       return {
         price_verification: res.price_verification || 5.00,
-        price_username: res.price_username || 10.00
+        price_username: res.price_username || 10.00,
+        price_min_ad_budget: res.price_min_ad_budget || 2.00
       };
     } catch (e) {
-      return { price_verification: 5.00, price_username: 10.00 };
+      return { price_verification: 5.00, price_username: 10.00, price_min_ad_budget: 2.00 };
     }
   }
 
@@ -273,8 +274,12 @@ const Monetizacion = (() => {
 
   // ---------------- 3. CAMPAÑAS / PUBLICIDAD ----------------
   async function renderCampanas(cont) {
-    const data = await api('/monetizacion/campanas/mis-campanas');
+    const [data, precios] = await Promise.all([
+      api('/monetizacion/campanas/mis-campanas'),
+      getPreciosMonetizacion()
+    ]);
     const campanas = data.campanas || [];
+    const minBudgetStr = parseFloat(precios.price_min_ad_budget).toFixed(2);
 
     let html = `
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
@@ -283,7 +288,7 @@ const Monetizacion = (() => {
       </div>
 
       <div id="formCrearCampanaBox" style="display:none; background:var(--blanco); border:1px solid var(--borde); border-radius:14px; padding:16px; margin-bottom:16px;">
-        <div style="font-weight:700; margin-bottom:12px; color:var(--morado-700);">Configurar Nueva Campaña</div>
+        <div style="font-weight:700; margin-bottom:12px; color:var(--morado-700);">Configurar Nueva Campaña (Mínimo $${minBudgetStr} USD)</div>
         <div class="campo"><label>Título del anuncio</label><input type="text" id="adTitle" placeholder="Ej. Mi Negocio / Servicio"></div>
         <div class="campo"><label>Descripción corta</label><textarea id="adDesc" rows="2" placeholder="Detalles de la oferta o promocion..."></textarea></div>
         <div class="grid-2">
@@ -292,7 +297,7 @@ const Monetizacion = (() => {
         </div>
         <div class="campo"><label>Imagen URL (opcional)</label><input type="url" id="adImgUrl" placeholder="https://.../foto.jpg"></div>
         <div class="grid-2">
-          <div class="campo"><label>Presupuesto USD ($)</label><input type="number" id="adBudget" min="2" value="5.00" step="0.50"></div>
+          <div class="campo"><label>Presupuesto USD ($)</label><input type="number" id="adBudget" min="${minBudgetStr}" value="${minBudgetStr}" step="0.50"></div>
           <div class="campo"><label>Duración (Días)</label><input type="number" id="adDays" min="1" value="7"></div>
         </div>
         <div style="display:flex; gap:8px; margin-top:12px;">

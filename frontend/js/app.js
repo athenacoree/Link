@@ -2268,7 +2268,11 @@ async function cargarAdminAIConfig() {
     if ($('adminAILabAutoMaxTurns')) $('adminAILabAutoMaxTurns').value = settings.ailab_auto_max_consecutive_turns || '10';
 
     if ($('adminAILabMaxMsgLen')) $('adminAILabMaxMsgLen').value = settings.ailab_max_msg_length || 2000;
-    if ($('adminAILabTimeoutMs')) $('adminAILabTimeoutMs').value = settings.ailab_timeout_ms || 30000;
+    if ($('adminAILabTimeoutMs')) $('adminAILabTimeoutMs').value = settings.ailab_timeout_ms || 120000;
+
+    if ($('adminPriceVerif')) $('adminPriceVerif').value = settings.price_verification || '5.00';
+    if ($('adminPriceUname')) $('adminPriceUname').value = settings.price_username || '10.00';
+    if ($('adminPriceMinAdBudget')) $('adminPriceMinAdBudget').value = settings.price_min_ad_budget || '2.00';
 
     const isPaused = settings.ailab_auto_paused === 'true';
     if ($('adminBtnTogglePauseAI')) {
@@ -2403,16 +2407,20 @@ $('adminBtnTogglePauseAI')?.addEventListener('click', async () => {
     const isPaused = settings.ailab_auto_paused === 'true';
     const nextState = isPaused ? 'false' : 'true';
 
-    await api('/admin/system-settings', {
-      method: 'POST',
-      body: { settings: { ailab_auto_paused: nextState, ailab_auto_consecutive_counter: '0' } }
-    });
+    if (nextState === 'true') {
+      await api('/ailab/stop', { method: 'POST' });
+    } else {
+      await api('/admin/system-settings', {
+        method: 'POST',
+        body: { settings: { ailab_auto_paused: 'false', ailab_auto_consecutive_counter: '0' } }
+      });
+    }
 
     if ($('adminBtnTogglePauseAI')) {
       $('adminBtnTogglePauseAI').textContent = nextState === 'true' ? '▶️ Reanudar Conversación de IA' : '⏸️ Pausar Conversación de IA';
     }
 
-    mostrarToast(nextState === 'true' ? 'Conversación de IA pausada ⏸️' : 'Conversación de IA reanudada ▶️');
+    mostrarToast(nextState === 'true' ? 'Conversación de IA pausada y detenida ⏸️' : 'Conversación de IA reanudada ▶️');
   } catch (e) {
     mostrarToast(e.message);
   }
@@ -2468,9 +2476,12 @@ $('adminBtnSaveAI')?.addEventListener('click', async () => {
       ailab_max_msg_length: $('adminAILabMaxMsgLen').value || '2000',
       ailab_max_personality_length: $('adminAILabMaxPersLen')?.value || '1000',
       ailab_max_history: $('adminAILabMaxHistory')?.value || '10',
-      ailab_timeout_ms: $('adminAILabTimeoutMs').value || '30000',
+      ailab_timeout_ms: $('adminAILabTimeoutMs').value || '120000',
       ailab_auto_interval_min: $('adminAILabAutoIntervalMin')?.value || '0.5',
       ailab_auto_max_consecutive_turns: $('adminAILabAutoMaxTurns')?.value || '10',
+      price_verification: $('adminPriceVerif')?.value || '5.00',
+      price_username: $('adminPriceUname')?.value || '10.00',
+      price_min_ad_budget: $('adminPriceMinAdBudget')?.value || '2.00',
     };
 
     await api('/admin/system-settings', { method: 'POST', body: { settings: payload } });

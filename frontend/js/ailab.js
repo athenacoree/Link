@@ -201,32 +201,9 @@ window.AILab = {
 
   async loadCharacters() {
     const container = document.getElementById('ailabActiveCharacters');
-    const header = document.querySelector('.ailab-chat-header');
     if (!container) return;
-
     try {
-      const chars = await api('/ailab/characters');
-      if (!Array.isArray(chars) || chars.length === 0) {
-        container.innerHTML = '';
-        if (header) header.style.display = 'none';
-        return;
-      }
-
-      if (header) header.style.display = 'flex';
-
-      container.innerHTML = chars.map(c => {
-        const isImg = c.avatar && (c.avatar.startsWith('http') || c.avatar.startsWith('data:image'));
-        const avatarHTML = isImg
-          ? `<img src="${c.avatar}" style="width:20px; height:20px; border-radius:50%; object-fit:cover;" />`
-          : `<span style="font-size:16px;">${escapeHTMLAILab(c.avatar || '🤖')}</span>`;
-
-        return `
-          <div class="ailab-char-chip ${this.activeCharacterId === c.id ? 'activo' : ''}" onclick="AILab.selectCharacter('${c.id}', '${escapeHTMLAILab(c.name)}')">
-            ${avatarHTML}
-            <span>${escapeHTMLAILab(c.name)}</span>
-          </div>
-        `;
-      }).join('');
+      this.characters = await api('/ailab/characters');
     } catch (err) {
       console.error('Error al cargar personajes de IA:', err);
     }
@@ -257,7 +234,11 @@ window.AILab = {
     }
   },
 
-  cancelGeneration() {
+  async cancelGeneration() {
+    this.setStatus('Deteniendo...', false);
+    try {
+      await api('/ailab/stop', { method: 'POST' });
+    } catch (e) {}
     this.setStatus(null, false);
   },
 

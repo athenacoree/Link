@@ -8,6 +8,7 @@ const {
   deleteGlobalMessage,
   processUserMessageInGlobalRoom,
   runAutoAIChatLoopTurn,
+  stopAILabConversation,
 } = require('../services/aiLabService');
 
 const router = express.Router();
@@ -105,6 +106,17 @@ router.post('/trigger-auto', requireAuth, requireAdmin, async (req, res) => {
     res.json({ ok: true, mensaje: 'Turno de IA ejecutado correctamente.' });
   } catch (err) {
     res.status(500).json({ error: 'Error ejecutando turno de IA.' });
+  }
+});
+
+// POST /api/ailab/stop - Detener inmediatamente cualquier conversación activa de la IA
+router.post('/stop', requireAuth, async (req, res) => {
+  try {
+    const result = await stopAILabConversation();
+    res.json(result);
+  } catch (err) {
+    console.error('Error al detener la IA:', err);
+    res.status(500).json({ error: 'No se pudo detener la conversación.' });
   }
 });
 
