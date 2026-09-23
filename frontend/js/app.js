@@ -38,10 +38,272 @@ function descargarImagenActualVisor() {
 }
 window.descargarImagenActualVisor = descargarImagenActualVisor;
 
-async function requerirAppEdicionFotos() {
-  await abrirModalBridgePairing();
+/* ================= EDITOR DE FOTOS CON IA (SERVICIO EXTERNO) ================= */
+let timerPollingEditorFotos = null;
+let fotoEnEdicionBase64 = null;
+
+async function requerirAppEdicionFotos(imageSrc) {
+  let src = imageSrc;
+  if (!src) {
+    const visorImg = $('imgVisorAgrandada');
+    if (visorImg && visorImg.src) src = visorImg.src;
+  }
+  abrirEditorFotosModal(src);
 }
 window.requerirAppEdicionFotos = requerirAppEdicionFotos;
+
+function abrirEditorFotosModal(imageSrc) {
+  const velo = $('veloEditorFotos');
+  const hoja = $('hojaEditorFotos');
+  if (!velo || !hoja) return;
+
+  if (timerPollingEditorFotos) {
+    clearInterval(timerPollingEditorFotos);
+    timerPollingEditorFotos = null;
+  }
+
+  $('boxEstadoEditorFotos').style.display = 'none';
+  $('boxResultadoEditorFotos').style.display = 'none';
+  $('btnEnviarEditorFotos').disabled = false;
+  $('btnEnviarEditorFotos').style.opacity = '1';
+  $('txtPromptEditorFotos').value = '';
+  $('chkUpscaleEditor').checked = false;
+
+  fotoEnEdicionBase64 = null;
+  const preview = $('imgEditorOrigenPreview');
+
+  if (imageSrc && typeof imageSrc === 'string') {
+    preview.src = imageSrc;
+    preview.style.display = 'block';
+    if (imageSrc.startsWith('data:image/')) {
+      fotoEnEdicionBase64 = imageSrc;
+    } else {
+      convertirUrlABase64(imageSrc).then(b64 => {
+        if (b64) fotoEnEdicionBase64 = b64;
+      }).catch(() => {});
+    }
+  } else {
+    preview.src = '';
+    preview.style.display = 'none';
+  }
+
+  velo.classList.add('activo');
+  hoja.classList.add('activo');
+}
+window.abrirEditorFotosModal = abrirEditorFotosModal;
+
+function cerrarEditorFotosModal() {
+  if (timerPollingEditorFotos) {
+    clearInterval(timerPollingEditorFotos);
+    timerPollingEditorFotos = null;
+  }
+  $('veloEditorFotos')?.classList.remove('activo');
+  $('hojaEditorFotos')?.classList.remove('activo');
+}
+window.cerrarEditorFotosModal = cerrarEditorFotosModal;
+
+async function cargarFotoArchivoParaEditar(e) {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  try {
+    fotoEnEdicionBase64 = await archivoABase64(file, 1024, 0.85);
+    const preview = $('imgEditorOrigenPreview');
+    if (preview) {
+      preview.src = fotoEnEdicionBase64;
+      preview.style.display = 'block';
+    }
+  } catch (err) {
+    mostrarToast('No se pudo cargar la imagen seleccionada.');
+  }
+}
+window.cargarFotoArchivoParaEditar = cargarFotoArchivoParaEditar;
+
+async function convertirUrlABase64(url) {
+  try {
+    const res = await fetch(url);
+    const blob = await res.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch (err) {
+    console.warn('No se pudo convertir URL de imagen a Base64:', err);
+    return null;
+  }
+}
+
+async function enviarTrabajoEdicionFoto() {
+  const prompt = $('txtPromptEditorFotos')?.value.trim();
+  if (!prompt) {
+    mostrarToast('Escribe una descripción de los cambios que deseas realizar.');
+    return;
+  }
+
+  let base64Target = fotoEnEdicionBase64;
+  const preview = $('imgEditorOrigenPreview');
+
+  if (!base64Target && preview && preview.src) {
+    if (preview.src.startsWith('data:image/')) {
+      base64Target = preview.src;
+    } else if (preview.src.startsWith('http')) {
+      base64Target = await convertirUrlABase64(preview.src);
+    }
+  }
+
+  if (!base64Target) {
+    mostrarToast('Por favor selecciona o carga una foto para editar.');
+    return;
+  }
+
+  const upscale = $('chkUpscaleEditor')?.checked || false;
+
+  const btnEnviar = $('btnEnviarEditorFotos');
+  btnEnviar.disabled = true;
+  btnEnviar.style.opacity = '0.6';
+
+  $('boxEstadoEditorFotos').style.display = 'block';
+  $('lblEstadoProcesandoEditor').textContent = 'Iniciando trabajo...';
+  $('lblSubEstadoEditor').textContent = 'Enviando imagen y prompt al servidor...';
+  $('boxResultadoEditorFotos').style.display = 'none';
+
+  try {
+    const res = await api('/image-editor/edit', {
+      method: 'POST',
+      body: {
+        prompt,
+        image_base64: base64Target,
+        upscale,
+        upscale_factor: '2x',
+        metadata: { client: 'enlace_web' }
+      }
+    });
+
+    const requestId = res.requestId || res.request_id;
+    if (!requestId) {
+      throw new Error('No se recibió el identificador de trabajo (requestId).');
+    }
+
+    mostrarToast('Trabajo en cola. Procesando...');
+    iniciarPollingEstadoEditor(requestId);
+
+  } catch (err) {
+    btnEnviar.disabled = false;
+    btnEnviar.style.opacity = '1';
+    $('boxEstadoEditorFotos').style.display = 'none';
+    mostrarToast(err.message || 'Error al iniciar la edición de la imagen.');
+  }
+}
+window.enviarTrabajoEdicionFoto = enviarTrabajoEdicionFoto;
+
+function iniciarPollingEstadoEditor(requestId) {
+  if (timerPollingEditorFotos) clearInterval(timerPollingEditorFotos);
+
+  let intentos = 0;
+  const maxIntentos = 120; // ~4 minutos
+
+  timerPollingEditorFotos = setInterval(async () => {
+    intentos++;
+    if (intentos > maxIntentos) {
+      clearInterval(timerPollingEditorFotos);
+      timerPollingEditorFotos = null;
+      $('lblEstadoProcesandoEditor').textContent = 'Tiempo agotado';
+      $('lblSubEstadoEditor').textContent = 'El procesamiento está demorando más de lo esperado. El trabajo continúa en segundo plano con tu ID.';
+      $('btnEnviarEditorFotos').disabled = false;
+      $('btnEnviarEditorFotos').style.opacity = '1';
+      return;
+    }
+
+    try {
+      const res = await api(`/image-editor/jobs/${encodeURIComponent(requestId)}`);
+      const status = res.status || 'processing';
+
+      if (status === 'queued') {
+        $('lblEstadoProcesandoEditor').textContent = 'En cola (queued)';
+        $('lblSubEstadoEditor').textContent = 'Tu trabajo está esperando turno en el servidor de Render...';
+      } else if (status === 'processing') {
+        $('lblEstadoProcesandoEditor').textContent = 'Procesando edición...';
+        $('lblSubEstadoEditor').textContent = 'Transformando imagen según tus instrucciones...';
+      } else if (status === 'completed') {
+        clearInterval(timerPollingEditorFotos);
+        timerPollingEditorFotos = null;
+        await obtenerYMostrarResultadoEditor(requestId);
+      } else if (status === 'failed') {
+        clearInterval(timerPollingEditorFotos);
+        timerPollingEditorFotos = null;
+        $('boxEstadoEditorFotos').style.display = 'none';
+        $('btnEnviarEditorFotos').disabled = false;
+        $('btnEnviarEditorFotos').style.opacity = '1';
+        mostrarToast(`Falló la edición: ${res.error_message || 'Error en el servidor de edición.'}`);
+      }
+    } catch (err) {
+      console.warn('Error en polling de edición:', err);
+    }
+  }, 2000);
+}
+
+async function obtenerYMostrarResultadoEditor(requestId) {
+  try {
+    const res = await api(`/image-editor/jobs/${encodeURIComponent(requestId)}/result`);
+    let result = res.result;
+    if (typeof result === 'string') {
+      try { result = JSON.parse(result); } catch (e) {}
+    }
+
+    const imgUrl = (result && (result.image_base64 || result.result_url || result.url)) || (typeof result === 'string' ? result : null);
+
+    $('boxEstadoEditorFotos').style.display = 'none';
+    $('btnEnviarEditorFotos').disabled = false;
+    $('btnEnviarEditorFotos').style.opacity = '1';
+
+    if (imgUrl) {
+      const imgRes = $('imgEditorResultadoFinal');
+      imgRes.src = imgUrl;
+      $('boxResultadoEditorFotos').style.display = 'block';
+      mostrarToast('¡Foto editada con éxito!');
+    } else {
+      mostrarToast('El trabajo fue completado pero no se pudo obtener la URL del resultado.');
+    }
+  } catch (err) {
+    $('boxEstadoEditorFotos').style.display = 'none';
+    $('btnEnviarEditorFotos').disabled = false;
+    $('btnEnviarEditorFotos').style.opacity = '1';
+    mostrarToast(err.message || 'Error al obtener el resultado de la foto.');
+  }
+}
+
+function descargarResultadoEditorFotos() {
+  const imgRes = $('imgEditorResultadoFinal');
+  if (!imgRes || !imgRes.src) return;
+  const a = document.createElement('a');
+  a.href = imgRes.src;
+  a.download = `link_edited_${Date.now()}.png`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  mostrarToast('Foto descargada');
+}
+window.descargarResultadoEditorFotos = descargarResultadoEditorFotos;
+
+async function usarResultadoComoAvatar() {
+  const imgRes = $('imgEditorResultadoFinal');
+  if (!imgRes || !imgRes.src) return;
+  try {
+    let b64 = imgRes.src;
+    if (!b64.startsWith('data:image/')) {
+      b64 = await convertirUrlABase64(imgRes.src);
+    }
+    const { user } = await api('/usuarios/me/avatar', { method: 'PUT', body: { image_base64: b64 } });
+    Sesion.actualizarUsuario(user);
+    if ($('ajustesAvatar')) $('ajustesAvatar').src = avatarDe(user);
+    mostrarToast('¡Foto de perfil actualizada!');
+    cerrarEditorFotosModal();
+  } catch (err) {
+    mostrarToast(err.message || 'Error al actualizar foto de perfil.');
+  }
+}
+window.usarResultadoComoAvatar = usarResultadoComoAvatar;
 
 function cerrarVisorImagen() {
   const visor = $('modalVisorImagen');

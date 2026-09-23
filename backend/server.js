@@ -46,6 +46,7 @@ app.use('/api/monetizacion', require('./routes/monetization'));
 app.use('/api/bridge', require('./routes/bridge'));
 app.use('/api/citas', require('./routes/appointments'));
 app.use('/api/appointments', require('./routes/appointments'));
+app.use('/api/image-editor', require('./routes/imageEditor'));
 
 // Endpoint para Android App Links (Digital Asset Links)
 app.get('/.well-known/assetlinks.json', (req, res) => {
