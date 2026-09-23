@@ -2477,7 +2477,7 @@ $('adminBtnSaveAI')?.addEventListener('click', async () => {
       ailab_max_personality_length: $('adminAILabMaxPersLen')?.value || '1000',
       ailab_max_history: $('adminAILabMaxHistory')?.value || '10',
       ailab_timeout_ms: $('adminAILabTimeoutMs').value || '120000',
-      ailab_auto_interval_min: $('adminAILabAutoIntervalMin')?.value || '0.5',
+      ailab_auto_interval_min: $('adminAILabAutoIntervalMin')?.value || '20',
       ailab_auto_max_consecutive_turns: $('adminAILabAutoMaxTurns')?.value || '10',
       price_verification: $('adminPriceVerif')?.value || '5.00',
       price_username: $('adminPriceUname')?.value || '10.00',
