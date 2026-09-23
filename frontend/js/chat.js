@@ -35,13 +35,29 @@ const Chat = (() => {
     return `${m}:${s}`;
   }
 
+  function extraerYouTubeEmbedHtml(url) {
+    try {
+      const match = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i);
+      if (match && match[1]) {
+        const videoId = match[1];
+        return `<div style="margin-top:8px; position:relative; padding-bottom:56.25%; height:0; overflow:hidden; border-radius:10px; box-shadow:0 3px 8px rgba(0,0,0,0.15);">
+          <iframe src="https://www.youtube.com/embed/${videoId}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="position:absolute; top:0; left:0; width:100%; height:100%; border-radius:10px;"></iframe>
+        </div>`;
+      }
+    } catch (e) {}
+    return '';
+  }
+
   function formatearUrlsTexto(texto) {
     if (!texto) return '';
-    if (window.procesarTextosYDriveLinks) {
-      return window.procesarTextosYDriveLinks(texto);
-    }
+    let ytEmbeds = '';
     const urlRegex = /(https?:\/\/[^\s]+)/g;
-    return texto.replace(urlRegex, (url) => {
+
+    const textoFormateado = texto.replace(urlRegex, (url) => {
+      const ytHtml = extraerYouTubeEmbedHtml(url);
+      if (ytHtml) {
+        ytEmbeds += ytHtml;
+      }
       try {
         const domain = new URL(url).hostname;
         return `<a href="${url}" target="_blank" class="chip-link-url" onclick="event.stopPropagation()">🔗 ${domain}</a>`;
@@ -49,6 +65,97 @@ const Chat = (() => {
         return `<a href="${url}" target="_blank" class="chip-link-url" onclick="event.stopPropagation()">${url}</a>`;
       }
     });
+
+    return textoFormateado + ytEmbeds;
+  }
+
+  function renderizarTarjetaResultadoHerramienta(toolResult) {
+    if (!toolResult || !toolResult.type) return '';
+    const t = toolResult.type;
+    const data = toolResult.data || {};
+
+    // 1. Tarjeta de Perfil Social / Usuario
+    if (t === 'social_profile_card') {
+      const avatarSrc = data.avatar || iconoDefecto();
+      const esAdmin = data.is_admin || data.role === 'admin';
+      const esVerificado = !!data.verified;
+
+      let badgeAdmin = esAdmin ? `<span style="background:#ef4444; color:#fff; font-size:10px; font-weight:700; padding:2px 6px; border-radius:10px; margin-left:4px;">ADMIN 👑</span>` : '';
+      let badgeVerif = esVerificado ? `<span style="color:#3b82f6; font-size:13px; margin-left:2px;" title="Verificado">✓</span>` : '';
+
+      let linksHtml = '';
+      if (data.instagram) linksHtml += `<a href="https://instagram.com/${escapar(data.instagram.replace(/^@/,''))}" target="_blank" style="color:#e1306c; text-decoration:none; font-size:12px; font-weight:600;">📷 Instagram</a> `;
+      if (data.telegram) linksHtml += `<a href="https://t.me/${escapar(data.telegram.replace(/^@/,''))}" target="_blank" style="color:#0088cc; text-decoration:none; font-size:12px; font-weight:600;">✈️ Telegram</a> `;
+      if (data.whatsapp) linksHtml += `<a href="https://wa.me/${escapar(data.whatsapp.replace(/\+/g,''))}" target="_blank" style="color:#25d366; text-decoration:none; font-size:12px; font-weight:600;">💬 WhatsApp</a> `;
+
+      return `<div style="margin-top:8px; padding:12px; background:var(--fondo-tarjeta, #ffffff); border:1px solid var(--borde, #e5e7eb); border-radius:12px; box-shadow:0 2px 6px rgba(0,0,0,0.06); max-width:280px; color:var(--texto-900, #111827);">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <img src="${escapar(avatarSrc)}" alt="" style="width:48px; height:48px; border-radius:50%; object-fit:cover; border:2px solid var(--morado-500, #8b5cf6);">
+          <div style="flex:1; min-width:0;">
+            <div style="font-weight:700; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapar(data.name || data.username)}${badgeVerif}${badgeAdmin}</div>
+            <div style="font-size:12px; opacity:0.75;">@${escapar(data.username)}</div>
+            <div style="font-size:11px; opacity:0.85; color:var(--morado-600, #7c3aed); font-weight:600;">${escapar(data.profession || 'Miembro de Link')}</div>
+          </div>
+        </div>
+        ${data.bio ? `<div style="margin-top:8px; font-size:12px; line-height:1.3; opacity:0.9; max-height:45px; overflow:hidden;">${escapar(data.bio)}</div>` : ''}
+        ${linksHtml ? `<div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;">${linksHtml}</div>` : ''}
+        ${data.url ? `<div style="margin-top:10px;"><a href="${escapar(data.url)}" class="mini-btn primario" style="display:block; text-align:center; padding:5px 10px; font-size:12px; border-radius:8px; text-decoration:none;">Ver Perfil Completo 👤</a></div>` : ''}
+      </div>`;
+    }
+
+    // 2. Resultados de Personas por Interés
+    if (t === 'user_search_results' && Array.isArray(data.users) && data.users.length) {
+      const items = data.users.map(u => `
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 0; border-bottom:1px solid rgba(0,0,0,0.05);">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <img src="${u.avatar || iconoDefecto()}" style="width:32px; height:32px; border-radius:50%; object-fit:cover;">
+            <div>
+              <div style="font-weight:600; font-size:12.5px;">${escapar(u.name)} ${u.verified ? '✓' : ''}</div>
+              <div style="font-size:10.5px; opacity:0.7;">@${escapar(u.username)} • ${escapar(u.profession || 'Link')}</div>
+            </div>
+          </div>
+          <a href="/perfil/${u.id}" class="mini-btn secundario" style="font-size:11px; padding:3px 8px; border-radius:6px; text-decoration:none;">Ver</a>
+        </div>
+      `).join('');
+
+      return `<div style="margin-top:8px; padding:10px; background:var(--fondo-tarjeta, #fff); border:1px solid var(--borde, #e5e7eb); border-radius:10px; max-width:300px;">
+        <div style="font-weight:700; font-size:12px; margin-bottom:6px; color:var(--morado-600, #7c3aed);">🔍 Personas encontradas por "${escapar(data.interest)}":</div>
+        ${items}
+      </div>`;
+    }
+
+    // 3. Resultados de Publicaciones Encontradas
+    if (t === 'posts_search_results' && Array.isArray(data.posts) && data.posts.length) {
+      const postItems = data.posts.map(p => `
+        <div style="padding:8px; background:rgba(0,0,0,0.03); border-radius:8px; margin-bottom:6px;">
+          <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
+            <img src="${p.autor_avatar || iconoDefecto()}" style="width:24px; height:24px; border-radius:50%;">
+            <span style="font-weight:600; font-size:12px;">${escapar(p.autor_nombre)}</span>
+          </div>
+          <div style="font-size:12px; opacity:0.9; margin-bottom:4px;">${escapar(p.text || 'Sin texto')}</div>
+          ${p.media_url ? `<img src="${p.media_url}" style="width:100%; max-height:120px; object-fit:cover; border-radius:6px; margin-bottom:4px;">` : ''}
+          <div style="font-size:10px; opacity:0.65;">❤️ ${p.total_likes || 0} • 💬 ${p.total_comentarios || 0}</div>
+        </div>
+      `).join('');
+
+      return `<div style="margin-top:8px; padding:10px; background:var(--fondo-tarjeta, #fff); border:1px solid var(--borde, #e5e7eb); border-radius:10px; max-width:300px;">
+        <div style="font-weight:700; font-size:12px; margin-bottom:6px; color:var(--morado-600, #7c3aed);">📝 Publicaciones encontradas:</div>
+        ${postItems}
+      </div>`;
+    }
+
+    // 4. Geolocalización por IP
+    if (t === 'ip_geolocation' && data) {
+      return `<div style="margin-top:8px; padding:10px; background:var(--fondo-tarjeta, #fff); border:1px solid var(--borde, #e5e7eb); border-radius:10px; max-width:280px; font-size:12px;">
+        <div style="font-weight:700; color:var(--morado-600, #7c3aed); margin-bottom:4px;">🌐 Geolocalización IP (${escapar(data.ip)})</div>
+        <div><b>País:</b> ${escapar(data.country || 'Desconocido')}</div>
+        <div><b>Ciudad / Región:</b> ${escapar(data.city || '')}, ${escapar(data.regionName || '')}</div>
+        <div><b>Proveedor (ISP):</b> ${escapar(data.isp || 'N/A')}</div>
+        <div><b>Zona horaria:</b> ${escapar(data.timezone || 'N/A')}</div>
+      </div>`;
+    }
+
+    return '';
   }
 
   function pintarBurbuja(msg, yoId) {
@@ -250,7 +357,14 @@ const Chat = (() => {
             text: aiReplyText,
             createdAt: new Date().toISOString(),
           };
-          $('chatMensajes').appendChild(pintarBurbuja(msgAi, Sesion.usuario().id));
+          const burbujaEl = pintarBurbuja(msgAi, Sesion.usuario().id);
+          if (res.tool_result) {
+            const cardHtml = renderizarTarjetaResultadoHerramienta(res.tool_result);
+            if (cardHtml) {
+              burbujaEl.insertAdjacentHTML('beforeend', cardHtml);
+            }
+          }
+          $('chatMensajes').appendChild(burbujaEl);
           $('chatMensajes').scrollTop = $('chatMensajes').scrollHeight;
           if (typeof cargarConversaciones === 'function') cargarConversaciones();
         })

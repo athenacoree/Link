@@ -107,11 +107,30 @@ router.post('/chat', requireAuth, aiRateLimiter, async (req, res) => {
       }
     }
 
+    // Obtener contexto del usuario actual (rol, verificado, intereses, ubicación)
+    let userContextText = '';
+    try {
+      const { rows: uRows } = await query(
+        `SELECT id, name, username, is_admin, verified, role, interests, hobbies, city, country, profession FROM users WHERE id = $1`,
+        [req.user.id]
+      );
+      if (uRows.length > 0) {
+        const u = uRows[0];
+        const esAdmin = u.is_admin || u.role === 'admin';
+        const esVerificado = !!u.verified;
+        let ints = [];
+        try { ints = typeof u.interests === 'string' ? JSON.parse(u.interests) : (u.interests || []); } catch (e) {}
+        userContextText = `\n[Contexto del Usuario interactuando contigo]: Nombre: ${u.name} (@${u.username}), Rol: ${esAdmin ? 'Administrador 👑' : (u.role || 'Usuario')}, Verificado: ${esVerificado ? 'Sí ✓' : 'No'}, Ciudad/País: ${u.city || ''} ${u.country || ''}, Profesión: ${u.profession || 'N/A'}, Intereses: ${Array.isArray(ints) ? ints.join(', ') : ''}.`;
+      }
+    } catch (e) {}
+
+    const fullSystemPrompt = `${settings.ai_personality}${userContextText}`;
+
     let inputMessages = [];
     if (Array.isArray(messages) && messages.length > 0) {
       inputMessages = [...messages];
     } else {
-      inputMessages.push({ role: 'system', content: settings.ai_personality });
+      inputMessages.push({ role: 'system', content: fullSystemPrompt });
       // Cargar historial de conversación guardada entre usuario y Link AI para mantener contexto
       try {
         const convId = conversationId(req.user.id, LINK_AI_UUID);
@@ -144,7 +163,7 @@ router.post('/chat', requireAuth, aiRateLimiter, async (req, res) => {
 
     const result = await chatCompletion({
       messages: inputMessages,
-      systemPrompt: settings.ai_personality,
+      systemPrompt: fullSystemPrompt,
       maxTokens: settings.ai_max_tokens,
       visionImage: vision_image || null,
     });
