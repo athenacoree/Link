@@ -26,6 +26,8 @@ async function getAISettings() {
     anthropic_model: process.env.ANTHROPIC_MODEL || 'claude-3-haiku-20240307',
     groq_api_key: process.env.GROQ_API_KEY || '',
     groq_model: process.env.GROQ_MODEL || 'llama-3.1-8b-instant',
+    cerebras_api_key: process.env.CEREBRAS_API_KEY || '',
+    cerebras_model: process.env.CEREBRAS_MODEL || 'llama-3.3-70b',
     ai_name: process.env.AI_NAME || 'Link AI',
     ai_avatar: process.env.AI_AVATAR || '',
     ai_personality: process.env.AI_PERSONALITY || 'Eres Link AI, un asistente inteligente integrado en la plataforma social Link. Responde siempre en español, con amabilidad y precisión.',
@@ -53,6 +55,7 @@ async function getAISettings() {
         'anthropic_model',
         'groq_model',
         'xai_model',
+        'cerebras_model',
         'ai_name', 'ai_avatar', 'ai_personality',
         'ai_max_tokens', 'ai_context_tokens',
         'ailab_max_msg_length', 'ailab_max_personality_length',
@@ -83,6 +86,8 @@ async function getAISettings() {
   config.anthropic_api_key = process.env.ANTHROPIC_API_KEY || '';
   config.groq_api_key = process.env.GROQ_API_KEY || '';
   config.xai_api_key = process.env.XAI_API_KEY || process.env.GROK_API_KEY || '';
+  config.cerebras_api_key = process.env.CEREBRAS_API_KEY || '';
+  config.cerebras_model = process.env.CEREBRAS_MODEL || config.cerebras_model || 'llama-3.3-70b';
 
   return config;
 }
@@ -377,6 +382,23 @@ const ProviderAdapters = {
       visionImage,
       signal,
     });
+  },
+
+  cerebras: async ({ settings, messages, maxTokens, modelOverride, visionImage, signal }) => {
+    const apiKey = (settings.cerebras_api_key || process.env.CEREBRAS_API_KEY || '').trim();
+    if (!apiKey) {
+      return { ok: false, error: { code: 'NO_API_KEY', message: 'Cerebras API Key no configurada en las variables de entorno.', retryable: true } };
+    }
+    const model = modelOverride || process.env.CEREBRAS_MODEL || settings.cerebras_model || 'llama-3.3-70b';
+    return callOpenAICompatible({
+      endpoint: 'https://api.cerebras.ai/v1/chat/completions',
+      apiKey,
+      model,
+      messages,
+      maxTokens,
+      visionImage,
+      signal,
+    });
   }
 };
 
@@ -424,8 +446,17 @@ async function chatCompletion({
   } else if (primaryProvider === 'openrouter') {
     const mainModel = process.env.OPENROUTER_MODEL || settings.openrouter_model || 'openrouter/free';
     attemptsSequence.push({ provider: 'openrouter', model: mainModel });
+  } else if (primaryProvider === 'cerebras') {
+    const mainModel = process.env.CEREBRAS_MODEL || settings.cerebras_model || 'llama-3.3-70b';
+    attemptsSequence.push({ provider: 'cerebras', model: mainModel });
   } else {
     attemptsSequence.push({ provider: primaryProvider, model: null });
+  }
+
+  // Si Cerebras está configurado y no es el proveedor principal, agregarlo a la secuencia de respaldos
+  if (primaryProvider !== 'cerebras' && (process.env.CEREBRAS_API_KEY || settings.cerebras_api_key)) {
+    const cbModel = process.env.CEREBRAS_MODEL || settings.cerebras_model || 'llama-3.3-70b';
+    attemptsSequence.push({ provider: 'cerebras', model: cbModel });
   }
 
   // Agregar modelos free de OpenRouter como fallback dinámico, priorizando visión si hay imagen

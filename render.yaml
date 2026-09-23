@@ -43,6 +43,11 @@ services:
       # Modelo por defecto de OpenRouter configurable desde Render
       - key: OPENROUTER_MODEL
         value: meta-llama/llama-3.1-8b-instruct:free
+      # --- Cerebras AI Cloud (Gratuito) ---
+      - key: CEREBRAS_API_KEY
+        sync: false
+      - key: CEREBRAS_MODEL
+        value: llama-3.3-70b
       # --- QvaPay Monetización ---
       - key: QVAPAY_APP_ID
         sync: false
