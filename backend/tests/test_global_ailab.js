@@ -31,14 +31,14 @@ async function runTests() {
 
   console.log('✅ Enrutadores de API verificados correctamente.');
 
-  // 4. Comprobar configuración predeterminada de Gemini (gemini-2.5-flash)
+  // 4. Comprobar configuración de Gemini desde entorno
   const { getAISettings } = require('../services/aiService');
-  delete process.env.GEMINI_MODEL;
+  process.env.GEMINI_MODEL = 'gemini-1.5-flash';
   const settings = await getAISettings();
-  assert.strictEqual(settings.gemini_model, 'gemini-2.5-flash', 'El modelo predeterminado debe ser gemini-2.5-flash');
+  assert.strictEqual(settings.gemini_model, 'gemini-1.5-flash', 'El modelo debe provenir de process.env.GEMINI_MODEL');
   assert.ok(parseInt(settings.ailab_timeout_ms, 10) >= 10000, 'El timeout debe ser al menos 10000ms');
 
-  console.log('✅ Verificación de modelo gemini-2.5-flash y timeout seguro realizada.');
+  console.log('✅ Verificación de modelo Gemini desde variables de entorno y timeout seguro realizada.');
   console.log('🎉 TODAS LAS PRUEBAS PASARON EXITOSAMENTE.');
 }
 

@@ -8,11 +8,11 @@ async function runSystemTests() {
   // 0. Prueba de Configuración Gemini desde Entorno
   console.log('0. Probando getAISettings() y prioridad de variables de entorno (Gemini)...');
   process.env.GEMINI_API_KEY = 'gemini-test-key-12345';
-  process.env.GEMINI_MODEL = 'gemini-2.5-flash';
+  process.env.GEMINI_MODEL = 'gemini-1.5-flash';
 
   const settings = await getAISettings();
   assert.strictEqual(settings.gemini_api_key, 'gemini-test-key-12345', 'gemini_api_key debe coincidir con process.env.GEMINI_API_KEY');
-  assert.strictEqual(settings.gemini_model, 'gemini-2.5-flash', 'gemini_model debe coincidir con process.env.GEMINI_MODEL');
+  assert.strictEqual(settings.gemini_model, 'gemini-1.5-flash', 'gemini_model debe coincidir con process.env.GEMINI_MODEL');
 
   assert.ok(typeof ProviderAdapters.gemini === 'function', 'ProviderAdapters.gemini debe existir');
   console.log('   ✅ Configuración de Gemini en entorno validada.');
@@ -75,7 +75,7 @@ async function runSystemTests() {
   assert.ok(missionRes.steps && missionRes.steps.length > 0, 'La misión debe generar al menos un paso de herramientas');
   console.log('   ✅ Modo Misión validado.');
 
-  // 6. Prueba de Chat Completion (fallback graceful cuando no hay API Key activa)
+  // 6. Prueba de Chat Completion (fallback graceful cuando la API Key o modelo es inválido)
   console.log('6. Probando chatCompletion() con resiliencia...');
   const chatRes = await chatCompletion({
     messages: [{ role: 'user', content: 'Prueba de integración' }],
