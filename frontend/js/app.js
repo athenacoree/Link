@@ -2252,7 +2252,7 @@ $('adminAIAvatarFileInput')?.addEventListener('change', async (e) => {
 async function cargarAdminAIConfig() {
   try {
     const { settings } = await api('/admin/system-settings');
-    if ($('adminAIProvider')) $('adminAIProvider').value = 'cerebras';
+    if ($('adminAIProvider')) $('adminAIProvider').value = 'gemini';
 
     if ($('adminAIName')) $('adminAIName').value = settings.ai_name || 'Link AI';
     if ($('adminAPKDownloadUrl')) $('adminAPKDownloadUrl').value = settings.apk_download_url || '';

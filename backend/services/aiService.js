@@ -2,16 +2,16 @@ const { query } = require('../db/postgres');
 
 /**
  * Centralized AI System Service for Enlace.
- * Exclusively uses Cerebras AI Cloud.
+ * Exclusively uses Google Gemini API.
  * Supports Real Timeout (AbortController), Response Truncation Continuation,
- * Context Budgeting, and Structured Tool Definitions.
+ * Context Budgeting, Vision Input, and Structured Tool Definitions.
  */
 
 async function getAISettings() {
   const config = {
-    ai_provider: 'cerebras',
-    cerebras_api_key: process.env.CEREBRAS_API_KEY || '',
-    cerebras_model: process.env.CEREBRAS_MODEL || 'gpt-oss-120b',
+    ai_provider: 'gemini',
+    gemini_api_key: process.env.GEMINI_API_KEY || '',
+    gemini_model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
     ai_name: process.env.AI_NAME || 'Link AI',
     ai_avatar: process.env.AI_AVATAR || '',
     ai_personality: process.env.AI_PERSONALITY || 'Eres Link AI, un asistente inteligente integrado en la plataforma social Link. Responde siempre en español, con amabilidad y precisión.',
@@ -52,9 +52,9 @@ async function getAISettings() {
   if (process.env.AI_CONTEXT_TOKENS) config.ai_context_tokens = process.env.AI_CONTEXT_TOKENS;
   if (process.env.AILAB_AUTO_INTERVAL_MIN) config.ailab_auto_interval_min = process.env.AILAB_AUTO_INTERVAL_MIN;
 
-  // Garantizar que CEREBRAS_API_KEY y CEREBRAS_MODEL tengan prioridad desde process.env
-  config.cerebras_api_key = process.env.CEREBRAS_API_KEY || config.cerebras_api_key || '';
-  config.cerebras_model = process.env.CEREBRAS_MODEL || config.cerebras_model || 'gpt-oss-120b';
+  // Garantizar que GEMINI_API_KEY y GEMINI_MODEL tengan prioridad desde process.env
+  config.gemini_api_key = process.env.GEMINI_API_KEY || config.gemini_api_key || '';
+  config.gemini_model = process.env.GEMINI_MODEL || config.gemini_model || 'gemini-2.5-flash';
 
   // Garantizar un timeout mínimo seguro (mínimo 10.000 ms, por defecto 120.000 ms)
   const envTimeout = process.env.AI_TIMEOUT_MS || process.env.AILAB_TIMEOUT_MS;
@@ -107,42 +107,85 @@ function pruneMessages(messages, maxContextTokens = 4000) {
 }
 
 /**
- * Base Adapter Invoker for OpenAI / Cerebras Compatible Endpoints
+ * Invoker for Google Gemini REST API Endpoints
  */
-async function callOpenAICompatible({ endpoint, apiKey, model, messages, maxTokens, visionImage, extraHeaders = {}, signal }) {
-  let payloadMessages = messages.map(m => ({ ...m }));
+async function callGeminiApi({ apiKey, model, messages, maxTokens, visionImage, signal }) {
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
-  if (visionImage) {
-    const lastUserIdx = payloadMessages.map(m => m.role).lastIndexOf('user');
-    if (lastUserIdx !== -1) {
-      const existingContent = payloadMessages[lastUserIdx].content;
-      const textPrompt = typeof existingContent === 'string' ? existingContent : 'Describe esta imagen';
-      payloadMessages[lastUserIdx] = {
-        role: 'user',
-        content: [
-          { type: 'text', text: textPrompt },
-          { type: 'image_url', image_url: { url: visionImage } }
-        ]
+  let systemInstruction = null;
+  const geminiContents = [];
+
+  for (const m of messages) {
+    if (!m) continue;
+    if (m.role === 'system') {
+      systemInstruction = {
+        parts: [{ text: typeof m.content === 'string' ? m.content : JSON.stringify(m.content) }]
       };
+    } else {
+      const role = m.role === 'assistant' ? 'model' : 'user';
+      const parts = [];
+      if (typeof m.content === 'string') {
+        parts.push({ text: m.content });
+      } else if (Array.isArray(m.content)) {
+        for (const part of m.content) {
+          if (part.type === 'text') parts.push({ text: part.text });
+          else if (part.type === 'image_url' && part.image_url?.url) {
+            const imgUrl = part.image_url.url;
+            if (imgUrl.startsWith('data:')) {
+              const [header, base64] = imgUrl.split(';base64,');
+              const mimeType = header.replace('data:', '') || 'image/jpeg';
+              parts.push({ inlineData: { mimeType, data: base64 } });
+            }
+          }
+        }
+      } else {
+        parts.push({ text: JSON.stringify(m.content) });
+      }
+      geminiContents.push({ role, parts });
     }
   }
 
+  if (visionImage) {
+    let mimeType = 'image/jpeg';
+    let base64Data = visionImage;
+    if (visionImage.startsWith('data:')) {
+      const parts = visionImage.split(';base64,');
+      mimeType = parts[0].replace('data:', '') || 'image/jpeg';
+      base64Data = parts[1] || '';
+    }
+
+    const lastUserMsg = geminiContents.slice().reverse().find(m => m.role === 'user');
+    if (lastUserMsg) {
+      lastUserMsg.parts.push({ inlineData: { mimeType, data: base64Data } });
+    } else {
+      geminiContents.push({
+        role: 'user',
+        parts: [
+          { text: 'Describe esta imagen' },
+          { inlineData: { mimeType, data: base64Data } }
+        ]
+      });
+    }
+  }
+
+  if (geminiContents.length === 0) {
+    geminiContents.push({ role: 'user', parts: [{ text: 'Hola' }] });
+  }
+
   const payload = {
-    model,
-    messages: payloadMessages,
-    max_completion_tokens: maxTokens,
-    max_tokens: maxTokens,
+    contents: geminiContents,
+    generationConfig: {
+      maxOutputTokens: maxTokens,
+    }
   };
 
-  const headers = {
-    'Authorization': `Bearer ${apiKey}`,
-    'Content-Type': 'application/json',
-    ...extraHeaders,
-  };
+  if (systemInstruction) {
+    payload.systemInstruction = systemInstruction;
+  }
 
   const response = await fetch(endpoint, {
     method: 'POST',
-    headers,
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
     signal,
   });
@@ -151,81 +194,70 @@ async function callOpenAICompatible({ endpoint, apiKey, model, messages, maxToke
     const errText = await response.text();
     let errDetail = errText;
     let errCode = `HTTP_${response.status}`;
-    const isQuotaOrPayment = response.status === 402 || errText.toLowerCase().includes('payment_required') || errText.toLowerCase().includes('quota');
 
     try {
       const parsed = JSON.parse(errText);
       if (parsed.error && parsed.error.message) {
         errDetail = parsed.error.message;
-      } else if (parsed.error) {
-        errDetail = typeof parsed.error === 'string' ? parsed.error : JSON.stringify(parsed.error);
       }
       if (parsed.error && parsed.error.code) {
-        errCode = parsed.error.code;
+        errCode = String(parsed.error.code);
       }
     } catch (e) {}
 
-    const isVisionErr = visionImage && (
-      errDetail.toLowerCase().includes('vision') ||
-      errDetail.toLowerCase().includes('multimodal') ||
-      errDetail.toLowerCase().includes('support')
-    );
-
     let friendlyMessage = errDetail;
-    if (response.status === 401) {
+    if (response.status === 401 || response.status === 403 || errDetail.toLowerCase().includes('api_key') || errDetail.toLowerCase().includes('invalid')) {
       errCode = 'AUTH_ERROR';
-      friendlyMessage = 'Error de autenticación con Cerebras. Verifica que CEREBRAS_API_KEY esté configurada correctamente.';
-    } else if (isQuotaOrPayment) {
-      errCode = 'PAYMENT_REQUIRED';
-      friendlyMessage = 'El servicio de Cerebras requiere pago o superó la cuota disponible (Payment required / Quota).';
-    } else if (response.status === 429) {
+      friendlyMessage = 'Error de autenticación con Gemini. Verifica que GEMINI_API_KEY esté configurada correctamente.';
+    } else if (response.status === 429 || errDetail.toLowerCase().includes('quota') || errDetail.toLowerCase().includes('rate')) {
       errCode = 'RATE_LIMIT';
-      friendlyMessage = 'Se ha alcanzado el límite de velocidad (Rate limit) en Cerebras. Por favor, reintenta en unos momentos.';
+      friendlyMessage = 'Se ha alcanzado el límite de velocidad o cuota (Rate limit / Quota) en Gemini. Por favor, reintenta en unos momentos.';
     } else if (response.status === 400) {
       errCode = 'BAD_REQUEST';
-      friendlyMessage = `Solicitud rechazada por Cerebras (400): ${errDetail}`;
+      friendlyMessage = `Solicitud rechazada por Gemini (400): ${errDetail}`;
     } else if (response.status >= 500) {
       errCode = 'SERVER_ERROR';
-      friendlyMessage = `El servidor de Cerebras experimentó un error interno (${response.status}).`;
+      friendlyMessage = `El servidor de Gemini experimentó un error interno (${response.status}).`;
     }
 
     return {
       ok: false,
       status: response.status,
       error: {
-        code: isVisionErr ? 'VISION_NOT_SUPPORTED' : errCode,
+        code: errCode,
         message: friendlyMessage,
         raw_detail: errDetail,
-        retryable: response.status === 429 || response.status >= 500 || isVisionErr,
+        retryable: response.status === 429 || response.status >= 500,
       }
     };
   }
 
   const data = await response.json();
-  const choice = data.choices?.[0];
-  const reply = choice?.message?.content || '';
+  const candidate = data.candidates?.[0];
+  const replyParts = candidate?.content?.parts || [];
+  const reply = replyParts.map(p => p.text || '').join('');
+  const finishReason = candidate?.finishReason === 'MAX_TOKENS' ? 'length' : (candidate?.finishReason || 'stop');
 
   return {
     ok: true,
     reply,
-    finish_reason: choice?.finish_reason || 'stop',
-    model_used: data.model || model,
-    usage: data.usage || null,
+    finish_reason: finishReason,
+    model_used: model,
+    usage: data.usageMetadata || null,
   };
 }
 
 /**
- * Provider Adapters Registry - Exclusively Cerebras
+ * Provider Adapters Registry - Exclusively Gemini
  */
 const ProviderAdapters = {
-  cerebras: async ({ settings, messages, maxTokens, modelOverride, visionImage, signal }) => {
-    const apiKey = (settings.cerebras_api_key || process.env.CEREBRAS_API_KEY || '').trim();
+  gemini: async ({ settings, messages, maxTokens, modelOverride, visionImage, signal }) => {
+    const apiKey = (settings.gemini_api_key || process.env.GEMINI_API_KEY || '').trim();
     if (!apiKey) {
-      return { ok: false, error: { code: 'NO_API_KEY', message: 'Cerebras API Key no configurada en las variables de entorno (CEREBRAS_API_KEY).', retryable: true } };
+      return { ok: false, error: { code: 'NO_API_KEY', message: 'Gemini API Key no configurada en las variables de entorno (GEMINI_API_KEY).', retryable: true } };
     }
-    const model = modelOverride || settings.cerebras_model || process.env.CEREBRAS_MODEL || 'gpt-oss-120b';
-    return callOpenAICompatible({
-      endpoint: 'https://api.cerebras.ai/v1/chat/completions',
+    const model = modelOverride || settings.gemini_model || process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+    return callGeminiApi({
       apiKey,
       model,
       messages,
@@ -237,7 +269,7 @@ const ProviderAdapters = {
 };
 
 /**
- * Main AI Chat Completion method using exclusively Cerebras AI Cloud.
+ * Main AI Chat Completion method using exclusively Google Gemini.
  */
 async function chatCompletion({
   messages = [],
@@ -266,7 +298,7 @@ async function chatCompletion({
 
   formattedMessages = pruneMessages(formattedMessages, effectiveContextTokens);
 
-  const selectedModel = model || settings.cerebras_model || process.env.CEREBRAS_MODEL || 'gpt-oss-120b';
+  const selectedModel = model || settings.gemini_model || process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
   let lastError = null;
   let successfulResult = null;
@@ -280,7 +312,7 @@ async function chatCompletion({
   }
 
   try {
-    const res = await ProviderAdapters.cerebras({
+    const res = await ProviderAdapters.gemini({
       settings,
       messages: formattedMessages,
       maxTokens: effectiveMaxTokens,
@@ -292,42 +324,38 @@ async function chatCompletion({
     clearTimeout(timer);
 
     if (res.ok) {
-      successfulResult = { ...res, provider: 'cerebras' };
+      successfulResult = { ...res, provider: 'gemini' };
     } else {
       lastError = res.error;
-      console.warn(`[AI Service] Cerebras provider failed: ${res.error?.message || 'Error desconocido'}`);
+      console.warn(`[AI Service] Gemini provider failed: ${res.error?.message || 'Error desconocido'}`);
     }
   } catch (err) {
     clearTimeout(timer);
     const isTimeout = err.name === 'AbortError';
     lastError = {
       code: isTimeout ? 'TIMEOUT' : 'NETWORK_ERROR',
-      message: isTimeout ? `El proveedor Cerebras superó el tiempo de espera (${effectiveTimeout}ms).` : err.message,
+      message: isTimeout ? `El proveedor Gemini superó el tiempo de espera (${effectiveTimeout}ms).` : err.message,
       retryable: true,
     };
-    console.warn(`[AI Service] Exception on Cerebras: ${lastError.message}`);
+    console.warn(`[AI Service] Exception on Gemini: ${lastError.message}`);
   }
 
   if (!successfulResult) {
     let friendlyMsg = '⚠️ Estoy teniendo problemas técnicos para comunicarme con la IA.';
-    if (lastError?.code === 'VISION_NOT_SUPPORTED') {
-      friendlyMsg = '⚠️ El modelo de IA de Cerebras no soporta análisis de imágenes en este momento.';
-    } else if (lastError?.code === 'NO_API_KEY' || lastError?.code === 'AUTH_ERROR' || lastError?.status === 401) {
-      friendlyMsg = `⚠️ Error de autenticación en Cerebras: ${lastError.message || 'Clave API CEREBRAS_API_KEY no configurada o inválida.'}`;
-    } else if (lastError?.code === 'PAYMENT_REQUIRED' || lastError?.status === 402) {
-      friendlyMsg = '⚠️ El servicio de Cerebras requiere pago o superó la cuota disponible (Payment required).';
+    if (lastError?.code === 'NO_API_KEY' || lastError?.code === 'AUTH_ERROR' || lastError?.status === 401 || lastError?.status === 403) {
+      friendlyMsg = `⚠️ Error de autenticación en Gemini: ${lastError.message || 'Clave API GEMINI_API_KEY no configurada o inválida.'}`;
     } else if (lastError?.code === 'RATE_LIMIT' || lastError?.status === 429) {
-      friendlyMsg = '⚠️ Se ha superado el límite de peticiones de Cerebras. Intenta de nuevo en unos instantes.';
+      friendlyMsg = '⚠️ Se ha superado el límite de peticiones de Gemini. Intenta de nuevo en unos instantes.';
     } else if (lastError?.code === 'TIMEOUT') {
-      friendlyMsg = `⚠️ El proveedor Cerebras superó el tiempo de espera de respuesta (${effectiveTimeout}ms).`;
+      friendlyMsg = `⚠️ El proveedor Gemini superó el tiempo de espera de respuesta (${effectiveTimeout}ms).`;
     } else if (lastError?.message) {
-      friendlyMsg = `⚠️ Error al conectar con Cerebras: ${lastError.message}`;
+      friendlyMsg = `⚠️ Error al conectar con Gemini: ${lastError.message}`;
     }
 
     return {
       available: false,
       reply: friendlyMsg,
-      error: lastError || { code: 'UNKNOWN_ERROR', message: 'Error al conectar con Cerebras.' },
+      error: lastError || { code: 'UNKNOWN_ERROR', message: 'Error al conectar con Gemini.' },
     };
   }
 
@@ -350,7 +378,7 @@ async function chatCompletion({
     const timer = setTimeout(() => controller.abort(), effectiveTimeout);
 
     try {
-      const contRes = await ProviderAdapters.cerebras({
+      const contRes = await ProviderAdapters.gemini({
         settings,
         messages: contMessages,
         maxTokens: effectiveMaxTokens,
@@ -377,7 +405,7 @@ async function chatCompletion({
     reply: fullReply,
     finish_reason: finishReason,
     model_used: successfulResult.model_used,
-    provider: 'cerebras',
+    provider: 'gemini',
     usage: successfulResult.usage || null,
     continuations: continuationCount,
   };

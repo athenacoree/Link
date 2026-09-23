@@ -5,17 +5,17 @@ const ToolManager = require('../tools/ToolManager');
 async function runSystemTests() {
   console.log('=== INICIANDO PRUEBAS DEL SISTEMA IA DE ENLACE ===');
 
-  // 0. Prueba de Configuración Cerebras desde Entorno
-  console.log('0. Probando getAISettings() y prioridad de variables de entorno (Cerebras)...');
-  process.env.CEREBRAS_API_KEY = 'csk-test-key-12345';
-  process.env.CEREBRAS_MODEL = 'gpt-oss-120b';
+  // 0. Prueba de Configuración Gemini desde Entorno
+  console.log('0. Probando getAISettings() y prioridad de variables de entorno (Gemini)...');
+  process.env.GEMINI_API_KEY = 'gemini-test-key-12345';
+  process.env.GEMINI_MODEL = 'gemini-2.5-flash';
 
   const settings = await getAISettings();
-  assert.strictEqual(settings.cerebras_api_key, 'csk-test-key-12345', 'cerebras_api_key debe coincidir con process.env.CEREBRAS_API_KEY');
-  assert.strictEqual(settings.cerebras_model, 'gpt-oss-120b', 'cerebras_model debe coincidir con process.env.CEREBRAS_MODEL');
+  assert.strictEqual(settings.gemini_api_key, 'gemini-test-key-12345', 'gemini_api_key debe coincidir con process.env.GEMINI_API_KEY');
+  assert.strictEqual(settings.gemini_model, 'gemini-2.5-flash', 'gemini_model debe coincidir con process.env.GEMINI_MODEL');
 
-  assert.ok(typeof ProviderAdapters.cerebras === 'function', 'ProviderAdapters.cerebras debe existir');
-  console.log('   ✅ Configuración de Cerebras en entorno validada.');
+  assert.ok(typeof ProviderAdapters.gemini === 'function', 'ProviderAdapters.gemini debe existir');
+  console.log('   ✅ Configuración de Gemini en entorno validada.');
 
   // 1. Prueba de Prune Messages (Context Budgeting)
   console.log('1. Probando pruneMessages()...');

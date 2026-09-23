@@ -49,11 +49,11 @@ router.get('/config', requireAuth, async (req, res) => {
 
     res.json({
       available,
-      provider: 'cerebras',
+      provider: 'gemini',
       name: settings.ai_name || 'Link AI',
       avatar: settings.ai_avatar || '',
       personality: settings.ai_personality,
-      model: settings.cerebras_model,
+      model: settings.gemini_model,
       max_tokens: parseInt(settings.ai_max_tokens, 10) || 1000,
       context_tokens: parseInt(settings.ai_context_tokens, 10) || 4000,
       tools: ToolManager.getToolDefinitions(),

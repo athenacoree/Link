@@ -240,13 +240,13 @@ router.delete('/ai-characters/:id', async (req, res) => {
   }
 });
 
-// ---- CONFIGURACIÓN DEL SISTEMA (AI Cerebras) ----
+// ---- CONFIGURACIÓN DEL SISTEMA (AI Gemini) ----
 router.get('/system-settings', async (req, res) => {
   try {
     const { rows } = await query(`SELECT key, value, updated_at FROM system_settings`);
     const settingsMap = {};
     rows.forEach(r => { settingsMap[r.key] = r.value; });
-    settingsMap['cerebras_model'] = process.env.CEREBRAS_MODEL || settingsMap['cerebras_model'] || 'gpt-oss-120b';
+    settingsMap['gemini_model'] = process.env.GEMINI_MODEL || settingsMap['gemini_model'] || 'gemini-2.5-flash';
     res.json({ settings: settingsMap });
   } catch (err) {
     console.error(err);
@@ -262,7 +262,7 @@ router.post('/system-settings', async (req, res) => {
     }
 
     const sensitiveKeys = [
-      'cerebras_api_key', 'cerebras_key'
+      'gemini_api_key', 'gemini_key', 'cerebras_api_key', 'cerebras_key'
     ];
 
     const keys = Object.keys(settings);
@@ -284,17 +284,17 @@ router.post('/system-settings', async (req, res) => {
   }
 });
 
-// Comprobar la conexión con Cerebras AI Cloud
+// Comprobar la conexión con Google Gemini API
 router.post('/test-ai', async (req, res) => {
   try {
     const { ai_personality } = req.body;
     const settings = await getAISettings();
 
-    if (!process.env.CEREBRAS_API_KEY && !settings.cerebras_api_key) {
-      return res.status(400).json({ error: 'No se detectó la variable de entorno CEREBRAS_API_KEY en el servidor/Render.' });
+    if (!process.env.GEMINI_API_KEY && !settings.gemini_api_key) {
+      return res.status(400).json({ error: 'No se detectó la variable de entorno GEMINI_API_KEY en el servidor/Render.' });
     }
 
-    await query(`INSERT INTO system_settings (key, value, updated_at) VALUES ('ai_provider', 'cerebras', now()) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`).catch(() => {});
+    await query(`INSERT INTO system_settings (key, value, updated_at) VALUES ('ai_provider', 'gemini', now()) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`).catch(() => {});
 
     const testMessages = [
       { role: 'system', content: ai_personality || settings.ai_personality || 'Eres un asistente de pruebas.' },
@@ -304,24 +304,24 @@ router.post('/test-ai', async (req, res) => {
     const result = await chatCompletion({
       messages: testMessages,
       maxTokens: 50,
-      provider: 'cerebras'
+      provider: 'gemini'
     });
 
     if (!result.available) {
       const errDetail = typeof result.error === 'object' ? (result.error?.message || JSON.stringify(result.error)) : result.error;
-      return res.status(400).json({ error: result.reply || errDetail || 'Falló la prueba del proveedor Cerebras.' });
+      return res.status(400).json({ error: result.reply || errDetail || 'Falló la prueba del proveedor Gemini.' });
     }
 
     res.json({
       success: true,
-      message: `¡Prueba exitosa! El proveedor Cerebras respondió correctamente.`,
+      message: `¡Prueba exitosa! El proveedor Gemini respondió correctamente.`,
       model: result.model_used,
       reply: result.reply,
       usage: result.usage || null
     });
   } catch (err) {
     console.error('Error probando proveedor de IA:', err);
-    res.status(500).json({ error: `Error al conectar con Cerebras: ${err.message}` });
+    res.status(500).json({ error: `Error al conectar con Gemini: ${err.message}` });
   }
 });
 
