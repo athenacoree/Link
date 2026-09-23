@@ -41,7 +41,39 @@ router.post('/', requireAuth, async (req, res) => {
       [req.userId, guest_id, title || 'Cita / Reunión', description || '', location || '', scheduled_at || new Date()]
     );
 
-    res.json({ success: true, appointment: rows[0] });
+    const appt = rows[0];
+
+    // Generar notificación al usuario invitado
+    try {
+      const hostRes = await query(`SELECT name, username, avatar_data FROM users WHERE id = $1`, [req.userId]);
+      const hostUser = hostRes.rows[0];
+      const hostName = hostUser ? hostUser.name : 'Un usuario';
+
+      await query(
+        `INSERT INTO notifications (user_id, type, title, body, data)
+         VALUES ($1, 'appointment_invite', $2, $3, $4)`,
+        [
+          guest_id,
+          '📅 Nueva invitación de Cita / Compromiso',
+          `${hostName} te ha invitado a: ${appt.title}`,
+          JSON.stringify({ appointment_id: appt.id, host_id: req.userId, host_name: hostName })
+        ]
+      );
+
+      // Si existe Socket.io global, notificar en tiempo real
+      if (req.io) {
+        req.io.to(`user_${guest_id}`).emit('notificacion:nueva', {
+          type: 'appointment_invite',
+          title: '📅 Nueva invitación de Cita / Compromiso',
+          body: `${hostName} te ha invitado a: ${appt.title}`,
+          appointment: appt
+        });
+      }
+    } catch (e) {
+      console.warn('[Appointments Notification Error]', e.message);
+    }
+
+    res.json({ success: true, appointment: appt });
   } catch (err) {
     console.error('[appointments POST /]', err);
     res.status(500).json({ error: 'Error al crear la cita.' });

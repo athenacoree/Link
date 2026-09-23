@@ -2913,6 +2913,95 @@ window.addEventListener('popstate', () => {
   }
 });
 
+// Sistema de Iconos/Emojis Flotantes en Vivo (Estilo Live Stream TikTok / Instagram)
+const EmojisFlotantes = (() => {
+  const iconUrls = [
+    'https://cdn-icons-png.flaticon.com/512/2107/2107845.png', // Corazón
+    'https://cdn-icons-png.flaticon.com/512/1791/1791330.png', // Like / Me gusta
+    'https://cdn-icons-png.flaticon.com/512/742/742751.png',   // Carita feliz
+    'https://cdn-icons-png.flaticon.com/512/742/742752.png',   // Fuego / Pop
+    'https://cdn-icons-png.flaticon.com/512/616/616490.png',   // Estrella
+    'https://cdn-icons-png.flaticon.com/512/1791/1791318.png', // Risa
+  ];
+
+  function lanzarIconoFlotante() {
+    let cont = document.getElementById('contenedorEmojisFlotantes');
+    if (!cont) {
+      cont = document.createElement('div');
+      cont.id = 'contenedorEmojisFlotantes';
+      document.body.appendChild(cont);
+    }
+
+    const img = document.createElement('img');
+    const randomIcon = iconUrls[Math.floor(Math.random() * iconUrls.length)];
+    img.src = randomIcon;
+    img.className = 'emoji-flotante-item';
+    img.style.left = (Math.random() * 80 + 10) + '%';
+    cont.appendChild(img);
+
+    setTimeout(() => {
+      if (img && img.parentNode) img.parentNode.removeChild(img);
+    }, 3600);
+  }
+
+  function iniciarRafaga() {
+    for (let i = 0; i < 5; i++) {
+      setTimeout(lanzarIconoFlotante, i * 200);
+    }
+  }
+
+  return { lanzarIconoFlotante, iniciarRafaga };
+})();
+
+// Detección de Sacudida del Teléfono (Shake Event) con Pantalla Mareada / Borrosa
+let ultimoTiempoShake = 0;
+let xPrevio = null, yPrevio = null, zPrevio = null;
+
+if (window.DeviceMotionEvent) {
+  window.addEventListener('devicemotion', (e) => {
+    const acc = e.accelerationIncludingGravity;
+    if (!acc) return;
+    const ahora = Date.now();
+    if ((ahora - ultimoTiempoShake) > 300) {
+      const diffTiempo = ahora - ultimoTiempoShake;
+      ultimoTiempoShake = ahora;
+
+      if (xPrevio !== null) {
+        const deltaX = Math.abs(acc.x - xPrevio);
+        const deltaY = Math.abs(acc.y - yPrevio);
+        const deltaZ = Math.abs(acc.z - zPrevio);
+        const velocidad = (deltaX + deltaY + deltaZ) / diffTiempo * 10000;
+
+        if (velocidad > 1200) {
+          document.body.classList.add('pantalla-mareada');
+          if (typeof mostrarToast === 'function') {
+            mostrarToast('¡Me mareas! 😵‍💫 Sostén firme el teléfono');
+          }
+          if ('vibrate' in navigator) {
+            try { navigator.vibrate([100, 50, 100, 50, 150]); } catch (err) {}
+          }
+          setTimeout(() => {
+            document.body.classList.remove('pantalla-mareada');
+          }, 3000);
+        }
+      }
+      xPrevio = acc.x;
+      yPrevio = acc.y;
+      zPrevio = acc.z;
+    }
+  }, { passive: true });
+}
+
+// Control de pausa/reanudación de animaciones en interacción
+let temporizadorPausaAnim = null;
+window.addEventListener('touchstart', () => {
+  document.body.classList.add('animaciones-pausadas');
+  clearTimeout(temporizadorPausaAnim);
+  temporizadorPausaAnim = setTimeout(() => {
+    document.body.classList.remove('animaciones-pausadas');
+  }, 1800);
+}, { passive: true });
+
 /* ================= ARRANQUE ================= */
 if (Sesion.activa()) {
   iniciarApp().finally(() => {

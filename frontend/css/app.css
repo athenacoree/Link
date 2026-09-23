@@ -627,6 +627,137 @@ html[data-tema="oscuro"] .factor-punto.negativo{background:rgba(239,68,68,0.15);
 .chip-toggle:active{transform:scale(0.96);}
 .chip-toggle.seleccionado{background:linear-gradient(135deg,var(--morado-600),var(--morado-700)); border-color:transparent; color:#fff;}
 
+/* ---- Tarjeta de Contacto / Perfil con Animación de Pulso y Latido ---- */
+.tarjeta-contacto-pulsante {
+  margin-top: 8px;
+  padding: 14px;
+  background: var(--blanco, #ffffff);
+  border: 1.5px solid var(--morado-500, #8b5cf6);
+  border-radius: 16px;
+  box-shadow: 0 4px 15px rgba(139, 92, 246, 0.2);
+  max-width: 290px;
+  color: var(--texto-900, #111827);
+  position: relative;
+  overflow: hidden;
+  animation: pulsoLatidoCard 2s infinite ease-in-out;
+}
+
+@keyframes pulsoLatidoCard {
+  0% { transform: scale(1); box-shadow: 0 4px 15px rgba(139, 92, 246, 0.2); }
+  14% { transform: scale(1.02); box-shadow: 0 8px 22px rgba(139, 92, 246, 0.38); }
+  28% { transform: scale(1); box-shadow: 0 4px 15px rgba(139, 92, 246, 0.2); }
+  42% { transform: scale(1.025); box-shadow: 0 8px 24px rgba(139, 92, 246, 0.42); }
+  70% { transform: scale(1); box-shadow: 0 4px 15px rgba(139, 92, 246, 0.2); }
+}
+
+.tarjeta-cita-interactive {
+  margin-top: 8px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  border: 1.5px solid rgba(139, 92, 246, 0.4);
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(91, 33, 182, 0.15);
+  max-width: 300px;
+}
+
+/* ---- Contenedor de Emojis/Iconos Flotantes Ascendentes (Estilo Live Stream) ---- */
+#contenedorEmojisFlotantes {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 99999;
+  overflow: hidden;
+}
+
+.emoji-flotante-item {
+  position: absolute;
+  bottom: -40px;
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  animation: flotarHaciaArriba 3.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+@keyframes flotarHaciaArriba {
+  0% {
+    transform: translateY(0) scale(0.6) rotate(0deg);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+    transform: translateY(-80px) scale(1.1) rotate(-8deg);
+  }
+  50% {
+    transform: translateY(-300px) scale(1) rotate(10deg);
+  }
+  85% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: translateY(-650px) scale(0.7) rotate(-15deg);
+    opacity: 0;
+  }
+}
+
+/* ---- Pantalla Mareada por Sacudida (Shake Effect) ---- */
+body.pantalla-mareada {
+  filter: blur(8px) saturate(130%) brightness(0.92) hue-rotate(15deg) !important;
+  transition: filter 0.3s ease-in-out !important;
+}
+
+/* Pausar/Reanudar animaciones con interacción */
+body.animaciones-pausadas * {
+  animation-play-state: paused !important;
+}
+
+/* ---- Efectos Visuales de Emoción de la IA en Mensajes ---- */
+.msg-emocion-happy {
+  border: 2px solid #3b82f6 !important;
+  box-shadow: 0 0 15px rgba(59, 130, 246, 0.4) !important;
+  animation: ondaBordeAzul 2.5s infinite ease-in-out !important;
+}
+@keyframes ondaBordeAzul {
+  0%, 100% { box-shadow: 0 0 8px rgba(59, 130, 246, 0.3); }
+  50% { box-shadow: 0 0 18px rgba(59, 130, 246, 0.6); }
+}
+
+.msg-emocion-angry {
+  border: 2px solid #ef4444 !important;
+  box-shadow: 0 0 15px rgba(239, 68, 68, 0.5) !important;
+  animation: choqueRojo 0.5s ease-in-out infinite alternate !important;
+}
+@keyframes choqueRojo {
+  0% { transform: translateX(-2px); box-shadow: 0 0 10px rgba(239, 68, 68, 0.4); }
+  100% { transform: translateX(2px); box-shadow: 0 0 20px rgba(239, 68, 68, 0.8); }
+}
+
+.msg-emocion-love {
+  border: 2px solid #ec4899 !important;
+  box-shadow: 0 0 16px rgba(236, 72, 153, 0.5) !important;
+  animation: palpitacionRosada 1.5s infinite ease-in-out !important;
+}
+@keyframes palpitacionRosada {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 10px rgba(236, 72, 153, 0.3); }
+  50% { transform: scale(1.02); box-shadow: 0 0 22px rgba(236, 72, 153, 0.7); }
+}
+
+.msg-emocion-excited {
+  border: 2px solid #eab308 !important;
+  box-shadow: 0 0 16px rgba(234, 179, 8, 0.5) !important;
+  animation: destelloAmarillo 1.2s infinite ease-in-out !important;
+}
+@keyframes destelloAmarillo {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.15); box-shadow: 0 0 24px rgba(234, 179, 8, 0.8); }
+}
+
+.msg-emocion-cool {
+  border: 2px solid #8b5cf6 !important;
+  box-shadow: 0 0 16px rgba(139, 92, 246, 0.5) !important;
+}
+
 /* ---- Reacciones privadas del feed "Descubrir" (doble toque) ---- */
 .chip-reaccion.negativa.seleccionado{background:linear-gradient(135deg,#ef4444,#b91c1c);}
 .tarjeta{position:relative; overflow:hidden;}

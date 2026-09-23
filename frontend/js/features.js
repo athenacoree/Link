@@ -209,7 +209,31 @@
         }
     };
 
+    window.probarSugerenciaAI = function(promptText) {
+      document.getElementById('veloDescubreAI')?.classList.remove('activo');
+      document.getElementById('hojaDescubreAI')?.classList.remove('activo');
+
+      if (typeof Chat !== 'undefined' && Chat.abrirConversacion) {
+        Chat.abrirConversacion({
+          id: '00000000-0000-0000-0000-0000000000a1',
+          name: '🤖 Link AI',
+          is_ai: true
+        });
+        setTimeout(() => {
+          const input = document.getElementById('chatInputTexto');
+          if (input) {
+            input.value = promptText;
+            document.getElementById('chatBtnEnviar')?.click();
+          }
+        }, 400);
+      }
+    };
+
     document.addEventListener('DOMContentLoaded', () => {
         window.EnlaceFeatures.init();
+        document.getElementById('btnDescubreQuePuedoHacer')?.addEventListener('click', () => {
+          document.getElementById('veloDescubreAI')?.classList.add('activo');
+          document.getElementById('hojaDescubreAI')?.classList.add('activo');
+        });
     });
 })();
