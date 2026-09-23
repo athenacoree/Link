@@ -8,7 +8,7 @@ const { query } = require('../db/postgres');
 
 async function getAISettings() {
   const config = {
-    ai_provider: process.env.AI_PROVIDER || 'openrouter',
+    ai_provider: process.env.AI_PROVIDER || 'cerebras',
     openrouter_api_key: process.env.OPENROUTER_API_KEY || '',
     openrouter_model: process.env.OPENROUTER_MODEL || 'openrouter/free',
     xai_api_key: process.env.XAI_API_KEY || process.env.GROK_API_KEY || '',
@@ -416,7 +416,7 @@ async function chatCompletion({
 } = {}) {
   const settings = await getAISettings();
 
-  const primaryProvider = (provider || settings.ai_provider || 'openrouter').toLowerCase();
+  const primaryProvider = (provider || settings.ai_provider || 'cerebras').toLowerCase();
   const fallbackProvider = (settings.fallback_provider || 'huggingface').toLowerCase();
 
   const effectiveMaxTokens = Math.max(50, Math.min(16000, parseInt(maxTokens || settings.ai_max_tokens || '1000', 10)));
@@ -534,8 +534,8 @@ async function chatCompletion({
     let friendlyMsg = '⚠️ Estoy teniendo problemas técnicos para comunicarme con el modelo de IA.';
     if (lastError?.code === 'VISION_NOT_SUPPORTED') {
       friendlyMsg = '⚠️ El modelo de IA seleccionado no soporta análisis de imágenes en este momento.';
-    } else if (lastError?.code === 'NO_API_KEY') {
-      friendlyMsg = `⚠️ Error de autenticación en la IA: ${lastError.message || 'Clave API no provista en las variables de entorno.'}`;
+    } else if (lastError?.code === 'NO_API_KEY' || lastError?.status === 401 || (lastError?.message && (lastError.message.toLowerCase().includes('api key') || lastError.message.toLowerCase().includes('authentication header')))) {
+      friendlyMsg = `⚠️ Error de autenticación en la IA: ${lastError.message || 'Clave API no provista o inválida en las variables de entorno.'}`;
     } else if (lastError?.message) {
       friendlyMsg = `⚠️ Error al conectar con la IA: ${lastError.message}`;
     }
