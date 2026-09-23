@@ -127,7 +127,7 @@
       </select>
       <select id="filtroOnline" style="padding:6px 10px; border-radius:12px; border:1px solid var(--borde); background:var(--fondo-tarjeta); font-size:12px; color:var(--texto-800); font-weight:600;">
         <option value="">Todos los estados</option>
-        <option value="online">En línea ahora 🟢</option>
+        <option value="online">En línea ahora</option>
       </select>
     </div>
 
@@ -143,7 +143,7 @@
     </div>
     <div class="sub-tabs">
       <div class="sub-tab activo" data-sub="amigos">Amigos</div>
-      <div class="sub-tab" data-sub="favoritos">Favoritos ⭐</div>
+      <div class="sub-tab" data-sub="favoritos">Favoritos</div>
       <div class="sub-tab" data-sub="solicitudes">Solicitudes</div>
     </div>
     <div class="feed" id="listaAmigos"></div>
@@ -171,7 +171,7 @@
           <span class="ailab-status-pulse"></span>
           <span id="ailabStatusText">Pensando...</span>
         </div>
-        <button class="btn btn-secundario" id="ailabBtnStop" onclick="AILab.cancelGeneration()" style="padding:3px 10px; font-size:0.75rem; border-radius:12px;">Detener 🛑</button>
+        <button class="btn btn-secundario" id="ailabBtnStop" onclick="AILab.cancelGeneration()" style="padding:3px 10px; font-size:0.75rem; border-radius:12px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:middle; margin-right:4px;"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>Detener</button>
       </div>
 
       <!-- Feed principal de la Conversación -->
@@ -196,7 +196,7 @@
         <div class="ailab-composer-sheet">
           <div class="ailab-composer-header">
             <span class="ailab-composer-title">Escribir mensaje</span>
-            <button class="ailab-composer-close" onclick="AILab.closeComposer()">✕</button>
+            <button class="ailab-composer-close" onclick="AILab.closeComposer()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
           </div>
 
           <!-- Previsualización de archivos adjuntos -->
@@ -211,18 +211,18 @@
           <div class="ailab-composer-actions">
             <div style="display:flex; gap:6px;">
               <button class="ailab-composer-tools-btn" onclick="document.getElementById('ailabFileInputImage').click()" title="Adjuntar Imagen">
-                📷
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
               </button>
               <input type="file" id="ailabFileInputImage" accept="image/*" style="display:none">
 
               <button class="ailab-composer-tools-btn" onclick="document.getElementById('ailabFileInputDoc').click()" title="Adjuntar Documento">
-                📄
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
               </button>
               <input type="file" id="ailabFileInputDoc" accept=".pdf,.txt,.csv,.json,text/plain,application/pdf,application/json,text/csv" multiple style="display:none">
             </div>
 
             <div style="display:flex; gap:6px; align-items:center;">
-              <button class="btn btn-primario" id="ailabComposerBtnSend" onclick="AILab.sendMessageFromComposer()" style="border-radius:20px; padding:8px 16px; font-weight:800;">🚀</button>
+              <button class="btn btn-primario" id="ailabComposerBtnSend" onclick="AILab.sendMessageFromComposer()" style="border-radius:20px; padding:8px 16px; font-weight:800; display:inline-flex; align-items:center; justify-content:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
             </div>
           </div>
         </div>
@@ -275,7 +275,7 @@
       </div>
       <div class="fila-ajustes" id="btnDescubreQuePuedoHacer" style="background:linear-gradient(135deg, rgba(139,92,246,0.1), rgba(168,85,247,0.05)); border:1px solid var(--morado-300);">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--morado-700)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/><circle cx="12" cy="12" r="4"/></svg>
-        <div class="txt" style="font-weight:800; color:var(--morado-700);">✨ Descubre qué puedo hacer (Link AI)</div>
+        <div class="txt" style="font-weight:800; color:var(--morado-700);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--morado-700)" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z"/></svg> Descubre qué puedo hacer (Link AI)</div>
         <div class="chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></div>
       </div>
       <div class="fila-ajustes" id="btnDescargarBridgeApp">
@@ -352,7 +352,7 @@
   <div class="hoja-grupo">
     <div class="hoja-persona"><img id="hoja-avatar" src="" alt=""><span id="hoja-nombre"></span></div>
     <div class="hoja-opcion" id="op-ver-perfil">Ver perfil</div>
-    <div class="hoja-opcion" id="op-compartir-perfil">Compartir perfil 🔗</div>
+    <div class="hoja-opcion" id="op-compartir-perfil" style="display:flex; align-items:center; gap:8px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg> Compartir perfil</div>
     <div class="hoja-opcion" id="op-link-whatsapp" style="color:var(--morado-700); font-weight:700;">Link (Redes sociales)</div>
     <div class="hoja-opcion" id="op-mensaje">Enviar mensaje</div>
     <div class="hoja-opcion" id="op-llamar-audio">Llamar (audio)</div>
@@ -443,10 +443,10 @@
   <img id="imgVisorAgrandada" src="" alt="" style="max-width:95vw; max-height:80vh; border-radius:12px; object-fit:contain; box-shadow:0 12px 32px rgba(0,0,0,0.5);">
   <div style="margin-top:14px; display:flex; gap:10px;">
     <button id="btnDescargarImagenModal" class="btn btn-primario" onclick="window.descargarImagenActualVisor()" style="padding:8px 18px; font-size:13px; font-weight:700; border-radius:20px;">
-      📥 <span data-i18n="btn_descargar_foto">Descargar Foto</span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span data-i18n="btn_descargar_foto">Descargar Foto</span>
     </button>
     <button id="btnEditarConAppModal" class="btn btn-secundario" onclick="window.requerirAppEdicionFotos()" style="padding:8px 18px; font-size:13px; font-weight:700; border-radius:20px;">
-      🎨 <span data-i18n="btn_editar_app">Editar con App Bridge</span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.92 0 1.5-.72 1.5-1.5 0-.4-.15-.76-.4-.98-.24-.22-.4-.54-.4-.91 0-.75.6-1.36 1.35-1.36H16c3.31 0 6-2.69 6-6 0-4.97-4.48-9-10-9z"/></svg><span data-i18n="btn_editar_app">Editar con App Bridge</span>
     </button>
   </div>
 </div>
@@ -458,7 +458,7 @@
   <div style="width:100%; max-width:800px; height:85vh; display:flex; flex-direction:column; background:var(--blanco); border-radius:16px; overflow:hidden; box-shadow:0 12px 32px rgba(0,0,0,0.5);">
     <div style="padding:12px 16px; background:var(--morado-700); color:#fff; font-weight:700; font-size:14px; display:flex; justify-content:space-between; align-items:center;">
       <span id="tituloPDFVisor">Visualizador de Documento / PDF</span>
-      <a id="btnDescargarPDFModal" href="#" target="_blank" download style="color:#fff; font-size:12px; background:rgba(255,255,255,0.2); padding:5px 12px; border-radius:10px; text-decoration:none; font-weight:600;">📥 Descargar</a>
+      <a id="btnDescargarPDFModal" href="#" target="_blank" download style="color:#fff; font-size:12px; background:rgba(255,255,255,0.2); padding:5px 12px; border-radius:10px; text-decoration:none; font-weight:600;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Descargar</a>
     </div>
     <iframe id="iframePDFVisor" src="" style="width:100%; height:100%; border:none;"></iframe>
   </div>
@@ -492,7 +492,7 @@
 
   <div class="boton-porque-wrap oculto" id="p-porque-wrap">
     <div class="boton-porque" id="p-porque-btn">
-      <span class="boton-porque-icono">✨</span>
+      <span class="boton-porque-icono"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z"/></svg></span>
       <span>Por qué te la recomendamos</span>
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
     </div>
@@ -568,8 +568,8 @@
           Foto
         </label>
         <select id="pCompVisibilidad" style="padding:4px 8px; border-radius:8px; border:1px solid var(--borde); font-size:12px; background:var(--fondo-tarjeta); color:var(--texto-800);">
-          <option value="public">🌐 Público</option>
-          <option value="friends">👥 Solo amigos</option>
+          <option value="public">Público</option>
+          <option value="friends">Solo amigos</option>
         </select>
       </div>
       <div class="btn btn-primario" id="pBtnPublicar" style="padding:9px 20px;">Publicar</div>
@@ -580,8 +580,8 @@
     <div class="seccion-titulo" style="padding:0;">Publicaciones</div>
     <select id="pFiltroVisibilidadFeed" style="font-size:11.5px; padding:4px 8px; border-radius:8px; border:1px solid var(--linea); background:var(--blanco); color:var(--morado-700); font-weight:700;">
       <option value="todas">Todas</option>
-      <option value="fotos">Solo Fotos 📷</option>
-      <option value="amigos">Solo Amigos 👥</option>
+      <option value="fotos">Solo Fotos</option>
+      <option value="amigos">Solo Amigos</option>
     </select>
   </div>
   <div class="feed" id="p-publicaciones" style="padding:0 20px 30px;"></div>
@@ -600,10 +600,10 @@
       <div class="sub-tab activo" data-admintab="usuarios">Usuarios</div>
       <div class="sub-tab" data-admintab="reportes">Reportes</div>
       <div class="sub-tab" data-admintab="anuncios">Anuncios</div>
-      <div class="sub-tab" data-admintab="ai-config">Asistente IA 🤖</div>
+      <div class="sub-tab" data-admintab="ai-config">Asistente IA</div>
       <div class="sub-tab" data-admintab="base-datos">Base de Datos</div>
-      <div class="sub-tab" data-admintab="editor-db">Editor SQL / Tablas 🗄️</div>
-      <div class="sub-tab" data-admintab="monetizacion">Monetización 💰</div>
+      <div class="sub-tab" data-admintab="editor-db">Editor SQL / Tablas</div>
+      <div class="sub-tab" data-admintab="monetizacion">Monetización</div>
     </div>
 
     <div id="adminVistaUsuarios">
@@ -655,7 +655,7 @@
       </div>
 
       <div style="background:var(--morado-50); border:1px solid var(--morado-200); border-radius:12px; padding:12px; margin-bottom:14px; font-size:12.5px; color:var(--texto-800);">
-        💡 <strong>Gestión Segura de Claves API:</strong> La clave secreta API (GEMINI_API_KEY) y los límites (AI_MAX_TOKENS, AILAB_AUTO_INTERVAL_MIN) se leen directamente desde las variables de entorno de Render para máxima seguridad y no se almacenan en la base de datos.
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:text-bottom; margin-right:4px;"><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/><circle cx="12" cy="12" r="4"/></svg><strong>Gestión Segura de Claves API:</strong> La clave secreta API (GEMINI_API_KEY) y los límites (AI_MAX_TOKENS, AILAB_AUTO_INTERVAL_MIN) se leen directamente desde las variables de entorno de Render para máxima seguridad y no se almacenan en la base de datos.
       </div>
 
       <div class="campo"><label>Nombre del Asistente</label><input type="text" id="adminAIName" placeholder="Link AI"></div>
@@ -674,7 +674,7 @@
         <label>Avatar / Foto del Asistente</label>
         <div style="display:flex; gap:8px; align-items:center;">
           <input type="text" id="adminAIAvatar" placeholder="https://... o imagen cargada" style="flex:1;">
-          <button class="btn btn-secundario" id="adminBtnUploadAvatar" style="padding:8px 12px; font-size:12px;">Subir foto 📷</button>
+          <button class="btn btn-secundario" id="adminBtnUploadAvatar" style="padding:8px 12px; font-size:12px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>Subir foto</button>
           <input type="file" id="adminAIAvatarFileInput" accept="image/*" style="display:none">
         </div>
       </div>
@@ -727,15 +727,15 @@
             <div class="campo">
               <label>Avatar / Foto (URL o Emoji)</label>
               <div style="display:flex; gap:8px;">
-                <input type="text" id="adminPersonajeAvatar" placeholder="🤖 o https://..." style="flex:1;">
-                <button class="btn btn-secundario" id="adminBtnUploadPersonajeFoto" style="padding:6px 12px; font-size:12px;">Foto 📷</button>
+                <input type="text" id="adminPersonajeAvatar" placeholder="https://..." style="flex:1;">
+                <button class="btn btn-secundario" id="adminBtnUploadPersonajeFoto" style="padding:6px 12px; font-size:12px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>Foto</button>
                 <input type="file" id="adminPersonajeFotoInput" accept="image/*" style="display:none">
               </div>
             </div>
             <div class="campo"><label>Personalidad y Rasgos</label><textarea id="adminPersonajePersonalidad" rows="2" placeholder="Describe los rasgos, estilo de conversación y personalidad..."></textarea></div>
             <div class="campo"><label>Mensaje de Saludo</label><input type="text" id="adminPersonajeSaludo" placeholder="¡Hola! ¿En qué puedo ayudarte hoy?"></div>
             <div style="display:flex; gap:8px; margin-top:8px;">
-              <button class="btn btn-primario" id="adminBtnGuardarPersonaje" style="flex:1; font-size:12px;">Guardar Personaje 💾</button>
+              <button class="btn btn-primario" id="adminBtnGuardarPersonaje" style="flex:1; font-size:12px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Guardar Personaje</button>
               <button class="btn btn-secundario" id="adminBtnLimpiarPersonaje" style="font-size:12px;">Limpiar</button>
             </div>
           </div>
@@ -782,8 +782,8 @@
       </div>
 
       <div style="display:flex; gap:10px; margin-top:14px;">
-        <div class="btn btn-secundario" id="adminBtnTestAI" style="flex:1;">Comprobar Proveedor 🧪</div>
-        <div class="btn btn-primario" id="adminBtnSaveAI" style="flex:1;">Guardar Configuración 💾</div>
+        <div class="btn btn-secundario" id="adminBtnTestAI" style="flex:1;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="M10 2v7.58a2 2 0 0 1-.59 1.42L3.59 16.83A2 2 0 0 0 5 20.24h14a2 2 0 0 0 1.41-3.41l-5.82-5.83A2 2 0 0 1 14 9.58V2"/></svg>Comprobar Proveedor</div>
+        <div class="btn btn-primario" id="adminBtnSaveAI" style="flex:1;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Guardar Configuración</div>
       </div>
 
       <div id="adminAITestResult" style="margin-top:14px; font-size:13px; line-height:1.4;"></div>
@@ -836,7 +836,7 @@
         <label>Consola SQL directa</label>
         <textarea id="adminSQLConsole" rows="3" placeholder="SELECT * FROM users WHERE username = 'admin';"></textarea>
       </div>
-      <div class="btn btn-primario" id="adminBtnRunSQL" style="width:100%;">Ejecutar Consulta SQL ⚡</div>
+      <div class="btn btn-primario" id="adminBtnRunSQL" style="width:100%;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Ejecutar Consulta SQL</div>
       <div id="adminSQLResult" style="margin-top:12px; max-height:250px; overflow:auto; font-family:monospace; font-size:12px; background:var(--hueso); padding:10px; border-radius:10px; border:1px solid var(--borde);"></div>
     </div>
 
@@ -1177,39 +1177,39 @@
 <div class="velo" id="veloDescubreAI"></div>
 <div class="hoja" id="hojaDescubreAI" style="bottom:20px; max-height:85vh;">
   <div class="hoja-grupo">
-    <div class="hoja-persona"><span style="font-weight:800; color:var(--morado-700); font-size:16px;">✨ Descubre qué puedo hacer (Link AI)</span></div>
+    <div class="hoja-persona"><span style="font-weight:800; color:var(--morado-700); font-size:16px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--morado-700)" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z"/></svg> Descubre qué puedo hacer (Link AI)</span></div>
     <div class="hoja-form" style="max-height:65vh; overflow-y:auto; font-size:13px; line-height:1.4;">
       <p style="color:var(--texto-600); margin-bottom:12px;">Descubre algunas de las funciones más potentes de Link AI. Toca cualquier sugerencia para probarla directamente en tu chat de IA:</p>
 
       <div style="display:flex; flex-direction:column; gap:10px;">
         <div style="background:var(--morado-50); border:1px solid var(--morado-200); border-radius:12px; padding:12px;">
-          <div style="font-weight:800; color:var(--morado-700); margin-bottom:4px;">🔍 Búsqueda de Personas por Intereses</div>
+          <div style="font-weight:800; color:var(--morado-700); margin-bottom:4px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--morado-700)" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg> Búsqueda de Personas por Intereses</div>
           <p style="margin:0 0 8px; color:var(--texto-700);">Encuentra personas con tus mismos gustos o pasatiempos en Link.</p>
-          <button class="mini-btn primario" onclick="window.probarSugerenciaAI('Busca personas que les guste la música y la tecnología')">Probar: "Personas que les guste la música" 🚀</button>
+          <button class="mini-btn primario" onclick="window.probarSugerenciaAI('Busca personas que les guste la música y la tecnología')">Probar: "Personas que les guste la música"</button>
         </div>
 
         <div style="background:var(--morado-50); border:1px solid var(--morado-200); border-radius:12px; padding:12px;">
-          <div style="font-weight:800; color:var(--morado-700); margin-bottom:4px;">📅 Agendamiento de Citas / Compromisos</div>
+          <div style="font-weight:800; color:var(--morado-700); margin-bottom:4px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--morado-700)" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Agendamiento de Citas / Compromisos</div>
           <p style="margin:0 0 8px; color:var(--texto-700);">Envía invitaciones interactivas con hora, plan y destino.</p>
-          <button class="mini-btn primario" onclick="window.probarSugerenciaAI('Programa una cita con Yaditza para tomar un café mañana')">Probar: "Agendar una cita para café" 📅</button>
+          <button class="mini-btn primario" onclick="window.probarSugerenciaAI('Programa una cita con Yaditza para tomar un café mañana')">Probar: "Agendar una cita para café"</button>
         </div>
 
         <div style="background:var(--morado-50); border:1px solid var(--morado-200); border-radius:12px; padding:12px;">
-          <div style="font-weight:800; color:var(--morado-700); margin-bottom:4px;">📦 Generación y Entrega de Archivos ZIP</div>
+          <div style="font-weight:800; color:var(--morado-700); margin-bottom:4px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--morado-700)" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg> Generación y Entrega de Archivos ZIP</div>
           <p style="margin:0 0 8px; color:var(--texto-700);">Crea archivos comprimidos descargables al instante.</p>
-          <button class="mini-btn primario" onclick="window.probarSugerenciaAI('Crea un archivo ZIP descargable con un informe')">Probar: "Entregar archivo ZIP" 📦</button>
+          <button class="mini-btn primario" onclick="window.probarSugerenciaAI('Crea un archivo ZIP descargable con un informe')">Probar: "Entregar archivo ZIP"</button>
         </div>
 
         <div style="background:var(--morado-50); border:1px solid var(--morado-200); border-radius:12px; padding:12px;">
-          <div style="font-weight:800; color:var(--morado-700); margin-bottom:4px;">🎨 Generación de Imágenes Digitales</div>
+          <div style="font-weight:800; color:var(--morado-700); margin-bottom:4px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--morado-700)" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.92 0 1.5-.72 1.5-1.5 0-.4-.15-.76-.4-.98-.24-.22-.4-.54-.4-.91 0-.75.6-1.36 1.35-1.36H16c3.31 0 6-2.69 6-6 0-4.97-4.48-9-10-9z"/></svg> Generación de Imágenes Digitales</div>
           <p style="margin:0 0 8px; color:var(--texto-700);">Crea ilustraciones y arte digital a partir de tu descripción.</p>
-          <button class="mini-btn primario" onclick="window.probarSugerenciaAI('Dibuja un gato futurista con gafas de sol')">Probar: "Dibujar un gato futurista" 🎨</button>
+          <button class="mini-btn primario" onclick="window.probarSugerenciaAI('Dibuja un gato futurista con gafas de sol')">Probar: "Dibujar un gato futurista"</button>
         </div>
 
         <div style="background:var(--morado-50); border:1px solid var(--morado-200); border-radius:12px; padding:12px;">
-          <div style="font-weight:800; color:var(--morado-700); margin-bottom:4px;">🌐 Clima, Divisas y Misiones Inteligentes</div>
+          <div style="font-weight:800; color:var(--morado-700); margin-bottom:4px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--morado-700)" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> Clima, Divisas y Misiones Inteligentes</div>
           <p style="margin:0 0 8px; color:var(--texto-700);">Consulta el tiempo local, cotizaciones o ejecuta tareas completas.</p>
-          <button class="mini-btn primario" onclick="window.probarSugerenciaAI('¿Cómo está el clima hoy en La Habana y convierte 50 USD a EUR?')">Probar: "Clima y Conversión de USD a EUR" 🌤️</button>
+          <button class="mini-btn primario" onclick="window.probarSugerenciaAI('¿Cómo está el clima hoy en La Habana y convierte 50 USD a EUR?')">Probar: "Clima y Conversión de USD a EUR"</button>
         </div>
       </div>
     </div>
@@ -1232,10 +1232,10 @@
 
     <div style="display:flex; flex-direction:column; gap:8px;">
       <button class="btn btn-primario" id="btnGenerarNuevoCodigoBridge" onclick="window.generarCodigoVinculacionBridge()" style="width:100%; font-size:13px;">
-        🔄 <span data-i18n="btn_generar_codigo">Generar nuevo código</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg><span data-i18n="btn_generar_codigo">Generar nuevo código</span>
       </button>
       <a id="btnDescargarAPKDirecto" href="/api/bridge/download-apk" download class="btn btn-secundario" style="width:100%; font-size:13px; text-decoration:none; display:inline-block;">
-        📱 <span data-i18n="btn_descargar_apk">Descargar App Bridge (.apk)</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg><span data-i18n="btn_descargar_apk">Descargar App Bridge (.apk)</span>
       </a>
     </div>
   </div>
@@ -1351,12 +1351,12 @@
 <div class="hoja" id="hojaChatAdjuntos" style="bottom:20px;">
   <div class="hoja-grupo">
     <div class="hoja-persona"><span style="font-weight:700; color:var(--morado-700); font-size:16px;">Opciones de la conversación</span></div>
-    <div class="hoja-opcion" id="opChatFoto">📷 Enviar foto</div>
-    <div class="hoja-opcion" id="opChatLivePhoto">✨ Enviar Foto Live (iOS / Android)</div>
-    <div class="hoja-opcion" id="opChatVoz">🎤 Grabar nota de voz</div>
-    <div class="hoja-opcion" id="opChatBuscar">🔍 Buscar en el chat</div>
-    <div class="hoja-opcion" id="opChatGaleria">🖼️ Galería de fotos del chat</div>
-    <div class="hoja-opcion" id="opChatExportar">📥 Exportar conversación (.txt)</div>
+    <div class="hoja-opcion" id="opChatFoto" style="display:flex; align-items:center; gap:8px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>Enviar foto</div>
+    <div class="hoja-opcion" id="opChatLivePhoto" style="display:flex; align-items:center; gap:8px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>Enviar Foto Live (iOS / Android)</div>
+    <div class="hoja-opcion" id="opChatVoz" style="display:flex; align-items:center; gap:8px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>Grabar nota de voz</div>
+    <div class="hoja-opcion" id="opChatBuscar" style="display:flex; align-items:center; gap:8px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>Buscar en el chat</div>
+    <div class="hoja-opcion" id="opChatGaleria" style="display:flex; align-items:center; gap:8px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>Galería de fotos del chat</div>
+    <div class="hoja-opcion" id="opChatExportar" style="display:flex; align-items:center; gap:8px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Exportar conversación (.txt)</div>
   </div>
   <div class="hoja-cancelar" id="cerrarChatAdjuntos">Cancelar</div>
 </div>

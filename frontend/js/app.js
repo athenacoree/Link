@@ -205,7 +205,7 @@ $('btnGuardarEncuesta').addEventListener('click', async () => {
     });
     Sesion.actualizarUsuario(user);
     cerrarEncuesta();
-    mostrarToast('¡Gracias! Ya estamos afinando tus recomendaciones ✨');
+    mostrarToast('¡Gracias! Ya estamos afinando tus recomendaciones');
     if ($('vistaFeed').classList.contains('activo')) cargarDescubrir();
   } catch (e) { mostrarToast(e.message); }
 });
@@ -238,9 +238,9 @@ $('p-porque-btn').addEventListener('click', () => { if (perfilActualId) abrirPor
 
 const COLORES_NIVEL = { alta: '#22c55e', media: '#9d5cf5', baja: '#a79ac0' };
 const TITULOS_NO_ALGORITMO = {
-  null: '🔎 No vino de tu feed',
-  exploracion_aleatoria: '🎲 Cupo de exploración al azar',
-  cuenta_nueva: '🌱 Cupo fijo de cuenta nueva',
+  null: 'No vino de tu feed',
+  exploracion_aleatoria: 'Cupo de exploración al azar',
+  cuenta_nueva: 'Cupo fijo de cuenta nueva',
 };
 
 function pintarExplicacionRecomendacion(data) {
@@ -316,7 +316,7 @@ const SVG_CHECK_VERIFICADO = '<svg viewBox="0 0 24 24" fill="#3897f0" style="wid
 function badgeVerificado(persona) {
   let extra = '';
   if (persona?.is_creador || persona?.is_admin) {
-    extra += `<span class="badge-creador" title="Creador" style="margin-left:4px; font-size:14px;">👑 <span style="font-size:11px; font-weight:700; color:var(--morado-700);">Creador</span></span>`;
+    extra += `<span class="badge-creador" title="Creador" style="margin-left:4px; font-size:14px; display:inline-flex; align-items:center; gap:2px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="color:#eab308;"><path d="M2 4l3 12h14l3-12-6 7-4-5-4 5-6-7z"/></svg><span style="font-size:11px; font-weight:700; color:var(--morado-700);">Creador</span></span>`;
   }
   if (persona?.verified) {
     extra += `<span class="badge-verificado" title="Cuenta verificada">${SVG_CHECK_VERIFICADO}</span>`;
@@ -722,7 +722,7 @@ $('pBtnPublicar')?.addEventListener('click', async () => {
     imagenCompositorBase64 = null;
     $('pCompPreview').classList.remove('activo');
     $('pCompPreview').src = '';
-    mostrarToast('Publicado ✅ — ya aparece en tu perfil');
+    mostrarToast('Publicado — ya aparece en tu perfil');
     abrirPerfil(perfilActualId);
   } catch (e) { mostrarToast(e.message); }
 });
@@ -764,7 +764,7 @@ function pintarPublicacion(p) {
         <img src="${avatarDe({ avatar_data: p.autor_avatar, name: p.autor_nombre })}" alt="">
         <div>
           <div class="nombre">${p.autor_nombre}</div>
-          <div class="fecha">${tiempoRelativo(p.created_at)} ${p.visibility === 'friends' ? '🔒 Solo amigos' : '🌐 Público'}</div>
+          <div class="fecha">${tiempoRelativo(p.created_at)} ${p.visibility === 'friends' ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:2px;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Solo amigos' : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:2px;"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>Público'}</div>
         </div>
       </div>
       ${p.text ? `<div class="publicacion-texto">${procesarTextosYDriveLinks(p.text)}</div>` : ''}
@@ -837,15 +837,15 @@ function procesarTextosYDriveLinks(texto) {
         replacement = `
           <div class="drive-media-card pdf-card" style="margin-top:8px; padding:12px; background:var(--morado-50); border:1px solid var(--borde); border-radius:14px;">
             <div style="font-weight:700; font-size:13px; display:flex; align-items:center; gap:6px; color:var(--morado-700);">
-              📄 Documento / Libro PDF (Google Drive)
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Documento / Libro PDF (Google Drive)
             </div>
             <div style="font-size:11.5px; color:var(--texto-600); margin:6px 0;">Visualiza hoja por hoja o descárgalo a tu dispositivo.</div>
             <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:6px;">
               <button class="btn btn-primario mini-btn" style="padding:6px 12px; font-size:12px; border-radius:8px;" onclick="window.abrirVisorPDF('${fileId}', '${fullUrl.replace(/'/g, "\\'")}', 'Libro / PDF')">
-                📖 Abrir libro (Hoja por hoja)
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>Abrir libro (Hoja por hoja)
               </button>
               <a href="${downloadUrl}" target="_blank" download class="btn btn-secundario mini-btn" style="padding:6px 12px; font-size:12px; border-radius:8px; text-decoration:none;">
-                📥 Descargar
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Descargar
               </a>
             </div>
           </div>
@@ -854,7 +854,7 @@ function procesarTextosYDriveLinks(texto) {
         replacement = `
           <div class="drive-media-card video-card" style="margin-top:8px; padding:12px; background:rgba(0,0,0,0.05); border:1px solid var(--linea); border-radius:14px;">
             <div style="font-weight:700; font-size:13px; display:flex; align-items:center; gap:6px; color:var(--morado-700);">
-              🎬 Video de Google Drive
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/></svg>Video de Google Drive
             </div>
             <div style="font-size:11.5px; color:var(--texto-600); margin:4px 0 8px;">Reproduce online o descárgalo directamente.</div>
             <div id="drive-video-container-${fileId}" style="margin-bottom:6px;">
@@ -863,7 +863,7 @@ function procesarTextosYDriveLinks(texto) {
               </button>
             </div>
             <a href="${downloadUrl}" target="_blank" download class="btn btn-secundario mini-btn" style="padding:6px 12px; font-size:12px; border-radius:8px; text-decoration:none; display:inline-block;">
-              📥 Descargar video
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Descargar video
             </a>
           </div>
         `;
@@ -871,11 +871,11 @@ function procesarTextosYDriveLinks(texto) {
         replacement = `
           <div class="drive-media-card audio-card" style="margin-top:8px; padding:12px; background:var(--hueso); border:1px solid var(--borde); border-radius:14px;">
             <div style="font-weight:700; font-size:13px; color:var(--morado-700); margin-bottom:6px;">
-              🎵 Audio de Google Drive
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>Audio de Google Drive
             </div>
             <audio controls src="${downloadUrl}" style="width:100%; height:36px; margin-bottom:6px;"></audio>
             <a href="${downloadUrl}" target="_blank" download class="btn btn-secundario mini-btn" style="padding:6px 12px; font-size:12px; border-radius:8px; text-decoration:none; display:inline-block;">
-              📥 Descargar audio
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Descargar audio
             </a>
           </div>
         `;
@@ -883,8 +883,8 @@ function procesarTextosYDriveLinks(texto) {
         replacement = `
           <div class="drive-media-card photo-card" style="margin-top:8px; padding:8px; background:var(--blanco); border:1px solid var(--borde); border-radius:14px;">
             <div style="font-size:11.5px; font-weight:700; color:var(--morado-700); margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
-              <span>🖼️ Foto de Google Drive</span>
-              <a href="${downloadUrl}" target="_blank" download style="color:var(--morado-600); text-decoration:none; font-size:11px;">📥 Descargar</a>
+              <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>Foto de Google Drive</span>
+              <a href="${downloadUrl}" target="_blank" download style="color:var(--morado-600); text-decoration:none; font-size:11px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Descargar</a>
             </div>
             <img src="${imgPreviewUrl}" alt="Foto de Google Drive" style="max-width:100%; max-height:280px; object-fit:cover; border-radius:10px; cursor:pointer;" onclick="window.abrirVisorImagen('${imgPreviewUrl.replace(/'/g, "\\'")}')" onerror="this.onerror=null; this.src='https://docs.google.com/uc?export=view&id=${fileId}'">
           </div>
@@ -906,7 +906,7 @@ function escapingTextAndUrls(texto) {
   return safe.replace(urlRegex, (url) => {
     try {
       const domain = new URL(url).hostname;
-      return `<a href="${url}" target="_blank" class="chip-link-url" onclick="event.stopPropagation()">🔗 ${domain}</a>`;
+      return `<a href="${url}" target="_blank" class="chip-link-url" onclick="event.stopPropagation()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:2px;"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>${domain}</a>`;
     } catch (e) {
       return `<a href="${url}" target="_blank" class="chip-link-url" onclick="event.stopPropagation()">${url}</a>`;
     }
@@ -988,7 +988,7 @@ function compartirPost(postId) {
     navigator.share({ title: 'Publicación en Link', url });
   } else {
     navigator.clipboard.writeText(url);
-    mostrarToast('Enlace de la publicación copiado 🔗');
+    mostrarToast('Enlace de la publicación copiado');
   }
 }
 
@@ -1220,10 +1220,10 @@ async function buscarPersonas(q) {
 }
 
 const ETIQUETAS_ORIGEN_FEED = {
-  local: '📍 Tu localidad',
-  afinidad_otra_localidad: '🧭 Afinidad de localidad',
-  exploracion_aleatoria: '🎲 Descubrimiento al azar',
-  cuenta_nueva: '🌱 Cuenta nueva',
+  local: 'Tu localidad',
+  afinidad_otra_localidad: 'Afinidad de localidad',
+  exploracion_aleatoria: 'Descubrimiento al azar',
+  cuenta_nueva: 'Cuenta nueva',
 };
 
 const OPCIONES_REACCION = [
@@ -1322,7 +1322,7 @@ function abrirMiniEncuestaReaccion(persona) {
       try {
         const { reaccion } = await api(`/usuarios/${reaccionPersonaActual.id}/reaccion`, { method: 'PUT', body: { tipo: chip.dataset.tipo } });
         reaccionPersonaActual.mi_reaccion = reaccion?.tipo || chip.dataset.tipo;
-        mostrarToast('Guardado — esto es privado, solo tú lo ves 🔒');
+        mostrarToast('Guardado — esto es privado, solo tú lo ves');
       } catch (e) { mostrarToast(e.message); return; }
       setTimeout(cerrarMiniEncuestaReaccion, 500);
     });
@@ -1355,7 +1355,7 @@ $('op-compartir-perfil')?.addEventListener('click', () => {
     navigator.share({ title: personaSeleccionada.name, url });
   } else {
     navigator.clipboard.writeText(url);
-    mostrarToast('Enlace de perfil copiado 🔗');
+    mostrarToast('Enlace de perfil copiado');
   }
 });
 function abrirSocialLinksModal(persona) {
@@ -1367,7 +1367,7 @@ function abrirSocialLinksModal(persona) {
     const numLimpio = `${persona.country_code || '+53'}${persona.phone.replace(/\D/g, '')}`.replace(/^\+/, '');
     links.push({
       red: 'WhatsApp',
-      icono: '💬',
+      icono: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.5 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7A8.4 8.4 0 0 1 3.5 11.5 8.5 8.5 0 1 1 21 11.5Z"/></svg>',
       color: '#25D366',
       valor: `${persona.country_code || '+53'} ${persona.phone}`,
       url: `https://wa.me/${numLimpio}`
@@ -1378,7 +1378,7 @@ function abrirSocialLinksModal(persona) {
     const tg = (sl.telegram || persona.telegram || '').replace(/^@/, '');
     links.push({
       red: 'Telegram',
-      icono: '✈️',
+      icono: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>',
       color: '#229ED9',
       valor: `@${tg}`,
       url: `https://t.me/${tg}`
@@ -1389,7 +1389,7 @@ function abrirSocialLinksModal(persona) {
     const ig = (persona.instagram || sl.instagram || '').replace(/^@/, '');
     links.push({
       red: 'Instagram',
-      icono: '📸',
+      icono: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>',
       color: '#E1306C',
       valor: `@${ig}`,
       url: `https://instagram.com/${ig}`
@@ -1399,7 +1399,7 @@ function abrirSocialLinksModal(persona) {
   if (sl.discord) {
     links.push({
       red: 'Discord',
-      icono: '🎮',
+      icono: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="6"/><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><circle cx="15" cy="13" r="1"/><circle cx="18" cy="11" r="1"/></svg>',
       color: '#5865F2',
       valor: sl.discord,
       copiar: sl.discord
@@ -1409,7 +1409,7 @@ function abrirSocialLinksModal(persona) {
   if (sl.freefire) {
     links.push({
       red: 'Free Fire ID',
-      icono: '🔥',
+      icono: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>',
       color: '#FF6B00',
       valor: sl.freefire,
       copiar: sl.freefire
@@ -1419,7 +1419,7 @@ function abrirSocialLinksModal(persona) {
   if (sl.clashofclans) {
     links.push({
       red: 'Clash of Clans Tag',
-      icono: '⚔️',
+      icono: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5"/><line x1="13" y1="19" x2="19" y2="13"/><line x1="16" y1="16" x2="20" y2="20"/><line x1="19" y1="21" x2="21" y2="19"/></svg>',
       color: '#F1C40F',
       valor: sl.clashofclans,
       copiar: sl.clashofclans
@@ -1429,7 +1429,7 @@ function abrirSocialLinksModal(persona) {
   if (sl.callofduty) {
     links.push({
       red: 'Call of Duty ID',
-      icono: '🎯',
+      icono: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>',
       color: '#2C3E50',
       valor: sl.callofduty,
       copiar: sl.callofduty
@@ -1440,7 +1440,7 @@ function abrirSocialLinksModal(persona) {
     const url = sl.otros.startsWith('http') ? sl.otros : `https://${sl.otros}`;
     links.push({
       red: 'Sitio Web / Enlace',
-      icono: '🌐',
+      icono: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>',
       color: '#5b21b6',
       valor: sl.otros,
       url
@@ -1465,7 +1465,7 @@ function abrirSocialLinksModal(persona) {
             </div>
           </div>
           ${l.url ? `<a href="${l.url}" target="_blank" class="mini-btn primario" style="text-decoration:none;">Abrir ↗</a>` : ''}
-          ${l.copiar ? `<button class="mini-btn secundario" onclick="navigator.clipboard.writeText('${escaparHTMLGlobal(l.copiar)}'); mostrarToast('ID/Tag copiado');">Copiar 📋</button>` : ''}
+          ${l.copiar ? `<button class="mini-btn secundario" onclick="navigator.clipboard.writeText('${escaparHTMLGlobal(l.copiar)}'); mostrarToast('ID/Tag copiado');"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:2px;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copiar</button>` : ''}
         </div>
       `).join('');
     }
@@ -1476,7 +1476,7 @@ function abrirSocialLinksModal(persona) {
       container.innerHTML += `
         <div style="border-top:1px solid var(--borde); margin-top:10px; padding-top:12px;">
           <button class="btn btn-secundario" style="width:100%; font-size:12.5px;" onclick="solicitarContactoAccion('${persona.id}')">
-            📩 Solicitar datos / Mandar mi contacto
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>Solicitar datos / Mandar mi contacto
           </button>
         </div>
       `;
@@ -1490,7 +1490,7 @@ function abrirSocialLinksModal(persona) {
 async function solicitarContactoAccion(targetId) {
   try {
     await api('/notificaciones/solicitar-contacto', { method: 'POST', body: { target_id: targetId } });
-    mostrarToast('Se le envió una notificación expresando tu interés en agregar su contacto ✓');
+    mostrarToast('Se le envió una notificación expresando tu interés en agregar su contacto');
     $('veloSocialLinks')?.classList.remove('activo');
     $('hojaSocialLinks')?.classList.remove('activo');
   } catch (e) {
@@ -1703,7 +1703,7 @@ async function abrirPerfil(personaId) {
 
       const linkContainer = $('p-link-desplegable');
       if (linkContainer) {
-        linkContainer.innerHTML = `<button class="btn btn-secundario" style="width:100%; font-size:12.5px; padding:8px;" onclick="abrirSocialLinksModal(personaActualGlobal)">🔗 Ver Redes Sociales y Juegos</button>`;
+        linkContainer.innerHTML = `<button class="btn btn-secundario" style="width:100%; font-size:12.5px; padding:8px;" onclick="abrirSocialLinksModal(personaActualGlobal)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>Ver Redes Sociales y Juegos</button>`;
       }
 
       const btnExportarVCard = $('p-exportar-vcard');
@@ -1745,7 +1745,7 @@ function pintarBotonAmistad(estado, deMi) {
   const btn = $('p-amistad'); const txt = $('p-amistad-texto');
   $('p-stat-amigos').textContent = estado === 'amigos' ? 'Amigos' : estado === 'pendiente' ? 'Pendiente' : 'Ninguna';
   btn.classList.remove('es-amigo'); btn.removeAttribute('disabled');
-  if (estado === 'amigos') { btn.classList.add('es-amigo'); txt.textContent = 'Ya son amigos ✓'; btn.setAttribute('disabled', 'true'); }
+  if (estado === 'amigos') { btn.classList.add('es-amigo'); txt.textContent = 'Ya son amigos'; btn.setAttribute('disabled', 'true'); }
   else if (estado === 'pendiente' && deMi) { txt.textContent = 'Solicitud enviada…'; btn.setAttribute('disabled', 'true'); }
   else if (estado === 'pendiente' && !deMi) { txt.textContent = 'Aceptar solicitud'; }
   else { txt.textContent = 'Hacerse amigos'; }
@@ -1851,7 +1851,7 @@ async function cargarAmigosYSolicitudes() {
 async function responderSolicitud(userId, aceptar) {
   try {
     await api(`/amigos/${userId}/responder`, { method: 'POST', body: { aceptar } });
-    mostrarToast(aceptar ? 'Ahora son amigos 🎉' : 'Solicitud rechazada');
+    mostrarToast(aceptar ? 'Ahora son amigos' : 'Solicitud rechazada');
     cargarAmigosYSolicitudes();
   } catch (e) { mostrarToast(e.message); }
 }
@@ -1872,9 +1872,9 @@ function renderizarConversacionesHTML(conversaciones) {
   const aiAvatar = (window.AI_CONFIG && window.AI_CONFIG.avatar) || '';
 
   const itemAi = aiAvailable ? `
-    <div class="conversacion-item" data-persona='${encodeURIComponent(JSON.stringify({ id: '00000000-0000-0000-0000-0000000000a1', name: `🤖 ${aiName}`, avatar_data: aiAvatar, is_online: true, is_ai: true }))}' style="border-left:4px solid var(--morado-600); background:var(--morado-50);">
+    <div class="conversacion-item" data-persona='${encodeURIComponent(JSON.stringify({ id: '00000000-0000-0000-0000-0000000000a1', name: aiName, avatar_data: aiAvatar, is_online: true, is_ai: true }))}' style="border-left:4px solid var(--morado-600); background:var(--morado-50);">
       <div style="width:48px; height:48px; border-radius:50%; background:var(--morado-600); color:#fff; display:flex; align-items:center; justify-content:center; font-size:22px; font-weight:700; overflow:hidden;">
-        ${aiAvatar ? `<img src="${aiAvatar}" style="width:100%; height:100%; object-fit:cover;">` : '🤖'}
+        ${aiAvatar ? `<img src="${aiAvatar}" style="width:100%; height:100%; object-fit:cover;">` : '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2 2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"/><rect x="4" y="8" width="16" height="12" rx="2"/></svg>'}
       </div>
       <div class="conversacion-info">
         <div class="nombre" style="color:var(--morado-700);">${escaparHTMLGlobal(aiName)}</div>
@@ -1978,7 +1978,7 @@ $('campana').addEventListener('click', async () => {
       const targetActor = n.actor_id || dataJson.actor_id;
       return `
       <div class="notif-item ${n.read ? '' : 'no-leida'}" style="cursor:pointer;" onclick="cerrarNotificacionesHoja(); ${targetActor ? `abrirPerfil('${targetActor}')` : ''}">
-        <div class="notif-icono">${n.actor_avatar ? `<img src="${n.actor_avatar}" alt="">` : '👋'}</div>
+        <div class="notif-icono">${n.actor_avatar ? `<img src="${n.actor_avatar}" alt="">` : '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>'}</div>
         <div><div class="notif-texto">${escaparHTMLGlobal(n.text)}</div><div class="notif-hora">${tiempoRelativo(n.created_at)}</div></div>
       </div>`;
     }).join('') : '<div class="notif-vacio">Todavía no tienes notificaciones</div>';
@@ -2157,7 +2157,7 @@ $('btnLimpiarCache')?.addEventListener('click', async () => {
     if (token && user) {
       Sesion.guardar(token, user);
     }
-    mostrarToast('Caché local de la app limpiada ✓');
+    mostrarToast('Caché local de la app limpiada');
   } catch (e) { mostrarToast('Error al limpiar caché.'); }
 });
 
@@ -2242,7 +2242,7 @@ $('adminAIAvatarFileInput')?.addEventListener('change', async (e) => {
     try {
       const base64 = await archivoABase64(e.target.files[0], 400, 0.8);
       if ($('adminAIAvatar')) $('adminAIAvatar').value = base64;
-      mostrarToast('Foto de avatar cargada ✓');
+      mostrarToast('Foto de avatar cargada');
     } catch (err) {
       mostrarToast('Error al procesar la foto.');
     }
@@ -2276,7 +2276,7 @@ async function cargarAdminAIConfig() {
 
     const isPaused = settings.ailab_auto_paused === 'true';
     if ($('adminBtnTogglePauseAI')) {
-      $('adminBtnTogglePauseAI').textContent = isPaused ? '▶️ Reanudar Conversación de IA' : '⏸️ Pausar Conversación de IA';
+      $('adminBtnTogglePauseAI').innerHTML = isPaused ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:middle; margin-right:4px;"><polygon points="5 3 19 12 5 21 5 3"/></svg>Reanudar Conversación de IA' : '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:middle; margin-right:4px;"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>Pausar Conversación de IA';
     }
 
     await cargarAdminAICharacters();
@@ -2300,7 +2300,7 @@ async function cargarAdminAICharacters() {
       const isImg = c.avatar && (c.avatar.startsWith('http') || c.avatar.startsWith('data:image'));
       const avatarHTML = isImg
         ? `<img src="${c.avatar}" style="width:28px; height:28px; border-radius:50%; object-fit:cover;" />`
-        : `<span style="font-size:20px;">${escaparHTMLGlobal(c.avatar || '🤖')}</span>`;
+        : `<span style="font-size:20px;">${escaparHTMLGlobal(c.avatar || '')}</span>`;
 
       return `
         <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 10px; background:var(--blanco); border:1px solid var(--borde); border-radius:10px;">
@@ -2327,7 +2327,7 @@ function adminEditarPersonaje(c) {
   if (!c) return;
   if ($('adminPersonajeId')) $('adminPersonajeId').value = c.id || '';
   if ($('adminPersonajeNombre')) $('adminPersonajeNombre').value = c.name || '';
-  if ($('adminPersonajeAvatar')) $('adminPersonajeAvatar').value = c.avatar || '🤖';
+  if ($('adminPersonajeAvatar')) $('adminPersonajeAvatar').value = c.avatar || '';
   if ($('adminPersonajePersonalidad')) $('adminPersonajePersonalidad').value = c.personality || '';
   if ($('adminPersonajeSaludo')) $('adminPersonajeSaludo').value = c.greeting || '';
   if ($('adminTituloFormPersonaje')) $('adminTituloFormPersonaje').textContent = `Editar Personaje: ${c.name}`;
@@ -2339,7 +2339,7 @@ async function adminBorrarPersonaje(id) {
   if (!confirm('¿Seguro que deseas eliminar este personaje de IA?')) return;
   try {
     await api(`/admin/ai-characters/${id}`, { method: 'DELETE' });
-    mostrarToast('Personaje eliminado correctamente ✓');
+    mostrarToast('Personaje eliminado correctamente');
     await cargarAdminAICharacters();
     if (window.AILab) window.AILab.loadCharacters();
   } catch (e) {
@@ -2363,11 +2363,11 @@ $('adminBtnGuardarPersonaje')?.addEventListener('click', async () => {
 
     await api('/admin/ai-characters', {
       method: 'POST',
-      body: { id: id || undefined, name, avatar: avatar || '🤖', personality, greeting: greeting || '¡Hola!' }
+      body: { id: id || undefined, name, avatar: avatar || '', personality, greeting: greeting || '¡Hola!' }
     });
 
     limpiarFormularioPersonaje();
-    mostrarToast('Personaje guardado correctamente ✓');
+    mostrarToast('Personaje guardado correctamente');
     await cargarAdminAICharacters();
     if (window.AILab) window.AILab.loadCharacters();
   } catch (e) {
@@ -2396,7 +2396,7 @@ $('adminPersonajeFotoInput')?.addEventListener('change', async (e) => {
   const reader = new FileReader();
   reader.onload = (ev) => {
     if ($('adminPersonajeAvatar')) $('adminPersonajeAvatar').value = ev.target.result;
-    mostrarToast('Foto de personaje cargada ✓');
+    mostrarToast('Foto de personaje cargada');
   };
   reader.readAsDataURL(file);
 });
@@ -2417,10 +2417,10 @@ $('adminBtnTogglePauseAI')?.addEventListener('click', async () => {
     }
 
     if ($('adminBtnTogglePauseAI')) {
-      $('adminBtnTogglePauseAI').textContent = nextState === 'true' ? '▶️ Reanudar Conversación de IA' : '⏸️ Pausar Conversación de IA';
+      $('adminBtnTogglePauseAI').innerHTML = nextState === 'true' ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:middle; margin-right:4px;"><polygon points="5 3 19 12 5 21 5 3"/></svg>Reanudar Conversación de IA' : '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:middle; margin-right:4px;"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>Pausar Conversación de IA';
     }
 
-    mostrarToast(nextState === 'true' ? 'Conversación de IA pausada y detenida ⏸️' : 'Conversación de IA reanudada ▶️');
+    mostrarToast(nextState === 'true' ? 'Conversación de IA pausada y detenida' : 'Conversación de IA reanudada');
   } catch (e) {
     mostrarToast(e.message);
   }
@@ -2429,7 +2429,7 @@ $('adminBtnTogglePauseAI')?.addEventListener('click', async () => {
 $('adminBtnForceAILabTurn')?.addEventListener('click', async () => {
   try {
     await api('/ailab/trigger-auto', { method: 'POST' });
-    mostrarToast('Turno de conversación IA forzado con éxito ⚡');
+    mostrarToast('Turno de conversación IA forzado con éxito');
   } catch (e) {
     mostrarToast(e.message);
   }
@@ -2452,14 +2452,14 @@ $('adminBtnTestAI')?.addEventListener('click', async () => {
 
     if (res.success) {
       resultEl.style.color = 'var(--verde)';
-      resultEl.textContent = `✅ ${res.message} Respuesta de prueba: "${res.reply}"`;
+      resultEl.textContent = `${res.message} Respuesta de prueba: "${res.reply}"`;
     } else {
       resultEl.style.color = 'var(--rojo)';
       resultEl.textContent = res.error || 'Falló la prueba.';
     }
   } catch (e) {
     resultEl.style.color = 'var(--rojo)';
-    resultEl.textContent = `❌ Error de prueba: ${e.message}`;
+    resultEl.textContent = `Error de prueba: ${e.message}`;
   }
 });
 
@@ -2485,7 +2485,7 @@ $('adminBtnSaveAI')?.addEventListener('click', async () => {
     };
 
     await api('/admin/system-settings', { method: 'POST', body: { settings: payload } });
-    mostrarToast('Configuración de IA guardada correctamente ✓');
+    mostrarToast('Configuración de IA guardada correctamente');
     await comprobarAIConfig();
     cargarConversaciones();
   } catch (e) {
@@ -2556,7 +2556,7 @@ async function adminEditarFilaDB(table, pkField, pkVal) {
       method: 'PUT',
       body: { primaryKeyField: pkField, primaryKeyValue: pkVal, data }
     });
-    mostrarToast('Fila actualizada ✓');
+    mostrarToast('Fila actualizada');
     cargarTablaAdmin(table);
   } catch (e) {
     mostrarToast(`Error: ${e.message}`);
@@ -2571,7 +2571,7 @@ async function adminBorrarFilaDB(table, pkField, pkVal) {
       method: 'DELETE',
       body: { primaryKeyField: pkField, primaryKeyValue: pkVal }
     });
-    mostrarToast('Fila borrada ✓');
+    mostrarToast('Fila borrada');
     cargarTablaAdmin(table);
   } catch (e) {
     mostrarToast(`Error: ${e.message}`);
@@ -2721,7 +2721,7 @@ async function cargarAdminUsuarios(q) {
           <div class="s">${p.email}</div>
         </div>
         <div class="admin-acciones">
-          <div class="admin-btn verificar ${p.verified ? 'activo' : ''}" onclick="adminAlternarVerificado('${p.id}', ${!p.verified})">${p.verified ? 'Verificado ✓' : 'Verificar'}</div>
+          <div class="admin-btn verificar ${p.verified ? 'activo' : ''}" onclick="adminAlternarVerificado('${p.id}', ${!p.verified})">${p.verified ? 'Verificado' : 'Verificar'}</div>
           <div class="admin-btn banear ${p.banned ? 'activo' : ''}" onclick="adminAlternarBaneo('${p.id}', ${!p.banned})">${p.banned ? 'Desbanear' : 'Banear'}</div>
         </div>
       </div>`).join('');
@@ -2731,7 +2731,7 @@ async function cargarAdminUsuarios(q) {
 async function adminAlternarVerificado(userId, ponerVerificado) {
   try {
     await api(`/admin/usuarios/${userId}/verificado`, { method: 'PUT', body: { verificado: ponerVerificado } });
-    mostrarToast(ponerVerificado ? 'Cuenta verificada ✓' : 'Verificación retirada');
+    mostrarToast(ponerVerificado ? 'Cuenta verificada' : 'Verificación retirada');
     await LocalStore.borrarStore('feed');
     cargarAdminUsuarios($('adminBuscarUsuario').value.trim());
     if (perfilActualId === userId) abrirPerfil(userId);
@@ -2777,7 +2777,7 @@ async function cargarAdminReportes(estado) {
           </div>
         </div>
         <div><span class="admin-reporte-motivo">${MOTIVOS_REPORTE[r.reason] || r.reason}</span></div>
-        ${r.publicacion_texto ? `<div class="admin-reporte-detalle">📝 "${escaparHTMLGlobal(r.publicacion_texto).slice(0,140)}"</div>` : ''}
+        ${r.publicacion_texto ? `<div class="admin-reporte-detalle"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>"${escaparHTMLGlobal(r.publicacion_texto).slice(0,140)}"</div>` : ''}
         ${r.details ? `<div class="admin-reporte-detalle">${escaparHTMLGlobal(r.details)}</div>` : ''}
         ${r.status === 'pendiente' ? `
           <div class="admin-acciones" style="margin-top:8px;">
@@ -2845,7 +2845,7 @@ function procesarRutaUniversal(rawPath) {
         mostrarToast(`Procesando pago/acción: ${param || 'General'}`);
         break;
       case 'security':
-        mostrarToast(`🔒 Confirmación de seguridad solicitada (${param || 'ID'})`);
+        mostrarToast(`Confirmación de seguridad solicitada (${param || 'ID'})`);
         break;
       case 'verification':
       case 'verificacion':
@@ -2975,7 +2975,7 @@ if (window.DeviceMotionEvent) {
         if (velocidad > 1200) {
           document.body.classList.add('pantalla-mareada');
           if (typeof mostrarToast === 'function') {
-            mostrarToast('¡Me mareas! 😵‍💫 Sostén firme el teléfono');
+            mostrarToast('¡Me mareas! Sostén firme el teléfono');
           }
           if ('vibrate' in navigator) {
             try { navigator.vibrate([100, 50, 100, 50, 150]); } catch (err) {}
