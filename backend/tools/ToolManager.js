@@ -59,6 +59,14 @@ const tools = {
   'pubchem.search': (params) => academicTools.searchPubChem(params.query),
   'gbif.search': (params) => academicTools.searchGBIF(params.query, params.limit || 5),
 
+  // Búsqueda de personas por intereses & publicaciones
+  'user.search_by_interest': (params) => socialProfile.searchUsersByInterest(params.interest || params.query, params.limit || 10),
+  'posts.search': (params) => socialProfile.searchPosts(params.query || params.keyword, params.limit || 10),
+
+  // Geolocalización por IP & Descubrimiento de APIs Dinámicas
+  'ip.geolocation': (params) => geoEnvironment.getIpGeolocation(params.ip || ''),
+  'dynamic.discover': (params) => dynamicEngine.discoverAndRegisterApis(params.query || params.topic || params.url),
+
   // Mapas y Geografía
   'osm.search': (params) => openStreetMap.searchOSM(params.query, params.limit || 5),
   'overpass.query': (params) => openStreetMap.queryOverpass(params.query),
@@ -98,11 +106,31 @@ const tools = {
 };
 
 function getToolDefinitions() {
-  return [
+  const baseDefs = [
     {
       name: 'web.search',
       description: 'Busca información actualizada en la web.',
       parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] }
+    },
+    {
+      name: 'ip.geolocation',
+      description: 'Obtiene la geolocalización e información de red por dirección IP.',
+      parameters: { type: 'object', properties: { ip: { type: 'string' } } }
+    },
+    {
+      name: 'user.search_by_interest',
+      description: 'Busca usuarios en Enlace por sus intereses o gustos.',
+      parameters: { type: 'object', properties: { interest: { type: 'string' } }, required: ['interest'] }
+    },
+    {
+      name: 'posts.search',
+      description: 'Busca publicaciones compartidas en la plataforma Enlace por palabras clave.',
+      parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] }
+    },
+    {
+      name: 'dynamic.discover',
+      description: 'Descubre e integra automáticamente nuevas APIs públicas o especificaciones OpenAPI en la plataforma.',
+      parameters: { type: 'object', properties: { query: { type: 'string' } } }
     },
     {
       name: 'webcam.search',
@@ -321,6 +349,30 @@ async function executeTool(name, params = {}, requesterId = null) {
 function detectToolIntent(text) {
   if (!text || typeof text !== 'string') return null;
   const lower = text.toLowerCase().trim();
+
+  // Geolocalización por IP
+  if (lower.includes('mi ip') || lower.includes('geolocalización') || lower.includes('geolocalizacion') || lower.includes('ubicar ip') || lower.includes('donde esta la ip') || lower.includes('dónde está la ip')) {
+    const ipMatch = text.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/);
+    return { tool: 'ip.geolocation', params: { ip: ipMatch ? ipMatch[0] : '' } };
+  }
+
+  // Búsqueda por intereses
+  if (lower.includes('personas que les guste') || lower.includes('personas interesadas en') || lower.includes('buscar por interes') || lower.includes('buscar por interés') || lower.includes('quien le gusta')) {
+    const intMatch = text.replace(/.*(?:guste|interesadas en|interés|interes|gustos)\s+/i, '').trim();
+    if (intMatch) return { tool: 'user.search_by_interest', params: { interest: intMatch } };
+  }
+
+  // Publicaciones
+  if (lower.includes('publicaciones sobre') || lower.includes('posts sobre') || lower.includes('buscar publicaciones') || lower.includes('ver publicaciones') || lower.includes('que han publicado')) {
+    const postMatch = text.replace(/.*(?:publicaciones sobre|posts sobre|buscar publicaciones|ver publicaciones|publicaciones de)\s+/i, '').trim();
+    if (postMatch) return { tool: 'posts.search', params: { query: postMatch } };
+  }
+
+  // Descubrir APIs
+  if (lower.includes('descubre apis') || lower.includes('descubrir apis') || lower.includes('buscar api') || lower.includes('integrar api') || lower.includes('descubrir api')) {
+    const apiQuery = text.replace(/.*(?:descubre apis|descubrir apis|buscar api|integrar api|descubrir api)\s+/i, '').trim();
+    return { tool: 'dynamic.discover', params: { query: apiQuery || text } };
+  }
 
   // Búsqueda de perfil de persona/usuario en la plataforma Enlace
   if (

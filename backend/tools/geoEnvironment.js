@@ -107,6 +107,43 @@ async function getOpenAQAirQuality(city) {
   }
 }
 
+async function getIpGeolocation(ip = '') {
+  try {
+    const cleanIp = (ip || '').trim();
+    const url = cleanIp ? `http://ip-api.com/json/${cleanIp}` : 'http://ip-api.com/json/';
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 6000);
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeout);
+
+    if (!res.ok) return { error: `Error en geolocalización por IP: HTTP ${res.status}` };
+    const data = await res.json();
+    if (data.status === 'fail') {
+      return { error: `No se pudo geolocalizar IP: ${data.message || 'IP no válida'}` };
+    }
+
+    return {
+      type: 'ip_geolocation',
+      data: {
+        ip: data.query,
+        country: data.country,
+        countryCode: data.countryCode,
+        regionName: data.regionName,
+        city: data.city,
+        zip: data.zip,
+        lat: data.lat,
+        lon: data.lon,
+        timezone: data.timezone,
+        isp: data.isp,
+        org: data.org,
+        as: data.as,
+      }
+    };
+  } catch (err) {
+    return { error: `Error al consultar geolocalización por IP: ${err.message}` };
+  }
+}
+
 async function getNOAAAlerts(event = '') {
   try {
     const url = `https://api.weather.gov/alerts/active${event ? '?event=' + encodeURIComponent(event) : '?status=actual'}`;
@@ -133,4 +170,4 @@ async function getNOAAAlerts(event = '') {
   }
 }
 
-module.exports = { getRestCountries, getUSGSEarthquakes, getOpenAQAirQuality, getNOAAAlerts };
+module.exports = { getRestCountries, getUSGSEarthquakes, getOpenAQAirQuality, getNOAAAlerts, getIpGeolocation };
