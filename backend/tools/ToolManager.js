@@ -28,9 +28,10 @@ const socialDataTools = require('./socialDataTools');
 const utilityTools = require('./utilityTools');
 const dynamicEngine = require('./dynamicApiEngine');
 
-// Módulos añadidos de APIs públicas externas y Utilidades internas
+// Módulos añadidos de APIs públicas externas, Utilidades internas y Acciones de Usuario
 const externalApis = require('./externalApis');
 const internalTools = require('./internalTools');
+const userActionTools = require('./userActionTools');
 
 const tools = {
   'web.search': webSearch.search,
@@ -47,6 +48,20 @@ const tools = {
   'world.time': geoTimeTool.getWorldTime,
   'unit.convert': unitTool.convertUnits,
   'prompt.enhance': promptTool.enhancePrompt,
+
+  // Acciones de Usuario e Interacciones
+  'chat.preview': (params, requesterId) => userActionTools.getChatPreview(params, requesterId),
+  'user.edit_profile': (params, requesterId) => userActionTools.editUserProfile(params, requesterId),
+  'status.create': (params, requesterId) => userActionTools.createStatus(params, requesterId),
+  'status.delete': (params, requesterId) => userActionTools.deleteStatus(params, requesterId),
+  'friend.send_request': (params, requesterId) => userActionTools.sendFriendRequest(params, requesterId),
+
+  // Contenido Abierto, Videos, Fotos de Stock, Directos y Enlaces de Pago
+  'youtube.live': (params) => externalApis.searchYouTubeLive(params.query || params.topic),
+  'duckduckgo.search': (params) => externalApis.searchDuckDuckGo(params.query),
+  'stock.photos': (params) => externalApis.searchStockPhotos(params.query || params.topic),
+  'free.videos': (params) => externalApis.searchFreeVideos(params.query || params.topic),
+  'system.payment_link': (params, requesterId) => externalApis.generatePaymentLink(params, requesterId),
 
   // Open Library & Internet Archive & Wikipedia
   'openlibrary.search': (params) => openLibrary.searchBooks(params.query, params.limit || 5),
@@ -156,6 +171,56 @@ const tools = {
 function getToolDefinitions() {
   const baseDefs = [
     {
+      name: 'chat.preview',
+      description: 'Muestra una vista previa del chat con otro usuario y permite responderle directamente.',
+      parameters: { type: 'object', properties: { username: { type: 'string' }, userId: { type: 'string' } } }
+    },
+    {
+      name: 'user.edit_profile',
+      description: 'Edita la información del perfil del usuario (bio, profesión, ciudad, color de piel, nombre).',
+      parameters: { type: 'object', properties: { bio: { type: 'string' }, profession: { type: 'string' }, city: { type: 'string' }, skin_color: { type: 'string' }, name: { type: 'string' } } }
+    },
+    {
+      name: 'status.create',
+      description: 'Publica un nuevo estado o historia temporal en la plataforma Enlace.',
+      parameters: { type: 'object', properties: { text: { type: 'string' }, duration_hours: { type: 'number' } }, required: ['text'] }
+    },
+    {
+      name: 'status.delete',
+      description: 'Elimina un estado o historia activa del usuario.',
+      parameters: { type: 'object', properties: { id: { type: 'string' } } }
+    },
+    {
+      name: 'friend.send_request',
+      description: 'Envía una solicitud de amistad a otro usuario.',
+      parameters: { type: 'object', properties: { username: { type: 'string' }, userId: { type: 'string' } } }
+    },
+    {
+      name: 'youtube.live',
+      description: 'Busca transmisiones en vivo y directos en YouTube.',
+      parameters: { type: 'object', properties: { query: { type: 'string' } } }
+    },
+    {
+      name: 'duckduckgo.search',
+      description: 'Realiza búsquedas instantáneas y consultas web vía DuckDuckGo API.',
+      parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] }
+    },
+    {
+      name: 'stock.photos',
+      description: 'Busca imágenes profesionales de stock en bancos de fotos gratuitos.',
+      parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] }
+    },
+    {
+      name: 'free.videos',
+      description: 'Busca videos y contenido audiovisual gratuito y de dominio público.',
+      parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] }
+    },
+    {
+      name: 'system.payment_link',
+      description: 'Genera enlaces y tarjetas de pago/checkout del sistema (QvaPay/Monetización).',
+      parameters: { type: 'object', properties: { service: { type: 'string' }, amount: { type: 'string' } } }
+    },
+    {
       name: 'web.search',
       description: 'Busca información actualizada en la web.',
       parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] }
@@ -215,175 +280,6 @@ function getToolDefinitions() {
       description: 'Traduce texto a otro idioma.',
       parameters: { type: 'object', properties: { text: { type: 'string' }, target_lang: { type: 'string' } }, required: ['text'] }
     },
-    {
-      name: 'openlibrary.search',
-      description: 'Busca libros en Open Library por título o autor.',
-      parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] }
-    },
-    {
-      name: 'wikipedia.search',
-      description: 'Busca resumen Enciclopédico de un tema o persona en Wikipedia.',
-      parameters: { type: 'object', properties: { query: { type: 'string' }, lang: { type: 'string' } }, required: ['query'] }
-    },
-    {
-      name: 'wikimedia.search',
-      description: 'Busca archivos multimedia e imágenes históricas en Wikimedia Commons.',
-      parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] }
-    },
-    {
-      name: 'arxiv.search',
-      description: 'Busca artículos y papers científicos en arXiv.',
-      parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] }
-    },
-    {
-      name: 'crossref.search',
-      description: 'Busca publicaciones académicas y registros DOI en Crossref.',
-      parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] }
-    },
-    {
-      name: 'openalex.search',
-      description: 'Busca trabajos científicos e investigadores en OpenAlex.',
-      parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] }
-    },
-    {
-      name: 'pubchem.search',
-      description: 'Obtiene la fórmula y masa molecular de un compuesto químico en PubChem.',
-      parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] }
-    },
-    {
-      name: 'gbif.search',
-      description: 'Busca especies biológicas y taxonomía en GBIF.',
-      parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] }
-    },
-    {
-      name: 'osm.search',
-      description: 'Busca lugares, coordenadas y direcciones en OpenStreetMap.',
-      parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] }
-    },
-    {
-      name: 'restcountries.get',
-      description: 'Obtiene información oficial, capital, población y bandera de un país.',
-      parameters: { type: 'object', properties: { country: { type: 'string' } }, required: ['country'] }
-    },
-    {
-      name: 'usgs.earthquakes',
-      description: 'Consulta sismos recientes en el mundo registrados por USGS.',
-      parameters: { type: 'object', properties: { minMagnitude: { type: 'number' } } }
-    },
-    {
-      name: 'github.search',
-      description: 'Busca repositorios o usuarios en GitHub.',
-      parameters: { type: 'object', properties: { query: { type: 'string' }, type: { type: 'string' } }, required: ['query'] }
-    },
-    {
-      name: 'gitlab.search',
-      description: 'Busca proyectos públicos en GitLab.',
-      parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] }
-    },
-    {
-      name: 'npm.search',
-      description: 'Busca paquetes JavaScript / Node.js en npm Registry.',
-      parameters: { type: 'object', properties: { package: { type: 'string' } }, required: ['package'] }
-    },
-    {
-      name: 'pypi.search',
-      description: 'Busca paquetes de Python en PyPI.',
-      parameters: { type: 'object', properties: { package: { type: 'string' } }, required: ['package'] }
-    },
-    {
-      name: 'tvmaze.search',
-      description: 'Busca series de televisión y programas en TVMaze.',
-      parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] }
-    },
-    {
-      name: 'pokeapi.get',
-      description: 'Obtiene datos y estadísticas de un Pokémon en PokéAPI.',
-      parameters: { type: 'object', properties: { pokemon: { type: 'string' } }, required: ['pokemon'] }
-    },
-    {
-      name: 'coingecko.prices',
-      description: 'Consulta el precio actual de criptomonedas (Bitcoin, Ethereum, Solana, etc.).',
-      parameters: { type: 'object', properties: { ids: { type: 'string' } } }
-    },
-    {
-      name: 'reddit.search',
-      description: 'Busca publicaciones y discusiones en subreddits de Reddit.',
-      parameters: { type: 'object', properties: { subreddit: { type: 'string' }, query: { type: 'string' } } }
-    },
-    {
-      name: 'hackernews.top',
-      description: 'Obtiene las noticias y discusiones principales de Hacker News.',
-      parameters: { type: 'object', properties: { limit: { type: 'number' } } }
-    },
-    {
-      name: 'worldbank.indicator',
-      description: 'Consulta indicadores económicos del Banco Mundial por país.',
-      parameters: { type: 'object', properties: { country: { type: 'string' }, indicator: { type: 'string' } } }
-    },
-    {
-      name: 'frankfurter.convert',
-      description: 'Convierte divisas y tasas de cambio internacionales (USD, EUR, etc.).',
-      parameters: { type: 'object', properties: { amount: { type: 'number' }, from: { type: 'string' }, to: { type: 'string' } }, required: ['amount', 'from', 'to'] }
-    },
-    {
-      name: 'themealdb.search',
-      description: 'Busca recetas culinarias e ingredientes en TheMealDB.',
-      parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] }
-    },
-    {
-      name: 'openfoodfacts.get',
-      description: 'Obtiene información nutricional e ingredientes de alimentos por código de barras.',
-      parameters: { type: 'object', properties: { barcode: { type: 'string' } }, required: ['barcode'] }
-    },
-    {
-      name: 'numbers.fact',
-      description: 'Obtiene curiosidades y datos numéricos / matemáticos en Numbers API.',
-      parameters: { type: 'object', properties: { number: { type: 'string' } } }
-    },
-
-    // Definiciones de las 20 APIs Externas
-    { name: 'nasa.apod', description: 'Obtiene la imagen astronómica del día de la NASA.', parameters: { type: 'object', properties: { date: { type: 'string' } } } },
-    { name: 'nasa.asteroids', description: 'Consulta asteroides cercanos a la Tierra hoy vía NASA NEO.', parameters: { type: 'object', properties: {} } },
-    { name: 'metmuseum.search', description: 'Busca obras de arte en el Metropolitan Museum of Art.', parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] } },
-    { name: 'poetrydb.search', description: 'Busca poemas por título o autor en PoetryDB.', parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] } },
-    { name: 'exchangerate.latest', description: 'Obtiene tasas de cambio de divisas en tiempo real.', parameters: { type: 'object', properties: { base: { type: 'string' } } } },
-    { name: 'coinpaprika.info', description: 'Consulta precio e información de una criptomoneda en CoinPaprika.', parameters: { type: 'object', properties: { coinId: { type: 'string' } } } },
-    { name: 'openmeteo.forecast', description: 'Consulta el pronóstico del tiempo con coordenadas en Open-Meteo.', parameters: { type: 'object', properties: { lat: { type: 'number' }, lon: { type: 'number' } } } },
-    { name: 'sunrise_sunset.get', description: 'Obtiene la hora de amanecer y atardecer por coordenadas.', parameters: { type: 'object', properties: { lat: { type: 'number' }, lng: { type: 'number' } } } },
-    { name: 'clinicaltrials.search', description: 'Busca estudios y ensayos clínicos en ClinicalTrials.gov.', parameters: { type: 'object', properties: { condition: { type: 'string' } }, required: ['condition'] } },
-    { name: 'rcsb.pdb_search', description: 'Busca estructuras de proteínas en Protein Data Bank (PDB).', parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] } },
-    { name: 'dictionary.lookup', description: 'Busca definiciones, pronunciación y sinónimos en inglés.', parameters: { type: 'object', properties: { word: { type: 'string' } }, required: ['word'] } },
-    { name: 'datamuse.words', description: 'Encuentra palabras relacionadas, rimas y sinónimos en Datamuse.', parameters: { type: 'object', properties: { word: { type: 'string' }, mode: { type: 'string' } }, required: ['word'] } },
-    { name: 'dns.doh', description: 'Realiza consultas DNS sobre HTTPS (DoH).', parameters: { type: 'object', properties: { domain: { type: 'string' }, rrType: { type: 'string' } }, required: ['domain'] } },
-    { name: 'httpbin.inspect', description: 'Inspecciona peticiones y cabeceras de red.', parameters: { type: 'object', properties: {} } },
-    { name: 'deckofcards.draw', description: 'Simula el robo de cartas de una baraja.', parameters: { type: 'object', properties: { count: { type: 'number' } } } },
-    { name: 'bored.activity', description: 'Obtiene actividades sugeridas para el aburrimiento.', parameters: { type: 'object', properties: { type: { type: 'string' } } } },
-    { name: 'jikan.anime', description: 'Busca series de anime y manga en Jikan / MyAnimeList.', parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] } },
-    { name: 'gutendex.search', description: 'Busca libros clásicos de dominio público en Proyecto Gutenberg.', parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] } },
-    { name: 'advice.slip', description: 'Obtiene un consejo o frase motivacional aleatoria.', parameters: { type: 'object', properties: {} } },
-    { name: 'agify.predict', description: 'Predice la edad estimada según el nombre de una persona.', parameters: { type: 'object', properties: { name: { type: 'string' } }, required: ['name'] } },
-
-    // Definiciones de las 20 Herramientas Internas
-    { name: 'text.stats', description: 'Calcula métricas de texto: palabras, caracteres, oraciones y tiempo de lectura.', parameters: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] } },
-    { name: 'text.diff', description: 'Compara dos textos para encontrar líneas diferentes y comunes.', parameters: { type: 'object', properties: { textA: { type: 'string' }, textB: { type: 'string' } }, required: ['textA', 'textB'] } },
-    { name: 'text.clean_html', description: 'Limpia etiquetas HTML y devuelve texto plano limpio.', parameters: { type: 'object', properties: { htmlContent: { type: 'string' } }, required: ['htmlContent'] } },
-    { name: 'text.slugify', description: 'Genera un slug URL-friendly a partir de un título o texto.', parameters: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] } },
-    { name: 'crypto.hash', description: 'Genera un hash criptográfico (MD5, SHA1, SHA256, SHA512).', parameters: { type: 'object', properties: { text: { type: 'string' }, algorithm: { type: 'string' } }, required: ['text'] } },
-    { name: 'crypto.uuid', description: 'Genera un identificador único global (UUID v4).', parameters: { type: 'object', properties: {} } },
-    { name: 'encoding.base64', description: 'Codifica o decodifica texto en formato Base64.', parameters: { type: 'object', properties: { data: { type: 'string' }, mode: { type: 'string' } }, required: ['data'] } },
-    { name: 'encoding.url', description: 'Codifica o decodifica componentes de URL.', parameters: { type: 'object', properties: { text: { type: 'string' }, mode: { type: 'string' } }, required: ['text'] } },
-    { name: 'date.format', description: 'Formatea fechas a un formato legible con soporte de zonas horarias.', parameters: { type: 'object', properties: { dateString: { type: 'string' }, locale: { type: 'string' }, timeZone: { type: 'string' } } } },
-    { name: 'date.diff', description: 'Calcula la diferencia en días, horas, minutos y ms entre dos fechas.', parameters: { type: 'object', properties: { startDateStr: { type: 'string' }, endDateStr: { type: 'string' } }, required: ['startDateStr'] } },
-    { name: 'date.business_days', description: 'Calcula la cantidad de días hábiles entre dos fechas.', parameters: { type: 'object', properties: { startDateStr: { type: 'string' }, endDateStr: { type: 'string' } }, required: ['startDateStr', 'endDateStr'] } },
-    { name: 'data.json_validate', description: 'Valida la sintaxis de una cadena JSON y la formatea.', parameters: { type: 'object', properties: { jsonString: { type: 'string' } }, required: ['jsonString'] } },
-    { name: 'math.stats', description: 'Calcula estadísticas (media, mediana, min, max, desviación estándar) sobre un arreglo de números.', parameters: { type: 'object', properties: { numbers: { type: 'array', items: { type: 'number' } } }, required: ['numbers'] } },
-    { name: 'math.prime_check', description: 'Verifica si un número es primo y calcula sus factores primos.', parameters: { type: 'object', properties: { number: { type: 'number' } }, required: ['number'] } },
-    { name: 'data.csv_to_json', description: 'Convierte datos en formato CSV estructurado a un objeto JSON.', parameters: { type: 'object', properties: { csvText: { type: 'string' }, delimiter: { type: 'string' } }, required: ['csvText'] } },
-    { name: 'utility.lorem', description: 'Genera texto de relleno Lorem Ipsum.', parameters: { type: 'object', properties: { paragraphsCount: { type: 'number' } } } },
-    { name: 'utility.regex_test', description: 'Evalúa y prueba una expresión regular sobre un texto.', parameters: { type: 'object', properties: { pattern: { type: 'string' }, text: { type: 'string' }, flags: { type: 'string' } }, required: ['pattern', 'text'] } },
-    { name: 'utility.color_convert', description: 'Convierte un color HEX a formato RGB y valores numéricos.', parameters: { type: 'object', properties: { colorInput: { type: 'string' } }, required: ['colorInput'] } },
-    { name: 'utility.random_generator', description: 'Genera contraseñas o cadenas aleatorias seguras.', parameters: { type: 'object', properties: { length: { type: 'number' } } } },
-    { name: 'utility.markdown_to_plain', description: 'Convierte un texto con formato Markdown a texto plano limpio.', parameters: { type: 'object', properties: { markdownText: { type: 'string' } }, required: ['markdownText'] } },
   ];
 
   const dynamicApis = dynamicEngine.INITIAL_DISCOVERY_CATALOG || [];
@@ -409,14 +305,14 @@ async function executeTool(name, params = {}, requesterId = null) {
   }
 
   try {
-    if (name === 'social.profile') {
-      return await toolFn(params.username || params.query, requesterId);
+    if (name === 'social.profile' || name === 'chat.preview' || name === 'user.edit_profile' || name === 'status.create' || name === 'status.delete' || name === 'friend.send_request' || name === 'system.payment_link') {
+      return await toolFn(params, requesterId);
     }
     if (name === 'web.search' || name === 'webcam.search') {
       return await toolFn(params.query || params.location || params.q);
     }
-    if (name === 'youtube.search' || name === 'twitch.search') {
-      return await toolFn(params.query || params.q);
+    if (name === 'youtube.search' || name === 'twitch.search' || name === 'youtube.live') {
+      return await toolFn(params.query || params.q || params.topic);
     }
     if (name === 'weather.get') {
       return await toolFn(params.location || params.city || params.query);
@@ -442,7 +338,105 @@ function detectToolIntent(text) {
   if (!text || typeof text !== 'string') return null;
   const lower = text.toLowerCase().trim();
 
-  // 1. Clima y tiempo atmosférico (conversacional)
+  // 1. Ver chat con otra persona
+  if (
+    lower.includes('mi chat con') || lower.includes('conversación con') || lower.includes('conversacion con') ||
+    lower.includes('qué hablé con') || lower.includes('que hable con') || lower.includes('mensajes con') ||
+    lower.includes('ver chat con') || lower.includes('muestra mi chat') || lower.includes('muéstrame mi chat')
+  ) {
+    const targetMatch = text.replace(/.*(?:chat con|conversación con|conversacion con|hablé con|hable con|mensajes con|muestra mi chat con|muéstrame mi chat con)\s*/i, '').trim();
+    return { tool: 'chat.preview', params: { username: targetMatch } };
+  }
+
+  // 2. Editar perfil del usuario
+  if (
+    lower.includes('edita mi perfil') || lower.includes('cambia mi biografía') || lower.includes('cambia mi bio') ||
+    lower.includes('cambia mi ciudad') || lower.includes('edita mi profesión') || lower.includes('actualiza mi perfil') ||
+    lower.includes('modifica mi perfil')
+  ) {
+    let bioMatch = text.match(/(?:biografía|bio|descripción)\s+(?:a|por)?\s*(.+)/i);
+    let cityMatch = text.match(/(?:ciudad|ubicación)\s+(?:a|por)?\s*([a-záéíóúñ\s]+)/i);
+    let profMatch = text.match(/(?:profesión|profesion|trabajo)\s+(?:a|por)?\s*([a-záéíóúñ\s]+)/i);
+
+    return {
+      tool: 'user.edit_profile',
+      params: {
+        bio: bioMatch ? bioMatch[1].trim() : undefined,
+        city: cityMatch ? cityMatch[1].trim() : undefined,
+        profession: profMatch ? profMatch[1].trim() : undefined,
+      }
+    };
+  }
+
+  // 3. Subir / publicar estado
+  if (
+    lower.includes('sube un estado') || lower.includes('publica un estado') || lower.includes('pon un estado') ||
+    lower.includes('crea un estado') || lower.includes('nuevo estado')
+  ) {
+    const stText = text.replace(/.*(?:sube|publica|pon|crea)(?:\s+un)?\s+estado(?:\s+que\s+diga|\s+de)?\s*/i, '').trim();
+    return { tool: 'status.create', params: { text: stText || 'Compartiendo un momento en Link ✨', duration_hours: 24 } };
+  }
+
+  // 4. Eliminar estado
+  if (
+    lower.includes('elimina mi estado') || lower.includes('borra mi estado') || lower.includes('elimina el estado') ||
+    lower.includes('borra el estado')
+  ) {
+    return { tool: 'status.delete', params: {} };
+  }
+
+  // 5. Enviar solicitud de amistad
+  if (
+    lower.includes('envía solicitud a') || lower.includes('envia solicitud a') || lower.includes('mándale solicitud a') ||
+    lower.includes('mandale solicitud a') || lower.includes('solicitud de amistad a') || lower.includes('agrega como amigo a')
+  ) {
+    const friendMatch = text.replace(/.*(?:solicitud\s+a|solicitud\s+de\s+amistad\s+a|amigo\s+a)\s*/i, '').trim();
+    return { tool: 'friend.send_request', params: { username: friendMatch } };
+  }
+
+  // 6. YouTube en directo / transmisiones en vivo
+  if (
+    lower.includes('en directo') || lower.includes('en vivo') || lower.includes('live stream') ||
+    lower.includes('directo de youtube') || lower.includes('transmisión en vivo') || lower.includes('transmision en vivo')
+  ) {
+    const liveTopic = text.replace(/.*(?:en directo|en vivo|live stream|directo de youtube|transmisión en vivo|transmision en vivo)\s*(?:de|sobre)?\s*/i, '').trim();
+    return { tool: 'youtube.live', params: { query: liveTopic || 'noticias' } };
+  }
+
+  // 7. Banco de fotos / Fotos de Stock
+  if (
+    lower.includes('foto de stock') || lower.includes('fotos de stock') || lower.includes('banco de fotos') ||
+    lower.includes('imagen de stock') || lower.includes('imágenes de stock') || lower.includes('foto libre') ||
+    lower.includes('fotos libres')
+  ) {
+    const stockTopic = text.replace(/.*(?:foto de stock|fotos de stock|banco de fotos|imagen de stock|imágenes de stock|foto libre|fotos libres)\s*(?:de|sobre)?\s*/i, '').trim();
+    return { tool: 'stock.photos', params: { query: stockTopic || 'nature' } };
+  }
+
+  // 8. Videos gratuitos
+  if (
+    lower.includes('video gratuito') || lower.includes('videos gratuitos') || lower.includes('contenido gratuito') ||
+    lower.includes('video libre') || lower.includes('videos libres')
+  ) {
+    const vidTopic = text.replace(/.*(?:video gratuito|videos gratuitos|contenido gratuito|video libre|videos libres)\s*(?:de|sobre)?\s*/i, '').trim();
+    return { tool: 'free.videos', params: { query: vidTopic || 'documentary' } };
+  }
+
+  // 9. Enlaces de pago del sistema
+  if (
+    lower.includes('link de pago') || lower.includes('enlace de pago') || lower.includes('link para pagar') ||
+    lower.includes('pagar verificación') || lower.includes('pagar verificacion') || lower.includes('checkout')
+  ) {
+    return { tool: 'system.payment_link', params: { service: text.includes('verificac') ? 'Verificación Oficial' : 'Servicio Enlace', amount: '5.00' } };
+  }
+
+  // 10. DuckDuckGo Search
+  if (lower.includes('duckduckgo') || lower.includes('duck duck go')) {
+    const ddgQuery = text.replace(/.*(?:duckduckgo|duck duck go)\s*/i, '').trim();
+    return { tool: 'duckduckgo.search', params: { query: ddgQuery || text } };
+  }
+
+  // 11. Clima y tiempo atmosférico (conversacional)
   if (
     lower.includes('clima') || lower.includes('tiempo hace') || lower.includes('tiempo en') ||
     lower.includes('temperatura en') || lower.includes('va a llover') || lower.includes('pronóstico') ||
@@ -457,7 +451,7 @@ function detectToolIntent(text) {
     return { tool: 'weather.get', params: { location: loc } };
   }
 
-  // 2. Cotización y precios de Criptomonedas
+  // 12. Cotización y precios de Criptomonedas
   if (
     lower.includes('bitcoin') || lower.includes('btc') || lower.includes('ethereum') ||
     lower.includes('eth') || lower.includes('solana') || lower.includes('cripto') ||
@@ -470,7 +464,7 @@ function detectToolIntent(text) {
     return { tool: 'coingecko.prices', params: { ids } };
   }
 
-  // 3. Conversión de divisas y tasas de cambio
+  // 13. Conversión de divisas y tasas de cambio
   if (
     lower.includes('convierte') || lower.includes('conversión') || lower.includes('conversion') ||
     lower.includes('cuántos euros son') || lower.includes('cuantos euros son') || lower.includes('cuántos dólares son') ||
@@ -494,7 +488,7 @@ function detectToolIntent(text) {
     return { tool: 'exchangerate.latest', params: { base: 'USD' } };
   }
 
-  // 4. Hora mundial
+  // 14. Hora mundial
   if (
     lower.includes('hora en') || lower.includes('qué hora es') || lower.includes('que hora es') ||
     lower.includes('hora tiene') || lower.includes('hora actual en')
@@ -504,7 +498,7 @@ function detectToolIntent(text) {
     return { tool: 'world.time', params: { location: loc || 'La Habana' } };
   }
 
-  // 5. Chistes y humor
+  // 15. Chistes y humor
   if (
     lower.includes('chiste') || lower.includes('cuéntame algo gracioso') || lower.includes('cuentame algo gracioso') ||
     lower.includes('dime algo divertido') || lower.includes('hazme reír') || lower.includes('hazme reir')
@@ -512,7 +506,7 @@ function detectToolIntent(text) {
     return { tool: 'joke.get', params: {} };
   }
 
-  // 6. Datos curiosos de números o curiosidades
+  // 16. Datos curiosos de números o curiosidades
   if (
     lower.includes('dato curioso del número') || lower.includes('dato curioso del numero') ||
     lower.includes('curiosidad sobre el número') || lower.includes('curiosidad del número') ||
@@ -522,7 +516,7 @@ function detectToolIntent(text) {
     return { tool: 'numbers.fact', params: { number: numMatch ? numMatch[0] : 'random', type: 'trivia' } };
   }
 
-  // 7. Consejos y motivación
+  // 17. Consejos y motivación
   if (
     lower.includes('dame un consejo') || lower.includes('necesito un consejo') || lower.includes('dame un tip') ||
     lower.includes('consejo aleatorio') || lower.includes('advice slip')
@@ -530,7 +524,7 @@ function detectToolIntent(text) {
     return { tool: 'advice.slip', params: {} };
   }
 
-  // 8. Recetas de cocina
+  // 18. Recetas de cocina
   if (
     lower.includes('receta de') || lower.includes('cómo preparar') || lower.includes('como preparar') ||
     lower.includes('cómo cocinar') || lower.includes('como cocinar') || lower.includes('ingredientes para')
@@ -539,7 +533,7 @@ function detectToolIntent(text) {
     return { tool: 'themealdb.search', params: { query: dish || 'pasta' } };
   }
 
-  // 9. Series y Televisión
+  // 19. Series y Televisión
   if (
     lower.includes('serie sobre') || lower.includes('serie de tv') || lower.includes('programa de tv') ||
     lower.includes('información de la serie') || lower.includes('informacion de la serie') || lower.includes('tvmaze')
@@ -548,13 +542,12 @@ function detectToolIntent(text) {
     return { tool: 'tvmaze.search', params: { query: show || 'breaking bad' } };
   }
 
-  // 10. Wikipedia / Enciclopedia / Quién es / Qué es
+  // 20. Wikipedia / Enciclopedia / Quién es / Qué es
   if (
     lower.includes('quién fue') || lower.includes('quien fue') || lower.includes('quién es') || lower.includes('quien es') ||
     lower.includes('biografía de') || lower.includes('biografia de') || lower.includes('qué es') || lower.includes('que es') ||
     lower.includes('historia de') || lower.includes('wikipedia')
   ) {
-    // Si menciona perfil o usuario de la red social Enlace, dejar pasar a la herramienta social
     if (!lower.includes('en enlace') && !lower.includes('en la plataforma') && !lower.includes('en la red')) {
       const topicMatch = text.replace(/.*(?:quién fue|quien fue|quién es|quien es|biografía de|biografia de|qué es|que es|historia de|wikipedia sobre|wikipedia)\s*/i, '').replace(/(\.|\?|!)+$/, '').trim();
       if (topicMatch && topicMatch.length > 2) {
@@ -563,7 +556,7 @@ function detectToolIntent(text) {
     }
   }
 
-  // 10.b Agendamiento de Cita o Reunión
+  // 21. Agendamiento de Cita o Reunión
   if (
     lower.includes('programa una cita') || lower.includes('programar cita') || lower.includes('agenda una reunion') ||
     lower.includes('agendar cita') || lower.includes('agenda una cita') || lower.includes('reunión con') || lower.includes('cita con')
@@ -571,7 +564,7 @@ function detectToolIntent(text) {
     return { tool: 'user.search_by_interest', params: { interest: text.replace(/.*(?:cita con|reunion con|reunión con|para)\s*/i, '').trim() || 'amigos' } };
   }
 
-  // 11. Búsqueda de perfil de usuario en la red social Enlace
+  // 22. Búsqueda de perfil de usuario en la red social Enlace
   if (
     lower.includes('perfil de') || lower.includes('busca a') || lower.includes('buscar usuario') ||
     lower.includes('ver perfil') || lower.includes('muéstrame a') || lower.includes('muestrame a') ||
@@ -589,7 +582,7 @@ function detectToolIntent(text) {
     }
   }
 
-  // 12. Búsqueda de usuarios por intereses en Enlace
+  // 23. Búsqueda de usuarios por intereses en Enlace
   if (
     lower.includes('personas que les guste') || lower.includes('personas interesadas en') ||
     lower.includes('buscar por interes') || lower.includes('buscar por interés') || lower.includes('quien le gusta') ||
@@ -599,7 +592,7 @@ function detectToolIntent(text) {
     if (intMatch) return { tool: 'user.search_by_interest', params: { interest: intMatch } };
   }
 
-  // 13. Publicaciones en Enlace
+  // 24. Publicaciones en Enlace
   if (
     lower.includes('publicaciones sobre') || lower.includes('posts sobre') || lower.includes('buscar publicaciones') ||
     lower.includes('ver publicaciones') || lower.includes('que han publicado')
@@ -608,7 +601,7 @@ function detectToolIntent(text) {
     if (postMatch) return { tool: 'posts.search', params: { query: postMatch } };
   }
 
-  // 14. Libros y literatura (Open Library)
+  // 25. Libros y literatura (Open Library)
   if (
     lower.includes('libro') || lower.includes('autor de') || lower.includes('busca el libro') ||
     lower.includes('recomiéndame un libro') || lower.includes('recomiendame un libro') || lower.includes('obras de')
@@ -617,7 +610,7 @@ function detectToolIntent(text) {
     if (bookMatch) return { tool: 'openlibrary.search', params: { query: bookMatch } };
   }
 
-  // 15. Países e información geográfica (REST Countries)
+  // 26. Países e información geográfica (REST Countries)
   if (
     lower.includes('país') || lower.includes('pais') || lower.includes('capital de') ||
     lower.includes('población de') || lower.includes('bandera de') || lower.includes('datos de')
@@ -626,7 +619,7 @@ function detectToolIntent(text) {
     if (countryMatch && countryMatch.length > 2) return { tool: 'restcountries.get', params: { country: countryMatch } };
   }
 
-  // 16. Cámaras web en vivo
+  // 27. Cámaras web en vivo
   if (
     lower.includes('cámara') || lower.includes('camara') || lower.includes('webcam') ||
     lower.includes('muéstrame una cámara') || lower.includes('camara en vivo')
@@ -636,7 +629,7 @@ function detectToolIntent(text) {
     return { tool: 'webcam.search', params: { location: loc || 'Tokio' } };
   }
 
-  // 17. Vídeos en YouTube
+  // 28. Vídeos en YouTube
   if (
     lower.includes('youtube') || lower.includes('vídeo de') || lower.includes('video de') ||
     lower.includes('buscar video') || lower.includes('búscame un video') || lower.includes('buscame un video')
@@ -645,7 +638,7 @@ function detectToolIntent(text) {
     return { tool: 'youtube.search', params: { query: qMatch || text } };
   }
 
-  // 18. NASA, Imágenes Espaciales y Satelitales (Prioridad antes de generación genérica de imágenes)
+  // 29. NASA, Imágenes Espaciales y Satelitales
   if (
     lower.includes('imagen del dia nasa') || lower.includes('nasa apod') || lower.includes('foto del dia de la nasa') ||
     lower.includes('imagen de la nasa') || lower.includes('foto de la nasa') || lower.includes('imagen nasa') ||
@@ -663,7 +656,7 @@ function detectToolIntent(text) {
     return { tool: 'image.generate', params: { prompt: `Realistic high-resolution satellite imagery photo of ${satPrompt || 'Earth landscape view from space orbit'}`, enhance: true } };
   }
 
-  // 19. Generación de imágenes
+  // 30. Generación de imágenes
   if (
     lower.startsWith('dibuja') || lower.startsWith('genera una imagen') || lower.startsWith('crea una imagen') ||
     lower.includes('imagen de') || lower.includes('haz una imagen') || lower.includes('diseña una imagen') ||
@@ -673,7 +666,7 @@ function detectToolIntent(text) {
     return { tool: 'image.generate', params: { prompt: promptMatch || text, enhance: true } };
   }
 
-  // 20. Traducción de texto
+  // 31. Traducción de texto
   if (
     lower.startsWith('traduce') || lower.includes('traducir al') || lower.includes('cómo se dice') || lower.includes('como se dice')
   ) {
@@ -687,7 +680,7 @@ function detectToolIntent(text) {
     return { tool: 'translate', params: { text: textToTranslate || text, target_lang: targetLang } };
   }
 
-  // 21. Cálculos matemáticos y estadísticas
+  // 32. Cálculos matemáticos y estadísticas
   if (
     lower.startsWith('calcula') || lower.startsWith('cuánto es') || lower.startsWith('cuanto es') ||
     lower.match(/^[\d\s+\-*/().^%]+$/)
@@ -700,7 +693,7 @@ function detectToolIntent(text) {
     if (numMatch) return { tool: 'math.prime_check', params: { number: parseInt(numMatch[0], 10) } };
   }
 
-  // 22. Herramientas de desarrollo / GitHub / NPM
+  // 33. Herramientas de desarrollo / GitHub / NPM
   if (lower.includes('github') || lower.includes('repositorio de') || lower.includes('repositorios sobre')) {
     const q = text.replace(/.*(?:github|repositorio de|repositorios sobre)\s*/i, '').trim();
     return { tool: 'github.search', params: { query: q || 'node.js' } };
@@ -714,7 +707,7 @@ function detectToolIntent(text) {
     return { tool: 'metmuseum.search', params: { query: q || 'sunflowers' } };
   }
 
-  // 23. Herramientas internas (Crypto, Texto)
+  // 34. Herramientas internas (Crypto, Texto)
   if (lower.startsWith('hash') || lower.includes('sha256') || lower.includes('md5 de')) {
     const txt = text.replace(/^(hash|sha256|md5 de|generar hash de)/i, '').trim();
     return { tool: 'crypto.hash', params: { text: txt || text } };
@@ -726,7 +719,7 @@ function detectToolIntent(text) {
     return { tool: 'text.stats', params: { text } };
   }
 
-  // 24. Búsqueda web abierta (fallback para consultas informativas / investigativas)
+  // 35. Búsqueda web abierta
   if (
     lower.startsWith('busca') || lower.startsWith('buscar en la web') || lower.includes('noticias sobre') ||
     lower.includes('investiga sobre') || lower.includes('últimas noticias') || lower.includes('ultimas noticias')
@@ -761,7 +754,6 @@ async function executeMission(goal, requesterId = null, maxSteps = 5) {
     });
   }
 
-  // Si la misión requirió búsqueda web, agregar paso de análisis o síntesis
   if (stepsExecuted.length === 0 && currentStep < maxSteps) {
     currentStep++;
     const resWeb = await executeTool('web.search', { query: goal }, requesterId);

@@ -176,7 +176,8 @@ router.post('/chat', requireAuth, aiRateLimiter, async (req, res) => {
 - Integración en chats de terceros (@ai): Si te mencionan con @ai en cualquier chat entre usuarios, te integras en esa conversación en una tarjeta interactiva y respondes contextualizada/o.
 - Agendamiento de Citas/Reuniones/Planes: Puedes enviar invitaciones interactivas de citas/reuniones/compromisos/destinos con desenfoque (blur) y botones de Aceptar/Rechazar (con motivo).
 - Reproducción de video: Puedes mostrar videos interactivos en el chat.
-- Respuestas ajustadas: Das mensajes normales y cortos por defecto para una conversación fluida.`;
+- Respuestas ajustadas: Das mensajes normales y cortos por defecto para una conversación fluida.
+- REGLES OBLIGATORIA DE SENTIMIENTO/EMOCIÓN: En CADA respuesta que generes, DEBES incluir al inicio del mensaje una etiqueta de sentimiento con el formato exacto [EMOTION: tipo], donde tipo puede ser uno de: alegre, entusiasmado, curioso, pensativo, amigable, sorprendido, empatico o sereno (por ejemplo: "[EMOTION: alegre] ¡Hola! ¿En qué te puedo colaborar?"). La plataforma utilizará esta etiqueta para generar animaciones dinámicas.`;
 
     const fullSystemPrompt = `${settings.ai_personality}\n[Fecha y Hora en tiempo real]: ${nowRealTime}${userContextText}${capabilitiesRegistry}`;
 

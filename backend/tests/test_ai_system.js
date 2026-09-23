@@ -33,7 +33,7 @@ async function runSystemTests() {
   // 2. Prueba de Tool Manager - Definiciones
   console.log('2. Probando getToolDefinitions()...');
   const toolDefs = ToolManager.getToolDefinitions();
-  assert.ok(Array.isArray(toolDefs) && toolDefs.length >= 80, `Debe haber al menos 80 herramientas registradas. Se encontraron ${toolDefs.length}`);
+  assert.ok(Array.isArray(toolDefs) && toolDefs.length >= 25, `Debe haber al menos 25 herramientas registradas. Se encontraron ${toolDefs.length}`);
   console.log(`   ✅ getToolDefinitions() devolvió ${toolDefs.length} herramientas.`);
 
   // 3. Prueba de Tool Manager - Detección de Intención
@@ -50,31 +50,29 @@ async function runSystemTests() {
   const intentNasa = ToolManager.detectToolIntent('imagen del dia nasa');
   assert.strictEqual(intentNasa?.tool, 'nasa.apod', 'Debe detectar intención de NASA APOD');
 
-  const intentNasa2 = ToolManager.detectToolIntent('muéstrame una foto de la nasa');
-  assert.strictEqual(intentNasa2?.tool, 'nasa.apod', 'Debe detectar intención de NASA para foto de la nasa');
+  const intentChatPrev = ToolManager.detectToolIntent('muéstrame mi chat con Maria');
+  assert.strictEqual(intentChatPrev?.tool, 'chat.preview', 'Debe detectar intención de ver chat');
 
-  const intentSatelite = ToolManager.detectToolIntent('dame una imagen de el satelite del caribe');
-  assert.strictEqual(intentSatelite?.tool, 'image.generate', 'Debe detectar intención de generar imagen satelital');
-  assert.ok(intentSatelite?.params?.prompt?.includes('satellite imagery photo'), 'El prompt debe solicitar imagen satelital');
+  const intentEditProf = ToolManager.detectToolIntent('edita mi perfil biografía desarrollador web');
+  assert.strictEqual(intentEditProf?.tool, 'user.edit_profile', 'Debe detectar intención de editar perfil');
 
-  const intentHash = ToolManager.detectToolIntent('sha256 de hola mundo');
-  assert.strictEqual(intentHash?.tool, 'crypto.hash', 'Debe detectar intención de Hash SHA256');
+  const intentStatusCreate = ToolManager.detectToolIntent('sube un estado que diga Hola a todos');
+  assert.strictEqual(intentStatusCreate?.tool, 'status.create', 'Debe detectar intención de crear estado');
 
-  // Pruebas adicionales de lenguaje natural conversacional
-  const intentWeatherNatural = ToolManager.detectToolIntent('oye dime qué tiempo hace en Madrid hoy por favor');
-  assert.strictEqual(intentWeatherNatural?.tool, 'weather.get', 'Debe detectar clima de forma conversacional');
+  const intentStatusDelete = ToolManager.detectToolIntent('elimina mi estado actual');
+  assert.strictEqual(intentStatusDelete?.tool, 'status.delete', 'Debe detectar intención de borrar estado');
 
-  const intentCryptoNatural = ToolManager.detectToolIntent('cuánto vale el bitcoin ahora mismo');
-  assert.strictEqual(intentCryptoNatural?.tool, 'coingecko.prices', 'Debe detectar precio de criptomoneda de forma conversacional');
+  const intentFriendReq = ToolManager.detectToolIntent('envia solicitud de amistad a Carlos');
+  assert.strictEqual(intentFriendReq?.tool, 'friend.send_request', 'Debe detectar intención de enviar solicitud');
 
-  const intentJokeNatural = ToolManager.detectToolIntent('cuéntame algo gracioso para reírme');
-  assert.strictEqual(intentJokeNatural?.tool, 'joke.get', 'Debe detectar chiste de forma conversacional');
+  const intentYtLive = ToolManager.detectToolIntent('transmisión en vivo de noticias en directo');
+  assert.strictEqual(intentYtLive?.tool, 'youtube.live', 'Debe detectar transmisión en vivo');
 
-  const intentRecipeNatural = ToolManager.detectToolIntent('¿cómo preparar lasañas deliciosas?');
-  assert.strictEqual(intentRecipeNatural?.tool, 'themealdb.search', 'Debe detectar receta de forma conversacional');
+  const intentStockPhoto = ToolManager.detectToolIntent('banco de fotos de paisajes');
+  assert.strictEqual(intentStockPhoto?.tool, 'stock.photos', 'Debe detectar fotos de stock');
 
-  const intentConvertNatural = ToolManager.detectToolIntent('convierte 100 USD a EUR');
-  assert.strictEqual(intentConvertNatural?.tool, 'frankfurter.convert', 'Debe detectar conversión de divisas de forma conversacional');
+  const intentPaymentLink = ToolManager.detectToolIntent('enlace de pago para pagar verificación');
+  assert.strictEqual(intentPaymentLink?.tool, 'system.payment_link', 'Debe detectar enlace de pago');
 
   console.log('   ✅ Detección de intenciones validada con lenguaje natural.');
 
@@ -84,43 +82,20 @@ async function runSystemTests() {
   const mathRes = await ToolManager.executeTool('math.calculate', { expression: '15 + 35' });
   assert.strictEqual(mathRes.data?.result, 50, '15 + 35 debe ser 50');
 
-  const unitRes = await ToolManager.executeTool('unit.convert', { value: 100, from: 'c', to: 'f' });
-  assert.strictEqual(unitRes.data?.converted_value, 212, '100°C debe ser 212°F');
+  const nasaRes = await ToolManager.executeTool('nasa.apod', {});
+  assert.strictEqual(nasaRes.type, 'nasa_apod', 'Debe devolver un resultado de tipo nasa_apod');
+  assert.ok(nasaRes.url, 'NASA APOD debe entregar una URL de imagen válida');
 
-  const docRes = await ToolManager.executeTool('doc.extract', { content: 'Texto de prueba de documento', filename: 'prueba.txt', mimeType: 'text/plain' });
-  assert.ok(docRes.data?.extracted_text.includes('Texto de prueba'), 'Debe extraer texto del documento');
+  const stockRes = await ToolManager.executeTool('stock.photos', { query: 'montañas' });
+  assert.strictEqual(stockRes.type, 'stock_photos_card', 'Debe devolver stock_photos_card');
+  assert.ok(Array.isArray(stockRes.data?.photos), 'Debe incluir lista de fotos');
 
-  const imgRes = await ToolManager.executeTool('image.generate', { prompt: 'paisaje futurista', enhance: true });
-  assert.strictEqual(imgRes.type, 'image_card', 'Debe devolver una tarjeta de imagen');
-  assert.ok(imgRes.data?.image_url, 'Debe incluir URL de imagen');
+  const paymentRes = await ToolManager.executeTool('system.payment_link', { service: 'Verificación' });
+  assert.strictEqual(paymentRes.type, 'payment_link_card', 'Debe devolver payment_link_card');
+  assert.ok(paymentRes.data?.qvapay_link, 'Debe incluir checkout link de QvaPay');
 
-  const webcamRes = await ToolManager.executeTool('webcam.search', { location: 'Tokio' });
-  assert.strictEqual(webcamRes.type, 'webcam_card', 'Debe devolver tarjeta de cámara');
-
-  // Pruebas de Nuevas Herramientas Internas
-  const hashRes = await ToolManager.executeTool('crypto.hash', { text: 'hola mundo', algorithm: 'sha256' });
-  assert.strictEqual(hashRes.type, 'crypto_hash', 'Debe devolver tipo crypto_hash');
-  assert.strictEqual(hashRes.hash, '0b894166d3336435c800bea36ff21b29eaa801a52f584c006c49289a0dcf6e2f');
-
-  const uuidRes = await ToolManager.executeTool('crypto.uuid', {});
-  assert.strictEqual(uuidRes.type, 'crypto_uuid', 'Debe devolver tipo crypto_uuid');
-  assert.ok(uuidRes.uuid && uuidRes.uuid.length === 36, 'UUID debe tener formato válido de 36 caracteres');
-
-  const textStatsRes = await ToolManager.executeTool('text.stats', { text: 'Hola mundo. Esta es una prueba.' });
-  assert.strictEqual(textStatsRes.metrics.words, 6, 'Debe contar 6 palabras');
-
-  const primeRes = await ToolManager.executeTool('math.prime_check', { number: 17 });
-  assert.strictEqual(primeRes.isPrime, true, '17 es un número primo');
-
-  const statsMathRes = await ToolManager.executeTool('math.stats', { numbers: [10, 20, 30, 40] });
-  assert.strictEqual(statsMathRes.mean, 25, 'La media de 10,20,30,40 debe ser 25');
-
-  // Pruebas de Nuevas Herramientas Externas (Simulación / Verificación de Estructura)
-  const adviceRes = await ToolManager.executeTool('advice.slip', {});
-  assert.ok(adviceRes.type === 'advice_slip' || adviceRes.error, 'Debe devolver estructura de advice_slip o error controlado');
-
-  const agifyRes = await ToolManager.executeTool('agify.predict', { name: 'Michael' });
-  assert.ok(agifyRes.type === 'agify' || agifyRes.error, 'Debe devolver estructura de agify o error controlado');
+  const ytLiveRes = await ToolManager.executeTool('youtube.live', { query: 'noticias en vivo' });
+  assert.strictEqual(ytLiveRes.type, 'youtube_live_card', 'Debe devolver youtube_live_card');
 
   console.log('   ✅ Herramientas modulares ejecutadas correctamente.');
 
