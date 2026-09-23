@@ -6,6 +6,7 @@ const Message = require('../models/Message');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { publicUser, meUser } = require('../utils/serialize');
 const { getAISettings, chatCompletion } = require('../services/aiService');
+const { registry, stateManager, runGoogleServicesBootstrap, sanitizeObject } = require('../google-services');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 const router = express.Router();
@@ -846,6 +847,50 @@ router.post('/monetizacion/reembolsar/:id', async (req, res) => {
     res.json({ ok: true, transaccion: rows[0] });
   } catch (err) {
     console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---- GOOGLE SERVICES ENGINE ADMIN ROUTES ----
+router.get('/google-services/status', async (req, res) => {
+  try {
+    const currentState = await stateManager.getState();
+    const liveStatus = await registry.checkAllStatus();
+    const sanitizedStatus = sanitizeObject(liveStatus);
+
+    res.json({
+      firebase: sanitizedStatus.firebase_auth?.status === 'CONNECTED' ? 'connected' : 'configuration_required',
+      googleCloud: 'detected',
+      gemini: sanitizedStatus.gemini?.status === 'CONFIGURED' ? 'configured' : 'not_configured',
+      maps: sanitizedStatus.maps?.status === 'CONFIGURED' ? 'configured' : 'configuration_required',
+      places: sanitizedStatus.maps?.status === 'CONFIGURED' ? 'configured' : 'configuration_required',
+      vision: sanitizedStatus.vision?.status === 'CONFIGURED' ? 'configured' : (sanitizedStatus.vision?.status === 'BILLING_REQUIRED' ? 'billing_required' : 'not_configured'),
+      translation: sanitizedStatus.translation?.status === 'CONFIGURED' ? 'configured' : (sanitizedStatus.translation?.status === 'BILLING_REQUIRED' ? 'billing_required' : 'not_configured'),
+      speech: sanitizedStatus.speech?.status === 'CONFIGURED' ? 'configured' : (sanitizedStatus.speech?.status === 'BILLING_REQUIRED' ? 'billing_required' : 'not_configured'),
+      environmental: sanitizedStatus.environmental?.status === 'CONFIGURED' ? 'configured' : (sanitizedStatus.environmental?.status === 'BILLING_REQUIRED' ? 'billing_required' : 'not_configured'),
+      details: sanitizedStatus,
+      bootstrap: {
+        completed: currentState.completed,
+        version: currentState.version,
+        timestamp: currentState.timestamp
+      }
+    });
+  } catch (err) {
+    console.error('Error fetching google services status:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/google-services/configure', async (req, res) => {
+  try {
+    const result = await runGoogleServicesBootstrap({ force: true });
+    res.json({
+      ok: true,
+      mensaje: 'Servicios de Google comprobados y reconfigurados correctamente sin cargos.',
+      bootstrapResult: result
+    });
+  } catch (err) {
+    console.error('Error re-configuring google services:', err);
     res.status(500).json({ error: err.message });
   }
 });

@@ -10,7 +10,7 @@
   "scripts": {
     "start": "node server.js",
     "migrate": "node db/migrate.js",
-    "test": "node tests/test_ai_system.js && node tests/test_image_editor.js"
+    "test": "node tests/test_ai_system.js && node tests/test_image_editor.js && node tests/test_google_services_engine.js"
   },
   "dependencies": {
     "adm-zip": "^0.6.0",

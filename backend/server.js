@@ -13,6 +13,7 @@ const { runMigrations } = require('./db/migrate');
 const { connectMongo } = require('./db/mongo');
 const { initSockets } = require('./sockets/index');
 const { startCleanupJob } = require('./jobs/cleanupStories');
+const { runGoogleServicesBootstrap } = require('./google-services');
 
 const app = express();
 const server = http.createServer(app);
@@ -93,6 +94,12 @@ async function start() {
   // Inicializar sockets y trabajadores en segundo plano una vez completadas las migraciones
   initSockets(io);
   startCleanupJob();
+
+  try {
+    await runGoogleServicesBootstrap();
+  } catch (err) {
+    console.warn('[arranque] Google Services Engine bootstrap omitido o fallido:', err.message);
+  }
 
   server.listen(PORT, () => {
     console.log(`[arranque] Enlace escuchando en el puerto ${PORT}`);
