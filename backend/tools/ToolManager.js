@@ -563,6 +563,14 @@ function detectToolIntent(text) {
     }
   }
 
+  // 10.b Agendamiento de Cita o Reunión
+  if (
+    lower.includes('programa una cita') || lower.includes('programar cita') || lower.includes('agenda una reunion') ||
+    lower.includes('agendar cita') || lower.includes('agenda una cita') || lower.includes('reunión con') || lower.includes('cita con')
+  ) {
+    return { tool: 'user.search_by_interest', params: { interest: text.replace(/.*(?:cita con|reunion con|reunión con|para)\s*/i, '').trim() || 'amigos' } };
+  }
+
   // 11. Búsqueda de perfil de usuario en la red social Enlace
   if (
     lower.includes('perfil de') || lower.includes('busca a') || lower.includes('buscar usuario') ||

@@ -93,6 +93,47 @@ function initSockets(io) {
         emitToUser(receiverId, 'mensaje:nuevo', doc);
         ack && ack({ ok: true, mensaje: doc });
         registrarSenal(userId, receiverId, 'mensaje', 3);
+
+        // Interceptor de mención @ai en chats de terceros
+        if (text && (text.includes('@ai') || text.includes('@LinkAI') || text.includes('@linkai'))) {
+          const LINK_AI_UUID = '00000000-0000-0000-0000-0000000000a1';
+          const { chatCompletion } = require('../services/aiService');
+          const ToolManager = require('../tools/ToolManager');
+
+          setTimeout(async () => {
+            try {
+              const queryText = text.replace(/@(ai|LinkAI|linkai)/gi, '').trim() || 'Hola';
+              const detectedTool = ToolManager.detectToolIntent(queryText);
+              let toolRes = null;
+              if (detectedTool) {
+                toolRes = await ToolManager.executeTool(detectedTool.tool, detectedTool.params, userId);
+              }
+
+              const sysPrompt = `Eres Link AI integrándote temporalmente en un chat de terceros. Responde de forma breve y amigable al usuario. Al final de tu mensaje, aclara amablemente que te retiras del chat hasta que te vuelvan a mencionar con @ai.`;
+              const aiComp = await chatCompletion({
+                messages: [{ role: 'system', content: sysPrompt }, { role: 'user', content: queryText }],
+              });
+
+              const replyText = aiComp.reply || '🤖 Hola, aquí estoy. Me retiro por ahora hasta que me vuelvas a mencionar con @ai.';
+
+              const { rows: aiRows } = await query(
+                `INSERT INTO messages (conversation_id, sender_id, receiver_id, text, delivered)
+                 VALUES ($1, $2, $3, $4, true)
+                 RETURNING id, conversation_id AS "conversationId", sender_id AS "senderId", receiver_id AS "receiverId",
+                           text, delivered, read, created_at AS "createdAt"`,
+                [convId, LINK_AI_UUID, receiverId, replyText]
+              );
+              const aiDoc = aiRows[0];
+              aiDoc.isAiMentionCard = true;
+              aiDoc.tool_result = toolRes;
+
+              emitToUser(userId, 'mensaje:nuevo', aiDoc);
+              emitToUser(receiverId, 'mensaje:nuevo', aiDoc);
+            } catch (errAi) {
+              console.error('[socket] error en integración @ai:', errAi.message);
+            }
+          }, 600);
+        }
       } catch (err) {
         console.error('[socket] error enviando mensaje:', err.message);
         ack && ack({ ok: false, error: 'No se pudo enviar el mensaje.' });

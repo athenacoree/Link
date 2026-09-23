@@ -74,20 +74,30 @@ async function getProfile(queryOrUsername, requesterId = null) {
 
 async function searchUsersByInterest(interest, limit = 10) {
   const cleanInterest = (interest || '').trim();
-  if (!cleanInterest) return { error: 'Interés o gusto no proporcionado.' };
 
   try {
-    const { rows } = await query(
-      `SELECT id, name, username, avatar_data, profession, city, verified, is_admin, role, interests
-       FROM users
-       WHERE interests::text ILIKE $1
-          OR hobbies::text ILIKE $1
-          OR bio ILIKE $1
-          OR profession ILIKE $1
-       ORDER BY verified DESC, created_at DESC
-       LIMIT $2`,
-      [`%${cleanInterest}%`, limit]
-    );
+    let sql = `SELECT id, name, username, avatar_data, profession, city, skin_color, bio, verified, is_admin, role, interests
+               FROM users`;
+    let params = [];
+
+    if (cleanInterest && cleanInterest !== 'azar' && cleanInterest !== 'random') {
+      sql += ` WHERE interests::text ILIKE $1
+                  OR hobbies::text ILIKE $1
+                  OR bio ILIKE $1
+                  OR profession ILIKE $1
+                  OR skin_color ILIKE $1
+                  OR name ILIKE $1
+                  OR username ILIKE $1
+                  OR city ILIKE $1`;
+      params.push(`%${cleanInterest}%`);
+      sql += ` ORDER BY verified DESC, created_at DESC LIMIT $2`;
+      params.push(limit);
+    } else {
+      sql += ` ORDER BY RANDOM() LIMIT $1`;
+      params.push(limit);
+    }
+
+    const { rows } = await query(sql, params);
 
     const users = rows.map(u => ({
       id: u.id,
@@ -96,6 +106,8 @@ async function searchUsersByInterest(interest, limit = 10) {
       avatar: u.avatar_data || '',
       profession: u.profession || 'Miembro de Link',
       city: u.city || '',
+      skin_color: u.skin_color || '',
+      bio: u.bio || '',
       verified: u.verified || false,
       is_admin: u.is_admin || u.role === 'admin',
       role: u.role || 'user',
@@ -104,14 +116,14 @@ async function searchUsersByInterest(interest, limit = 10) {
     return {
       type: 'user_search_results',
       data: {
-        interest: cleanInterest,
+        interest: cleanInterest || 'personas al azar',
         count: users.length,
         users,
       }
     };
   } catch (err) {
     console.error('Error en searchUsersByInterest:', err);
-    return { error: 'Error al buscar personas por interés.' };
+    return { error: 'Error al buscar personas.' };
   }
 }
 
