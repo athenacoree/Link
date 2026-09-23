@@ -23,7 +23,6 @@ window.AILab = {
     this.bindEvents();
     this.bindSocketEvents();
     this.loadGlobalMessages();
-    this.loadCharacters();
   },
 
   bindSocketEvents() {
@@ -200,46 +199,19 @@ window.AILab = {
   },
 
   async loadCharacters() {
-    const container = document.getElementById('ailabActiveCharacters');
-    if (!container) return;
-    try {
-      this.characters = await api('/ailab/characters');
-    } catch (err) {
-      console.error('Error al cargar personajes de IA:', err);
-    }
+    return;
   },
 
   selectCharacter(charId, charName) {
-    this.activeCharacterId = charId;
-    this.openComposer();
-    const input = document.getElementById('ailabComposerInput');
-    if (input) {
-      input.value = `@${charName} `;
-      input.focus();
-    }
+    return;
   },
 
   setStatus(text, isWorking = true) {
-    const statusBar = document.getElementById('ailabStatusBar');
-    const statusText = document.getElementById('ailabStatusText');
-    this.isGenerating = isWorking;
-
-    if (statusBar && statusText) {
-      if (isWorking && text) {
-        statusText.textContent = text;
-        statusBar.style.display = 'flex';
-      } else {
-        statusBar.style.display = 'none';
-      }
-    }
+    return;
   },
 
   async cancelGeneration() {
-    this.setStatus('Deteniendo...', false);
-    try {
-      await api('/ailab/stop', { method: 'POST' });
-    } catch (e) {}
-    this.setStatus(null, false);
+    return;
   },
 
   async loadGlobalMessages() {
@@ -253,9 +225,9 @@ window.AILab = {
       if (!res.messages || res.messages.length === 0) {
         feed.innerHTML = `
           <div style="text-align:center; padding:30px 16px; color:var(--texto-600); font-size:13px; line-height:1.5;">
-            <div style="font-size:32px; margin-bottom:8px;">🧪</div>
-            <div style="font-weight:800; color:var(--morado-700); font-size:15px;">¡Bienvenido a la Sala Global de IA!</div>
-            <div>Todos los usuarios comparten este mismo espacio en vivo. La IA conversa continuamente y tú puedes intervenir en cualquier momento.</div>
+            <div style="font-size:32px; margin-bottom:8px;">💬</div>
+            <div style="font-weight:800; color:var(--morado-700); font-size:15px;">¡Bienvenido a la Sala Global!</div>
+            <div>Todos los usuarios comparten este espacio de conversación en vivo.</div>
           </div>
         `;
         return;
