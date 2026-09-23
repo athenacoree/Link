@@ -1872,13 +1872,13 @@ function renderizarConversacionesHTML(conversaciones) {
   const aiAvatar = (window.AI_CONFIG && window.AI_CONFIG.avatar) || '';
 
   const itemAi = aiAvailable ? `
-    <div class="conversacion-item" data-persona='${encodeURIComponent(JSON.stringify({ id: 'link_ai', name: `🤖 ${aiName}`, avatar_data: aiAvatar, is_online: true, is_ai: true }))}' style="border-left:4px solid var(--morado-600); background:var(--morado-50);">
+    <div class="conversacion-item" data-persona='${encodeURIComponent(JSON.stringify({ id: '00000000-0000-0000-0000-0000000000a1', name: `🤖 ${aiName}`, avatar_data: aiAvatar, is_online: true, is_ai: true }))}' style="border-left:4px solid var(--morado-600); background:var(--morado-50);">
       <div style="width:48px; height:48px; border-radius:50%; background:var(--morado-600); color:#fff; display:flex; align-items:center; justify-content:center; font-size:22px; font-weight:700; overflow:hidden;">
         ${aiAvatar ? `<img src="${aiAvatar}" style="width:100%; height:100%; object-fit:cover;">` : '🤖'}
       </div>
       <div class="conversacion-info">
         <div class="nombre" style="color:var(--morado-700);">${escaparHTMLGlobal(aiName)}</div>
-        <div class="preview">Asistente Inteligente (OpenRouter)</div>
+        <div class="preview">Asistente Inteligente</div>
       </div>
       <div class="conversacion-hora">En línea</div>
     </div>` : '';
@@ -2235,7 +2235,6 @@ document.querySelectorAll('#vistaAdmin > .admin-body > .sub-tabs > .sub-tab[data
 // Admin AI Config
 $('adminAIProvider')?.addEventListener('change', (e) => {
   const val = e.target.value;
-  if ($('boxConfigOpenRouter')) $('boxConfigOpenRouter').style.display = val === 'openrouter' ? 'block' : 'none';
   if ($('boxConfigHuggingFace')) $('boxConfigHuggingFace').style.display = val === 'huggingface' ? 'block' : 'none';
 });
 
@@ -2258,16 +2257,15 @@ $('adminAIAvatarFileInput')?.addEventListener('change', async (e) => {
 async function cargarAdminAIConfig() {
   try {
     const { settings } = await api('/admin/system-settings');
-    const provider = settings.ai_provider || 'openrouter';
+    const provider = settings.ai_provider || 'cerebras';
     if ($('adminAIProvider')) $('adminAIProvider').value = provider;
-    if ($('boxConfigOpenRouter')) $('boxConfigOpenRouter').style.display = provider === 'openrouter' ? 'block' : 'none';
     if ($('boxConfigHuggingFace')) $('boxConfigHuggingFace').style.display = provider === 'huggingface' ? 'block' : 'none';
 
-    if ($('adminOpenRouterKey')) $('adminOpenRouterKey').value = settings.openrouter_api_key || '';
     if ($('adminHFToken')) $('adminHFToken').value = settings.hf_token || '';
     if ($('adminHFModel')) $('adminHFModel').value = settings.hf_model || 'meta-llama/Llama-3.2-3B-Instruct';
 
     if ($('adminAIName')) $('adminAIName').value = settings.ai_name || 'Link AI';
+    if ($('adminAPKDownloadUrl')) $('adminAPKDownloadUrl').value = settings.apk_download_url || '';
     if ($('adminAIAvatar')) $('adminAIAvatar').value = settings.ai_avatar || '';
     if ($('adminAIPersonality')) $('adminAIPersonality').value = settings.ai_personality || 'Eres Link AI, un asistente inteligente integrado en la plataforma social Link. Responde siempre en español, con amabilidad y precisión.';
     if ($('adminAIMaxTokens')) $('adminAIMaxTokens').value = settings.ai_max_tokens || 1000;
@@ -2446,7 +2444,7 @@ $('adminBtnTestAI')?.addEventListener('click', async () => {
   resultEl.textContent = 'Probando conexión con el proveedor de IA...';
 
   try {
-    const res = await api('/admin/test-openrouter', {
+    const res = await api('/admin/test-ai', {
       method: 'POST',
       body: {
         ai_provider: $('adminAIProvider').value,
@@ -2472,6 +2470,7 @@ $('adminBtnSaveAI')?.addEventListener('click', async () => {
     const payload = {
       ai_provider: $('adminAIProvider').value,
       ai_name: $('adminAIName').value.trim() || 'Link AI',
+      apk_download_url: $('adminAPKDownloadUrl')?.value.trim() || '',
       ai_avatar: $('adminAIAvatar').value.trim(),
       ai_personality: $('adminAIPersonality').value.trim(),
       ai_max_tokens: $('adminAIMaxTokens').value || '1000',

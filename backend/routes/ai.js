@@ -1,9 +1,15 @@
 const express = require('express');
+const { query } = require('../db/postgres');
 const { requireAuth } = require('../middleware/auth');
 const { getAISettings, chatCompletion } = require('../services/aiService');
 const ToolManager = require('../tools/ToolManager');
 
 const router = express.Router();
+const LINK_AI_UUID = '00000000-0000-0000-0000-0000000000a1';
+
+function conversationId(a, b) {
+  return [a, b].sort().join('_');
+}
 
 // Simple in-memory rate limiting map for AI requests
 const aiRateLimitMap = new Map();
@@ -48,7 +54,7 @@ router.get('/config', requireAuth, async (req, res) => {
       name: settings.ai_name || 'Link AI',
       avatar: settings.ai_avatar || '',
       personality: settings.ai_personality,
-      model: settings.ai_provider === 'huggingface' ? settings.hf_model : (settings.ai_provider === 'cerebras' ? settings.cerebras_model : settings.openrouter_model),
+      model: settings.ai_provider === 'huggingface' ? settings.hf_model : settings.cerebras_model,
       max_tokens: parseInt(settings.ai_max_tokens, 10) || 1000,
       context_tokens: parseInt(settings.ai_context_tokens, 10) || 4000,
       tools: ToolManager.getToolDefinitions(),
@@ -102,10 +108,30 @@ router.post('/chat', requireAuth, aiRateLimiter, async (req, res) => {
       }
     }
 
-    const inputMessages = messages ? [...messages] : [
-      { role: 'system', content: settings.ai_personality },
-      { role: 'user', content: (userPrompt || 'Hola') + toolContextText },
-    ];
+    let inputMessages = [];
+    if (Array.isArray(messages) && messages.length > 0) {
+      inputMessages = [...messages];
+    } else {
+      inputMessages.push({ role: 'system', content: settings.ai_personality });
+      // Cargar historial de conversación guardada entre usuario y Link AI para mantener contexto
+      try {
+        const convId = conversationId(req.user.id, LINK_AI_UUID);
+        const { rows: historyRows } = await query(
+          `SELECT sender_id, text FROM messages WHERE conversation_id = $1 ORDER BY created_at DESC LIMIT 10`,
+          [convId]
+        );
+        const historySorted = historyRows.reverse();
+        for (const hMsg of historySorted) {
+          inputMessages.push({
+            role: hMsg.sender_id === req.user.id ? 'user' : 'assistant',
+            content: hMsg.text || ''
+          });
+        }
+      } catch (e) {
+        // Ignorar si falla lectura de historial
+      }
+      inputMessages.push({ role: 'user', content: (userPrompt || 'Hola') + toolContextText });
+    }
 
     if (messages && toolContextText && inputMessages.length > 0) {
       const lastMsg = { ...inputMessages[inputMessages.length - 1] };
@@ -124,6 +150,39 @@ router.post('/chat', requireAuth, aiRateLimiter, async (req, res) => {
       visionImage: vision_image || null,
     });
 
+    // Guardar la conversación en la base de datos PostgreSQL
+    let aiMessageObj = null;
+    if (userPrompt || prompt) {
+      try {
+        const convId = conversationId(req.user.id, LINK_AI_UUID);
+        const rawUserPrompt = prompt || userPrompt || '';
+
+        await query(
+          `INSERT INTO messages (conversation_id, sender_id, receiver_id, text, delivered, read, created_at)
+           VALUES ($1, $2, $3, $4, true, true, now())`,
+          [convId, req.user.id, LINK_AI_UUID, rawUserPrompt]
+        );
+
+        const aiMsgRes = await query(
+          `INSERT INTO messages (conversation_id, sender_id, receiver_id, text, delivered, read, created_at)
+           VALUES ($1, $2, $3, $4, true, true, now())
+           RETURNING id, conversation_id AS "conversationId", sender_id AS "senderId", receiver_id AS "receiverId", text, delivered, read, created_at AS "createdAt"`,
+          [convId, LINK_AI_UUID, req.user.id, result.reply]
+        );
+        aiMessageObj = aiMsgRes.rows[0];
+
+        const [userA, userB] = [req.user.id, LINK_AI_UUID].sort();
+        await query(
+          `INSERT INTO conversation_meta (id, user_a, user_b, last_message_at, last_message_preview)
+           VALUES ($1, $2, $3, now(), $4)
+           ON CONFLICT (id) DO UPDATE SET last_message_at = now(), last_message_preview = $4`,
+          [convId, userA, userB, result.reply.slice(0, 150)]
+        );
+      } catch (e) {
+        console.warn('[AI Chat Save Error]', e.message);
+      }
+    }
+
     res.json({
       available: result.available,
       reply: result.reply,
@@ -135,6 +194,7 @@ router.post('/chat', requireAuth, aiRateLimiter, async (req, res) => {
       usage: result.usage,
       tool_result: toolResult,
       continuations: result.continuations || 0,
+      ai_message: aiMessageObj,
     });
   } catch (err) {
     console.error('Error en /api/ai/chat:', err);

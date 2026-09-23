@@ -88,8 +88,12 @@ router.get('/', requireAuth, async (req, res) => {
 // ---- Historial de mensajes con una persona (PostgreSQL) ----
 router.get('/:otroId', requireAuth, async (req, res) => {
   try {
-    if (!isUUID(req.params.otroId)) return res.status(400).json({ error: 'ID de usuario no válido.' });
-    const convId = conversationId(req.userId, req.params.otroId);
+    let targetId = req.params.otroId;
+    if (targetId === 'link_ai' || targetId === 'link_ai_bot') {
+      targetId = '00000000-0000-0000-0000-0000000000a1';
+    }
+    if (!isUUID(targetId)) return res.status(400).json({ error: 'ID de usuario no válido.' });
+    const convId = conversationId(req.userId, targetId);
     const limit = Math.min(parseInt(req.query.limit) || 50, 100);
     const before = req.query.before ? new Date(req.query.before) : new Date();
 

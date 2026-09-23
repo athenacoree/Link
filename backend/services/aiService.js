@@ -9,8 +9,6 @@ const { query } = require('../db/postgres');
 async function getAISettings() {
   const config = {
     ai_provider: process.env.AI_PROVIDER || 'cerebras',
-    openrouter_api_key: process.env.OPENROUTER_API_KEY || '',
-    openrouter_model: process.env.OPENROUTER_MODEL || 'openrouter/free',
     xai_api_key: process.env.XAI_API_KEY || process.env.GROK_API_KEY || '',
     xai_model: process.env.XAI_MODEL || process.env.GROK_MODEL || 'grok-beta',
     fallback_provider: process.env.FALLBACK_PROVIDER || 'huggingface',
@@ -77,9 +75,6 @@ async function getAISettings() {
   if (process.env.AI_CONTEXT_TOKENS) config.ai_context_tokens = process.env.AI_CONTEXT_TOKENS;
   if (process.env.AILAB_AUTO_INTERVAL_MIN) config.ailab_auto_interval_min = process.env.AILAB_AUTO_INTERVAL_MIN;
 
-  config.openrouter_api_key = process.env.OPENROUTER_API_KEY || '';
-  config.openrouter_model = process.env.OPENROUTER_MODEL || config.openrouter_model || 'openrouter/free';
-
   config.hf_token = process.env.HF_TOKEN || '';
   config.gemini_api_key = process.env.GEMINI_API_KEY || '';
   config.openai_api_key = process.env.OPENAI_API_KEY || '';
@@ -135,7 +130,7 @@ function pruneMessages(messages, maxContextTokens = 4000) {
 }
 
 /**
- * Base Adapter Invoker for OpenRouter / OpenAI Compatible Endpoints
+ * Base Adapter Invoker for OpenAI / Cerebras Compatible Endpoints
  */
 async function callOpenAICompatible({ endpoint, apiKey, model, messages, maxTokens, visionImage, extraHeaders = {}, signal }) {
   let payloadMessages = messages.map(m => ({ ...m }));
@@ -217,26 +212,19 @@ async function callOpenAICompatible({ endpoint, apiKey, model, messages, maxToke
  * Provider Adapters Registry
  */
 const ProviderAdapters = {
-  openrouter: async ({ settings, messages, maxTokens, modelOverride, visionImage, signal }) => {
-    const apiKey = (settings.openrouter_api_key || process.env.OPENROUTER_API_KEY || '').trim();
+  cerebras: async ({ settings, messages, maxTokens, modelOverride, visionImage, signal }) => {
+    const apiKey = (settings.cerebras_api_key || process.env.CEREBRAS_API_KEY || '').trim();
     if (!apiKey) {
-      return {
-        ok: false,
-        error: { code: 'NO_API_KEY', message: 'OpenRouter API Key no configurada.', retryable: true },
-      };
+      return { ok: false, error: { code: 'NO_API_KEY', message: 'Cerebras API Key no configurada en las variables de entorno.', retryable: true } };
     }
-    const model = process.env.OPENROUTER_MODEL || modelOverride || settings.openrouter_model || 'openrouter/free';
+    const model = modelOverride || process.env.CEREBRAS_MODEL || settings.cerebras_model || 'llama-3.3-70b';
     return callOpenAICompatible({
-      endpoint: 'https://openrouter.ai/api/v1/chat/completions',
+      endpoint: 'https://api.cerebras.ai/v1/chat/completions',
       apiKey,
       model,
       messages,
       maxTokens,
       visionImage,
-      extraHeaders: {
-        'HTTP-Referer': process.env.SITE_URL || 'https://link-app.onrender.com',
-        'X-Title': 'Link Social Platform',
-      },
       signal,
     });
   },
@@ -382,23 +370,6 @@ const ProviderAdapters = {
       visionImage,
       signal,
     });
-  },
-
-  cerebras: async ({ settings, messages, maxTokens, modelOverride, visionImage, signal }) => {
-    const apiKey = (settings.cerebras_api_key || process.env.CEREBRAS_API_KEY || '').trim();
-    if (!apiKey) {
-      return { ok: false, error: { code: 'NO_API_KEY', message: 'Cerebras API Key no configurada en las variables de entorno.', retryable: true } };
-    }
-    const model = modelOverride || process.env.CEREBRAS_MODEL || settings.cerebras_model || 'llama-3.3-70b';
-    return callOpenAICompatible({
-      endpoint: 'https://api.cerebras.ai/v1/chat/completions',
-      apiKey,
-      model,
-      messages,
-      maxTokens,
-      visionImage,
-      signal,
-    });
   }
 };
 
@@ -435,17 +406,11 @@ async function chatCompletion({
 
   formattedMessages = pruneMessages(formattedMessages, effectiveContextTokens);
 
-  // Obtención dinámica de modelos gratuitos de OpenRouter para la secuencia de rotación
-  const freeModelsList = await getOpenRouterFreeModels();
-
   // Fallback sequence building
   const attemptsSequence = [];
 
   if (model) {
     attemptsSequence.push({ provider: primaryProvider, model });
-  } else if (primaryProvider === 'openrouter') {
-    const mainModel = process.env.OPENROUTER_MODEL || settings.openrouter_model || 'openrouter/free';
-    attemptsSequence.push({ provider: 'openrouter', model: mainModel });
   } else if (primaryProvider === 'cerebras') {
     const mainModel = process.env.CEREBRAS_MODEL || settings.cerebras_model || 'llama-3.3-70b';
     attemptsSequence.push({ provider: 'cerebras', model: mainModel });
@@ -457,22 +422,6 @@ async function chatCompletion({
   if (primaryProvider !== 'cerebras' && (process.env.CEREBRAS_API_KEY || settings.cerebras_api_key)) {
     const cbModel = process.env.CEREBRAS_MODEL || settings.cerebras_model || 'llama-3.3-70b';
     attemptsSequence.push({ provider: 'cerebras', model: cbModel });
-  }
-
-  // Agregar modelos free de OpenRouter como fallback dinámico, priorizando visión si hay imagen
-  if (visionImage) {
-    const visionFreeModels = freeModelsList.filter(m => m.isVision);
-    for (const vm of visionFreeModels) {
-      if (!attemptsSequence.some(a => a.provider === 'openrouter' && a.model === vm.id)) {
-        attemptsSequence.push({ provider: 'openrouter', model: vm.id });
-      }
-    }
-  }
-
-  for (const fm of freeModelsList) {
-    if (!attemptsSequence.some(a => a.provider === 'openrouter' && a.model === fm.id)) {
-      attemptsSequence.push({ provider: 'openrouter', model: fm.id });
-    }
   }
 
   if (fallbackProvider && fallbackProvider !== primaryProvider) {
@@ -600,64 +549,9 @@ async function chatCompletion({
   };
 }
 
-let openRouterFreeModelsCache = { models: [], timestamp: 0 };
-const OPENROUTER_CACHE_TTL = 15 * 60 * 1000; // 15 minutos
-
-/**
- * Consulta la API de OpenRouter para obtener la lista dinámica de modelos gratuitos disponibles.
- */
-async function getOpenRouterFreeModels() {
-  const now = Date.now();
-  if (openRouterFreeModelsCache.models.length > 0 && (now - openRouterFreeModelsCache.timestamp < OPENROUTER_CACHE_TTL)) {
-    return openRouterFreeModelsCache.models;
-  }
-
-  const fallbackFreeModels = [
-    { id: process.env.OPENROUTER_MODEL || 'openrouter/free', isVision: true },
-  ];
-
-  try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 8000);
-    const res = await fetch('https://openrouter.ai/api/v1/models', { signal: controller.signal });
-    clearTimeout(timer);
-
-    if (!res.ok) {
-      return fallbackFreeModels;
-    }
-
-    const data = await res.json();
-    if (!data || !Array.isArray(data.data)) {
-      return fallbackFreeModels;
-    }
-
-    const freeModels = [];
-    for (const item of data.data) {
-      const isFreeById = item.id && item.id.endsWith(':free');
-      const isFreeByPrice = item.pricing && parseFloat(item.pricing.prompt || '1') === 0 && parseFloat(item.pricing.completion || '1') === 0;
-
-      if (isFreeById || isFreeByPrice) {
-        const modality = (item.architecture?.modality || '').toLowerCase();
-        const description = (item.description || '').toLowerCase();
-        const isVision = modality.includes('image') || modality.includes('multimodal') || description.includes('vision') || item.id.includes('vision');
-        freeModels.push({ id: item.id, isVision });
-      }
-    }
-
-    if (freeModels.length > 0) {
-      openRouterFreeModelsCache = { models: freeModels, timestamp: now };
-      return freeModels;
-    }
-    return fallbackFreeModels;
-  } catch (err) {
-    return fallbackFreeModels;
-  }
-}
-
 module.exports = {
   getAISettings,
   pruneMessages,
   chatCompletion,
-  getOpenRouterFreeModels,
   ProviderAdapters,
 };

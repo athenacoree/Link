@@ -240,14 +240,12 @@ router.delete('/ai-characters/:id', async (req, res) => {
   }
 });
 
-// ---- CONFIGURACIÓN DEL SISTEMA (AI OpenRouter, Hugging Face, etc.) ----
+// ---- CONFIGURACIÓN DEL SISTEMA (AI Cerebras, Hugging Face, etc.) ----
 router.get('/system-settings', async (req, res) => {
   try {
     const { rows } = await query(`SELECT key, value, updated_at FROM system_settings`);
     const settingsMap = {};
     rows.forEach(r => { settingsMap[r.key] = r.value; });
-    settingsMap['openrouter_api_key'] = process.env.OPENROUTER_API_KEY || '';
-    settingsMap['openrouter_model'] = process.env.OPENROUTER_MODEL || 'openrouter/free';
     settingsMap['cerebras_model'] = process.env.CEREBRAS_MODEL || 'llama-3.3-70b';
     res.json({ settings: settingsMap });
   } catch (err) {
@@ -264,7 +262,7 @@ router.post('/system-settings', async (req, res) => {
     }
 
     const sensitiveKeys = [
-      'openrouter_api_key', 'openrouter_key', 'hf_token', 'openai_api_key',
+      'hf_token', 'openai_api_key',
       'anthropic_api_key', 'groq_api_key', 'gemini_api_key', 'xai_api_key', 'grok_api_key',
       'cerebras_api_key', 'cerebras_key'
     ];
@@ -289,14 +287,10 @@ router.post('/system-settings', async (req, res) => {
 });
 
 // Comprobar la conexión con el proveedor de IA configurado
-router.post('/test-openrouter', async (req, res) => {
+router.post('/test-ai', async (req, res) => {
   try {
     const { ai_provider, hf_model, ai_personality } = req.body;
     const provider = (ai_provider || 'cerebras').toLowerCase();
-
-    if (provider === 'openrouter' && !process.env.OPENROUTER_API_KEY) {
-      return res.status(400).json({ error: 'No se detectó la variable de entorno OPENROUTER_API_KEY en el servidor/Render.' });
-    }
 
     if (provider === 'huggingface' && !process.env.HF_TOKEN) {
       return res.status(400).json({ error: 'No se detectó la variable de entorno HF_TOKEN en el servidor/Render.' });

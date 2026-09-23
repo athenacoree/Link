@@ -37,12 +37,6 @@ services:
       # sesión (separados por coma). Pégalo tú a mano en el panel de Render.
       - key: ADMIN_EMAILS
         sync: false
-      # Clave de API de OpenRouter para la Inteligencia Artificial (secreta)
-      - key: OPENROUTER_API_KEY
-        sync: false
-      # Modelo por defecto de OpenRouter configurable desde Render
-      - key: OPENROUTER_MODEL
-        value: meta-llama/llama-3.1-8b-instruct:free
       # --- Cerebras AI Cloud (Gratuito) ---
       - key: CEREBRAS_API_KEY
         sync: false

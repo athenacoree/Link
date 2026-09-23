@@ -11,18 +11,19 @@
 .ailab-chat-header {
   background: var(--fondo-tarjeta, #ffffff);
   border-bottom: 1px solid var(--borde, #e2e8f0);
-  padding: 8px 12px;
+  padding: 4px 8px;
+  margin: 0;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
 }
 
 .ailab-characters-strip {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   overflow-x: auto;
-  padding-bottom: 4px;
+  padding: 2px 4px;
+  margin: 0;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -33,13 +34,41 @@
   background: var(--blanco, #ffffff);
   border: 1px solid var(--borde, #e2e8f0);
   border-radius: 20px;
-  padding: 6px 12px;
-  font-size: 0.82rem;
+  padding: 4px 10px;
+  font-size: 0.8rem;
   font-weight: 700;
   color: var(--texto-800, #334155);
   cursor: pointer;
   white-space: nowrap;
   transition: all 0.2s ease;
+}
+
+/* Botón flotante para bajar al último mensaje */
+.ailab-scroll-bottom-btn {
+  position: absolute;
+  bottom: 72px;
+  right: 16px;
+  z-index: 105;
+  background: var(--blanco, #ffffff);
+  color: var(--morado-700, #7000ff);
+  border: 1px solid var(--borde, #e2e8f0);
+  border-radius: 50%;
+  width: 38px;
+  height: 38px;
+  font-size: 18px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+
+.ailab-scroll-bottom-btn.oculto {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(10px);
 }
 
 .ailab-char-chip:hover, .ailab-char-chip.activo {

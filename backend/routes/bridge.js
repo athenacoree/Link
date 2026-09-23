@@ -32,6 +32,21 @@ function generatePairingCode() {
   return code;
 }
 
+// Download Bridge APK (Redirect to admin configured URL or default release asset)
+router.get('/download-apk', async (req, res) => {
+  try {
+    const { rows } = await query(`SELECT value FROM system_settings WHERE key = 'apk_download_url'`);
+    const apkUrl = rows[0]?.value?.trim();
+    if (apkUrl) {
+      return res.redirect(302, apkUrl);
+    }
+    return res.status(404).json({ error: 'El administrador aún no ha configurado el enlace de descarga del APK.' });
+  } catch (err) {
+    console.error('[bridge download-apk]', err);
+    res.status(500).json({ error: 'Error al procesar la descarga del APK.' });
+  }
+});
+
 // Helper para crear acciones nativas desde cualquier módulo del backend
 async function createBridgeActionForUser({ userId, actionType, payload, targetRoute, deviceId = null, expiresInMinutes = 15 }) {
   if (!userId || !actionType || !targetRoute) return null;

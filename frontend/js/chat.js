@@ -148,23 +148,24 @@ const Chat = (() => {
   function escapar(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
   async function abrirConversacion(persona) {
+    if (persona.id === 'link_ai' || persona.id === '00000000-0000-0000-0000-0000000000a1' || persona.is_ai) {
+      persona = {
+        ...persona,
+        id: '00000000-0000-0000-0000-0000000000a1',
+        name: persona.name || '🤖 Link AI',
+        is_ai: true
+      };
+    }
     conversacionAbiertaCon = persona;
     $('chatAvatar').src = persona.avatar_data || iconoDefecto();
     $('chatNombre').textContent = persona.name;
 
     if (persona.is_ai) {
-      $('chatEstadoLinea').textContent = '🤖 Asistente de IA (OpenRouter)';
-      $('vistaChat').classList.add('activo');
-      $('chatMensajes').innerHTML = `
-        <div class="burbuja suya" style="max-width:85%;">
-          <div>¡Hola! Soy <b>Link AI</b>. ¿En qué te puedo ayudar hoy? Si tu administrador configuró la clave de OpenRouter responderé tus preguntas inmediatamente.</div>
-          <div style="font-size:10px; opacity:0.7; margin-top:4px;">Justo ahora</div>
-        </div>
-      `;
-      return;
+      $('chatEstadoLinea').textContent = '🤖 Asistente de IA';
+    } else {
+      $('chatEstadoLinea').textContent = persona.is_online ? 'En línea' : formatearUltimaVez(persona.last_seen);
     }
 
-    $('chatEstadoLinea').textContent = persona.is_online ? 'En línea' : formatearUltimaVez(persona.last_seen);
     $('vistaChat').classList.add('activo');
 
     const yo = Sesion.usuario();
@@ -186,15 +187,25 @@ const Chat = (() => {
       const { mensajes } = await api(`/mensajes/${persona.id}`);
       $('chatMensajes').innerHTML = '';
       if (!mensajes.length) {
-        $('chatMensajes').innerHTML = '<div class="aviso-vacio">Todavía no tienen mensajes. ¡Saluda! 👋</div>';
+        if (persona.is_ai) {
+          $('chatMensajes').innerHTML = `
+            <div class="burbuja suya" style="max-width:85%;">
+              <div>¡Hola! Soy <b>Link AI</b>. ¿En qué te puedo ayudar hoy?</div>
+              <div style="font-size:10px; opacity:0.7; margin-top:4px;">Justo ahora</div>
+            </div>
+          `;
+        } else {
+          $('chatMensajes').innerHTML = '<div class="aviso-vacio">Todavía no tienen mensajes. ¡Saluda! 👋</div>';
+        }
       } else {
         mensajes.forEach((m) => $('chatMensajes').appendChild(pintarBurbuja(m, yo.id)));
         $('chatMensajes').scrollTop = $('chatMensajes').scrollHeight;
 
-        // Marcar mensajes no leídos como leídos
-        const unreadIds = mensajes.filter(m => m.receiverId === yo.id && !m.read).map(m => m.id);
-        if (unreadIds.length && window.socket) {
-          window.socket.emit('mensaje:leido', { messageIds: unreadIds, senderId: persona.id });
+        if (!persona.is_ai) {
+          const unreadIds = mensajes.filter(m => m.receiverId === yo.id && !m.read).map(m => m.id);
+          if (unreadIds.length && window.socket) {
+            window.socket.emit('mensaje:leido', { messageIds: unreadIds, senderId: persona.id });
+          }
         }
       }
       LocalStore.guardarLista('mensajes', cacheKey, mensajes);
@@ -233,20 +244,21 @@ const Chat = (() => {
       api('/ai/chat', { method: 'POST', body: { prompt: texto } })
         .then((res) => {
           const aiReplyText = res.reply || res.message || (res.error && res.error.message) || '⚠️ No se pudo obtener respuesta de la IA.';
-          const msgAi = {
+          const msgAi = res.ai_message || {
             id: 'ai_bot_' + Date.now(),
-            senderId: 'link_ai_bot',
+            senderId: '00000000-0000-0000-0000-0000000000a1',
             text: aiReplyText,
             createdAt: new Date().toISOString(),
           };
           $('chatMensajes').appendChild(pintarBurbuja(msgAi, Sesion.usuario().id));
           $('chatMensajes').scrollTop = $('chatMensajes').scrollHeight;
+          if (typeof cargarConversaciones === 'function') cargarConversaciones();
         })
         .catch((err) => {
           const msgError = {
             id: 'ai_bot_err_' + Date.now(),
-            senderId: 'link_ai_bot',
-            text: `⚠️ ${err.message || 'Error al comunicarse con OpenRouter AI.'}`,
+            senderId: '00000000-0000-0000-0000-0000000000a1',
+            text: `⚠️ ${err.message || 'Error al comunicarse con el asistente de IA.'}`,
             createdAt: new Date().toISOString(),
           };
           $('chatMensajes').appendChild(pintarBurbuja(msgError, Sesion.usuario().id));

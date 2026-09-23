@@ -53,6 +53,26 @@ window.AILab = {
         }
       });
     }
+
+    const feed = document.getElementById('ailabChatMessages');
+    const scrollBtn = document.getElementById('ailabScrollBottomBtn');
+    if (feed && scrollBtn) {
+      feed.addEventListener('scroll', () => {
+        const distanceFromBottom = feed.scrollHeight - feed.scrollTop - feed.clientHeight;
+        if (distanceFromBottom > 150) {
+          scrollBtn.classList.remove('oculto');
+        } else {
+          scrollBtn.classList.add('oculto');
+        }
+      });
+    }
+  },
+
+  scrollToBottom() {
+    const feed = document.getElementById('ailabChatMessages');
+    if (feed) {
+      feed.scrollTo({ top: feed.scrollHeight, behavior: 'smooth' });
+    }
   },
 
   bindEvents() {
@@ -181,14 +201,18 @@ window.AILab = {
 
   async loadCharacters() {
     const container = document.getElementById('ailabActiveCharacters');
+    const header = document.querySelector('.ailab-chat-header');
     if (!container) return;
 
     try {
       const chars = await api('/ailab/characters');
       if (!Array.isArray(chars) || chars.length === 0) {
-        container.innerHTML = '<div style="font-size:12px; color:var(--texto-500); padding:4px;">Asistente Principal Activo</div>';
+        container.innerHTML = '';
+        if (header) header.style.display = 'none';
         return;
       }
+
+      if (header) header.style.display = 'flex';
 
       container.innerHTML = chars.map(c => {
         const isImg = c.avatar && (c.avatar.startsWith('http') || c.avatar.startsWith('data:image'));
