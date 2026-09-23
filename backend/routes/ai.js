@@ -68,7 +68,8 @@ router.get('/config', requireAuth, async (req, res) => {
 router.post('/chat', requireAuth, aiRateLimiter, async (req, res) => {
   try {
     const settings = await getAISettings();
-    const { messages, prompt, tool_name, tool_params, vision_image, file_data } = req.body;
+    const { messages, prompt, tool_name, tool_params, vision_image, file_data, image_base64, image_data } = req.body;
+    const currentImage = image_base64 || image_data || vision_image || null;
 
     // Ejecución explícita de herramienta si fue solicitada
     if (tool_name) {
@@ -151,6 +152,9 @@ router.post('/chat', requireAuth, aiRateLimiter, async (req, res) => {
           detectedTool.params.location = userCityCountry;
         }
       }
+      if (detectedTool.tool === 'image.edit') {
+        detectedTool.params.image_base64 = detectedTool.params.image_base64 || currentImage;
+      }
       toolResult = await ToolManager.executeTool(detectedTool.tool, detectedTool.params, req.user.id);
     }
 
@@ -173,6 +177,7 @@ router.post('/chat', requireAuth, aiRateLimiter, async (req, res) => {
 - Foto de perfil: Sabes si el usuario tiene foto de perfil activa, pero por privacidad esa foto no se te envía en datos binarios.
 - Extracción de ubicación de cuenta: Puedes consultar el clima u otra info usando la ubicación del perfil del usuario cuando no especifique lugar.
 - Búsqueda interactiva de personas: Puedes buscar usuarios por gustos, características, apariencia o color de piel, y mostrar resultados agrupados con miniatura.
+- Edición y Modificación de Fotos: Puedes editar y modificar imágenes y fotos de los usuarios de forma natural cuando te envíen una foto o te pidan editarla. Si el usuario te envía una foto o te pide editarla sin dar instrucciones específicas, pregúntale amablemente qué cambios, estilo o retoque desea aplicarle.
 - Integración en chats de terceros (@ai): Si te mencionan con @ai en cualquier chat entre usuarios, te integras en esa conversación en una tarjeta interactiva y respondes contextualizada/o.
 - Agendamiento de Citas/Reuniones/Planes: Puedes enviar invitaciones interactivas de citas/reuniones/compromisos/destinos con desenfoque (blur) y botones de Aceptar/Rechazar (con motivo).
 - Reproducción de video: Puedes mostrar videos interactivos en el chat.

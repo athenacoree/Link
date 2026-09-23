@@ -41,6 +41,7 @@ const tools = {
   'weather.get': weather.getWeather,
   'social.profile': socialProfile.getProfile,
   'image.generate': imageTool.generateImage,
+  'image.edit': (params, requesterId) => imageTool.editImage(params, requesterId),
   'translate': translateTool.translate,
   'doc.extract': docExtractor.extractText,
   'code.analyze': codeTool.analyzeCode,
@@ -276,6 +277,11 @@ function getToolDefinitions() {
       parameters: { type: 'object', properties: { prompt: { type: 'string' } }, required: ['prompt'] }
     },
     {
+      name: 'image.edit',
+      description: 'Edita o modifica una imagen digital existente según las instrucciones o el prompt del usuario.',
+      parameters: { type: 'object', properties: { prompt: { type: 'string' }, image_base64: { type: 'string' } }, required: ['prompt'] }
+    },
+    {
       name: 'translate',
       description: 'Traduce texto a otro idioma.',
       parameters: { type: 'object', properties: { text: { type: 'string' }, target_lang: { type: 'string' } }, required: ['text'] }
@@ -319,6 +325,9 @@ async function executeTool(name, params = {}, requesterId = null) {
     }
     if (name === 'image.generate') {
       return await toolFn(params.prompt || params.query, params.enhance);
+    }
+    if (name === 'image.edit') {
+      return await toolFn(params, requesterId);
     }
     if (name === 'translate') {
       return await toolFn(params.text || params.query, params.target_lang || params.lang);
@@ -656,7 +665,24 @@ function detectToolIntent(text) {
     return { tool: 'image.generate', params: { prompt: `Realistic high-resolution satellite imagery photo of ${satPrompt || 'Earth landscape view from space orbit'}`, enhance: true } };
   }
 
-  // 30. Generación de imágenes
+  // 30. Edición de fotos / imágenes (lenguaje natural)
+  if (
+    lower.includes('edita esta foto') || lower.includes('edita esta imagen') ||
+    lower.includes('edita la foto') || lower.includes('edita la imagen') ||
+    lower.includes('editar foto') || lower.includes('editar imagen') ||
+    lower.includes('modifica esta foto') || lower.includes('modifica esta imagen') ||
+    lower.includes('modifica la foto') || lower.includes('modifica la imagen') ||
+    lower.includes('retoca esta foto') || lower.includes('retoca esta imagen') ||
+    lower.includes('quiero editar') || lower.includes('puedes editar') ||
+    lower.includes('cambia la foto') || lower.includes('cambia la imagen') ||
+    lower.includes('hazle un cambio') || lower.includes('filtro a la foto') ||
+    lower.includes('filtro a la imagen')
+  ) {
+    const editPrompt = text.replace(/.*(?:edita|modifica|retoca|cambia|editar|modificar)(?:\s+esta|\s+la)?\s+(?:foto|imagen)\s*(?:para\s+que|para|de|con)?\s*/i, '').trim();
+    return { tool: 'image.edit', params: { prompt: editPrompt || text } };
+  }
+
+  // 31. Generación de imágenes
   if (
     lower.startsWith('dibuja') || lower.startsWith('genera una imagen') || lower.startsWith('crea una imagen') ||
     lower.includes('imagen de') || lower.includes('haz una imagen') || lower.includes('diseña una imagen') ||
