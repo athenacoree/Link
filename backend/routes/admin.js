@@ -292,7 +292,7 @@ router.post('/system-settings', async (req, res) => {
 router.post('/test-openrouter', async (req, res) => {
   try {
     const { ai_provider, hf_model, ai_personality } = req.body;
-    const provider = (ai_provider || 'openrouter').toLowerCase();
+    const provider = (ai_provider || 'cerebras').toLowerCase();
 
     if (provider === 'openrouter' && !process.env.OPENROUTER_API_KEY) {
       return res.status(400).json({ error: 'No se detectó la variable de entorno OPENROUTER_API_KEY en el servidor/Render.' });

@@ -12,7 +12,7 @@ async function requireAuth(req, res, next) {
     // Se consulta el estado real de la cuenta en cada request: así, si un
     // administrador banea a alguien, esa persona queda bloqueada de
     // inmediato aunque su token todavía sea válido.
-    const { rows } = await query('SELECT is_admin, banned, banned_reason FROM users WHERE id = $1', [req.userId]);
+    const { rows } = await query('SELECT id, name, avatar_data, is_admin, banned, banned_reason FROM users WHERE id = $1', [req.userId]);
     if (!rows.length) return res.status(401).json({ error: 'Token inválido o vencido.' });
     if (rows[0].banned) {
       return res.status(403).json({
@@ -20,6 +20,7 @@ async function requireAuth(req, res, next) {
         baneado: true,
       });
     }
+    req.user = rows[0];
     req.isAdmin = !!rows[0].is_admin;
     next();
   } catch (e) {

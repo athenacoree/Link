@@ -43,7 +43,7 @@ router.get('/config', requireAuth, async (req, res) => {
 
     res.json({
       available,
-      provider: settings.ai_provider || 'openrouter',
+      provider: settings.ai_provider || 'cerebras',
       fallback_provider: settings.fallback_provider || 'huggingface',
       name: settings.ai_name || 'Link AI',
       avatar: settings.ai_avatar || '',
