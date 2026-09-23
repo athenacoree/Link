@@ -262,8 +262,6 @@ router.post('/system-settings', async (req, res) => {
     }
 
     const sensitiveKeys = [
-      'hf_token', 'openai_api_key',
-      'anthropic_api_key', 'groq_api_key', 'gemini_api_key', 'xai_api_key', 'grok_api_key',
       'cerebras_api_key', 'cerebras_key'
     ];
 
@@ -286,25 +284,16 @@ router.post('/system-settings', async (req, res) => {
   }
 });
 
-// Comprobar la conexión con el proveedor de IA configurado
+// Comprobar la conexión con Cerebras AI Cloud
 router.post('/test-ai', async (req, res) => {
   try {
-    const { ai_provider, hf_model, ai_personality } = req.body;
-    const provider = (ai_provider || 'cerebras').toLowerCase();
+    const { ai_personality } = req.body;
 
-    if (provider === 'huggingface' && !process.env.HF_TOKEN) {
-      return res.status(400).json({ error: 'No se detectó la variable de entorno HF_TOKEN en el servidor/Render.' });
-    }
-
-    if (provider === 'xai' && !process.env.XAI_API_KEY && !process.env.GROK_API_KEY) {
-      return res.status(400).json({ error: 'No se detectó la variable de entorno XAI_API_KEY o GROK_API_KEY en el servidor/Render.' });
-    }
-
-    if (provider === 'cerebras' && !process.env.CEREBRAS_API_KEY) {
+    if (!process.env.CEREBRAS_API_KEY) {
       return res.status(400).json({ error: 'No se detectó la variable de entorno CEREBRAS_API_KEY en el servidor/Render.' });
     }
 
-    await query(`INSERT INTO system_settings (key, value, updated_at) VALUES ('ai_provider', $1, now()) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`, [provider]);
+    await query(`INSERT INTO system_settings (key, value, updated_at) VALUES ('ai_provider', 'cerebras', now()) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`);
 
     const testMessages = [
       { role: 'system', content: ai_personality || 'Eres un asistente de pruebas.' },
@@ -314,23 +303,23 @@ router.post('/test-ai', async (req, res) => {
     const result = await chatCompletion({
       messages: testMessages,
       maxTokens: 50,
-      provider
+      provider: 'cerebras'
     });
 
     if (!result.available) {
-      return res.status(400).json({ error: result.error || 'Falló la prueba del proveedor de IA.' });
+      return res.status(400).json({ error: result.error || 'Falló la prueba del proveedor Cerebras.' });
     }
 
     res.json({
       success: true,
-      message: `¡Prueba exitosa! El proveedor (${provider}) respondió correctamente.`,
+      message: `¡Prueba exitosa! El proveedor Cerebras respondió correctamente.`,
       model: result.model_used,
       reply: result.reply,
       usage: result.usage || null
     });
   } catch (err) {
     console.error('Error probando proveedor de IA:', err);
-    res.status(500).json({ error: `Error de red al conectar con el proveedor: ${err.message}` });
+    res.status(500).json({ error: `Error de red al conectar con Cerebras: ${err.message}` });
   }
 });
 

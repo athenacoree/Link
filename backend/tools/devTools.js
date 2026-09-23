@@ -1,5 +1,5 @@
 /**
- * Herramientas para Desarrolladores y Código (GitHub, GitLab, npm, PyPI, Hugging Face)
+ * Herramientas para Desarrolladores y Código (GitHub, GitLab, npm, PyPI)
  */
 
 async function searchGitHub(query, type = 'repositories') {
@@ -115,30 +115,4 @@ async function searchPyPI(packageName) {
   }
 }
 
-async function searchHuggingFace(query, type = 'models') {
-  try {
-    const endpoint = type === 'datasets' ? 'datasets' : 'models';
-    const url = `https://huggingface.co/api/${endpoint}?search=${encodeURIComponent(query)}&limit=5`;
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
-    const res = await fetch(url, { signal: controller.signal });
-    clearTimeout(timeout);
-
-    if (!res.ok) return { error: `Hugging Face API respondió con estado ${res.status}` };
-    const data = await res.json();
-    const items = (data || []).map(i => ({
-      id: i.id || i._id,
-      author: i.author,
-      downloads: i.downloads,
-      likes: i.likes,
-      pipeline_tag: i.pipeline_tag || null,
-      url: `https://huggingface.co/${i.id}`,
-    }));
-
-    return { type: `huggingface_${type}`, query, items };
-  } catch (err) {
-    return { error: `Error al consultar Hugging Face: ${err.message}` };
-  }
-}
-
-module.exports = { searchGitHub, searchGitLab, searchNpm, searchPyPI, searchHuggingFace };
+module.exports = { searchGitHub, searchGitLab, searchNpm, searchPyPI };
