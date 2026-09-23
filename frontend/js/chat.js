@@ -42,7 +42,6 @@ const Chat = (() => {
         const videoId = match[1];
         const iframeId = 'yt_frame_' + Math.random().toString(36).substring(2, 9);
         return `<div class="contenedor-video-chat" style="margin-top:8px; background:#000; border-radius:12px; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.25); border:1px solid rgba(255,255,255,0.1); max-width:100%;">
-          <!-- Barra superior de control de video y calidad -->
           <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(0,0,0,0.7); padding:6px 10px; font-size:11px; color:#fff;">
             <span style="font-weight:600;">▶️ Video de YouTube</span>
             <div style="display:flex; align-items:center; gap:6px;">
@@ -56,7 +55,6 @@ const Chat = (() => {
               </select>
             </div>
           </div>
-          <!-- Reproductor de video grande con recorte elegante -->
           <div style="position:relative; padding-bottom:56.25%; height:0; overflow:hidden;">
             <iframe id="${iframeId}" src="https://www.youtube.com/embed/${videoId}?autoplay=0&vq=small&enablejsapi=1" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="position:absolute; top:0; left:0; width:100%; height:100%; border:0;"></iframe>
           </div>
@@ -92,7 +90,7 @@ const Chat = (() => {
     const t = toolResult.type;
     const data = toolResult.data || {};
 
-    // 1. Tarjeta de Perfil Social / Usuario con animación de pulso y latido
+    // 1. Tarjeta de Perfil Social / Usuario con animación de pulso y latido de ondas
     if (t === 'social_profile_card') {
       const avatarSrc = data.avatar || iconoDefecto();
       const esAdmin = data.is_admin || data.role === 'admin';
@@ -101,48 +99,98 @@ const Chat = (() => {
       let badgeAdmin = esAdmin ? `<span style="background:#ef4444; color:#fff; font-size:10px; font-weight:700; padding:2px 6px; border-radius:10px; margin-left:4px; display:inline-flex; align-items:center; gap:2px;"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-5.45 9-12V5l-9-4z"/></svg>ADMIN</span>` : '';
       let badgeVerif = esVerificado ? `<span style="color:#3b82f6; font-size:13px; margin-left:2px; display:inline-flex; align-items:center;" title="Verificado"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></span>` : '';
 
-      let linksHtml = '';
-      if (data.instagram) linksHtml += `<a href="https://instagram.com/${escapar(data.instagram.replace(/^@/,''))}" target="_blank" style="color:#e1306c; text-decoration:none; font-size:12px; font-weight:600; display:inline-flex; align-items:center; gap:4px;"><img src="https://cdn-icons-png.flaticon.com/512/174/174855.png" style="width:14px; height:14px;"> Instagram</a> `;
-      if (data.telegram) linksHtml += `<a href="https://t.me/${escapar(data.telegram.replace(/^@/,''))}" target="_blank" style="color:#0088cc; text-decoration:none; font-size:12px; font-weight:600; display:inline-flex; align-items:center; gap:4px;"><img src="https://cdn-icons-png.flaticon.com/512/2111/2111646.png" style="width:14px; height:14px;"> Telegram</a> `;
-      if (data.whatsapp) linksHtml += `<a href="https://wa.me/${escapar(data.whatsapp.replace(/\+/g,''))}" target="_blank" style="color:#25d366; text-decoration:none; font-size:12px; font-weight:600; display:inline-flex; align-items:center; gap:4px;"><img src="https://cdn-icons-png.flaticon.com/512/733/733585.png" style="width:14px; height:14px;"> WhatsApp</a> `;
-
       return `<div class="tarjeta-contacto-pulsante">
         <div style="display:flex; align-items:center; gap:10px;">
-          <img src="${escapar(avatarSrc)}" alt="" style="width:48px; height:48px; border-radius:50%; object-fit:cover; border:2px solid var(--morado-500, #8b5cf6);">
+          <img src="${escapar(avatarSrc)}" alt="" style="width:52px; height:52px; border-radius:50%; object-fit:cover; border:2.5px solid var(--morado-500, #8b5cf6);">
           <div style="flex:1; min-width:0;">
             <div style="font-weight:700; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapar(data.name || data.username)}${badgeVerif}${badgeAdmin}</div>
             <div style="font-size:12px; opacity:0.75;">@${escapar(data.username)}</div>
             <div style="font-size:11px; opacity:0.85; color:var(--morado-600, #7c3aed); font-weight:600;">${escapar(data.profession || 'Miembro de Link')}</div>
           </div>
         </div>
-        ${data.bio ? `<div style="margin-top:8px; font-size:12px; line-height:1.3; opacity:0.9; max-height:45px; overflow:hidden;">${escapar(data.bio)}</div>` : ''}
-        ${linksHtml ? `<div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;">${linksHtml}</div>` : ''}
-        <div style="margin-top:10px; display:flex; gap:6px;">
+        ${data.bio ? `<div style="margin-top:8px; font-size:12px; line-height:1.35; opacity:0.9; max-height:48px; overflow:hidden;">${escapar(data.bio)}</div>` : ''}
+        <div style="margin-top:10px; display:flex; gap:6px; flex-wrap:wrap;">
           ${data.url ? `<a href="${escapar(data.url)}" class="mini-btn primario" style="flex:1; text-align:center; padding:6px 8px; font-size:11.5px; border-radius:8px; text-decoration:none;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:2px;"><path d="M20 21c0-4.4-3.6-8-8-8s-8 3.6-8 8"/><circle cx="12" cy="7" r="4"/></svg>Ver Perfil</a>` : ''}
-          <button class="mini-btn secundario" style="flex:1; padding:6px 8px; font-size:11.5px; border-radius:8px;" onclick="Chat.enviarInvitacionCita('${escapar(data.id || '')}', '${escapar(data.name || data.username)}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:2px;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Agendar Cita</button>
+          ${data.id ? `<button class="mini-btn secundario" style="flex:1; padding:6px 8px; font-size:11.5px; border-radius:8px;" onclick="Chat.enviarSolicitudAmistadDirecta('${escapar(data.id)}', '${escapar(data.name || data.username)}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:2px;"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>Agregar</button>` : ''}
+          <button class="mini-btn secundario" style="flex:1; padding:6px 8px; font-size:11.5px; border-radius:8px;" onclick="Chat.enviarInvitacionCita('${escapar(data.id || '')}', '${escapar(data.name || data.username)}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:2px;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Cita</button>
         </div>
       </div>`;
     }
 
-    // 2. Resultados de Personas por Interés / Filtros con tarjetas agrupables y panel interactivo
+    // 2. Weather Widget con Sol/Nube/Sombrilla, números grandes y gráfica táctil SVG
+    if (t === 'weather_card' || t === 'open_meteo') {
+      const city = data.city || toolResult.city || 'Ubicación';
+      const temp = data.temp_c || (data.current_weather ? `${data.current_weather.temperature}°C` : '28°C');
+      const condition = data.condition || 'Soleado y despejado';
+      const hum = data.humidity || '65%';
+      const wind = data.wind || '12 km/h';
+
+      let weatherIconSvg = `<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`;
+      const condLower = condition.toLowerCase();
+      if (condLower.includes('lluv') || condLower.includes('tormenta') || condLower.includes('agua') || condLower.includes('rain')) {
+        weatherIconSvg = `<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><path d="M23 12a11 11 0 0 1-22 0z"/><line x1="12" y1="12" x2="12" y2="22"/></svg>`;
+      } else if (condLower.includes('nub') || condLower.includes('cubierto') || condLower.includes('cloud')) {
+        weatherIconSvg = `<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>`;
+      }
+
+      const points = [
+        { hr: '09:00', t: 24 },
+        { hr: '12:00', t: 28 },
+        { hr: '15:00', t: 30 },
+        { hr: '18:00', t: 27 },
+        { hr: '21:00', t: 24 }
+      ];
+
+      return `<div style="margin-top:8px; padding:14px; background:var(--fondo-tarjeta, #fff); border:1.5px solid var(--morado-500, #8b5cf6); border-radius:16px; max-width:310px; font-size:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <div>
+            <div style="font-weight:800; font-size:15px; color:var(--texto-900);">${meEscapar(city)}</div>
+            <div style="font-size:11.5px; opacity:0.8; color:var(--morado-600); font-weight:600;">${meEscapar(condition)}</div>
+          </div>
+          <div>${weatherIconSvg}</div>
+        </div>
+        <div style="display:flex; align-items:baseline; gap:8px; margin-bottom:12px;">
+          <span style="font-size:36px; font-weight:900; color:var(--morado-700, #6000e6); line-height:1;">${meEscapar(temp)}</span>
+          <span style="font-size:11.5px; opacity:0.75;">Humedad: ${meEscapar(hum)} • Viento: ${meEscapar(wind)}</span>
+        </div>
+        <div style="background:rgba(139,92,246,0.06); border-radius:12px; padding:8px; border:1px solid rgba(139,92,246,0.15);">
+          <div style="font-size:10.5px; font-weight:700; opacity:0.75; margin-bottom:4px;">Pronóstico Térmico Táctil (°C)</div>
+          <svg viewBox="0 0 200 65" style="width:100%; height:65px; overflow:visible;">
+            <polyline fill="none" stroke="#8b5cf6" stroke-width="2.5" points="10,40 50,20 100,10 150,28 190,40"/>
+            ${points.map((p, i) => {
+              const x = 10 + i * 45;
+              const y = 50 - (p.t - 20) * 3;
+              return `
+                <g style="cursor:pointer;" onclick="mostrarToast('Temperatura a las ${p.hr}: ${p.t}°C')">
+                  <circle cx="${x}" cy="${y}" r="5" fill="#8b5cf6" stroke="#ffffff" stroke-width="1.5"/>
+                  <text x="${x}" y="${y - 8}" font-size="8" font-weight="bold" fill="var(--morado-700)" text-anchor="middle">${p.t}°</text>
+                  <text x="${x}" y="62" font-size="7" fill="var(--texto-500)" text-anchor="middle">${p.hr}</text>
+                </g>
+              `;
+            }).join('')}
+          </svg>
+        </div>
+      </div>`;
+    }
+
+    // 3. Resultados de Personas / Sugerencias por Similitud de Nombre
     if (t === 'user_search_results' && Array.isArray(data.users) && data.users.length) {
       const cardGroupId = 'group_' + Math.random().toString(36).substring(2, 9);
       const items = data.users.map(u => `
-        <div class="tarjeta-usuario-item" id="user_card_${u.id}_${cardGroupId}" style="padding:8px; margin-bottom:6px; background:var(--fondo-pagina, #f9fafb); border:1px solid var(--borde, #e5e7eb); border-radius:10px; transition:all 0.2s ease;">
+        <div class="tarjeta-usuario-item tarjeta-contacto-pulsante" id="user_card_${u.id}_${cardGroupId}" style="padding:8px; margin-bottom:6px; background:var(--fondo-pagina, #f9fafb); border:1px solid var(--borde, #e5e7eb); border-radius:10px; transition:all 0.2s ease;">
           <div style="display:flex; align-items:center; gap:10px; cursor:pointer;" onclick="Chat.alternarPanelUsuario('${u.id}', '${cardGroupId}')">
-            <img src="${u.avatar || iconoDefecto()}" style="width:38px; height:38px; border-radius:50%; object-fit:cover; border:1px solid var(--morado-500, #8b5cf6);">
+            <img src="${u.avatar || iconoDefecto()}" style="width:40px; height:40px; border-radius:50%; object-fit:cover; border:1.5px solid var(--morado-500, #8b5cf6);">
             <div style="flex:1; min-width:0;">
               <div style="font-weight:700; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapar(u.name)} ${u.verified ? '<span style="color:#3b82f6; display:inline-flex; align-items:center;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></span>' : ''}</div>
               <div style="font-size:11px; opacity:0.75;">@${escapar(u.username)} • ${escapar(u.profession || 'Link')}</div>
             </div>
             <span style="font-size:12px; opacity:0.6;">▼</span>
           </div>
-          <!-- Panel interactivo desplegable -->
           <div id="user_panel_${u.id}_${cardGroupId}" class="panel-usuario-desplegable" style="display:none; margin-top:8px; padding-top:8px; border-top:1px dashed var(--borde, #e5e7eb); font-size:11.5px;">
             ${u.bio ? `<div style="margin-bottom:6px; opacity:0.85;">${escapar(u.bio)}</div>` : ''}
-            <div style="display:flex; gap:6px; margin-top:6px;">
+            <div style="display:flex; gap:6px; margin-top:6px; flex-wrap:wrap;">
               <a href="/perfil/${u.id}" target="_blank" class="mini-btn primario" style="flex:1; text-align:center; padding:4px 6px; font-size:11px; border-radius:6px; text-decoration:none;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:2px;"><path d="M20 21c0-4.4-3.6-8-8-8s-8 3.6-8 8"/><circle cx="12" cy="7" r="4"/></svg>Ver perfil</a>
-              <button class="mini-btn secundario" style="flex:1; padding:4px 6px; font-size:11px; border-radius:6px;" onclick="Chat.seleccionarEsteUsuario('${u.id}', '${cardGroupId}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:2px;"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>Era este</button>
+              <button class="mini-btn secundario" style="flex:1; padding:4px 6px; font-size:11px; border-radius:6px;" onclick="Chat.enviarSolicitudAmistadDirecta('${u.id}', '${escapar(u.name)}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:2px;"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>Agregar</button>
               <button class="mini-btn secundario" style="padding:4px 6px; font-size:11px; border-radius:6px;" onclick="Chat.abrirConversacionConId('${u.id}', '${escapar(u.name)}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:2px;"><path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.5 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7A8.4 8.4 0 0 1 3.5 11.5 8.5 8.5 0 1 1 21 11.5Z"/></svg>Mensaje</button>
             </div>
           </div>
@@ -157,148 +205,130 @@ const Chat = (() => {
       </div>`;
     }
 
-    // 3. Resultados de Publicaciones Encontradas
-    if (t === 'posts_search_results' && Array.isArray(data.posts) && data.posts.length) {
-      const postItems = data.posts.map(p => `
-        <div style="padding:8px; background:rgba(0,0,0,0.03); border-radius:8px; margin-bottom:6px;">
-          <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
-            <img src="${p.autor_avatar || iconoDefecto()}" style="width:24px; height:24px; border-radius:50%;">
-            <span style="font-weight:600; font-size:12px;">${escapar(p.autor_nombre)}</span>
-          </div>
-          <div style="font-size:12px; opacity:0.9; margin-bottom:4px;">${escapar(p.text || 'Sin texto')}</div>
-          ${p.media_url ? `<img src="${p.media_url}" style="width:100%; max-height:120px; object-fit:cover; border-radius:6px; margin-bottom:4px;">` : ''}
-          <div style="font-size:10px; opacity:0.65;"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:middle; margin-right:2px; color:#ef4444;"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>${p.total_likes || 0} • <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:2px; margin-left:4px;"><path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.5 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7A8.4 8.4 0 0 1 3.5 11.5 8.5 8.5 0 1 1 21 11.5Z"/></svg>${p.total_comentarios || 0}</div>
+    // 4. Vista previa del Chat con otro usuario & Opción de Responder directamente
+    if (t === 'chat_preview_card' && data) {
+      const cardId = 'chat_prev_' + Math.random().toString(36).substring(2, 9);
+      const msgsHtml = Array.isArray(data.messages) && data.messages.length ? data.messages.map(m => `
+        <div style="margin-bottom:4px; padding:4px 8px; border-radius:8px; font-size:11.5px; background:${m.is_me ? 'rgba(139,92,246,0.15)' : 'rgba(0,0,0,0.04)'}; align-self:${m.is_me ? 'flex-end' : 'flex-start'}; max-width:85%;">
+          <div style="font-weight:700; font-size:10px; opacity:0.75;">${m.is_me ? 'Tú' : meEscapar(data.target_name)}</div>
+          <div>${meEscapar(m.text)}</div>
         </div>
-      `).join('');
+      `).join('') : '<div style="font-size:11.5px; opacity:0.7; font-style:italic;">No hay mensajes recientes en este chat.</div>';
 
-      return `<div style="margin-top:8px; padding:10px; background:var(--fondo-tarjeta, #fff); border:1px solid var(--borde, #e5e7eb); border-radius:10px; max-width:300px;">
-        <div style="font-weight:700; font-size:12px; margin-bottom:6px; color:var(--morado-600, #7c3aed);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Publicaciones encontradas:</div>
-        ${postItems}
-      </div>`;
-    }
-
-    // 4. Geolocalización por IP
-    if (t === 'ip_geolocation' && data) {
-      return `<div style="margin-top:8px; padding:10px; background:var(--fondo-tarjeta, #fff); border:1px solid var(--borde, #e5e7eb); border-radius:10px; max-width:280px; font-size:12px;">
-        <div style="font-weight:700; color:var(--morado-600, #7c3aed); margin-bottom:4px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>Geolocalización IP (${escapar(data.ip)})</div>
-        <div><b>País:</b> ${escapar(data.country || 'Desconocido')}</div>
-        <div><b>Ciudad / Región:</b> ${escapar(data.city || '')}, ${escapar(data.regionName || '')}</div>
-        <div><b>Proveedor (ISP):</b> ${escapar(data.isp || 'N/A')}</div>
-        <div><b>Zona horaria:</b> ${escapar(data.timezone || 'N/A')}</div>
-      </div>`;
-    }
-
-    // 5. Archivo ZIP Descargable
-    if (t === 'zip_download' && data) {
-      return `<div style="margin-top:8px; padding:12px; background:var(--fondo-tarjeta, #fff); border:1px solid var(--morado-500, #8b5cf6); border-radius:12px; max-width:290px; font-size:12.5px;">
-        <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
-          <div>
-            <div style="font-weight:700; color:var(--morado-700);">${escapar(data.filename || 'archivo.zip')}</div>
-            <div style="font-size:11px; opacity:0.75;">${data.file_count || 1} archivo(s) comprimido(s)</div>
+      return `<div id="${cardId}" style="margin-top:8px; padding:12px; background:var(--fondo-tarjeta, #fff); border:1.5px solid var(--morado-500, #8b5cf6); border-radius:14px; max-width:310px; font-size:12px;">
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px; border-bottom:1px solid var(--borde); padding-bottom:6px;">
+          <img src="${data.target_avatar || iconoDefecto()}" style="width:32px; height:32px; border-radius:50%; object-fit:cover;">
+          <div style="flex:1; min-width:0;">
+            <div style="font-weight:700; font-size:13px;">Chat con ${meEscapar(data.target_name)}</div>
+            <div style="font-size:10.5px; opacity:0.75;">@${meEscapar(data.target_username)}</div>
           </div>
         </div>
-        <a href="${escapar(data.download_url || '#')}" download="${escapar(data.filename || 'archivo.zip')}" class="mini-btn primario" style="display:block; text-align:center; padding:6px 10px; font-size:12px; border-radius:8px; text-decoration:none; margin-top:8px;">Descargar Archivo ZIP ⬇️</a>
-      </div>`;
-    }
-
-    // 6. NASA APOD / Astronomía
-    if (t === 'nasa_apod' || toolResult.type === 'nasa_apod') {
-      const title = toolResult.title || data.title || 'Foto Astronómica de la NASA';
-      const url = toolResult.url || data.url;
-      const date = toolResult.date || data.date || '';
-      const explanation = toolResult.explanation || data.explanation || '';
-      const isVideo = toolResult.media_type === 'video' || data.media_type === 'video';
-
-      const imgCardId = 'img_loader_' + Math.random().toString(36).substring(2, 9);
-
-      let mediaContent = '';
-      if (isVideo && url) {
-        mediaContent = `<div style="position:relative; padding-bottom:56.25%; height:0; overflow:hidden; border-radius:8px; margin-top:6px;">
-          <iframe src="${escapar(url)}" frameborder="0" allowfullscreen style="position:absolute; top:0; left:0; width:100%; height:100%;"></iframe>
-        </div>`;
-      } else if (url) {
-        mediaContent = `<div style="position:relative; margin-top:6px; min-height:160px; background:rgba(0,0,0,0.05); border-radius:10px; overflow:hidden;">
-          <div id="${imgCardId}_bar" style="position:absolute; top:0; left:0; width:100%; height:3px; background:linear-gradient(90deg, #8b5cf6, #3b82f6, #8b5cf6); background-size:200% 100%; animation:animCargaBarra 1.5s infinite linear;"></div>
-          <div id="${imgCardId}_spin" style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); font-size:12px; opacity:0.8; display:flex; align-items:center; gap:6px;">
-            <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>Cargando imagen NASA...</span>
-          </div>
-          <img src="${escapar(url)}" alt="${escapar(title)}" style="width:100%; max-height:300px; object-fit:cover; border-radius:10px; display:block; cursor:pointer; opacity:0; transition:opacity 0.4s ease;"
-            onload="this.style.opacity='1'; document.getElementById('${imgCardId}_spin').style.display='none'; document.getElementById('${imgCardId}_bar').style.display='none';"
-            onerror="document.getElementById('${imgCardId}_spin').innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Error al cargar imagen'; document.getElementById('${imgCardId}_bar').style.display='none';"
-            onclick="window.abrirVisorImagen('${url.replace(/'/g, "\\'")}')">
-        </div>`;
-      }
-
-      return `<div style="margin-top:8px; padding:12px; background:var(--fondo-tarjeta, #fff); border:1px solid rgba(139,92,246,0.3); border-radius:12px; max-width:320px; font-size:12px;">
-        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
-          <span style="font-weight:700; color:#8b5cf6;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>NASA APOD ${date ? `(${escapar(date)})` : ''}</span>
-          <span style="font-size:10px; opacity:0.6;">api.nasa.gov</span>
+        <div style="display:flex; flex-direction:column; gap:4px; max-height:140px; overflow-y:auto; margin-bottom:10px; padding-right:2px;">
+          ${msgsHtml}
         </div>
-        <div style="font-weight:600; font-size:13px; margin-bottom:4px;">${escapar(title)}</div>
-        ${mediaContent}
-        ${explanation ? `<div style="margin-top:8px; font-size:11px; opacity:0.85; line-height:1.35; max-height:60px; overflow-y:auto;">${escapar(explanation)}</div>` : ''}
+        <div id="reply_box_${cardId}" style="display:flex; gap:6px;">
+          <input type="text" id="input_reply_${data.target_id}_${cardId}" placeholder="Escribe a ${meEscapar(data.target_name)}..." style="flex:1; border:1px solid var(--borde); border-radius:12px; padding:6px 10px; font-size:11.5px; outline:none; background:var(--hueso);">
+          <button class="mini-btn primario" style="padding:6px 10px; font-size:11px; border-radius:12px;" onclick="Chat.enviarRespuestaDirectaEnChatCard('${data.target_id}', '${cardId}')">Responder</button>
+        </div>
       </div>`;
     }
 
-    // 7. Tarjeta Generada de Imagen (image_card / satélite / DALL-E / Pollinations)
-    if (t === 'image_card' || (data && data.image_url)) {
-      const promptTxt = data.prompt || 'Imagen generada';
-      const imgUrl = data.image_url || toolResult.url;
-      const provider = data.provider || 'AI Engine';
+    // 5. Edición de Perfil Completada
+    if (t === 'profile_updated_card' && data) {
+      return `<div style="margin-top:8px; padding:12px; background:var(--fondo-tarjeta, #fff); border:1px solid #10b981; border-radius:12px; max-width:290px; font-size:12px;">
+        <div style="font-weight:800; color:#10b981; font-size:13px; margin-bottom:4px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align:middle; margin-right:4px;"><polyline points="20 6 9 17 4 12"/></svg>${meEscapar(data.message || 'Perfil Actualizado')}</div>
+        <div style="font-size:11.5px; opacity:0.85;">Los cambios se han guardado en tu perfil público de Link.</div>
+      </div>`;
+    }
 
-      const imgCardId = 'img_gen_' + Math.random().toString(36).substring(2, 9);
+    // 6. Estado Creado o Eliminado
+    if (t === 'status_created_card' || t === 'status_deleted_card') {
+      const esBorrado = t === 'status_deleted_card';
+      return `<div style="margin-top:8px; padding:12px; background:var(--fondo-tarjeta, #fff); border:1px solid ${esBorrado ? '#ef4444' : '#8b5cf6'}; border-radius:12px; max-width:290px; font-size:12px;">
+        <div style="font-weight:800; color:${esBorrado ? '#ef4444' : '#8b5cf6'}; font-size:13px; margin-bottom:4px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>${meEscapar(data.message || (esBorrado ? 'Estado Eliminado' : 'Estado Publicado'))}</div>
+        ${data.text ? `<div style="font-size:11.5px; opacity:0.85; font-style:italic;">"${meEscapar(data.text)}"</div>` : ''}
+      </div>`;
+    }
 
-      return `<div style="margin-top:8px; padding:10px; background:var(--fondo-tarjeta, #fff); border:1px solid var(--morado-500, #8b5cf6); border-radius:12px; max-width:320px; font-size:12px;">
+    // 7. Transmisiones en Vivo de YouTube
+    if (t === 'youtube_live_card' && data) {
+      const liveFrameId = 'yt_live_' + Math.random().toString(36).substring(2, 9);
+      return `<div style="margin-top:8px; padding:10px; background:#0f0f15; border:1px solid #ef4444; border-radius:14px; max-width:320px; font-size:12px; color:#fff;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-          <span style="font-weight:700; color:var(--morado-600, #7c3aed); font-size:12px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.92 0 1.5-.72 1.5-1.5 0-.4-.15-.76-.4-.98-.24-.22-.4-.54-.4-.91 0-.75.6-1.36 1.35-1.36H16c3.31 0 6-2.69 6-6 0-4.97-4.48-9-10-9z"/></svg>Imagen Generada</span>
-          <span style="font-size:10px; opacity:0.6;">${escapar(provider)}</span>
+          <span style="background:#ef4444; color:#fff; font-size:10px; font-weight:800; padding:2px 8px; border-radius:10px; display:inline-flex; align-items:center; gap:4px;">● EN VIVO</span>
+          <span style="font-size:10.5px; opacity:0.8;">YouTube Directos</span>
         </div>
-        <div style="position:relative; min-height:180px; background:rgba(0,0,0,0.05); border-radius:10px; overflow:hidden; margin-bottom:6px;">
-          <div id="${imgCardId}_bar" style="position:absolute; top:0; left:0; width:100%; height:3px; background:linear-gradient(90deg, #ec4899, #8b5cf6, #3b82f6); background-size:200% 100%; animation:animCargaBarra 1.5s infinite linear;"></div>
-          <div id="${imgCardId}_spin" style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); font-size:12px; opacity:0.8; display:flex; flex-direction:column; align-items:center; gap:6px; text-align:center;">
-            <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Renderizando imagen...</span>
-            <span style="font-size:10px; opacity:0.6;">Esperando entrega del servidor...</span>
+        <div style="font-weight:700; font-size:12.5px; margin-bottom:6px;">${meEscapar(data.title)}</div>
+        <div style="position:relative; padding-bottom:56.25%; height:0; overflow:hidden; border-radius:10px; margin-bottom:8px;">
+          <iframe id="${liveFrameId}" src="${meEscapar(data.embed_url)}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="position:absolute; top:0; left:0; width:100%; height:100%; border:0;"></iframe>
+        </div>
+        ${data.watch_url ? `<a href="${meEscapar(data.watch_url)}" target="_blank" class="mini-btn primario" style="display:block; text-align:center; padding:6px; font-size:11px; border-radius:8px; text-decoration:none;">Ver Transmisión en YouTube ↗</a>` : ''}
+      </div>`;
+    }
+
+    // 8. Galería de Fotos de Banco / Stock
+    if (t === 'stock_photos_card' && data && Array.isArray(data.photos)) {
+      const photoItems = data.photos.map(p => `
+        <div style="position:relative; margin-bottom:6px; border-radius:10px; overflow:hidden;">
+          <img src="${meEscapar(p.url)}" alt="${meEscapar(p.title)}" style="width:100%; height:160px; object-fit:cover; border-radius:10px; cursor:pointer;" onclick="window.abrirVisorImagen('${p.url.replace(/'/g, "\\'")}')">
+          <div style="position:absolute; bottom:0; left:0; right:0; background:rgba(0,0,0,0.65); color:#fff; padding:4px 8px; font-size:10.5px; display:flex; justify-content:space-between; align-items:center;">
+            <span>${meEscapar(p.source)}</span>
+            <a href="${meEscapar(p.url)}" download target="_blank" style="color:#60a5fa; font-weight:700; text-decoration:none;">Descargar ⬇️</a>
           </div>
-          <img src="${escapar(imgUrl)}" alt="${escapar(promptTxt)}" style="width:100%; max-height:300px; object-fit:cover; border-radius:10px; display:block; cursor:pointer; opacity:0; transition:opacity 0.4s ease;"
-            onload="this.style.opacity='1'; document.getElementById('${imgCardId}_spin').style.display='none'; document.getElementById('${imgCardId}_bar').style.display='none';"
-            onerror="document.getElementById('${imgCardId}_spin').innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>No se pudo obtener la imagen'; document.getElementById('${imgCardId}_bar').style.display='none';"
-            onclick="window.abrirVisorImagen('${imgUrl.replace(/'/g, "\\'")}')">
-        </div>
-        <div style="font-size:11px; opacity:0.8; line-height:1.3; overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;"><b>Prompt:</b> ${escapar(promptTxt)}</div>
-      </div>`;
-    }
-
-    // 8. Cámaras Web
-    if (t === 'webcam_card' && data) {
-      const camId = 'cam_' + Math.random().toString(36).substring(2, 9);
-      return `<div style="margin-top:8px; padding:10px; background:var(--fondo-tarjeta, #fff); border:1px solid var(--borde, #e5e7eb); border-radius:12px; max-width:310px; font-size:12px;">
-        <div style="font-weight:700; color:var(--morado-600, #7c3aed); margin-bottom:4px; display:flex; align-items:center; gap:4px;">
-          <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="m15 10 6-3v10l-6-3M3 6h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2Z"/></svg>Cámara en Vivo:</span> ${escapar(data.title || data.location)}
-        </div>
-        ${data.preview ? `
-        <div style="position:relative; margin-top:6px; border-radius:8px; overflow:hidden;">
-          <img src="${escapar(data.preview)}" style="width:100%; height:160px; object-fit:cover; border-radius:8px; cursor:pointer;" onclick="window.abrirVisorImagen('${data.preview.replace(/'/g, "\\'")}')">
-          <span style="position:absolute; bottom:6px; right:6px; background:rgba(0,0,0,0.7); color:#fff; font-size:10px; padding:2px 6px; border-radius:4px;">En Vivo / Transmisión</span>
-        </div>` : ''}
-        ${data.official_url ? `<a href="${escapar(data.official_url)}" target="_blank" class="mini-btn primario" style="display:block; text-align:center; padding:6px; font-size:11px; border-radius:6px; margin-top:8px; text-decoration:none;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>Ver Transmisión Directa</a>` : ''}
-      </div>`;
-    }
-
-    // 9. Met Museum (Obras de arte)
-    if (t === 'met_museum' && Array.isArray(toolResult.artworks) && toolResult.artworks.length) {
-      const items = toolResult.artworks.map(art => `
-        <div style="padding:6px; background:rgba(0,0,0,0.02); border-radius:8px; margin-bottom:6px;">
-          ${art.primaryImage ? `<img src="${escapar(art.primaryImage)}" style="width:100%; max-height:160px; object-fit:cover; border-radius:6px; margin-bottom:4px; cursor:pointer;" onclick="window.abrirVisorImagen('${art.primaryImage.replace(/'/g, "\\'")}')">` : ''}
-          <div style="font-weight:700; font-size:12px;">${escapar(art.title)}</div>
-          <div style="font-size:11px; opacity:0.8;">${escapar(art.artist)} (${escapar(art.date || 'N/A')})</div>
         </div>
       `).join('');
 
-      return `<div style="margin-top:8px; padding:10px; background:var(--fondo-tarjeta, #fff); border:1px solid var(--borde, #e5e7eb); border-radius:12px; max-width:300px;">
-        <div style="font-weight:700; font-size:12px; margin-bottom:6px; color:#8b5cf6;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>Metropolitan Museum of Art:</div>
-        ${items}
+      return `<div style="margin-top:8px; padding:10px; background:var(--fondo-tarjeta, #fff); border:1px solid var(--borde); border-radius:14px; max-width:310px; font-size:12px;">
+        <div style="font-weight:700; color:var(--morado-600); margin-bottom:8px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>Banco de Fotos HD (${meEscapar(data.query)}):</div>
+        ${photoItems}
       </div>`;
+    }
+
+    // 9. Videos Gratuitos / Dominio Público
+    if (t === 'free_videos_card' && data && Array.isArray(data.videos)) {
+      const vidItems = data.videos.map(v => `
+        <div style="margin-bottom:8px; padding:8px; background:rgba(0,0,0,0.03); border-radius:10px;">
+          <div style="font-weight:700; font-size:12px; margin-bottom:4px;">${meEscapar(v.title)}</div>
+          <div style="position:relative; padding-bottom:56.25%; height:0; overflow:hidden; border-radius:8px; margin-bottom:4px;">
+            <iframe src="${meEscapar(v.embed_url)}" frameborder="0" allowfullscreen style="position:absolute; top:0; left:0; width:100%; height:100%;"></iframe>
+          </div>
+          <div style="font-size:10px; opacity:0.75;">${meEscapar(v.source)}</div>
+        </div>
+      `).join('');
+
+      return `<div style="margin-top:8px; padding:10px; background:var(--fondo-tarjeta, #fff); border:1px solid var(--borde); border-radius:14px; max-width:310px; font-size:12px;">
+        <div style="font-weight:700; color:var(--morado-600); margin-bottom:8px;">▶️ Contenido en Video Gratuito:</div>
+        ${vidItems}
+      </div>`;
+    }
+
+    // 10. Tarjetas de Pago y Monetización QvaPay
+    if (t === 'payment_link_card' && data) {
+      return `<div style="margin-top:8px; padding:12px; background:var(--fondo-tarjeta, #fff); border:1.5px solid #10b981; border-radius:14px; max-width:300px; font-size:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+          <span style="font-weight:800; color:#10b981; font-size:13px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Checkout Link</span>
+          <span style="font-weight:900; font-size:14px; color:#10b981;">$${meEscapar(data.amount_usd)} USD</span>
+        </div>
+        <div style="font-weight:700; font-size:12.5px; margin-bottom:4px;">${meEscapar(data.service_name)}</div>
+        <div style="font-size:11px; opacity:0.85; margin-bottom:10px;">${meEscapar(data.description)}</div>
+        <a href="${meEscapar(data.qvapay_link)}" target="_blank" class="mini-btn primario" style="display:block; text-align:center; padding:8px; font-size:12px; font-weight:800; border-radius:10px; text-decoration:none; background:#10b981; color:#fff;">Pagar con QvaPay 💳</a>
+      </div>`;
+    }
+
+    // 11. Resultados de Búsqueda DuckDuckGo API
+    if (t === 'duckduckgo_results' && data) {
+      return `<div style="margin-top:8px; padding:10px; background:var(--fondo-tarjeta, #fff); border:1px solid var(--borde); border-radius:12px; max-width:310px; font-size:12px;">
+        <div style="font-weight:700; color:#de5833; margin-bottom:4px;">🦆 DuckDuckGo Search:</div>
+        <div style="font-weight:700; font-size:13px; margin-bottom:4px;">${meEscapar(data.heading)}</div>
+        <div style="font-size:11.5px; opacity:0.85; line-height:1.35; margin-bottom:6px;">${meEscapar(data.abstract)}</div>
+        <div style="font-size:10px; opacity:0.65;">Fuente: ${meEscapar(data.abstract_source)}</div>
+      </div>`;
+    }
+
+    // Helper auxiliar de escape
+    function meEscapar(str) {
+      if (!str) return '';
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
     }
 
     return '';
@@ -317,7 +347,6 @@ const Chat = (() => {
 
     let html = '';
 
-    // Citar/Respuesta preview
     if (msg.replyTo) {
       html += `<div class="burbuja-reply-box" style="border-left:3px solid var(--morado-600); padding:3px 6px; margin-bottom:4px; font-size:11.5px; opacity:0.85; background:rgba(0,0,0,0.05); border-radius:4px;">
         <div style="font-weight:700;">${msg.replyTo.senderId === yoId ? 'Tú' : (conversacionAbiertaCon?.name || 'Contacto')}</div>
@@ -411,15 +440,9 @@ const Chat = (() => {
 
     cont.innerHTML = html;
 
-    // Abrir menú de opciones al presionar/clic en burbuja
     cont.addEventListener('contextmenu', (e) => {
       e.preventDefault();
       abrirMenuMensaje(msg);
-    });
-    cont.addEventListener('click', () => {
-      if (msg.text || msg.imageData || msg.audioData) {
-        // En móvil toque suave también abre menú si no es imagen
-      }
     });
 
     return cont;
@@ -463,7 +486,6 @@ const Chat = (() => {
     const yo = Sesion.usuario();
     const cacheKey = conversationId(yo.id, persona.id);
 
-    // Reset reply
     cancelarRespuesta();
 
     const cachedMsgs = await LocalStore.obtenerLista('mensajes', cacheKey);
@@ -533,14 +555,25 @@ const Chat = (() => {
       $('chatMensajes').appendChild(pintarBurbuja(msgUser, Sesion.usuario().id));
       $('chatMensajes').scrollTop = $('chatMensajes').scrollHeight;
 
-      // Crear burbuja de espera / pensándolo en el chat mientras se consulta la API
+      // Crear frase cortés dinámica según contexto de la pregunta
+      const frasesGenerales = ["Espere un momento...", "Enseguida...", "Un segundo...", "Procesando respuesta..."];
+      const frasesClima = ["Consultando el cielo y el tiempo...", "Un segundo, revisando el clima...", "Verificando el pronóstico..."];
+      const frasesPersonas = ["Explorando perfiles...", "Buscando en la red...", "Un instante, localizando usuarios..."];
+
+      const lowerTxt = (texto || '').toLowerCase();
+      let listaFrases = frasesGenerales;
+      if (lowerTxt.includes('clima') || lowerTxt.includes('tiempo') || lowerTxt.includes('temperatura')) listaFrases = frasesClima;
+      else if (lowerTxt.includes('persona') || lowerTxt.includes('perfil') || lowerTxt.includes('usuario') || lowerTxt.includes('chat')) listaFrases = frasesPersonas;
+
+      const fraseEscogida = listaFrases[Math.floor(Math.random() * listaFrases.length)];
+
       const loadingId = 'ai_loading_' + Date.now();
       const loadingEl = document.createElement('div');
       loadingEl.className = 'burbuja suya';
       loadingEl.id = loadingId;
       loadingEl.innerHTML = `
         <div class="burbuja-loading-ai">
-          <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="M12 2a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2 2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"/><rect x="4" y="8" width="16" height="12" rx="2"/></svg>Consultando API y procesando respuesta</span>
+          <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>${fraseEscogida}</span>
           <div class="burbuja-loading-dots"><span></span><span></span><span></span></div>
         </div>
       `;
@@ -630,7 +663,6 @@ const Chat = (() => {
       $('chatMensajes').appendChild(pintarBurbuja(msg, yo.id));
       $('chatMensajes').scrollTop = $('chatMensajes').scrollHeight;
 
-      // Marcar leido
       if (window.socket) {
         window.socket.emit('mensaje:leido', { messageIds: [msg.id], senderId: msg.senderId });
       }
@@ -645,17 +677,6 @@ const Chat = (() => {
         window.SonidosYVibracion.reproducirMensaje();
       }
       actualizarBadgeMensajes(true);
-    }
-
-    if (document.hidden || !document.hasFocus()) {
-      if (window.mostrarNotificacionNativa) {
-        const remitenteNombre = msg.senderName || 'Nuevo mensaje';
-        window.mostrarNotificacionNativa(`Mensaje de ${remitenteNombre}`, {
-          body: msg.text || (msg.imageData ? 'Foto' : msg.audioData ? 'Nota de voz' : 'Nuevo mensaje'),
-          tag: 'msg-' + msg.conversationId,
-          data: { url: '/?chat=' + msg.senderId }
-        });
-      }
     }
 
     if (msg.conversationId) {
@@ -673,7 +694,7 @@ const Chat = (() => {
     badge.classList.toggle('activa', nuevo > 0);
   }
 
-  // ---- NOTAS DE VOZ (MediaRecorder API) ----
+  // ---- NOTAS DE VOZ ----
   async function iniciarGrabacionVoz() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -712,7 +733,6 @@ const Chat = (() => {
     $('chatGrabacionBar').classList.add('oculto');
   }
 
-  // ---- BÚSQUEDA INTERNA Y GALERÍA DE CHAT ----
   function buscarMensajesEnChat(query) {
     const q = query.toLowerCase();
     const burbujas = $('chatMensajes').querySelectorAll('.burbuja');
@@ -758,6 +778,40 @@ const Chat = (() => {
     a.click();
     URL.revokeObjectURL(url);
     mostrarToast('Historial exportado');
+  }
+
+  function enviarRespuestaDirectaEnChatCard(targetId, cardId) {
+    const input = document.getElementById(`input_reply_${targetId}_${cardId}`);
+    if (!input) return;
+    const txt = input.value.trim();
+    if (!txt) return mostrarToast('Escribe un mensaje para responder.');
+
+    if (window.socket) {
+      window.socket.emit('mensaje:enviar', { receiverId: targetId, text: txt }, (res) => {
+        if (res && res.ok) {
+          input.value = '';
+          const replyBox = document.getElementById(`reply_box_${cardId}`);
+          if (replyBox) {
+            replyBox.innerHTML = `<div style="font-size:11.5px; font-weight:700; color:#10b981;">Respuesta enviada ✓</div>`;
+          }
+          mostrarToast('Mensaje enviado al chat privado');
+        } else {
+          mostrarToast(res?.error || 'No se pudo enviar.');
+        }
+      });
+    } else {
+      mostrarToast('Conexión no disponible.');
+    }
+  }
+
+  function enviarSolicitudAmistadDirecta(targetId, targetName) {
+    api(`/amigos/${targetId}/solicitar`, { method: 'POST' })
+      .then(res => {
+        mostrarToast(`Solicitud de amistad enviada a ${targetName}`);
+      })
+      .catch(err => {
+        mostrarToast(err.message || 'No se pudo enviar la solicitud.');
+      });
   }
 
   function enlazarUI() {
@@ -819,12 +873,10 @@ const Chat = (() => {
       e.target.value = '';
     });
 
-    // Micrófono grabador audio
     $('chatBtnGravaVoz')?.addEventListener('click', iniciarGrabacionVoz);
     $('chatBtnCancelarVoz')?.addEventListener('click', () => detenerGrabacionVoz(false));
     $('chatBtnEnviarVoz')?.addEventListener('click', () => detenerGrabacionVoz(true));
 
-    // Búsqueda y Galería y Exportar
     $('chatBtnBuscarMsg')?.addEventListener('click', () => {
       $('chatBusquedaBar').classList.toggle('oculto');
       $('inputBuscarMsgChat').value = '';
@@ -843,7 +895,6 @@ const Chat = (() => {
     });
     $('chatBtnExportar')?.addEventListener('click', exportarConversacionTxt);
 
-    // Opciones del Menú Mensaje
     $('cerrarMensajeOp')?.addEventListener('click', cerrarMenuMensaje);
     $('opMsgFijar')?.addEventListener('click', async () => {
       cerrarMenuMensaje();
@@ -875,7 +926,6 @@ const Chat = (() => {
       }
     });
 
-    // Emoji Reacciones Picker
     document.querySelectorAll('#pickerReaccionesEmoji [data-emoji]').forEach((el) => {
       el.addEventListener('click', () => {
         const emoji = el.dataset.emoji;
@@ -1101,7 +1151,7 @@ const Chat = (() => {
     abrirConversacion({ id: userId, name: userName });
   }
 
-  return { abrirConversacion, cerrarConversacion, enlazarUI, enlazarSocket, actualizarBadgeMensajes, alternarVelocidadAudio, alternarPanelUsuario, seleccionarEsteUsuario, abrirConversacionConId, cambiarCalidadVideo, enviarInvitacionCita, responderCita };
+  return { abrirConversacion, cerrarConversacion, enlazarUI, enlazarSocket, actualizarBadgeMensajes, alternarVelocidadAudio, alternarPanelUsuario, seleccionarEsteUsuario, abrirConversacionConId, cambiarCalidadVideo, enviarInvitacionCita, responderCita, enviarRespuestaDirectaEnChatCard, enviarSolicitudAmistadDirecta };
 })();
 
 document.addEventListener('DOMContentLoaded', () => Chat.enlazarUI());

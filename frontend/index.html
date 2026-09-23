@@ -163,6 +163,17 @@
 
   <!-- ---------- LABORATORIO IA ---------- -->
   <main class="vista-app" id="vistaAilab" data-vista="ailab">
+    <!-- Cartel Central de Próximamente -->
+    <div style="margin:16px; padding:20px; background:linear-gradient(135deg, rgba(139,92,246,0.15), rgba(168,85,247,0.08)); border:1.5px solid var(--morado-500, #8b5cf6); border-radius:20px; text-align:center; box-shadow:0 10px 28px rgba(91,33,182,0.15); backdrop-filter:blur(8px);">
+      <div style="font-size:20px; font-weight:900; color:var(--morado-700, #5b21b6); margin-bottom:6px;">✨ Próximamente - Laboratorio de IA en Desarrollo ✨</div>
+      <div style="font-size:13px; color:var(--texto-800, #1f2937); line-height:1.5; max-width:340px; margin:0 auto 12px;">
+        Esta sección es una vista preliminar en desarrollo. El asistente inteligente <b>Link AI</b> está completamente activo y funcional en tu pestaña de chats.
+      </div>
+      <button class="btn btn-primario" onclick="Chat.abrirConversacion({id:'00000000-0000-0000-0000-0000000000a1', name:'Link AI', is_ai:true})" style="margin:0 auto; padding:9px 18px; font-size:13px; font-weight:800; border-radius:20px;">
+        💬 Abrir Chat con Link AI
+      </button>
+    </div>
+
     <div class="ailab-messenger-container">
 
       <!-- Barra de Estado Dinámico de la IA -->
