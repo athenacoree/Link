@@ -85,12 +85,12 @@
                     if (!banner) {
                         banner = document.createElement('div');
                         banner.id = 'enlace-offline-banner';
-                        banner.innerText = '⚠️ Modos Sin Conexión - Los cambios se guardarán localmente.';
+                        banner.innerText = 'Modos Sin Conexión - Los cambios se guardarán localmente.';
                         document.body.prepend(banner);
                     }
                 } else if (banner) {
                     banner.remove();
-                    this.showToast('📶 Conexión restablecida', 'success');
+                    this.showToast('Conexión restablecida', 'success');
                 }
             };
 
@@ -216,7 +216,7 @@
       if (typeof Chat !== 'undefined' && Chat.abrirConversacion) {
         Chat.abrirConversacion({
           id: '00000000-0000-0000-0000-0000000000a1',
-          name: '🤖 Link AI',
+          name: 'Link AI',
           is_ai: true
         });
         setTimeout(() => {

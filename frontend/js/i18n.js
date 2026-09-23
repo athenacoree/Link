@@ -44,13 +44,13 @@ const DICCIONARIO_I18N = {
     ph_buscar_feed: 'Buscar por nombre, municipio o profesión…',
     flt_todos_generos: 'Todos los géneros',
     flt_todos_estados: 'Todos los estados',
-    flt_en_linea: 'En línea ahora 🟢',
+    flt_en_linea: 'En línea ahora',
 
     // Contactos
     contactos_titulo: 'Contactos',
     ph_buscar_contactos: 'Filtrar por nombre o ciudad…',
     subtab_amigos: 'Amigos',
-    subtab_favoritos: 'Favoritos ⭐',
+    subtab_favoritos: 'Favoritos',
     subtab_solicitudes: 'Solicitudes',
 
     // Mensajes
@@ -81,8 +81,8 @@ const DICCIONARIO_I18N = {
     ph_post_texto: '¿Qué está pasando?',
     lbl_publicaciones: 'Publicaciones',
     opt_vis_todas: 'Todas',
-    opt_vis_fotos: 'Solo Fotos 📷',
-    opt_vis_amigos: 'Solo Amigos 👥',
+    opt_vis_fotos: 'Solo Fotos',
+    opt_vis_amigos: 'Solo Amigos',
 
     // Configuraciones
     cfg_titulo: 'Configuraciones de la Cuenta',
@@ -165,13 +165,13 @@ const DICCIONARIO_I18N = {
     ph_buscar_feed: 'Search by name, city or job…',
     flt_todos_generos: 'All genders',
     flt_todos_estados: 'All statuses',
-    flt_en_linea: 'Online now 🟢',
+    flt_en_linea: 'Online now',
 
     // Contacts
     contactos_titulo: 'Contacts',
     ph_buscar_contactos: 'Filter by name or city…',
     subtab_amigos: 'Friends',
-    subtab_favoritos: 'Favorites ⭐',
+    subtab_favoritos: 'Favorites',
     subtab_solicitudes: 'Requests',
 
     // Messages
@@ -202,8 +202,8 @@ const DICCIONARIO_I18N = {
     ph_post_texto: "What's happening?",
     lbl_publicaciones: 'Posts',
     opt_vis_todas: 'All',
-    opt_vis_fotos: 'Photos only 📷',
-    opt_vis_amigos: 'Friends only 👥',
+    opt_vis_fotos: 'Photos only',
+    opt_vis_amigos: 'Friends only',
 
     // Account Settings
     cfg_titulo: 'Account Settings',
@@ -319,7 +319,7 @@ function cambiarIdioma(nuevoIdioma) {
   }
 
   if (typeof window.mostrarToast === 'function') {
-    window.mostrarToast(nuevoIdioma === 'en' ? 'Language changed to English 🇺🇸' : 'Idioma cambiado a Español 🇪🇸');
+    window.mostrarToast(nuevoIdioma === 'en' ? 'Language changed to English' : 'Idioma cambiado a Español');
   }
 }
 

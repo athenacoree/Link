@@ -86,16 +86,16 @@ const Monetizacion = (() => {
     if (!sol) {
       estadoHTML = `
         <div style="background:var(--morado-50); border:1px solid var(--morado-200); border-radius:14px; padding:16px; margin-bottom:16px; text-align:center;">
-          <div style="font-size:32px; margin-bottom:6px;">☑️</div>
+          <div style="margin-bottom:6px; color:var(--morado-600);"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
           <div style="font-weight:800; font-size:16px; color:var(--morado-700);">Obtén la Insignia de Verificado</div>
           <p style="font-size:13px; color:var(--texto-600); margin:8px 0 14px; line-height:1.4;">
             Solicita la revisión oficial de tu perfil. Al abonar el costo del servicio de revisión ($${priceStr} USD mediante QvaPay), tu solicitud pasará directamente a la cola de revisión de nuestro equipo de administración.
           </p>
           <div style="font-size:11.5px; color:var(--texto-500); margin-bottom:14px; background:var(--blanco); padding:8px 12px; border-radius:10px;">
-            ⚠️ <strong>Aviso importante:</strong> El pago cubre el servicio de revisión humana. No garantiza la aprobación automática de la verificación si el perfil incumple nuestras normas comunitarias.
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:text-bottom; margin-right:4px;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><strong>Aviso importante:</strong> El pago cubre el servicio de revisión humana. No garantiza la aprobación automática de la verificación si el perfil incumple nuestras normas comunitarias.
           </div>
           <button class="btn btn-primario" id="btnSolicitarVerif" style="width:100%; border-radius:14px; padding:12px;">
-            Solicitar Revisión ($${priceStr} USD) 🚀
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>Solicitar Revisión ($${priceStr} USD)
           </button>
         </div>
       `;
@@ -103,7 +103,7 @@ const Monetizacion = (() => {
       const statusBadges = {
         'pending_payment': { label: 'Pendiente de Pago', color: 'var(--amarillo-700)', bg: 'var(--amarillo-100)' },
         'pending_review': { label: 'En Revisión por Administración ⏳', color: 'var(--morado-700)', bg: 'var(--morado-100)' },
-        'approved': { label: 'Aprobado — Verificado ☑️', color: 'var(--verde-700)', bg: 'var(--verde-100)' },
+        'approved': { label: 'Aprobado — Verificado', color: 'var(--verde-700)', bg: 'var(--verde-100)' },
         'rejected': { label: 'Rechazado', color: 'var(--rojo-700)', bg: 'var(--rojo-100)' },
         'failed': { label: 'Pago Fallido', color: 'var(--rojo-700)', bg: 'var(--rojo-100)' },
       };
@@ -125,7 +125,7 @@ const Monetizacion = (() => {
 
           ${sol.status === 'pending_payment' && sol.qvapay_url ? `
             <div style="margin-top:14px; display:flex; gap:8px;">
-              <a href="${sol.qvapay_url}" target="_blank" class="btn btn-primario" style="flex:1; text-align:center; text-decoration:none;">Pagar en QvaPay 💳</a>
+              <a href="${sol.qvapay_url}" target="_blank" class="btn btn-primario" style="flex:1; text-align:center; text-decoration:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>Pagar en QvaPay</a>
               <button class="btn btn-secundario" id="btnVerificarPagoVerif" data-tx="${sol.transaction_id}" style="font-size:12px;">Verificar Pago</button>
             </div>
           ` : ''}
@@ -205,7 +205,7 @@ const Monetizacion = (() => {
         <div id="usernameStatusBox" style="margin-top:10px; font-size:13px;"></div>
 
         <button class="btn btn-primario" id="btnComprarUsername" style="width:100%; margin-top:14px; display:none;">
-          Comprar Username ($${priceStr} USD) 🛒
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>Comprar Username ($${priceStr} USD)
         </button>
       </div>
     `;
@@ -267,7 +267,7 @@ const Monetizacion = (() => {
       } catch (err) {
         alert(err.message);
         btnComprar.disabled = false;
-        btnComprar.textContent = `Comprar Username ($${priceStr} USD) 🛒`;
+        btnComprar.textContent = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>Comprar Username ($${priceStr} USD)`;
       }
     });
   }
@@ -301,7 +301,7 @@ const Monetizacion = (() => {
           <div class="campo"><label>Duración (Días)</label><input type="number" id="adDays" min="1" value="7"></div>
         </div>
         <div style="display:flex; gap:8px; margin-top:12px;">
-          <button class="btn btn-primario" id="btnGuardarCampana" style="flex:1;">Pagar y Publicar en QvaPay 🚀</button>
+          <button class="btn btn-primario" id="btnGuardarCampana" style="flex:1;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>Pagar y Publicar en QvaPay</button>
           <button class="btn btn-secundario" id="btnCancelarCampana">Cancelar</button>
         </div>
       </div>
@@ -310,7 +310,7 @@ const Monetizacion = (() => {
     if (!campanas.length) {
       html += `
         <div style="text-align:center; padding:30px 10px; background:var(--blanco); border:1px dashed var(--borde); border-radius:14px;">
-          <div style="font-size:32px; margin-bottom:6px;">📢</div>
+          <div style="margin-bottom:6px; color:var(--morado-600);"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 11 18-5v12L3 13v-2z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg></div>
           <div style="font-weight:700; font-size:14px; color:var(--texto-800);">No tienes campañas activas</div>
           <p style="font-size:12.5px; color:var(--texto-500); margin-top:4px;">Promociona tu negocio o contenido directamente en el feed de los usuarios de Link.</p>
         </div>
@@ -321,10 +321,10 @@ const Monetizacion = (() => {
         const statusMap = {
           'pending_payment': 'Pendiente de Pago',
           'pending_review': 'En Revisión Admin ⏳',
-          'active': 'Activa 🟢',
+          'active': 'Activa',
           'paused': 'Pausada ⏸️',
-          'completed': 'Completada 🏁',
-          'rejected': 'Rechazada ❌',
+          'completed': 'Completada',
+          'rejected': 'Rechazada',
         };
 
         html += `
@@ -400,7 +400,7 @@ const Monetizacion = (() => {
       } catch (e) {
         alert(e.message);
         btnGuardar.disabled = false;
-        btnGuardar.textContent = 'Pagar y Publicar en QvaPay 🚀';
+        btnGuardar.textContent = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>Pagar y Publicar en QvaPay';
       }
     });
 
@@ -480,14 +480,14 @@ const Monetizacion = (() => {
       adCard.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
           <span style="font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; background:var(--morado-100); color:var(--morado-700); padding:3px 8px; border-radius:8px;">
-            📢 Patrocinado
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="m3 11 18-5v12L3 13v-2z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>Patrocinado
           </span>
         </div>
         <div style="font-weight:800; font-size:15px; color:var(--texto-900); margin-bottom:4px;">${ad.title}</div>
         ${ad.description ? `<p style="font-size:13px; color:var(--texto-700); margin-bottom:10px; line-height:1.4;">${ad.description}</p>` : ''}
         ${ad.image_url ? `<img src="${ad.image_url}" style="width:100%; max-height:220px; object-fit:cover; border-radius:12px; margin-bottom:10px;">` : ''}
         <a href="${ad.destination_url}" target="_blank" class="btn btn-primario btnClickAd" style="display:block; text-align:center; text-decoration:none; padding:10px; border-radius:12px; font-weight:700;">
-          ${ad.button_text || 'Ver más'} 🔗
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>${ad.button_text || 'Ver más'}
         </a>
       `;
 
@@ -579,8 +579,8 @@ const Monetizacion = (() => {
               <div style="font-size:12px; color:var(--texto-600); margin-bottom:8px;">Monto abonado: $${parseFloat(v.amount).toFixed(2)} USD</div>
               ${v.status === 'pending_review' ? `
                 <div style="display:flex; gap:8px;">
-                  <button class="btn btn-primario btnAprobarVerif" data-id="${v.id}" style="flex:1; font-size:12px; padding:6px;">Aprobar ☑️</button>
-                  <button class="btn btn-secundario peligro btnRechazarVerif" data-id="${v.id}" style="flex:1; font-size:12px; padding:6px;">Rechazar ❌</button>
+                  <button class="btn btn-primario btnAprobarVerif" data-id="${v.id}" style="flex:1; font-size:12px; padding:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><polyline points="20 6 9 17 4 12"/></svg>Aprobar</button>
+                  <button class="btn btn-secundario peligro btnRechazarVerif" data-id="${v.id}" style="flex:1; font-size:12px; padding:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Rechazar</button>
                 </div>
               ` : ''}
             </div>
@@ -623,8 +623,8 @@ const Monetizacion = (() => {
               <div style="font-size:12px; color:var(--texto-600); margin:6px 0;">Presupuesto: $${parseFloat(c.budget).toFixed(2)} USD | Impresiones: ${c.impressions_count} | CTR: ${c.ctr || 0}%</div>
               ${c.status === 'pending_review' ? `
                 <div style="display:flex; gap:8px; margin-top:8px;">
-                  <button class="btn btn-primario btnAprobarCampana" data-id="${c.id}" style="flex:1; font-size:12px; padding:6px;">Aprobar y Activar 🚀</button>
-                  <button class="btn btn-secundario peligro btnRechazarCampana" data-id="${c.id}" style="flex:1; font-size:12px; padding:6px;">Rechazar ❌</button>
+                  <button class="btn btn-primario btnAprobarCampana" data-id="${c.id}" style="flex:1; font-size:12px; padding:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><polyline points="20 6 9 17 4 12"/></svg>Aprobar y Activar</button>
+                  <button class="btn btn-secundario peligro btnRechazarCampana" data-id="${c.id}" style="flex:1; font-size:12px; padding:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Rechazar</button>
                 </div>
               ` : ''}
             </div>

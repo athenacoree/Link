@@ -147,7 +147,7 @@ window.AILab = {
           type: 'document',
           mime: file.type || 'text/plain',
           data: content,
-          preview: '📄 ' + file.name
+          preview: file.name
         });
       }
       this.renderComposerAttachments();
@@ -171,9 +171,9 @@ window.AILab = {
       const isImg = att.type === 'image';
       return `
         <div class="ailab-attachment-chip">
-          ${isImg ? `<img src="${att.preview}" alt="${escapeHTMLAILab(att.name)}" />` : `<span>📄</span>`}
+          ${isImg ? `<img src="${att.preview}" alt="${escapeHTMLAILab(att.name)}" />` : `<span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></span>`}
           <span style="max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHTMLAILab(att.name)}</span>
-          <button class="ailab-attachment-remove" onclick="AILab.removeAttachment('${att.id}')">✕</button>
+          <button class="ailab-attachment-remove" onclick="AILab.removeAttachment('${att.id}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
         </div>
       `;
     }).join('');
@@ -225,7 +225,7 @@ window.AILab = {
       if (!res.messages || res.messages.length === 0) {
         feed.innerHTML = `
           <div style="text-align:center; padding:30px 16px; color:var(--texto-600); font-size:13px; line-height:1.5;">
-            <div style="font-size:32px; margin-bottom:8px;">💬</div>
+            <div style="margin-bottom:8px; color:var(--morado-600);"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.5 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7A8.4 8.4 0 0 1 3.5 11.5 8.5 8.5 0 1 1 21 11.5Z"/></svg></div>
             <div style="font-weight:800; color:var(--morado-700); font-size:15px;">¡Bienvenido a la Sala Global!</div>
             <div>Todos los usuarios comparten este espacio de conversación en vivo.</div>
           </div>
@@ -281,12 +281,12 @@ window.AILab = {
             ${msg.sender_type === 'ai' ? (
               (msg.sender_avatar && (msg.sender_avatar.startsWith('http') || msg.sender_avatar.startsWith('data:image')))
                 ? `<img src="${msg.sender_avatar}" style="width:16px; height:16px; border-radius:50%; object-fit:cover; vertical-align:middle;" />`
-                : (msg.sender_avatar || '🤖')
-            ) : '👤'}
+                : (msg.sender_avatar || '')
+            ) : ''}
             ${escapeHTMLAILab(msg.sender_name)}
             <span style="font-weight:400; opacity:0.7; font-size:10.5px;">• ${timeStr}</span>
           </span>
-          ${canDelete ? `<button class="ailab-msg-delete-btn" onclick="AILab.deleteMessage('${msg.id}')" title="Eliminar mensaje">🗑️</button>` : ''}
+          ${canDelete ? `<button class="ailab-msg-delete-btn" onclick="AILab.deleteMessage('${msg.id}')" title="Eliminar mensaje"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>` : ''}
         </div>
         <div class="ailab-msg-bubble ${isMe ? 'me' : 'ot'}">
           ${imageHtml}
@@ -358,7 +358,7 @@ window.AILab = {
     const type = toolResult.type;
 
     if (type === 'social_profile_card') {
-      const avatarSrc = d.avatar || 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><rect width="80" height="80" fill="#efe3fe"/><text x="50%" y="55%" font-size="30" text-anchor="middle" fill="#5b21b6" font-family="sans-serif">👤</text></svg>');
+      const avatarSrc = d.avatar || 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><rect width="80" height="80" fill="#efe3fe"/><circle cx="40" cy="30" r="16" fill="#5b21b6"/><path d="M16 68c0-13 10-22 24-22s24 9 24 22" fill="#5b21b6"/></svg>');
       return `
         <div class="ailab-profile-card">
           <div class="ailab-profile-header">
@@ -366,16 +366,16 @@ window.AILab = {
             <div class="ailab-profile-info">
               <div class="ailab-profile-name">
                 ${escapeHTMLAILab(d.name)}
-                ${d.verified ? ' <span style="color:#3897f0;">✓</span>' : ''}
+                ${d.verified ? ' <span style="color:#3897f0; display:inline-flex; align-items:center;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></span>' : ''}
               </div>
               <div class="ailab-profile-username">@${escapeHTMLAILab(d.username || 'usuario')} • ${escapeHTMLAILab(d.profession || 'Miembro')}</div>
-              <div style="font-size:11px; color:var(--texto-500);">📍 ${escapeHTMLAILab(d.city || 'Cuba')}</div>
+              <div style="font-size:11px; color:var(--texto-500);"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:2px;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>${escapeHTMLAILab(d.city || 'Cuba')}</div>
             </div>
           </div>
           ${d.bio ? `<div class="ailab-profile-bio">${escapeHTMLAILab(d.bio)}</div>` : ''}
           <div class="ailab-profile-actions">
-            ${d.id ? `<button class="btn btn-primario mini-btn" style="flex:1; padding:6px 12px; font-size:12px;" onclick="abrirPerfil('${d.id}')">Ver perfil completo 👤</button>` : ''}
-            ${d.id ? `<button class="btn btn-secundario mini-btn" style="flex:1; padding:6px 12px; font-size:12px;" onclick="solicitarContactoAccion('${d.id}')">Solicitar contacto 📩</button>` : ''}
+            ${d.id ? `<button class="btn btn-primario mini-btn" style="flex:1; padding:6px 12px; font-size:12px;" onclick="abrirPerfil('${d.id}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:2px;"><path d="M20 21c0-4.4-3.6-8-8-8s-8 3.6-8 8"/><circle cx="12" cy="7" r="4"/></svg>Ver perfil completo</button>` : ''}
+            ${d.id ? `<button class="btn btn-secundario mini-btn" style="flex:1; padding:6px 12px; font-size:12px;" onclick="solicitarContactoAccion('${d.id}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:2px;"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>Solicitar contacto</button>` : ''}
           </div>
         </div>
       `;
@@ -384,11 +384,11 @@ window.AILab = {
     if (type === 'webcam_card') {
       return `
         <div class="card" style="margin-top:10px; padding:12px; border-radius:14px; background:var(--blanco); border:1px solid var(--borde);">
-          <div style="font-weight:800; font-size:13.5px; color:var(--morado-700); margin-bottom:4px;">📷 ${escapeHTMLAILab(d.title || 'Cámara Pública')}</div>
-          <div style="font-size:12px; color:var(--texto-600); margin-bottom:8px;">📍 ${escapeHTMLAILab(d.location || '')} • <span style="font-weight:700;">${escapeHTMLAILab(d.source_type || 'Fuente Pública')}</span></div>
+          <div style="font-weight:800; font-size:13.5px; color:var(--morado-700); margin-bottom:4px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>${escapeHTMLAILab(d.title || 'Cámara Pública')}</div>
+          <div style="font-size:12px; color:var(--texto-600); margin-bottom:8px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:2px;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>${escapeHTMLAILab(d.location || '')} • <span style="font-weight:700;">${escapeHTMLAILab(d.source_type || 'Fuente Pública')}</span></div>
           <img src="${d.preview}" style="width:100%; height:180px; object-fit:cover; border-radius:10px; margin-bottom:8px;" alt="Cámara" />
           <a href="${d.official_url}" target="_blank" rel="noopener" class="btn btn-primario" style="display:block; text-align:center; width:100%; padding:8px 0; font-size:12px; text-decoration:none; font-weight:800;">
-            Abrir Fuente Oficial 🔴
+            Abrir Fuente Oficial
           </a>
         </div>
       `;
@@ -399,7 +399,7 @@ window.AILab = {
         <div class="card" style="margin-top:10px; padding:12px; border-radius:14px; background:var(--blanco); border:1px solid var(--borde);">
           <div style="font-size:11px; font-weight:800; color:var(--morado-600); margin-bottom:4px;">▶️ ${escapeHTMLAILab(d.platform || 'Vídeo')}</div>
           <div style="font-weight:700; font-size:13.5px; color:var(--texto-900); margin-bottom:2px;">${escapeHTMLAILab(d.title || '')}</div>
-          <div style="font-size:12px; color:var(--texto-600); margin-bottom:8px;">👤 ${escapeHTMLAILab(d.channel || '')}</div>
+          <div style="font-size:12px; color:var(--texto-600); margin-bottom:8px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:2px;"><path d="M20 21c0-4.4-3.6-8-8-8s-8 3.6-8 8"/><circle cx="12" cy="7" r="4"/></svg>${escapeHTMLAILab(d.channel || '')}</div>
           <img src="${d.thumbnail}" style="width:100%; height:160px; object-fit:cover; border-radius:10px; margin-bottom:8px;" alt="Video Miniatura" />
           <a href="${d.url}" target="_blank" rel="noopener" class="btn btn-secundario" style="display:block; text-align:center; width:100%; padding:8px 0; font-size:12px; text-decoration:none; font-weight:800;">
             Ver en ${escapeHTMLAILab(d.platform || 'Plataforma')}
@@ -414,10 +414,10 @@ window.AILab = {
           <img src="${d.image_url}" style="width:100%; border-radius:10px; margin-bottom:8px; display:block; cursor:pointer;" onclick="window.abrirVisorImagen('${d.image_url.replace(/'/g, "\\'")}')" alt="Imagen generada" />
           <div style="font-size:11px; color:var(--texto-600); margin-bottom:8px;">Prompt: "${escapeHTMLAILab(d.prompt)}"</div>
           <div class="ailab-card-actions" style="display:flex; gap:6px; flex-wrap:wrap;">
-            <button class="ailab-card-btn" onclick="AILab.downloadPhoto('${d.image_url.replace(/'/g, "\\'")}')">📥 Descargar</button>
-            <button class="ailab-card-btn" onclick="AILab.editWithBridgeApp('${d.image_url.replace(/'/g, "\\'")}')">🎨 Editar (Bridge App)</button>
-            <button class="ailab-card-btn" onclick="AILab.quickPrompt('Genera una variación de esta imagen: ${escapeHTMLAILab(d.prompt)}')">🔄 Variar</button>
-            <button class="ailab-card-btn" onclick="AILab.quickPrompt('Mejora el prompt visual: ${escapeHTMLAILab(d.prompt)}')">✨ Mejorar Prompt</button>
+            <button class="ailab-card-btn" onclick="AILab.downloadPhoto('${d.image_url.replace(/'/g, "\\'")}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:2px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Descargar</button>
+            <button class="ailab-card-btn" onclick="AILab.editWithBridgeApp('${d.image_url.replace(/'/g, "\\'")}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:2px;"><circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.92 0 1.5-.72 1.5-1.5 0-.4-.15-.76-.4-.98-.24-.22-.4-.54-.4-.91 0-.75.6-1.36 1.35-1.36H16c3.31 0 6-2.69 6-6 0-4.97-4.48-9-10-9z"/></svg>Editar (Bridge App)</button>
+            <button class="ailab-card-btn" onclick="AILab.quickPrompt('Genera una variación de esta imagen: ${escapeHTMLAILab(d.prompt)}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:2px;"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>Variar</button>
+            <button class="ailab-card-btn" onclick="AILab.quickPrompt('Mejora el prompt visual: ${escapeHTMLAILab(d.prompt)}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:2px;"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z"/></svg>Mejorar Prompt</button>
           </div>
         </div>
       `;
@@ -426,7 +426,7 @@ window.AILab = {
     if (type === 'doc_card') {
       return `
         <div class="card" style="margin-top:10px; padding:12px; border-radius:14px; background:var(--blanco); border:1px solid var(--borde);">
-          <div style="font-weight:800; font-size:13px; color:var(--morado-700);">📄 Documento Extraído (${escapeHTMLAILab(d.filename)})</div>
+          <div style="font-weight:800; font-size:13px; color:var(--morado-700);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Documento Extraído (${escapeHTMLAILab(d.filename)})</div>
           <div style="font-size:12px; color:var(--texto-700); margin:6px 0;">${escapeHTMLAILab(d.summary_preview)}</div>
           <div style="font-size:11px; color:var(--texto-500);">${d.char_count} caracteres procesados.</div>
         </div>
@@ -436,7 +436,7 @@ window.AILab = {
     if (type === 'math_card') {
       return `
         <div class="card" style="margin-top:10px; padding:10px 14px; border-radius:12px; background:var(--blanco); border:1px solid var(--borde);">
-          <div style="font-size:12px; color:var(--texto-600);">🔢 Cálculo: <b>${escapeHTMLAILab(d.expression)}</b></div>
+          <div style="font-size:12px; color:var(--texto-600);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="16" y1="14" x2="16" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></svg>Cálculo: <b>${escapeHTMLAILab(d.expression)}</b></div>
           <div style="font-size:18px; font-weight:800; color:var(--morado-700); margin-top:2px;">= ${escapeHTMLAILab(d.result)}</div>
         </div>
       `;
@@ -445,7 +445,7 @@ window.AILab = {
     if (type === 'weather_card') {
       return `
         <div class="card" style="margin-top:10px; padding:12px; border-radius:14px; background:var(--blanco); border:1px solid var(--borde);">
-          <div style="font-weight:800; font-size:14px; color:var(--texto-900);">🌤️ Clima en ${escapeHTMLAILab(d.city)}</div>
+          <div style="font-weight:800; font-size:14px; color:var(--texto-900);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>Clima en ${escapeHTMLAILab(d.city)}</div>
           <div style="font-size:24px; font-weight:900; color:var(--morado-700); margin:4px 0;">${escapeHTMLAILab(d.temp_c)}</div>
           <div style="font-size:12px; color:var(--texto-700);">${escapeHTMLAILab(d.condition)} • Humedad: ${escapeHTMLAILab(d.humidity)} • Viento: ${escapeHTMLAILab(d.wind)}</div>
         </div>
@@ -473,7 +473,7 @@ window.AILab = {
     a.click();
     document.body.removeChild(a);
     if (typeof mostrarToast === 'function') {
-      mostrarToast('Foto generada descargada 📥');
+      mostrarToast('Foto generada descargada');
     }
   },
 

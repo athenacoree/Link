@@ -78,7 +78,7 @@ const Chat = (() => {
       }
       try {
         const domain = new URL(url).hostname;
-        return `<a href="${url}" target="_blank" class="chip-link-url" onclick="event.stopPropagation()">🔗 ${domain}</a>`;
+        return `<a href="${url}" target="_blank" class="chip-link-url" onclick="event.stopPropagation()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:2px;"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>${domain}</a>`;
       } catch (e) {
         return `<a href="${url}" target="_blank" class="chip-link-url" onclick="event.stopPropagation()">${url}</a>`;
       }
@@ -98,8 +98,8 @@ const Chat = (() => {
       const esAdmin = data.is_admin || data.role === 'admin';
       const esVerificado = !!data.verified;
 
-      let badgeAdmin = esAdmin ? `<span style="background:#ef4444; color:#fff; font-size:10px; font-weight:700; padding:2px 6px; border-radius:10px; margin-left:4px;">ADMIN 👑</span>` : '';
-      let badgeVerif = esVerificado ? `<span style="color:#3b82f6; font-size:13px; margin-left:2px;" title="Verificado">✓</span>` : '';
+      let badgeAdmin = esAdmin ? `<span style="background:#ef4444; color:#fff; font-size:10px; font-weight:700; padding:2px 6px; border-radius:10px; margin-left:4px; display:inline-flex; align-items:center; gap:2px;"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-5.45 9-12V5l-9-4z"/></svg>ADMIN</span>` : '';
+      let badgeVerif = esVerificado ? `<span style="color:#3b82f6; font-size:13px; margin-left:2px; display:inline-flex; align-items:center;" title="Verificado"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></span>` : '';
 
       let linksHtml = '';
       if (data.instagram) linksHtml += `<a href="https://instagram.com/${escapar(data.instagram.replace(/^@/,''))}" target="_blank" style="color:#e1306c; text-decoration:none; font-size:12px; font-weight:600; display:inline-flex; align-items:center; gap:4px;"><img src="https://cdn-icons-png.flaticon.com/512/174/174855.png" style="width:14px; height:14px;"> Instagram</a> `;
@@ -118,8 +118,8 @@ const Chat = (() => {
         ${data.bio ? `<div style="margin-top:8px; font-size:12px; line-height:1.3; opacity:0.9; max-height:45px; overflow:hidden;">${escapar(data.bio)}</div>` : ''}
         ${linksHtml ? `<div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;">${linksHtml}</div>` : ''}
         <div style="margin-top:10px; display:flex; gap:6px;">
-          ${data.url ? `<a href="${escapar(data.url)}" class="mini-btn primario" style="flex:1; text-align:center; padding:6px 8px; font-size:11.5px; border-radius:8px; text-decoration:none;">Ver Perfil 👤</a>` : ''}
-          <button class="mini-btn secundario" style="flex:1; padding:6px 8px; font-size:11.5px; border-radius:8px;" onclick="Chat.enviarInvitacionCita('${escapar(data.id || '')}', '${escapar(data.name || data.username)}')">📅 Agendar Cita</button>
+          ${data.url ? `<a href="${escapar(data.url)}" class="mini-btn primario" style="flex:1; text-align:center; padding:6px 8px; font-size:11.5px; border-radius:8px; text-decoration:none;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:2px;"><path d="M20 21c0-4.4-3.6-8-8-8s-8 3.6-8 8"/><circle cx="12" cy="7" r="4"/></svg>Ver Perfil</a>` : ''}
+          <button class="mini-btn secundario" style="flex:1; padding:6px 8px; font-size:11.5px; border-radius:8px;" onclick="Chat.enviarInvitacionCita('${escapar(data.id || '')}', '${escapar(data.name || data.username)}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:2px;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Agendar Cita</button>
         </div>
       </div>`;
     }
@@ -132,7 +132,7 @@ const Chat = (() => {
           <div style="display:flex; align-items:center; gap:10px; cursor:pointer;" onclick="Chat.alternarPanelUsuario('${u.id}', '${cardGroupId}')">
             <img src="${u.avatar || iconoDefecto()}" style="width:38px; height:38px; border-radius:50%; object-fit:cover; border:1px solid var(--morado-500, #8b5cf6);">
             <div style="flex:1; min-width:0;">
-              <div style="font-weight:700; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapar(u.name)} ${u.verified ? '<span style="color:#3b82f6;">✓</span>' : ''}</div>
+              <div style="font-weight:700; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapar(u.name)} ${u.verified ? '<span style="color:#3b82f6; display:inline-flex; align-items:center;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></span>' : ''}</div>
               <div style="font-size:11px; opacity:0.75;">@${escapar(u.username)} • ${escapar(u.profession || 'Link')}</div>
             </div>
             <span style="font-size:12px; opacity:0.6;">▼</span>
@@ -141,9 +141,9 @@ const Chat = (() => {
           <div id="user_panel_${u.id}_${cardGroupId}" class="panel-usuario-desplegable" style="display:none; margin-top:8px; padding-top:8px; border-top:1px dashed var(--borde, #e5e7eb); font-size:11.5px;">
             ${u.bio ? `<div style="margin-bottom:6px; opacity:0.85;">${escapar(u.bio)}</div>` : ''}
             <div style="display:flex; gap:6px; margin-top:6px;">
-              <a href="/perfil/${u.id}" target="_blank" class="mini-btn primario" style="flex:1; text-align:center; padding:4px 6px; font-size:11px; border-radius:6px; text-decoration:none;">👤 Ver perfil</a>
-              <button class="mini-btn secundario" style="flex:1; padding:4px 6px; font-size:11px; border-radius:6px;" onclick="Chat.seleccionarEsteUsuario('${u.id}', '${cardGroupId}')">🎯 Era este</button>
-              <button class="mini-btn secundario" style="padding:4px 6px; font-size:11px; border-radius:6px;" onclick="Chat.abrirConversacionConId('${u.id}', '${escapar(u.name)}')">💬 Mensaje</button>
+              <a href="/perfil/${u.id}" target="_blank" class="mini-btn primario" style="flex:1; text-align:center; padding:4px 6px; font-size:11px; border-radius:6px; text-decoration:none;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:2px;"><path d="M20 21c0-4.4-3.6-8-8-8s-8 3.6-8 8"/><circle cx="12" cy="7" r="4"/></svg>Ver perfil</a>
+              <button class="mini-btn secundario" style="flex:1; padding:4px 6px; font-size:11px; border-radius:6px;" onclick="Chat.seleccionarEsteUsuario('${u.id}', '${cardGroupId}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:2px;"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>Era este</button>
+              <button class="mini-btn secundario" style="padding:4px 6px; font-size:11px; border-radius:6px;" onclick="Chat.abrirConversacionConId('${u.id}', '${escapar(u.name)}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:2px;"><path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.5 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7A8.4 8.4 0 0 1 3.5 11.5 8.5 8.5 0 1 1 21 11.5Z"/></svg>Mensaje</button>
             </div>
           </div>
         </div>
@@ -151,7 +151,7 @@ const Chat = (() => {
 
       return `<div id="contenedor_grupo_${cardGroupId}" style="margin-top:8px; padding:10px; background:var(--fondo-tarjeta, #fff); border:1px solid var(--borde, #e5e7eb); border-radius:12px; max-width:310px;">
         <div style="font-weight:700; font-size:12px; margin-bottom:8px; color:var(--morado-600, #7c3aed); display:flex; justify-space-between; align-items:center;">
-          <span>🔍 Encontré ${data.count || data.users.length} persona(s) (${escapar(data.interest)}):</span>
+          <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>Encontré ${data.count || data.users.length} persona(s) (${escapar(data.interest)}):</span>
         </div>
         <div class="contenedor-usuarios-lista">${items}</div>
       </div>`;
@@ -167,12 +167,12 @@ const Chat = (() => {
           </div>
           <div style="font-size:12px; opacity:0.9; margin-bottom:4px;">${escapar(p.text || 'Sin texto')}</div>
           ${p.media_url ? `<img src="${p.media_url}" style="width:100%; max-height:120px; object-fit:cover; border-radius:6px; margin-bottom:4px;">` : ''}
-          <div style="font-size:10px; opacity:0.65;">❤️ ${p.total_likes || 0} • 💬 ${p.total_comentarios || 0}</div>
+          <div style="font-size:10px; opacity:0.65;"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:middle; margin-right:2px; color:#ef4444;"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>${p.total_likes || 0} • <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:2px; margin-left:4px;"><path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.5 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7A8.4 8.4 0 0 1 3.5 11.5 8.5 8.5 0 1 1 21 11.5Z"/></svg>${p.total_comentarios || 0}</div>
         </div>
       `).join('');
 
       return `<div style="margin-top:8px; padding:10px; background:var(--fondo-tarjeta, #fff); border:1px solid var(--borde, #e5e7eb); border-radius:10px; max-width:300px;">
-        <div style="font-weight:700; font-size:12px; margin-bottom:6px; color:var(--morado-600, #7c3aed);">📝 Publicaciones encontradas:</div>
+        <div style="font-weight:700; font-size:12px; margin-bottom:6px; color:var(--morado-600, #7c3aed);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Publicaciones encontradas:</div>
         ${postItems}
       </div>`;
     }
@@ -180,7 +180,7 @@ const Chat = (() => {
     // 4. Geolocalización por IP
     if (t === 'ip_geolocation' && data) {
       return `<div style="margin-top:8px; padding:10px; background:var(--fondo-tarjeta, #fff); border:1px solid var(--borde, #e5e7eb); border-radius:10px; max-width:280px; font-size:12px;">
-        <div style="font-weight:700; color:var(--morado-600, #7c3aed); margin-bottom:4px;">🌐 Geolocalización IP (${escapar(data.ip)})</div>
+        <div style="font-weight:700; color:var(--morado-600, #7c3aed); margin-bottom:4px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>Geolocalización IP (${escapar(data.ip)})</div>
         <div><b>País:</b> ${escapar(data.country || 'Desconocido')}</div>
         <div><b>Ciudad / Región:</b> ${escapar(data.city || '')}, ${escapar(data.regionName || '')}</div>
         <div><b>Proveedor (ISP):</b> ${escapar(data.isp || 'N/A')}</div>
@@ -192,7 +192,7 @@ const Chat = (() => {
     if (t === 'zip_download' && data) {
       return `<div style="margin-top:8px; padding:12px; background:var(--fondo-tarjeta, #fff); border:1px solid var(--morado-500, #8b5cf6); border-radius:12px; max-width:290px; font-size:12.5px;">
         <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
-          <span style="font-size:20px;">📦</span>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
           <div>
             <div style="font-weight:700; color:var(--morado-700);">${escapar(data.filename || 'archivo.zip')}</div>
             <div style="font-size:11px; opacity:0.75;">${data.file_count || 1} archivo(s) comprimido(s)</div>
@@ -221,18 +221,18 @@ const Chat = (() => {
         mediaContent = `<div style="position:relative; margin-top:6px; min-height:160px; background:rgba(0,0,0,0.05); border-radius:10px; overflow:hidden;">
           <div id="${imgCardId}_bar" style="position:absolute; top:0; left:0; width:100%; height:3px; background:linear-gradient(90deg, #8b5cf6, #3b82f6, #8b5cf6); background-size:200% 100%; animation:animCargaBarra 1.5s infinite linear;"></div>
           <div id="${imgCardId}_spin" style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); font-size:12px; opacity:0.8; display:flex; align-items:center; gap:6px;">
-            <span>🚀 Cargando imagen NASA...</span>
+            <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>Cargando imagen NASA...</span>
           </div>
           <img src="${escapar(url)}" alt="${escapar(title)}" style="width:100%; max-height:300px; object-fit:cover; border-radius:10px; display:block; cursor:pointer; opacity:0; transition:opacity 0.4s ease;"
             onload="this.style.opacity='1'; document.getElementById('${imgCardId}_spin').style.display='none'; document.getElementById('${imgCardId}_bar').style.display='none';"
-            onerror="document.getElementById('${imgCardId}_spin').innerHTML='⚠️ Error al cargar imagen'; document.getElementById('${imgCardId}_bar').style.display='none';"
+            onerror="document.getElementById('${imgCardId}_spin').innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Error al cargar imagen'; document.getElementById('${imgCardId}_bar').style.display='none';"
             onclick="window.abrirVisorImagen('${url.replace(/'/g, "\\'")}')">
         </div>`;
       }
 
       return `<div style="margin-top:8px; padding:12px; background:var(--fondo-tarjeta, #fff); border:1px solid rgba(139,92,246,0.3); border-radius:12px; max-width:320px; font-size:12px;">
         <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
-          <span style="font-weight:700; color:#8b5cf6;">🚀 NASA APOD ${date ? `(${escapar(date)})` : ''}</span>
+          <span style="font-weight:700; color:#8b5cf6;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>NASA APOD ${date ? `(${escapar(date)})` : ''}</span>
           <span style="font-size:10px; opacity:0.6;">api.nasa.gov</span>
         </div>
         <div style="font-weight:600; font-size:13px; margin-bottom:4px;">${escapar(title)}</div>
@@ -251,18 +251,18 @@ const Chat = (() => {
 
       return `<div style="margin-top:8px; padding:10px; background:var(--fondo-tarjeta, #fff); border:1px solid var(--morado-500, #8b5cf6); border-radius:12px; max-width:320px; font-size:12px;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-          <span style="font-weight:700; color:var(--morado-600, #7c3aed); font-size:12px;">🎨 Imagen Generada</span>
+          <span style="font-weight:700; color:var(--morado-600, #7c3aed); font-size:12px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.92 0 1.5-.72 1.5-1.5 0-.4-.15-.76-.4-.98-.24-.22-.4-.54-.4-.91 0-.75.6-1.36 1.35-1.36H16c3.31 0 6-2.69 6-6 0-4.97-4.48-9-10-9z"/></svg>Imagen Generada</span>
           <span style="font-size:10px; opacity:0.6;">${escapar(provider)}</span>
         </div>
         <div style="position:relative; min-height:180px; background:rgba(0,0,0,0.05); border-radius:10px; overflow:hidden; margin-bottom:6px;">
           <div id="${imgCardId}_bar" style="position:absolute; top:0; left:0; width:100%; height:3px; background:linear-gradient(90deg, #ec4899, #8b5cf6, #3b82f6); background-size:200% 100%; animation:animCargaBarra 1.5s infinite linear;"></div>
           <div id="${imgCardId}_spin" style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); font-size:12px; opacity:0.8; display:flex; flex-direction:column; align-items:center; gap:6px; text-align:center;">
-            <span>⏳ Renderizando imagen...</span>
+            <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Renderizando imagen...</span>
             <span style="font-size:10px; opacity:0.6;">Esperando entrega del servidor...</span>
           </div>
           <img src="${escapar(imgUrl)}" alt="${escapar(promptTxt)}" style="width:100%; max-height:300px; object-fit:cover; border-radius:10px; display:block; cursor:pointer; opacity:0; transition:opacity 0.4s ease;"
             onload="this.style.opacity='1'; document.getElementById('${imgCardId}_spin').style.display='none'; document.getElementById('${imgCardId}_bar').style.display='none';"
-            onerror="document.getElementById('${imgCardId}_spin').innerHTML='⚠️ No se pudo obtener la imagen'; document.getElementById('${imgCardId}_bar').style.display='none';"
+            onerror="document.getElementById('${imgCardId}_spin').innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>No se pudo obtener la imagen'; document.getElementById('${imgCardId}_bar').style.display='none';"
             onclick="window.abrirVisorImagen('${imgUrl.replace(/'/g, "\\'")}')">
         </div>
         <div style="font-size:11px; opacity:0.8; line-height:1.3; overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;"><b>Prompt:</b> ${escapar(promptTxt)}</div>
@@ -274,14 +274,14 @@ const Chat = (() => {
       const camId = 'cam_' + Math.random().toString(36).substring(2, 9);
       return `<div style="margin-top:8px; padding:10px; background:var(--fondo-tarjeta, #fff); border:1px solid var(--borde, #e5e7eb); border-radius:12px; max-width:310px; font-size:12px;">
         <div style="font-weight:700; color:var(--morado-600, #7c3aed); margin-bottom:4px; display:flex; align-items:center; gap:4px;">
-          <span>📹 Cámara en Vivo:</span> ${escapar(data.title || data.location)}
+          <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="m15 10 6-3v10l-6-3M3 6h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2Z"/></svg>Cámara en Vivo:</span> ${escapar(data.title || data.location)}
         </div>
         ${data.preview ? `
         <div style="position:relative; margin-top:6px; border-radius:8px; overflow:hidden;">
           <img src="${escapar(data.preview)}" style="width:100%; height:160px; object-fit:cover; border-radius:8px; cursor:pointer;" onclick="window.abrirVisorImagen('${data.preview.replace(/'/g, "\\'")}')">
-          <span style="position:absolute; bottom:6px; right:6px; background:rgba(0,0,0,0.7); color:#fff; font-size:10px; padding:2px 6px; border-radius:4px;">🔴 En Vivo / Transmisión</span>
+          <span style="position:absolute; bottom:6px; right:6px; background:rgba(0,0,0,0.7); color:#fff; font-size:10px; padding:2px 6px; border-radius:4px;">En Vivo / Transmisión</span>
         </div>` : ''}
-        ${data.official_url ? `<a href="${escapar(data.official_url)}" target="_blank" class="mini-btn primario" style="display:block; text-align:center; padding:6px; font-size:11px; border-radius:6px; margin-top:8px; text-decoration:none;">Ver Transmisión Directa 🌐</a>` : ''}
+        ${data.official_url ? `<a href="${escapar(data.official_url)}" target="_blank" class="mini-btn primario" style="display:block; text-align:center; padding:6px; font-size:11px; border-radius:6px; margin-top:8px; text-decoration:none;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>Ver Transmisión Directa</a>` : ''}
       </div>`;
     }
 
@@ -296,7 +296,7 @@ const Chat = (() => {
       `).join('');
 
       return `<div style="margin-top:8px; padding:10px; background:var(--fondo-tarjeta, #fff); border:1px solid var(--borde, #e5e7eb); border-radius:12px; max-width:300px;">
-        <div style="font-weight:700; font-size:12px; margin-bottom:6px; color:#8b5cf6;">🖼️ Metropolitan Museum of Art:</div>
+        <div style="font-weight:700; font-size:12px; margin-bottom:6px; color:#8b5cf6;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>Metropolitan Museum of Art:</div>
         ${items}
       </div>`;
     }
@@ -311,7 +311,7 @@ const Chat = (() => {
     cont.dataset.id = msg.id;
 
     if (msg.deletedForAll) {
-      cont.innerHTML = `<div style="font-style:italic; opacity:0.7; font-size:12px;">🚫 Este mensaje fue eliminado</div>`;
+      cont.innerHTML = `<div style="font-style:italic; opacity:0.7; font-size:12px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>Este mensaje fue eliminado</div>`;
       return cont;
     }
 
@@ -321,7 +321,7 @@ const Chat = (() => {
     if (msg.replyTo) {
       html += `<div class="burbuja-reply-box" style="border-left:3px solid var(--morado-600); padding:3px 6px; margin-bottom:4px; font-size:11.5px; opacity:0.85; background:rgba(0,0,0,0.05); border-radius:4px;">
         <div style="font-weight:700;">${msg.replyTo.senderId === yoId ? 'Tú' : (conversacionAbiertaCon?.name || 'Contacto')}</div>
-        <div style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapar(msg.replyTo.text || (msg.replyTo.imageData ? '📷 Foto' : msg.replyTo.audioData ? '🎤 Nota de voz' : ''))}</div>
+        <div style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapar(msg.replyTo.text || (msg.replyTo.imageData ? 'Foto' : msg.replyTo.audioData ? 'Nota de voz' : ''))}</div>
       </div>`;
     }
 
@@ -342,7 +342,7 @@ const Chat = (() => {
 
       html += `<div class="tarjeta-cita-interactive">
         <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
-          <span style="font-size:20px;">📅</span>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
           <div>
             <div style="font-weight:800; font-size:13.5px; color:var(--morado-700);">Invitación de Cita / Plan</div>
             <div style="font-size:11px; opacity:0.8;">${msg.senderId === yoId ? 'Enviada por ti' : 'Recibida de ' + (conversacionAbiertaCon?.name || 'Usuario')}</div>
@@ -350,14 +350,14 @@ const Chat = (() => {
         </div>
         <div style="font-size:12.5px; line-height:1.4; margin-bottom:10px;">${formatearUrlsTexto(escapar(textoLimpio))}</div>
         ${!esMia && apptId ? `<div id="acciones_cita_${apptId}" style="display:flex; gap:8px; margin-top:8px;">
-          <button class="mini-btn primario" style="flex:1; padding:6px; font-size:11.5px; border-radius:8px;" onclick="Chat.responderCita('${apptId}', 'accept')">Aceptar ✅</button>
-          <button class="mini-btn secundario" style="flex:1; padding:6px; font-size:11.5px; border-radius:8px; color:var(--peligro);" onclick="Chat.responderCita('${apptId}', 'reject')">Rechazar ❌</button>
+          <button class="mini-btn primario" style="flex:1; padding:6px; font-size:11.5px; border-radius:8px;" onclick="Chat.responderCita('${apptId}', 'accept')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:2px;"><polyline points="20 6 9 17 4 12"/></svg>Aceptar</button>
+          <button class="mini-btn secundario" style="flex:1; padding:6px; font-size:11.5px; border-radius:8px; color:var(--peligro);" onclick="Chat.responderCita('${apptId}', 'reject')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:2px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Rechazar</button>
         </div>` : ''}
       </div>`;
     } else if (msg.isAiMentionCard || msg.senderId === '00000000-0000-0000-0000-0000000000a1') {
       html += `<div class="cuadro-link-ai-expandible" style="background:linear-gradient(135deg, rgba(139,92,246,0.12), rgba(168,85,247,0.06)); border:1px solid var(--morado-500, #8b5cf6); border-radius:10px; padding:10px; margin-bottom:4px;">
         <div style="display:flex; align-items:center; gap:6px; margin-bottom:6px; border-bottom:1px solid rgba(139,92,246,0.2); padding-bottom:4px;">
-          <span style="font-size:14px;">🤖</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2 2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"/><rect x="4" y="8" width="16" height="12" rx="2"/><line x1="9" y1="13" x2="9.01" y2="13"/><line x1="15" y1="13" x2="15.01" y2="13"/></svg>
           <span style="font-weight:700; font-size:12px; color:var(--morado-600, #7c3aed);">Link AI en el chat</span>
         </div>
         <div style="font-size:12.5px; line-height:1.4;">${formatearUrlsTexto(escapar(textoAMostrar))}</div>
@@ -397,11 +397,11 @@ const Chat = (() => {
     let checkHtml = '';
     if (esMia) {
       if (msg.read) {
-        checkHtml = `<span style="color:#60a5fa; font-size:13px; margin-left:4px;" title="Leído (${horaCorta(msg.readAt)})">✓✓</span>`;
+        checkHtml = `<span style="color:#60a5fa; font-size:12px; margin-left:4px; display:inline-flex; align-items:center;" title="Leído (${horaCorta(msg.readAt)})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 6 9 17 4 12"/><polyline points="22 10 13 21 10 18"/></svg></span>`;
       } else if (msg.delivered) {
-        checkHtml = `<span style="color:var(--texto-500); font-size:13px; margin-left:4px;" title="Entregado">✓✓</span>`;
+        checkHtml = `<span style="color:var(--texto-500); font-size:12px; margin-left:4px; display:inline-flex; align-items:center;" title="Entregado"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 6 9 17 4 12"/><polyline points="22 10 13 21 10 18"/></svg></span>`;
       } else {
-        checkHtml = `<span style="color:var(--texto-500); font-size:13px; margin-left:4px;" title="Enviado">✓</span>`;
+        checkHtml = `<span style="color:var(--texto-500); font-size:12px; margin-left:4px; display:inline-flex; align-items:center;" title="Enviado"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></span>`;
       }
     }
 
@@ -444,7 +444,7 @@ const Chat = (() => {
       persona = {
         ...persona,
         id: '00000000-0000-0000-0000-0000000000a1',
-        name: persona.name || '🤖 Link AI',
+        name: persona.name || 'Link AI',
         is_ai: true
       };
     }
@@ -453,7 +453,7 @@ const Chat = (() => {
     $('chatNombre').textContent = persona.name;
 
     if (persona.is_ai) {
-      $('chatEstadoLinea').textContent = '🤖 Asistente de IA';
+      $('chatEstadoLinea').textContent = 'Asistente de IA';
     } else {
       $('chatEstadoLinea').textContent = persona.is_online ? 'En línea' : formatearUltimaVez(persona.last_seen);
     }
@@ -487,7 +487,7 @@ const Chat = (() => {
             </div>
           `;
         } else {
-          $('chatMensajes').innerHTML = '<div class="aviso-vacio">Todavía no tienen mensajes. ¡Saluda! 👋</div>';
+          $('chatMensajes').innerHTML = '<div class="aviso-vacio">Todavía no tienen mensajes. ¡Saluda!</div>';
         }
       } else {
         mensajes.forEach((m) => $('chatMensajes').appendChild(pintarBurbuja(m, yo.id)));
@@ -540,7 +540,7 @@ const Chat = (() => {
       loadingEl.id = loadingId;
       loadingEl.innerHTML = `
         <div class="burbuja-loading-ai">
-          <span>🤖 Consultando API y procesando respuesta</span>
+          <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="M12 2a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2 2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"/><rect x="4" y="8" width="16" height="12" rx="2"/></svg>Consultando API y procesando respuesta</span>
           <div class="burbuja-loading-dots"><span></span><span></span><span></span></div>
         </div>
       `;
@@ -552,7 +552,7 @@ const Chat = (() => {
           const elWait = document.getElementById(loadingId);
           if (elWait) elWait.remove();
 
-          const aiReplyText = res.reply || res.message || (res.error && res.error.message) || '⚠️ No se pudo obtener respuesta de la IA.';
+          const aiReplyText = res.reply || res.message || (res.error && res.error.message) || 'No se pudo obtener respuesta de la IA.';
           const msgAi = res.ai_message || {
             id: 'ai_bot_' + Date.now(),
             senderId: '00000000-0000-0000-0000-0000000000a1',
@@ -577,7 +577,7 @@ const Chat = (() => {
           const msgError = {
             id: 'ai_bot_err_' + Date.now(),
             senderId: '00000000-0000-0000-0000-0000000000a1',
-            text: `⚠️ ${err.message || 'Error al comunicarse con el asistente de IA.'}`,
+            text: `${err.message || 'Error al comunicarse con el asistente de IA.'}`,
             createdAt: new Date().toISOString(),
           };
           $('chatMensajes').appendChild(pintarBurbuja(msgError, Sesion.usuario().id));
@@ -619,7 +619,7 @@ const Chat = (() => {
     mensajeRespondiendo = msg;
     const yo = Sesion.usuario();
     $('chatReplyNombre').textContent = `Respondiendo a ${msg.senderId === yo.id ? 'ti mismo' : conversacionAbiertaCon.name}`;
-    $('chatReplyTexto').textContent = msg.text || (msg.imageData ? '📷 Foto' : msg.audioData ? '🎤 Nota de voz' : '');
+    $('chatReplyTexto').textContent = msg.text || (msg.imageData ? 'Foto' : msg.audioData ? 'Nota de voz' : '');
     $('chatReplyPreview').classList.remove('oculto');
     $('chatInputTexto').focus();
   }
@@ -651,7 +651,7 @@ const Chat = (() => {
       if (window.mostrarNotificacionNativa) {
         const remitenteNombre = msg.senderName || 'Nuevo mensaje';
         window.mostrarNotificacionNativa(`Mensaje de ${remitenteNombre}`, {
-          body: msg.text || (msg.imageData ? '📷 Foto' : msg.audioData ? '🎤 Nota de voz' : 'Nuevo mensaje'),
+          body: msg.text || (msg.imageData ? 'Foto' : msg.audioData ? 'Nota de voz' : 'Nuevo mensaje'),
           tag: 'msg-' + msg.conversationId,
           data: { url: '/?chat=' + msg.senderId }
         });
@@ -850,7 +850,7 @@ const Chat = (() => {
       if (mensajeSeleccionado) {
         try {
           const res = await api(`/mensajes/fijar/${mensajeSeleccionado.id}`, { method: 'POST' });
-          mostrarToast(res.fijado ? 'Mensaje fijado 📌' : 'Mensaje desfijado');
+          mostrarToast(res.fijado ? 'Mensaje fijado' : 'Mensaje desfijado');
         } catch (e) { mostrarToast(e.message); }
       }
     });
@@ -863,7 +863,7 @@ const Chat = (() => {
       cerrarMenuMensaje();
       if (mensajeSeleccionado && mensajeSeleccionado.text) {
         navigator.clipboard.writeText(mensajeSeleccionado.text);
-        mostrarToast('Texto copiado al portapapeles 📋');
+        mostrarToast('Texto copiado al portapapeles');
       }
     });
     $('opMsgEliminar')?.addEventListener('click', () => {
@@ -960,7 +960,7 @@ const Chat = (() => {
           const check = burbuja.querySelector('span[title^="Enviado"], span[title^="Entregado"]');
           if (check) {
             check.style.color = '#60a5fa';
-            check.textContent = '✓✓';
+            check.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 6 9 17 4 12"/><polyline points="22 10 13 21 10 18"/></svg>';
             check.title = `Leído (${horaCorta(readAt)})`;
           }
         }
@@ -1032,9 +1032,9 @@ const Chat = (() => {
     }).then(res => {
       if (res.success && res.appointment) {
         const appt = res.appointment;
-        const citaCardTxt = `📅 [INVITACION_CITA:${appt.id}] Cita/Compromiso: ${planes}\nFecha: ${fechaHora}\nDestino: ${destino}`;
+        const citaCardTxt = `[INVITACION_CITA:${appt.id}] Cita/Compromiso: ${planes}\nFecha: ${fechaHora}\nDestino: ${destino}`;
         enviarMensaje(citaCardTxt, null, null, 0);
-        mostrarToast('Invitación de cita agendada y enviada 📅');
+        mostrarToast('Invitación de cita agendada y enviada');
       }
     }).catch(err => mostrarToast(err.message || 'Error al agendar cita.'));
   }
@@ -1052,7 +1052,7 @@ const Chat = (() => {
         const contenedor = document.getElementById(`acciones_cita_${apptId}`);
         if (contenedor) {
           contenedor.innerHTML = `<div style="font-size:11.5px; font-weight:700; color:${accion === 'accept' ? '#10b981' : '#ef4444'};">
-            ${accion === 'accept' ? '✅ Cita Aceptada' : `❌ Cita Rechazada ${motivo ? `(${escapar(motivo)})` : ''}`}
+            ${accion === 'accept' ? 'Cita Aceptada' : `Cita Rechazada ${motivo ? `(${escapar(motivo)})` : ''}`}
           </div>`;
         }
         mostrarToast(accion === 'accept' ? '¡Cita aceptada!' : 'Cita rechazada');
