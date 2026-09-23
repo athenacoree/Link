@@ -28,6 +28,10 @@ const socialDataTools = require('./socialDataTools');
 const utilityTools = require('./utilityTools');
 const dynamicEngine = require('./dynamicApiEngine');
 
+// Módulos añadidos de APIs públicas externas y Utilidades internas
+const externalApis = require('./externalApis');
+const internalTools = require('./internalTools');
+
 const tools = {
   'web.search': webSearch.search,
   'webcam.search': webcamSearch.search,
@@ -103,6 +107,50 @@ const tools = {
   'dog.image': () => utilityTools.getRandomDogImage(),
   'cat.fact': () => utilityTools.getCatFact(),
   'numbers.fact': (params) => utilityTools.getNumbersApiFact(params.number || 'random', params.type || 'trivia'),
+
+  // 20 Herramientas de APIs Públicas Exteriores
+  'nasa.apod': (params) => externalApis.getNasaApod(params.date),
+  'nasa.asteroids': () => externalApis.getNasaAsteroids(),
+  'metmuseum.search': (params) => externalApis.searchMetMuseum(params.query),
+  'poetrydb.search': (params) => externalApis.searchPoetryDB(params.query || params.title),
+  'exchangerate.latest': (params) => externalApis.getExchangeRates(params.base || 'USD'),
+  'coinpaprika.info': (params) => externalApis.getCoinPaprikaInfo(params.coinId || 'btc-bitcoin'),
+  'openmeteo.forecast': (params) => externalApis.getOpenMeteoForecast(params.lat, params.lon),
+  'sunrise_sunset.get': (params) => externalApis.getSunriseSunset(params.lat, params.lng),
+  'clinicaltrials.search': (params) => externalApis.searchClinicalTrials(params.condition),
+  'rcsb.pdb_search': (params) => externalApis.searchRcsbPdb(params.query),
+  'dictionary.lookup': (params) => externalApis.lookupDictionary(params.word),
+  'datamuse.words': (params) => externalApis.searchDatamuse(params.word, params.mode),
+  'dns.doh': (params) => externalApis.lookupDnsOverHttps(params.domain, params.rrType),
+  'httpbin.inspect': () => externalApis.inspectHttpBin(),
+  'deckofcards.draw': (params) => externalApis.drawDeckOfCards(params.count),
+  'bored.activity': (params) => externalApis.getBoredActivity(params.type),
+  'jikan.anime': (params) => externalApis.searchJikanAnime(params.query),
+  'gutendex.search': (params) => externalApis.searchGutendex(params.query),
+  'advice.slip': () => externalApis.getAdviceSlip(),
+  'agify.predict': (params) => externalApis.predictAgify(params.name),
+
+  // 20 Herramientas Internas de Procesamiento
+  'text.stats': (params) => internalTools.getTextStats(params.text),
+  'text.diff': (params) => internalTools.compareTextDiff(params.textA, params.textB),
+  'text.clean_html': (params) => internalTools.cleanHtml(params.htmlContent),
+  'text.slugify': (params) => internalTools.generateSlug(params.text),
+  'crypto.hash': (params) => internalTools.generateCryptoHash(params.text, params.algorithm),
+  'crypto.uuid': () => internalTools.generateUUID(),
+  'encoding.base64': (params) => internalTools.processBase64(params.data, params.mode),
+  'encoding.url': (params) => internalTools.processUrlEncoding(params.text, params.mode),
+  'date.format': (params) => internalTools.formatDate(params.dateString, params.locale, params.timeZone),
+  'date.diff': (params) => internalTools.calculateDateDiff(params.startDateStr, params.endDateStr),
+  'date.business_days': (params) => internalTools.calculateBusinessDays(params.startDateStr, params.endDateStr),
+  'data.json_validate': (params) => internalTools.validateAndFormatJson(params.jsonString),
+  'math.stats': (params) => internalTools.calculateMathStats(params.numbers),
+  'math.prime_check': (params) => internalTools.checkPrimeAndFactors(params.number),
+  'data.csv_to_json': (params) => internalTools.convertCsvToJson(params.csvText, params.delimiter),
+  'utility.lorem': (params) => internalTools.generateLoremIpsum(params.paragraphsCount),
+  'utility.regex_test': (params) => internalTools.testRegexPattern(params.pattern, params.text, params.flags),
+  'utility.color_convert': (params) => internalTools.convertColor(params.colorInput),
+  'utility.random_generator': (params) => internalTools.generateRandomString(params.length),
+  'utility.markdown_to_plain': (params) => internalTools.convertMarkdownToPlain(params.markdownText),
 };
 
 function getToolDefinitions() {
@@ -291,7 +339,51 @@ function getToolDefinitions() {
       name: 'numbers.fact',
       description: 'Obtiene curiosidades y datos numéricos / matemáticos en Numbers API.',
       parameters: { type: 'object', properties: { number: { type: 'string' } } }
-    }
+    },
+
+    // Definiciones de las 20 APIs Externas
+    { name: 'nasa.apod', description: 'Obtiene la imagen astronómica del día de la NASA.', parameters: { type: 'object', properties: { date: { type: 'string' } } } },
+    { name: 'nasa.asteroids', description: 'Consulta asteroides cercanos a la Tierra hoy vía NASA NEO.', parameters: { type: 'object', properties: {} } },
+    { name: 'metmuseum.search', description: 'Busca obras de arte en el Metropolitan Museum of Art.', parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] } },
+    { name: 'poetrydb.search', description: 'Busca poemas por título o autor en PoetryDB.', parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] } },
+    { name: 'exchangerate.latest', description: 'Obtiene tasas de cambio de divisas en tiempo real.', parameters: { type: 'object', properties: { base: { type: 'string' } } } },
+    { name: 'coinpaprika.info', description: 'Consulta precio e información de una criptomoneda en CoinPaprika.', parameters: { type: 'object', properties: { coinId: { type: 'string' } } } },
+    { name: 'openmeteo.forecast', description: 'Consulta el pronóstico del tiempo con coordenadas en Open-Meteo.', parameters: { type: 'object', properties: { lat: { type: 'number' }, lon: { type: 'number' } } } },
+    { name: 'sunrise_sunset.get', description: 'Obtiene la hora de amanecer y atardecer por coordenadas.', parameters: { type: 'object', properties: { lat: { type: 'number' }, lng: { type: 'number' } } } },
+    { name: 'clinicaltrials.search', description: 'Busca estudios y ensayos clínicos en ClinicalTrials.gov.', parameters: { type: 'object', properties: { condition: { type: 'string' } }, required: ['condition'] } },
+    { name: 'rcsb.pdb_search', description: 'Busca estructuras de proteínas en Protein Data Bank (PDB).', parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] } },
+    { name: 'dictionary.lookup', description: 'Busca definiciones, pronunciación y sinónimos en inglés.', parameters: { type: 'object', properties: { word: { type: 'string' } }, required: ['word'] } },
+    { name: 'datamuse.words', description: 'Encuentra palabras relacionadas, rimas y sinónimos en Datamuse.', parameters: { type: 'object', properties: { word: { type: 'string' }, mode: { type: 'string' } }, required: ['word'] } },
+    { name: 'dns.doh', description: 'Realiza consultas DNS sobre HTTPS (DoH).', parameters: { type: 'object', properties: { domain: { type: 'string' }, rrType: { type: 'string' } }, required: ['domain'] } },
+    { name: 'httpbin.inspect', description: 'Inspecciona peticiones y cabeceras de red.', parameters: { type: 'object', properties: {} } },
+    { name: 'deckofcards.draw', description: 'Simula el robo de cartas de una baraja.', parameters: { type: 'object', properties: { count: { type: 'number' } } } },
+    { name: 'bored.activity', description: 'Obtiene actividades sugeridas para el aburrimiento.', parameters: { type: 'object', properties: { type: { type: 'string' } } } },
+    { name: 'jikan.anime', description: 'Busca series de anime y manga en Jikan / MyAnimeList.', parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] } },
+    { name: 'gutendex.search', description: 'Busca libros clásicos de dominio público en Proyecto Gutenberg.', parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] } },
+    { name: 'advice.slip', description: 'Obtiene un consejo o frase motivacional aleatoria.', parameters: { type: 'object', properties: {} } },
+    { name: 'agify.predict', description: 'Predice la edad estimada según el nombre de una persona.', parameters: { type: 'object', properties: { name: { type: 'string' } }, required: ['name'] } },
+
+    // Definiciones de las 20 Herramientas Internas
+    { name: 'text.stats', description: 'Calcula métricas de texto: palabras, caracteres, oraciones y tiempo de lectura.', parameters: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] } },
+    { name: 'text.diff', description: 'Compara dos textos para encontrar líneas diferentes y comunes.', parameters: { type: 'object', properties: { textA: { type: 'string' }, textB: { type: 'string' } }, required: ['textA', 'textB'] } },
+    { name: 'text.clean_html', description: 'Limpia etiquetas HTML y devuelve texto plano limpio.', parameters: { type: 'object', properties: { htmlContent: { type: 'string' } }, required: ['htmlContent'] } },
+    { name: 'text.slugify', description: 'Genera un slug URL-friendly a partir de un título o texto.', parameters: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] } },
+    { name: 'crypto.hash', description: 'Genera un hash criptográfico (MD5, SHA1, SHA256, SHA512).', parameters: { type: 'object', properties: { text: { type: 'string' }, algorithm: { type: 'string' } }, required: ['text'] } },
+    { name: 'crypto.uuid', description: 'Genera un identificador único global (UUID v4).', parameters: { type: 'object', properties: {} } },
+    { name: 'encoding.base64', description: 'Codifica o decodifica texto en formato Base64.', parameters: { type: 'object', properties: { data: { type: 'string' }, mode: { type: 'string' } }, required: ['data'] } },
+    { name: 'encoding.url', description: 'Codifica o decodifica componentes de URL.', parameters: { type: 'object', properties: { text: { type: 'string' }, mode: { type: 'string' } }, required: ['text'] } },
+    { name: 'date.format', description: 'Formatea fechas a un formato legible con soporte de zonas horarias.', parameters: { type: 'object', properties: { dateString: { type: 'string' }, locale: { type: 'string' }, timeZone: { type: 'string' } } } },
+    { name: 'date.diff', description: 'Calcula la diferencia en días, horas, minutos y ms entre dos fechas.', parameters: { type: 'object', properties: { startDateStr: { type: 'string' }, endDateStr: { type: 'string' } }, required: ['startDateStr'] } },
+    { name: 'date.business_days', description: 'Calcula la cantidad de días hábiles entre dos fechas.', parameters: { type: 'object', properties: { startDateStr: { type: 'string' }, endDateStr: { type: 'string' } }, required: ['startDateStr', 'endDateStr'] } },
+    { name: 'data.json_validate', description: 'Valida la sintaxis de una cadena JSON y la formatea.', parameters: { type: 'object', properties: { jsonString: { type: 'string' } }, required: ['jsonString'] } },
+    { name: 'math.stats', description: 'Calcula estadísticas (media, mediana, min, max, desviación estándar) sobre un arreglo de números.', parameters: { type: 'object', properties: { numbers: { type: 'array', items: { type: 'number' } } }, required: ['numbers'] } },
+    { name: 'math.prime_check', description: 'Verifica si un número es primo y calcula sus factores primos.', parameters: { type: 'object', properties: { number: { type: 'number' } }, required: ['number'] } },
+    { name: 'data.csv_to_json', description: 'Convierte datos en formato CSV estructurado a un objeto JSON.', parameters: { type: 'object', properties: { csvText: { type: 'string' }, delimiter: { type: 'string' } }, required: ['csvText'] } },
+    { name: 'utility.lorem', description: 'Genera texto de relleno Lorem Ipsum.', parameters: { type: 'object', properties: { paragraphsCount: { type: 'number' } } } },
+    { name: 'utility.regex_test', description: 'Evalúa y prueba una expresión regular sobre un texto.', parameters: { type: 'object', properties: { pattern: { type: 'string' }, text: { type: 'string' }, flags: { type: 'string' } }, required: ['pattern', 'text'] } },
+    { name: 'utility.color_convert', description: 'Convierte un color HEX a formato RGB y valores numéricos.', parameters: { type: 'object', properties: { colorInput: { type: 'string' } }, required: ['colorInput'] } },
+    { name: 'utility.random_generator', description: 'Genera contraseñas o cadenas aleatorias seguras.', parameters: { type: 'object', properties: { length: { type: 'number' } } } },
+    { name: 'utility.markdown_to_plain', description: 'Convierte un texto con formato Markdown a texto plano limpio.', parameters: { type: 'object', properties: { markdownText: { type: 'string' } }, required: ['markdownText'] } },
   ];
 
   const dynamicApis = dynamicEngine.INITIAL_DISCOVERY_CATALOG || [];
@@ -349,6 +441,56 @@ async function executeTool(name, params = {}, requesterId = null) {
 function detectToolIntent(text) {
   if (!text || typeof text !== 'string') return null;
   const lower = text.toLowerCase().trim();
+
+  // Detecciones para Nuevas Herramientas Internas
+  if (lower.startsWith('hash') || lower.includes('sha256') || lower.includes('md5 de')) {
+    const txt = text.replace(/^(hash|sha256|md5 de|generar hash de)/i, '').trim();
+    return { tool: 'crypto.hash', params: { text: txt || text } };
+  }
+  if (lower.includes('generar uuid') || lower.includes('dame un uuid')) {
+    return { tool: 'crypto.uuid', params: {} };
+  }
+  if (lower.includes('métricas de texto') || lower.includes('contar palabras') || lower.includes('estadísticas de texto')) {
+    return { tool: 'text.stats', params: { text } };
+  }
+  if (lower.startsWith('slugify') || lower.includes('generar slug')) {
+    const txt = text.replace(/^(slugify|generar slug de)/i, '').trim();
+    return { tool: 'text.slugify', params: { text: txt || text } };
+  }
+  if (lower.includes('es primo') || lower.includes('numero primo') || lower.includes('número primo')) {
+    const numMatch = text.match(/\b\d+\b/);
+    if (numMatch) return { tool: 'math.prime_check', params: { number: parseInt(numMatch[0], 10) } };
+  }
+
+  // Detecciones para APIs Externas
+  if (lower.includes('imagen del dia nasa') || lower.includes('nasa apod') || lower.includes('foto del dia de la nasa')) {
+    return { tool: 'nasa.apod', params: {} };
+  }
+  if (lower.includes('asteroides hoy') || lower.includes('asteroides cercanos') || lower.includes('nasa asteroides')) {
+    return { tool: 'nasa.asteroids', params: {} };
+  }
+  if (lower.includes('obras de arte') || lower.includes('met museum') || lower.includes('museo metropolitano')) {
+    const q = text.replace(/.*(?:obras de arte|met museum|museo metropolitano)\s*/i, '').trim();
+    return { tool: 'metmuseum.search', params: { query: q || 'sunflowers' } };
+  }
+  if (lower.includes('poema de') || lower.includes('poema sobre') || lower.includes('poetrydb')) {
+    const q = text.replace(/.*(?:poema de|poema sobre|poetrydb)\s*/i, '').trim();
+    return { tool: 'poetrydb.search', params: { query: q || 'love' } };
+  }
+  if (lower.includes('tasa de cambio') || lower.includes('tasas de cambio') || lower.includes('divisas hoy')) {
+    return { tool: 'exchangerate.latest', params: { base: 'USD' } };
+  }
+  if (lower.includes('definicion de') || lower.includes('definición de') || lower.includes('diccionario en ingles')) {
+    const w = text.replace(/.*(?:definicion de|definición de|diccionario en ingles)\s*/i, '').trim();
+    return { tool: 'dictionary.lookup', params: { word: w || 'science' } };
+  }
+  if (lower.includes('anime sobre') || lower.includes('buscar anime') || lower.includes('jikan anime')) {
+    const q = text.replace(/.*(?:anime sobre|buscar anime|jikan anime)\s*/i, '').trim();
+    return { tool: 'jikan.anime', params: { query: q || 'naruto' } };
+  }
+  if (lower.includes('dame un consejo') || lower.includes('consejo aleatorio') || lower.includes('advice slip')) {
+    return { tool: 'advice.slip', params: {} };
+  }
 
   // Geolocalización por IP
   if (lower.includes('mi ip') || lower.includes('geolocalización') || lower.includes('geolocalizacion') || lower.includes('ubicar ip') || lower.includes('donde esta la ip') || lower.includes('dónde está la ip')) {

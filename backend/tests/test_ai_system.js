@@ -33,7 +33,7 @@ async function runSystemTests() {
   // 2. Prueba de Tool Manager - Definiciones
   console.log('2. Probando getToolDefinitions()...');
   const toolDefs = ToolManager.getToolDefinitions();
-  assert.ok(Array.isArray(toolDefs) && toolDefs.length >= 10, 'Debe haber al menos 10 herramientas registradas');
+  assert.ok(Array.isArray(toolDefs) && toolDefs.length >= 80, `Debe haber al menos 80 herramientas registradas. Se encontraron ${toolDefs.length}`);
   console.log(`   ✅ getToolDefinitions() devolvió ${toolDefs.length} herramientas.`);
 
   // 3. Prueba de Tool Manager - Detección de Intención
@@ -46,9 +46,15 @@ async function runSystemTests() {
 
   const intent3 = ToolManager.detectToolIntent('dibuja un gato espacial');
   assert.strictEqual(intent3?.tool, 'image.generate', 'Debe detectar intención de generar imagen');
+
+  const intentNasa = ToolManager.detectToolIntent('imagen del dia nasa');
+  assert.strictEqual(intentNasa?.tool, 'nasa.apod', 'Debe detectar intención de NASA APOD');
+
+  const intentHash = ToolManager.detectToolIntent('sha256 de hola mundo');
+  assert.strictEqual(intentHash?.tool, 'crypto.hash', 'Debe detectar intención de Hash SHA256');
   console.log('   ✅ Detección de intenciones validada.');
 
-  // 4. Prueba de Ejecución de Herramientas Modulares
+  // 4. Prueba de Ejecución de Herramientas Modulares (Existentes y Nuevas)
   console.log('4. Probando ejecuciones individuales de herramientas...');
 
   const mathRes = await ToolManager.executeTool('math.calculate', { expression: '15 + 35' });
@@ -66,6 +72,31 @@ async function runSystemTests() {
 
   const webcamRes = await ToolManager.executeTool('webcam.search', { location: 'Tokio' });
   assert.strictEqual(webcamRes.type, 'webcam_card', 'Debe devolver tarjeta de cámara');
+
+  // Pruebas de Nuevas Herramientas Internas
+  const hashRes = await ToolManager.executeTool('crypto.hash', { text: 'hola mundo', algorithm: 'sha256' });
+  assert.strictEqual(hashRes.type, 'crypto_hash', 'Debe devolver tipo crypto_hash');
+  assert.strictEqual(hashRes.hash, '0b894166d3336435c800bea36ff21b29eaa801a52f584c006c49289a0dcf6e2f');
+
+  const uuidRes = await ToolManager.executeTool('crypto.uuid', {});
+  assert.strictEqual(uuidRes.type, 'crypto_uuid', 'Debe devolver tipo crypto_uuid');
+  assert.ok(uuidRes.uuid && uuidRes.uuid.length === 36, 'UUID debe tener formato válido de 36 caracteres');
+
+  const textStatsRes = await ToolManager.executeTool('text.stats', { text: 'Hola mundo. Esta es una prueba.' });
+  assert.strictEqual(textStatsRes.metrics.words, 6, 'Debe contar 6 palabras');
+
+  const primeRes = await ToolManager.executeTool('math.prime_check', { number: 17 });
+  assert.strictEqual(primeRes.isPrime, true, '17 es un número primo');
+
+  const statsMathRes = await ToolManager.executeTool('math.stats', { numbers: [10, 20, 30, 40] });
+  assert.strictEqual(statsMathRes.mean, 25, 'La media de 10,20,30,40 debe ser 25');
+
+  // Pruebas de Nuevas Herramientas Externas (Simulación / Verificación de Estructura)
+  const adviceRes = await ToolManager.executeTool('advice.slip', {});
+  assert.ok(adviceRes.type === 'advice_slip' || adviceRes.error, 'Debe devolver estructura de advice_slip o error controlado');
+
+  const agifyRes = await ToolManager.executeTool('agify.predict', { name: 'Michael' });
+  assert.ok(agifyRes.type === 'agify' || agifyRes.error, 'Debe devolver estructura de agify o error controlado');
 
   console.log('   ✅ Herramientas modulares ejecutadas correctamente.');
 
