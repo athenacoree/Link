@@ -40,8 +40,26 @@ const Chat = (() => {
       const match = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i);
       if (match && match[1]) {
         const videoId = match[1];
-        return `<div style="margin-top:8px; position:relative; padding-bottom:56.25%; height:0; overflow:hidden; border-radius:10px; box-shadow:0 3px 8px rgba(0,0,0,0.15);">
-          <iframe src="https://www.youtube.com/embed/${videoId}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="position:absolute; top:0; left:0; width:100%; height:100%; border-radius:10px;"></iframe>
+        const iframeId = 'yt_frame_' + Math.random().toString(36).substring(2, 9);
+        return `<div class="contenedor-video-chat" style="margin-top:8px; background:#000; border-radius:12px; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.25); border:1px solid rgba(255,255,255,0.1); max-width:100%;">
+          <!-- Barra superior de control de video y calidad -->
+          <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(0,0,0,0.7); padding:6px 10px; font-size:11px; color:#fff;">
+            <span style="font-weight:600;">▶️ Video de YouTube</span>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="opacity:0.8;">Calidad:</span>
+              <select onchange="Chat.cambiarCalidadVideo('${iframeId}', this.value)" style="background:#1e1e24; color:#fff; border:1px solid #444; border-radius:4px; font-size:10.5px; padding:2px 4px; cursor:pointer;">
+                <option value="small" selected>240p (Auto)</option>
+                <option value="medium">360p</option>
+                <option value="large">480p</option>
+                <option value="hd720">720p HD</option>
+                <option value="hd1080">1080p HD</option>
+              </select>
+            </div>
+          </div>
+          <!-- Reproductor de video grande con recorte elegante -->
+          <div style="position:relative; padding-bottom:56.25%; height:0; overflow:hidden;">
+            <iframe id="${iframeId}" src="https://www.youtube.com/embed/${videoId}?autoplay=0&vq=small&enablejsapi=1" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="position:absolute; top:0; left:0; width:100%; height:100%; border:0;"></iframe>
+          </div>
         </div>`;
       }
     } catch (e) {}
@@ -103,24 +121,36 @@ const Chat = (() => {
       </div>`;
     }
 
-    // 2. Resultados de Personas por Interés
+    // 2. Resultados de Personas por Interés / Filtros con tarjetas agrupables y panel interactivo
     if (t === 'user_search_results' && Array.isArray(data.users) && data.users.length) {
+      const cardGroupId = 'group_' + Math.random().toString(36).substring(2, 9);
       const items = data.users.map(u => `
-        <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 0; border-bottom:1px solid rgba(0,0,0,0.05);">
-          <div style="display:flex; align-items:center; gap:8px;">
-            <img src="${u.avatar || iconoDefecto()}" style="width:32px; height:32px; border-radius:50%; object-fit:cover;">
-            <div>
-              <div style="font-weight:600; font-size:12.5px;">${escapar(u.name)} ${u.verified ? '✓' : ''}</div>
-              <div style="font-size:10.5px; opacity:0.7;">@${escapar(u.username)} • ${escapar(u.profession || 'Link')}</div>
+        <div class="tarjeta-usuario-item" id="user_card_${u.id}_${cardGroupId}" style="padding:8px; margin-bottom:6px; background:var(--fondo-pagina, #f9fafb); border:1px solid var(--borde, #e5e7eb); border-radius:10px; transition:all 0.2s ease;">
+          <div style="display:flex; align-items:center; gap:10px; cursor:pointer;" onclick="Chat.alternarPanelUsuario('${u.id}', '${cardGroupId}')">
+            <img src="${u.avatar || iconoDefecto()}" style="width:38px; height:38px; border-radius:50%; object-fit:cover; border:1px solid var(--morado-500, #8b5cf6);">
+            <div style="flex:1; min-width:0;">
+              <div style="font-weight:700; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapar(u.name)} ${u.verified ? '<span style="color:#3b82f6;">✓</span>' : ''}</div>
+              <div style="font-size:11px; opacity:0.75;">@${escapar(u.username)} • ${escapar(u.profession || 'Link')}</div>
+            </div>
+            <span style="font-size:12px; opacity:0.6;">▼</span>
+          </div>
+          <!-- Panel interactivo desplegable -->
+          <div id="user_panel_${u.id}_${cardGroupId}" class="panel-usuario-desplegable" style="display:none; margin-top:8px; padding-top:8px; border-top:1px dashed var(--borde, #e5e7eb); font-size:11.5px;">
+            ${u.bio ? `<div style="margin-bottom:6px; opacity:0.85;">${escapar(u.bio)}</div>` : ''}
+            <div style="display:flex; gap:6px; margin-top:6px;">
+              <a href="/perfil/${u.id}" target="_blank" class="mini-btn primario" style="flex:1; text-align:center; padding:4px 6px; font-size:11px; border-radius:6px; text-decoration:none;">👤 Ver perfil</a>
+              <button class="mini-btn secundario" style="flex:1; padding:4px 6px; font-size:11px; border-radius:6px;" onclick="Chat.seleccionarEsteUsuario('${u.id}', '${cardGroupId}')">🎯 Era este</button>
+              <button class="mini-btn secundario" style="padding:4px 6px; font-size:11px; border-radius:6px;" onclick="Chat.abrirConversacionConId('${u.id}', '${escapar(u.name)}')">💬 Mensaje</button>
             </div>
           </div>
-          <a href="/perfil/${u.id}" class="mini-btn secundario" style="font-size:11px; padding:3px 8px; border-radius:6px; text-decoration:none;">Ver</a>
         </div>
       `).join('');
 
-      return `<div style="margin-top:8px; padding:10px; background:var(--fondo-tarjeta, #fff); border:1px solid var(--borde, #e5e7eb); border-radius:10px; max-width:300px;">
-        <div style="font-weight:700; font-size:12px; margin-bottom:6px; color:var(--morado-600, #7c3aed);">🔍 Personas encontradas por "${escapar(data.interest)}":</div>
-        ${items}
+      return `<div id="contenedor_grupo_${cardGroupId}" style="margin-top:8px; padding:10px; background:var(--fondo-tarjeta, #fff); border:1px solid var(--borde, #e5e7eb); border-radius:12px; max-width:310px;">
+        <div style="font-weight:700; font-size:12px; margin-bottom:8px; color:var(--morado-600, #7c3aed); display:flex; justify-space-between; align-items:center;">
+          <span>🔍 Encontré ${data.count || data.users.length} persona(s) (${escapar(data.interest)}):</span>
+        </div>
+        <div class="contenedor-usuarios-lista">${items}</div>
       </div>`;
     }
 
@@ -179,7 +209,17 @@ const Chat = (() => {
       </div>`;
     }
 
-    if (msg.text) html += `<div>${formatearUrlsTexto(escapar(msg.text))}</div>`;
+    if (msg.isAiMentionCard || msg.senderId === '00000000-0000-0000-0000-0000000000a1') {
+      html += `<div class="cuadro-link-ai-expandible" style="background:linear-gradient(135deg, rgba(139,92,246,0.12), rgba(168,85,247,0.06)); border:1px solid var(--morado-500, #8b5cf6); border-radius:10px; padding:10px; margin-bottom:4px;">
+        <div style="display:flex; align-items:center; gap:6px; margin-bottom:6px; border-bottom:1px solid rgba(139,92,246,0.2); padding-bottom:4px;">
+          <span style="font-size:14px;">🤖</span>
+          <span style="font-weight:700; font-size:12px; color:var(--morado-600, #7c3aed);">Link AI en el chat</span>
+        </div>
+        <div style="font-size:12.5px; line-height:1.4;">${formatearUrlsTexto(escapar(msg.text))}</div>
+      </div>`;
+    } else if (msg.text) {
+      html += `<div>${formatearUrlsTexto(escapar(msg.text))}</div>`;
+    }
 
     if (msg.imageData) {
       if (window.renderizarLivePhotoHTML) {
@@ -430,7 +470,12 @@ const Chat = (() => {
         window.socket.emit('mensaje:leido', { messageIds: [msg.id], senderId: msg.senderId });
       }
     } else {
-      mostrarToast('Nuevo mensaje recibido 💬');
+      const senderAvatar = msg.senderAvatar || iconoDefecto();
+      const senderName = msg.senderName || 'Mensaje';
+      mostrarToast(`<div style="display:flex; align-items:center; gap:8px;">
+        <img src="${senderAvatar}" style="width:24px; height:24px; border-radius:50%; object-fit:cover;">
+        <span><b>${escapar(senderName)}:</b> ${escapar((msg.text || 'Nuevo mensaje').slice(0, 40))}</span>
+      </div>`);
       if (window.SonidosYVibracion) {
         window.SonidosYVibracion.reproducirMensaje();
       }
@@ -799,7 +844,92 @@ const Chat = (() => {
     else { audio.playbackRate = 1; btn.textContent = '1x'; }
   }
 
-  return { abrirConversacion, cerrarConversacion, enlazarUI, enlazarSocket, actualizarBadgeMensajes, alternarVelocidadAudio };
+  function enviarInvitacionCita(guestId, guestName) {
+    const fechaHora = prompt(`Programa la fecha y hora para la cita con ${guestName}:`, 'Mañana a las 5:00 PM');
+    if (!fechaHora) return;
+    const planes = prompt(`¿Qué planean hacer o a dónde ir con ${guestName}?`, 'Ir a tomar un café y conversar');
+    if (!planes) return;
+
+    api('/appointments', {
+      method: 'POST',
+      body: {
+        guest_id: guestId,
+        title: `Cita con ${guestName}`,
+        description: planes,
+        location: 'Lugar acordado',
+        scheduled_at: new Date(Date.now() + 86400000).toISOString()
+      }
+    }).then(res => {
+      if (res.success && res.appointment) {
+        enviarMensaje(`📅 Te he enviado una invitación de cita para: ${fechaHora}.\nPlan: ${planes}`, null, null, 0);
+        mostrarToast('Invitación de cita enviada 📅');
+      }
+    }).catch(err => mostrarToast(err.message || 'Error al agendar cita.'));
+  }
+
+  function responderCita(apptId, accion) {
+    let motivo = null;
+    if (accion === 'reject') {
+      motivo = prompt('Por favor ingresa el motivo del rechazo:', 'No podré asistir a esa hora');
+    }
+    api(`/appointments/${apptId}/respond`, {
+      method: 'POST',
+      body: { action: accion, reject_reason: motivo }
+    }).then(res => {
+      if (res.success) {
+        const contenedor = document.getElementById(`acciones_cita_${apptId}`);
+        if (contenedor) {
+          contenedor.innerHTML = `<div style="font-size:11.5px; font-weight:700; color:${accion === 'accept' ? '#10b981' : '#ef4444'};">
+            ${accion === 'accept' ? '✅ Cita Aceptada' : `❌ Cita Rechazada ${motivo ? `(${escapar(motivo)})` : ''}`}
+          </div>`;
+        }
+        mostrarToast(accion === 'accept' ? '¡Cita aceptada!' : 'Cita rechazada');
+      }
+    }).catch(err => mostrarToast(err.message || 'Error al responder.'));
+  }
+
+  function alternarPanelUsuario(userId, groupId) {
+    const panel = document.getElementById(`user_panel_${userId}_${groupId}`);
+    if (panel) {
+      panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    }
+  }
+
+  function seleccionarEsteUsuario(userId, groupId) {
+    const contenedorGrupo = document.getElementById(`contenedor_grupo_${groupId}`);
+    if (!contenedorGrupo) return;
+    const items = contenedorGrupo.querySelectorAll('.tarjeta-usuario-item');
+    items.forEach(item => {
+      if (item.id === `user_card_${userId}_${groupId}`) {
+        item.style.border = '2px solid var(--morado-500, #8b5cf6)';
+        item.style.background = 'rgba(139, 92, 246, 0.08)';
+        const panel = item.querySelector('.panel-usuario-desplegable');
+        if (panel) panel.style.display = 'block';
+      } else {
+        item.remove();
+      }
+    });
+  }
+
+  function cambiarCalidadVideo(iframeId, calidad) {
+    const iframe = document.getElementById(iframeId);
+    if (!iframe) return;
+    try {
+      let src = iframe.src;
+      if (src.includes('vq=')) {
+        src = src.replace(/vq=[^&]+/, 'vq=' + calidad);
+      } else {
+        src += (src.includes('?') ? '&' : '?') + 'vq=' + calidad;
+      }
+      iframe.src = src;
+    } catch (e) {}
+  }
+
+  function abrirConversacionConId(userId, userName) {
+    abrirConversacion({ id: userId, name: userName });
+  }
+
+  return { abrirConversacion, cerrarConversacion, enlazarUI, enlazarSocket, actualizarBadgeMensajes, alternarVelocidadAudio, alternarPanelUsuario, seleccionarEsteUsuario, abrirConversacionConId, cambiarCalidadVideo, enviarInvitacionCita, responderCita };
 })();
 
 document.addEventListener('DOMContentLoaded', () => Chat.enlazarUI());

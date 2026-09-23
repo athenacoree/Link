@@ -44,6 +44,8 @@ app.use('/api/ailab', require('./routes/ailab'));
 app.use('/api/features', require('./routes/features'));
 app.use('/api/monetizacion', require('./routes/monetization'));
 app.use('/api/bridge', require('./routes/bridge'));
+app.use('/api/citas', require('./routes/appointments'));
+app.use('/api/appointments', require('./routes/appointments'));
 
 // Endpoint para Android App Links (Digital Asset Links)
 app.get('/.well-known/assetlinks.json', (req, res) => {

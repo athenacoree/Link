@@ -91,10 +91,36 @@ router.post('/chat', requireAuth, aiRateLimiter, async (req, res) => {
       }
     }
 
+    // Obtener contexto del usuario actual (rol, verificado, intereses, ubicación, fecha/hora real)
+    let userCityCountry = '';
+    let userContextText = '';
+    const nowRealTime = new Date().toLocaleString('es-ES', { timeZone: 'America/Havana', dateStyle: 'full', timeStyle: 'medium' });
+    try {
+      const { rows: uRows } = await query(
+        `SELECT id, name, username, is_admin, verified, role, interests, hobbies, city, country, profession FROM users WHERE id = $1`,
+        [req.user.id]
+      );
+      if (uRows.length > 0) {
+        const u = uRows[0];
+        userCityCountry = [u.city, u.country].filter(Boolean).join(', ') || 'La Habana, Cuba';
+        const esAdmin = u.is_admin || u.role === 'admin';
+        const esVerificado = !!u.verified;
+        let ints = [];
+        try { ints = typeof u.interests === 'string' ? JSON.parse(u.interests) : (u.interests || []); } catch (e) {}
+        userContextText = `\n[Contexto del Usuario interactuando contigo]: Nombre: ${u.name} (@${u.username}), Rol: ${esAdmin ? 'Administrador 👑' : (u.role || 'Usuario')}, Verificado: ${esVerificado ? 'Sí ✓' : 'No'}, Ciudad/País: ${u.city || ''} ${u.country || ''}, Profesión: ${u.profession || 'N/A'}, Intereses: ${Array.isArray(ints) ? ints.join(', ') : ''}.`;
+      }
+    } catch (e) {}
+
     // Detectar intención de herramienta automática y ejecutar antes de llamar a la IA
     const detectedTool = ToolManager.detectToolIntent(userPrompt);
     let toolResult = docResult;
     if (detectedTool && !toolResult) {
+      // Si solicita clima y no especificó ciudad explícita o la herramienta requiere fallback a la ubicación de la cuenta
+      if (detectedTool.tool === 'weather.get' && (!detectedTool.params.location || detectedTool.params.location === 'La Habana')) {
+        if (userCityCountry) {
+          detectedTool.params.location = userCityCountry;
+        }
+      }
       toolResult = await ToolManager.executeTool(detectedTool.tool, detectedTool.params, req.user.id);
     }
 
@@ -108,24 +134,17 @@ router.post('/chat', requireAuth, aiRateLimiter, async (req, res) => {
       }
     }
 
-    // Obtener contexto del usuario actual (rol, verificado, intereses, ubicación)
-    let userContextText = '';
-    try {
-      const { rows: uRows } = await query(
-        `SELECT id, name, username, is_admin, verified, role, interests, hobbies, city, country, profession FROM users WHERE id = $1`,
-        [req.user.id]
-      );
-      if (uRows.length > 0) {
-        const u = uRows[0];
-        const esAdmin = u.is_admin || u.role === 'admin';
-        const esVerificado = !!u.verified;
-        let ints = [];
-        try { ints = typeof u.interests === 'string' ? JSON.parse(u.interests) : (u.interests || []); } catch (e) {}
-        userContextText = `\n[Contexto del Usuario interactuando contigo]: Nombre: ${u.name} (@${u.username}), Rol: ${esAdmin ? 'Administrador 👑' : (u.role || 'Usuario')}, Verificado: ${esVerificado ? 'Sí ✓' : 'No'}, Ciudad/País: ${u.city || ''} ${u.country || ''}, Profesión: ${u.profession || 'N/A'}, Intereses: ${Array.isArray(ints) ? ints.join(', ') : ''}.`;
-      }
-    } catch (e) {}
 
-    const fullSystemPrompt = `${settings.ai_personality}${userContextText}`;
+    const capabilitiesRegistry = `\n[Registro de Capacidades y Funciones de Link AI]:
+- Hora y Fecha en tiempo real: Conoces la fecha y hora exacta actual (${nowRealTime}).
+- Extracción de ubicación de cuenta: Puedes consultar el clima u otra info usando la ubicación del perfil del usuario cuando no especifique lugar.
+- Búsqueda interactiva de personas: Puedes buscar usuarios por gustos, características, apariencia o color de piel, y mostrar resultados agrupados con miniatura.
+- Integración en chats de terceros (@ai): Si te mencionan con @ai en cualquier chat entre usuarios, te integras en esa conversación en una tarjeta interactiva y respondes contextualizada/o.
+- Agendamiento de Citas/Reuniones: Puedes enviar invitaciones interactivas de citas/reuniones con desenfoque (blur) y botones de Aceptar/Rechazar (con motivo).
+- Reproducción de video: Puedes mostrar videos interactivos en el chat.
+- Respuestas ajustadas: Das mensajes normales y cortos por defecto para una conversación fluida.`;
+
+    const fullSystemPrompt = `${settings.ai_personality}\n[Fecha y Hora en tiempo real]: ${nowRealTime}${userContextText}${capabilitiesRegistry}`;
 
     let inputMessages = [];
     if (Array.isArray(messages) && messages.length > 0) {
