@@ -248,6 +248,7 @@ router.get('/system-settings', async (req, res) => {
     rows.forEach(r => { settingsMap[r.key] = r.value; });
     settingsMap['openrouter_api_key'] = process.env.OPENROUTER_API_KEY || '';
     settingsMap['openrouter_model'] = process.env.OPENROUTER_MODEL || 'openrouter/free';
+    settingsMap['cerebras_model'] = process.env.CEREBRAS_MODEL || 'llama-3.3-70b';
     res.json({ settings: settingsMap });
   } catch (err) {
     console.error(err);
@@ -264,7 +265,8 @@ router.post('/system-settings', async (req, res) => {
 
     const sensitiveKeys = [
       'openrouter_api_key', 'openrouter_key', 'hf_token', 'openai_api_key',
-      'anthropic_api_key', 'groq_api_key', 'gemini_api_key', 'xai_api_key', 'grok_api_key'
+      'anthropic_api_key', 'groq_api_key', 'gemini_api_key', 'xai_api_key', 'grok_api_key',
+      'cerebras_api_key', 'cerebras_key'
     ];
 
     const keys = Object.keys(settings);
@@ -302,6 +304,10 @@ router.post('/test-openrouter', async (req, res) => {
 
     if (provider === 'xai' && !process.env.XAI_API_KEY && !process.env.GROK_API_KEY) {
       return res.status(400).json({ error: 'No se detectó la variable de entorno XAI_API_KEY o GROK_API_KEY en el servidor/Render.' });
+    }
+
+    if (provider === 'cerebras' && !process.env.CEREBRAS_API_KEY) {
+      return res.status(400).json({ error: 'No se detectó la variable de entorno CEREBRAS_API_KEY en el servidor/Render.' });
     }
 
     await query(`INSERT INTO system_settings (key, value, updated_at) VALUES ('ai_provider', $1, now()) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`, [provider]);
