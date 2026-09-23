@@ -2,28 +2,14 @@ const { query } = require('../db/postgres');
 
 /**
  * Centralized AI System Service for Enlace.
- * Supports Provider Adapters, Automatic Fallback, Real Timeout (AbortController),
- * Response Truncation Continuation, Context Budgeting, and Structured Tool Definitions.
+ * Exclusively uses Cerebras AI Cloud.
+ * Supports Real Timeout (AbortController), Response Truncation Continuation,
+ * Context Budgeting, and Structured Tool Definitions.
  */
 
 async function getAISettings() {
   const config = {
-    ai_provider: process.env.AI_PROVIDER || 'cerebras',
-    xai_api_key: process.env.XAI_API_KEY || process.env.GROK_API_KEY || '',
-    xai_model: process.env.XAI_MODEL || process.env.GROK_MODEL || 'grok-beta',
-    fallback_provider: process.env.FALLBACK_PROVIDER || 'huggingface',
-    fallback_model: process.env.FALLBACK_MODEL || process.env.HF_MODEL || 'meta-llama/Llama-3.2-3B-Instruct',
-    hf_token: process.env.HF_TOKEN || '',
-    hf_model: process.env.HF_MODEL || 'meta-llama/Llama-3.2-3B-Instruct',
-    hf_provider: process.env.HF_PROVIDER || 'hf-inference',
-    gemini_api_key: process.env.GEMINI_API_KEY || '',
-    gemini_model: process.env.GEMINI_MODEL || 'gemini-1.5-flash',
-    openai_api_key: process.env.OPENAI_API_KEY || '',
-    openai_model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
-    anthropic_api_key: process.env.ANTHROPIC_API_KEY || '',
-    anthropic_model: process.env.ANTHROPIC_MODEL || 'claude-3-haiku-20240307',
-    groq_api_key: process.env.GROQ_API_KEY || '',
-    groq_model: process.env.GROQ_MODEL || 'llama-3.1-8b-instant',
+    ai_provider: 'cerebras',
     cerebras_api_key: process.env.CEREBRAS_API_KEY || '',
     cerebras_model: process.env.CEREBRAS_MODEL || 'llama-3.3-70b',
     ai_name: process.env.AI_NAME || 'Link AI',
@@ -38,7 +24,6 @@ async function getAISettings() {
     ailab_timeout_ms: process.env.AILAB_TIMEOUT_MS || '30000',
     ailab_auto_interval_min: process.env.AILAB_AUTO_INTERVAL_MIN || '0.5',
     ai_max_continuations: process.env.AI_MAX_CONTINUATIONS || '2',
-    ai_max_fallback_attempts: process.env.AI_MAX_FALLBACK_ATTEMPTS || '3',
     ai_max_tool_steps: process.env.AI_MAX_TOOL_STEPS || '5',
   };
 
@@ -46,19 +31,12 @@ async function getAISettings() {
     const { rows } = await query(
       `SELECT key, value FROM system_settings WHERE key IN (
         'ai_provider',
-        'fallback_provider', 'fallback_model',
-        'hf_model', 'hf_provider',
-        'gemini_model',
-        'openai_model',
-        'anthropic_model',
-        'groq_model',
-        'xai_model',
         'cerebras_model',
         'ai_name', 'ai_avatar', 'ai_personality',
         'ai_max_tokens', 'ai_context_tokens',
         'ailab_max_msg_length', 'ailab_max_personality_length',
         'ailab_max_image_size_mb', 'ailab_max_history', 'ailab_timeout_ms', 'ailab_auto_interval_min',
-        'ai_max_continuations', 'ai_max_fallback_attempts', 'ai_max_tool_steps'
+        'ai_max_continuations', 'ai_max_tool_steps'
       )`
     );
     rows.forEach(r => {
@@ -75,12 +53,6 @@ async function getAISettings() {
   if (process.env.AI_CONTEXT_TOKENS) config.ai_context_tokens = process.env.AI_CONTEXT_TOKENS;
   if (process.env.AILAB_AUTO_INTERVAL_MIN) config.ailab_auto_interval_min = process.env.AILAB_AUTO_INTERVAL_MIN;
 
-  config.hf_token = process.env.HF_TOKEN || '';
-  config.gemini_api_key = process.env.GEMINI_API_KEY || '';
-  config.openai_api_key = process.env.OPENAI_API_KEY || '';
-  config.anthropic_api_key = process.env.ANTHROPIC_API_KEY || '';
-  config.groq_api_key = process.env.GROQ_API_KEY || '';
-  config.xai_api_key = process.env.XAI_API_KEY || process.env.GROK_API_KEY || '';
   config.cerebras_api_key = process.env.CEREBRAS_API_KEY || '';
   config.cerebras_model = process.env.CEREBRAS_MODEL || config.cerebras_model || 'llama-3.3-70b';
 
@@ -209,7 +181,7 @@ async function callOpenAICompatible({ endpoint, apiKey, model, messages, maxToke
 }
 
 /**
- * Provider Adapters Registry
+ * Provider Adapters Registry - Exclusively Cerebras
  */
 const ProviderAdapters = {
   cerebras: async ({ settings, messages, maxTokens, modelOverride, visionImage, signal }) => {
@@ -227,154 +199,11 @@ const ProviderAdapters = {
       visionImage,
       signal,
     });
-  },
-
-  huggingface: async ({ settings, messages, maxTokens, modelOverride, visionImage, signal }) => {
-    const token = (settings.hf_token || '').trim();
-    if (!token) {
-      return {
-        ok: false,
-        error: { code: 'NO_API_KEY', message: 'Hugging Face Token no configurado.', retryable: true },
-      };
-    }
-    if (visionImage) {
-      return {
-        ok: false,
-        error: { code: 'VISION_NOT_SUPPORTED', message: 'Hugging Face por defecto no tiene visión activa.', retryable: true },
-      };
-    }
-    const model = modelOverride || settings.hf_model || 'meta-llama/Llama-3.2-3B-Instruct';
-    return callOpenAICompatible({
-      endpoint: 'https://router.huggingface.co/hf-inference/v1/chat/completions',
-      apiKey: token,
-      model,
-      messages,
-      maxTokens,
-      visionImage: null,
-      signal,
-    });
-  },
-
-  openai: async ({ settings, messages, maxTokens, modelOverride, visionImage, signal }) => {
-    const apiKey = (settings.openai_api_key || '').trim();
-    if (!apiKey) {
-      return { ok: false, error: { code: 'NO_API_KEY', message: 'OpenAI API Key no configurada.', retryable: true } };
-    }
-    const model = modelOverride || settings.openai_model || 'gpt-4o-mini';
-    return callOpenAICompatible({
-      endpoint: 'https://api.openai.com/v1/chat/completions',
-      apiKey,
-      model,
-      messages,
-      maxTokens,
-      visionImage,
-      signal,
-    });
-  },
-
-  groq: async ({ settings, messages, maxTokens, modelOverride, visionImage, signal }) => {
-    const apiKey = (settings.groq_api_key || '').trim();
-    if (!apiKey) {
-      return { ok: false, error: { code: 'NO_API_KEY', message: 'Groq API Key no configurada.', retryable: true } };
-    }
-    const model = modelOverride || settings.groq_model || 'llama-3.1-8b-instant';
-    return callOpenAICompatible({
-      endpoint: 'https://api.groq.com/openai/v1/chat/completions',
-      apiKey,
-      model,
-      messages,
-      maxTokens,
-      visionImage,
-      signal,
-    });
-  },
-
-  gemini: async ({ settings, messages, maxTokens, modelOverride, visionImage, signal }) => {
-    const apiKey = (settings.gemini_api_key || '').trim();
-    if (!apiKey) {
-      return { ok: false, error: { code: 'NO_API_KEY', message: 'Gemini API Key no configurada.', retryable: true } };
-    }
-    const model = modelOverride || settings.gemini_model || 'gemini-1.5-flash';
-    return callOpenAICompatible({
-      endpoint: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
-      apiKey,
-      model,
-      messages,
-      maxTokens,
-      visionImage,
-      signal,
-    });
-  },
-
-  anthropic: async ({ settings, messages, maxTokens, modelOverride, visionImage, signal }) => {
-    const apiKey = (settings.anthropic_api_key || '').trim();
-    if (!apiKey) {
-      return { ok: false, error: { code: 'NO_API_KEY', message: 'Anthropic API Key no configurada.', retryable: true } };
-    }
-    const model = modelOverride || settings.anthropic_model || 'claude-3-haiku-20240307';
-
-    let sysPrompt = '';
-    const formattedMsgs = [];
-    messages.forEach(m => {
-      if (m.role === 'system') sysPrompt = typeof m.content === 'string' ? m.content : '';
-      else formattedMsgs.push({ role: m.role === 'assistant' ? 'assistant' : 'user', content: m.content });
-    });
-
-    try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model,
-          system: sysPrompt,
-          messages: formattedMsgs,
-          max_tokens: maxTokens,
-        }),
-        signal,
-      });
-
-      if (!response.ok) {
-        const errText = await response.text();
-        return { ok: false, status: response.status, error: { code: `HTTP_${response.status}`, message: errText, retryable: true } };
-      }
-
-      const data = await response.json();
-      const reply = data.content?.[0]?.text || '';
-      return {
-        ok: true,
-        reply,
-        finish_reason: data.stop_reason === 'max_tokens' ? 'length' : 'stop',
-        model_used: data.model || model,
-      };
-    } catch (e) {
-      return { ok: false, error: { code: 'NETWORK_ERROR', message: e.message, retryable: true } };
-    }
-  },
-
-  xai: async ({ settings, messages, maxTokens, modelOverride, visionImage, signal }) => {
-    const apiKey = (settings.xai_api_key || process.env.XAI_API_KEY || process.env.GROK_API_KEY || '').trim();
-    if (!apiKey) {
-      return { ok: false, error: { code: 'NO_API_KEY', message: 'xAI / Grok API Key no configurada.', retryable: true } };
-    }
-    const model = modelOverride || settings.xai_model || process.env.XAI_MODEL || process.env.GROK_MODEL || 'grok-beta';
-    return callOpenAICompatible({
-      endpoint: 'https://api.x.ai/v1/chat/completions',
-      apiKey,
-      model,
-      messages,
-      maxTokens,
-      visionImage,
-      signal,
-    });
   }
 };
 
 /**
- * Main AI Chat Completion method with automatic fallback, real timeout, and response continuation.
+ * Main AI Chat Completion method using exclusively Cerebras AI Cloud.
  */
 async function chatCompletion({
   messages = [],
@@ -387,14 +216,10 @@ async function chatCompletion({
 } = {}) {
   const settings = await getAISettings();
 
-  const primaryProvider = (provider || settings.ai_provider || 'cerebras').toLowerCase();
-  const fallbackProvider = (settings.fallback_provider || 'huggingface').toLowerCase();
-
   const effectiveMaxTokens = Math.max(50, Math.min(16000, parseInt(maxTokens || settings.ai_max_tokens || '1000', 10)));
   const effectiveContextTokens = parseInt(settings.ai_context_tokens || '4000', 10);
   const effectiveTimeout = parseInt(timeoutMs || settings.ailab_timeout_ms || '30000', 10);
   const maxContinuations = Math.min(3, Math.max(0, parseInt(settings.ai_max_continuations || '2', 10)));
-  const maxFallbackAttempts = Math.min(5, Math.max(1, parseInt(settings.ai_max_fallback_attempts || '3', 10)));
 
   let formattedMessages = Array.isArray(messages) ? [...messages] : [];
 
@@ -406,77 +231,41 @@ async function chatCompletion({
 
   formattedMessages = pruneMessages(formattedMessages, effectiveContextTokens);
 
-  // Fallback sequence building
-  const attemptsSequence = [];
-
-  if (model) {
-    attemptsSequence.push({ provider: primaryProvider, model });
-  } else if (primaryProvider === 'cerebras') {
-    const mainModel = process.env.CEREBRAS_MODEL || settings.cerebras_model || 'llama-3.3-70b';
-    attemptsSequence.push({ provider: 'cerebras', model: mainModel });
-  } else {
-    attemptsSequence.push({ provider: primaryProvider, model: null });
-  }
-
-  // Si Cerebras está configurado y no es el proveedor principal, agregarlo a la secuencia de respaldos
-  if (primaryProvider !== 'cerebras' && (process.env.CEREBRAS_API_KEY || settings.cerebras_api_key)) {
-    const cbModel = process.env.CEREBRAS_MODEL || settings.cerebras_model || 'llama-3.3-70b';
-    attemptsSequence.push({ provider: 'cerebras', model: cbModel });
-  }
-
-  if (fallbackProvider && fallbackProvider !== primaryProvider) {
-    attemptsSequence.push({ provider: fallbackProvider, model: settings.fallback_model || null });
-  }
-
-  // Backup huggingface default
-  if (!attemptsSequence.some(a => a.provider === 'huggingface')) {
-    attemptsSequence.push({ provider: 'huggingface', model: 'meta-llama/Llama-3.2-3B-Instruct' });
-  }
+  const selectedModel = model || process.env.CEREBRAS_MODEL || settings.cerebras_model || 'llama-3.3-70b';
 
   let lastError = null;
   let successfulResult = null;
-  let attemptsCount = 0;
 
-  for (const attempt of attemptsSequence) {
-    if (attemptsCount >= maxFallbackAttempts) break;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), effectiveTimeout);
 
-    const adapter = ProviderAdapters[attempt.provider];
-    if (!adapter) continue;
+  try {
+    const res = await ProviderAdapters.cerebras({
+      settings,
+      messages: formattedMessages,
+      maxTokens: effectiveMaxTokens,
+      modelOverride: selectedModel,
+      visionImage,
+      signal: controller.signal,
+    });
 
-    attemptsCount++;
+    clearTimeout(timer);
 
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), effectiveTimeout);
-
-    try {
-      const res = await adapter({
-        settings,
-        messages: formattedMessages,
-        maxTokens: effectiveMaxTokens,
-        modelOverride: attempt.model,
-        visionImage,
-        signal: controller.signal,
-      });
-
-      clearTimeout(timer);
-
-      if (res.ok) {
-        successfulResult = { ...res, provider: attempt.provider };
-        break;
-      } else {
-        lastError = res.error;
-        console.warn(`[AI Service Attempt ${attemptsCount}] Provider ${attempt.provider} failed: ${res.error?.message || 'Error desconocido'}`);
-      }
-    } catch (err) {
-      clearTimeout(timer);
-      const isTimeout = err.name === 'AbortError';
-      lastError = {
-        code: isTimeout ? 'TIMEOUT' : 'NETWORK_ERROR',
-        message: isTimeout ? `El proveedor ${attempt.provider} superó el tiempo de espera (${effectiveTimeout}ms).` : err.message,
-        retryable: true,
-      };
-      console.warn(`[AI Service Attempt ${attemptsCount}] Exception on ${attempt.provider}: ${lastError.message}`);
+    if (res.ok) {
+      successfulResult = { ...res, provider: 'cerebras' };
+    } else {
+      lastError = res.error;
+      console.warn(`[AI Service] Cerebras provider failed: ${res.error?.message || 'Error desconocido'}`);
     }
+  } catch (err) {
+    clearTimeout(timer);
+    const isTimeout = err.name === 'AbortError';
+    lastError = {
+      code: isTimeout ? 'TIMEOUT' : 'NETWORK_ERROR',
+      message: isTimeout ? `El proveedor Cerebras superó el tiempo de espera (${effectiveTimeout}ms).` : err.message,
+      retryable: true,
+    };
+    console.warn(`[AI Service] Exception on Cerebras: ${lastError.message}`);
   }
 
   if (!successfulResult) {
@@ -484,7 +273,7 @@ async function chatCompletion({
     if (lastError?.code === 'VISION_NOT_SUPPORTED') {
       friendlyMsg = '⚠️ El modelo de IA seleccionado no soporta análisis de imágenes en este momento.';
     } else if (lastError?.code === 'NO_API_KEY' || lastError?.status === 401 || (lastError?.message && (lastError.message.toLowerCase().includes('api key') || lastError.message.toLowerCase().includes('authentication header')))) {
-      friendlyMsg = `⚠️ Error de autenticación en la IA: ${lastError.message || 'Clave API no provista o inválida en las variables de entorno.'}`;
+      friendlyMsg = `⚠️ Error de autenticación en la IA: ${lastError.message || 'Clave API de Cerebras no provista o inválida en las variables de entorno.'}`;
     } else if (lastError?.message) {
       friendlyMsg = `⚠️ Error al conectar con la IA: ${lastError.message}`;
     }
@@ -492,7 +281,7 @@ async function chatCompletion({
     return {
       available: false,
       reply: friendlyMsg,
-      error: lastError || { code: 'UNKNOWN_ERROR', message: 'Todos los intentos de proveedores fallaron.' },
+      error: lastError || { code: 'UNKNOWN_ERROR', message: 'Error al conectar con Cerebras.' },
     };
   }
 
@@ -515,8 +304,7 @@ async function chatCompletion({
     const timer = setTimeout(() => controller.abort(), effectiveTimeout);
 
     try {
-      const adapter = ProviderAdapters[successfulResult.provider];
-      const contRes = await adapter({
+      const contRes = await ProviderAdapters.cerebras({
         settings,
         messages: contMessages,
         maxTokens: effectiveMaxTokens,
@@ -543,7 +331,7 @@ async function chatCompletion({
     reply: fullReply,
     finish_reason: finishReason,
     model_used: successfulResult.model_used,
-    provider: successfulResult.provider,
+    provider: 'cerebras',
     usage: successfulResult.usage || null,
     continuations: continuationCount,
   };

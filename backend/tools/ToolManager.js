@@ -72,7 +72,6 @@ const tools = {
   'gitlab.search': (params) => devTools.searchGitLab(params.query),
   'npm.search': (params) => devTools.searchNpm(params.package || params.query),
   'pypi.search': (params) => devTools.searchPyPI(params.package || params.query),
-  'huggingface.search': (params) => devTools.searchHuggingFace(params.query, params.type || 'models'),
 
   // Medios & Juegos
   'tvmaze.search': (params) => mediaTools.searchTVMaze(params.query || params.show),
@@ -214,11 +213,6 @@ function getToolDefinitions() {
       name: 'pypi.search',
       description: 'Busca paquetes de Python en PyPI.',
       parameters: { type: 'object', properties: { package: { type: 'string' } }, required: ['package'] }
-    },
-    {
-      name: 'huggingface.search',
-      description: 'Busca modelos o datasets de Inteligencia Artificial en Hugging Face.',
-      parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] }
     },
     {
       name: 'tvmaze.search',

@@ -2233,11 +2233,6 @@ document.querySelectorAll('#vistaAdmin > .admin-body > .sub-tabs > .sub-tab[data
 });
 
 // Admin AI Config
-$('adminAIProvider')?.addEventListener('change', (e) => {
-  const val = e.target.value;
-  if ($('boxConfigHuggingFace')) $('boxConfigHuggingFace').style.display = val === 'huggingface' ? 'block' : 'none';
-});
-
 $('adminBtnUploadAvatar')?.addEventListener('click', () => {
   $('adminAIAvatarFileInput')?.click();
 });
@@ -2257,12 +2252,7 @@ $('adminAIAvatarFileInput')?.addEventListener('change', async (e) => {
 async function cargarAdminAIConfig() {
   try {
     const { settings } = await api('/admin/system-settings');
-    const provider = settings.ai_provider || 'cerebras';
-    if ($('adminAIProvider')) $('adminAIProvider').value = provider;
-    if ($('boxConfigHuggingFace')) $('boxConfigHuggingFace').style.display = provider === 'huggingface' ? 'block' : 'none';
-
-    if ($('adminHFToken')) $('adminHFToken').value = settings.hf_token || '';
-    if ($('adminHFModel')) $('adminHFModel').value = settings.hf_model || 'meta-llama/Llama-3.2-3B-Instruct';
+    if ($('adminAIProvider')) $('adminAIProvider').value = 'cerebras';
 
     if ($('adminAIName')) $('adminAIName').value = settings.ai_name || 'Link AI';
     if ($('adminAPKDownloadUrl')) $('adminAPKDownloadUrl').value = settings.apk_download_url || '';

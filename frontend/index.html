@@ -631,20 +631,18 @@
     <!-- CONFIGURACIÓN DE ASISTENTE DE IA -->
     <div id="adminVistaAIConfig" class="oculto" style="margin-top:16px;">
       <p style="font-size:13.5px; color:var(--texto-600); margin-bottom:14px;">
-        Configura la integración central de Inteligencia Artificial (Cerebras AI Cloud o Hugging Face Inference Providers).
+        Configura la integración central de Inteligencia Artificial (Cerebras AI Cloud).
       </p>
 
       <div class="campo">
         <label>Proveedor de IA</label>
         <select id="adminAIProvider">
           <option value="cerebras">Cerebras AI Cloud (Gratuito / Render Env)</option>
-          <option value="xai">xAI / Grok (xAI API / Render Env)</option>
-          <option value="huggingface">Hugging Face Inference</option>
         </select>
       </div>
 
       <div style="background:var(--morado-50); border:1px solid var(--morado-200); border-radius:12px; padding:12px; margin-bottom:14px; font-size:12.5px; color:var(--texto-800);">
-        💡 <strong>Gestión Segura de Claves API:</strong> Las claves secreta API (CEREBRAS_API_KEY, XAI_API_KEY, HF_TOKEN, etc.) y los límites (AI_MAX_TOKENS, AILAB_AUTO_INTERVAL_MIN) se leen directamente desde las variables de entorno de Render para máxima seguridad y no se almacenan en la base de datos.
+        💡 <strong>Gestión Segura de Claves API:</strong> La clave secreta API (CEREBRAS_API_KEY) y los límites (AI_MAX_TOKENS, AILAB_AUTO_INTERVAL_MIN) se leen directamente desde las variables de entorno de Render para máxima seguridad y no se almacenan en la base de datos.
       </div>
 
       <div class="campo"><label>Nombre del Asistente</label><input type="text" id="adminAIName" placeholder="Link AI"></div>
