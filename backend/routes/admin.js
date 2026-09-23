@@ -246,7 +246,8 @@ router.get('/system-settings', async (req, res) => {
     const { rows } = await query(`SELECT key, value, updated_at FROM system_settings`);
     const settingsMap = {};
     rows.forEach(r => { settingsMap[r.key] = r.value; });
-    settingsMap['gemini_model'] = process.env.GEMINI_MODEL || settingsMap['gemini_model'] || 'gemini-2.5-flash';
+    settingsMap['gemini_model'] = (process.env.GEMINI_MODEL || '').trim();
+    settingsMap['gemini_api_key_configured'] = !!(process.env.GEMINI_API_KEY || '').trim();
     res.json({ settings: settingsMap });
   } catch (err) {
     console.error(err);
@@ -291,7 +292,11 @@ router.post('/test-ai', async (req, res) => {
     const settings = await getAISettings();
 
     if (!process.env.GEMINI_API_KEY && !settings.gemini_api_key) {
-      return res.status(400).json({ error: 'No se detectó la variable de entorno GEMINI_API_KEY en el servidor/Render.' });
+      return res.status(400).json({ error: 'No se detectó la variable de entorno GEMINI_API_KEY en Render.' });
+    }
+
+    if (!process.env.GEMINI_MODEL && !settings.gemini_model) {
+      return res.status(400).json({ error: 'No se detectó la variable de entorno GEMINI_MODEL en Render.' });
     }
 
     await query(`INSERT INTO system_settings (key, value, updated_at) VALUES ('ai_provider', 'gemini', now()) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`).catch(() => {});

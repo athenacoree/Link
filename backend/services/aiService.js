@@ -10,8 +10,9 @@ const { query } = require('../db/postgres');
 async function getAISettings() {
   const config = {
     ai_provider: 'gemini',
-    gemini_api_key: process.env.GEMINI_API_KEY || '',
-    gemini_model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
+    gemini_api_key: (process.env.GEMINI_API_KEY || '').trim(),
+    gemini_model: (process.env.GEMINI_MODEL || '').trim(),
+    ai_temperature: process.env.AI_TEMPERATURE || '0.7',
     ai_name: process.env.AI_NAME || 'Link AI',
     ai_avatar: process.env.AI_AVATAR || '',
     ai_personality: process.env.AI_PERSONALITY || 'Eres Link AI, un asistente inteligente integrado en la plataforma social Link. Responde siempre en español, con amabilidad y precisión.',
@@ -31,7 +32,7 @@ async function getAISettings() {
     const { rows } = await query(
       `SELECT key, value FROM system_settings WHERE key IN (
         'ai_provider',
-        'ai_name', 'ai_avatar', 'ai_personality',
+        'ai_name', 'ai_avatar', 'ai_personality', 'ai_temperature',
         'ai_max_tokens', 'ai_context_tokens',
         'ailab_max_msg_length', 'ailab_max_personality_length',
         'ailab_max_image_size_mb', 'ailab_max_history', 'ailab_timeout_ms', 'ailab_auto_interval_min',
@@ -50,11 +51,12 @@ async function getAISettings() {
   // Las claves y límites principales provienen directamente de process.env en Render
   if (process.env.AI_MAX_TOKENS) config.ai_max_tokens = process.env.AI_MAX_TOKENS;
   if (process.env.AI_CONTEXT_TOKENS) config.ai_context_tokens = process.env.AI_CONTEXT_TOKENS;
+  if (process.env.AI_TEMPERATURE) config.ai_temperature = process.env.AI_TEMPERATURE;
   if (process.env.AILAB_AUTO_INTERVAL_MIN) config.ailab_auto_interval_min = process.env.AILAB_AUTO_INTERVAL_MIN;
 
-  // Garantizar que GEMINI_API_KEY y GEMINI_MODEL tengan prioridad desde process.env
-  config.gemini_api_key = process.env.GEMINI_API_KEY || config.gemini_api_key || '';
-  config.gemini_model = process.env.GEMINI_MODEL || config.gemini_model || 'gemini-2.5-flash';
+  // Garantizar que GEMINI_API_KEY y GEMINI_MODEL provienen estrictamente de process.env en Render sin fallbacks hardcodeados
+  config.gemini_api_key = (process.env.GEMINI_API_KEY || config.gemini_api_key || '').trim();
+  config.gemini_model = (process.env.GEMINI_MODEL || config.gemini_model || '').trim();
 
   // Garantizar un timeout mínimo seguro (mínimo 10.000 ms, por defecto 120.000 ms)
   const envTimeout = process.env.AI_TIMEOUT_MS || process.env.AILAB_TIMEOUT_MS;
@@ -109,8 +111,32 @@ function pruneMessages(messages, maxContextTokens = 4000) {
 /**
  * Invoker for Google Gemini REST API Endpoints
  */
-async function callGeminiApi({ apiKey, model, messages, maxTokens, visionImage, signal }) {
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+async function callGeminiApi({ apiKey, model, messages, maxTokens, temperature, visionImage, signal }) {
+  if (!model) {
+    return {
+      ok: false,
+      status: 400,
+      error: {
+        code: 'NO_MODEL',
+        message: 'No se ha configurado el modelo Gemini (GEMINI_MODEL) en Render.',
+        retryable: false,
+      }
+    };
+  }
+
+  if (!apiKey) {
+    return {
+      ok: false,
+      status: 401,
+      error: {
+        code: 'NO_API_KEY',
+        message: 'No se ha configurado la API Key de Gemini (GEMINI_API_KEY) en Render.',
+        retryable: false,
+      }
+    };
+  }
+
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
 
   let systemInstruction = null;
   const geminiContents = [];
@@ -172,11 +198,18 @@ async function callGeminiApi({ apiKey, model, messages, maxTokens, visionImage, 
     geminiContents.push({ role: 'user', parts: [{ text: 'Hola' }] });
   }
 
+  const generationConfig = {
+    maxOutputTokens: maxTokens,
+  };
+
+  const parsedTemp = parseFloat(temperature);
+  if (!isNaN(parsedTemp) && parsedTemp >= 0.0 && parsedTemp <= 2.0) {
+    generationConfig.temperature = parsedTemp;
+  }
+
   const payload = {
     contents: geminiContents,
-    generationConfig: {
-      maxOutputTokens: maxTokens,
-    }
+    generationConfig,
   };
 
   if (systemInstruction) {
@@ -208,7 +241,10 @@ async function callGeminiApi({ apiKey, model, messages, maxTokens, visionImage, 
     let friendlyMessage = errDetail;
     if (response.status === 401 || response.status === 403 || errDetail.toLowerCase().includes('api_key') || errDetail.toLowerCase().includes('invalid')) {
       errCode = 'AUTH_ERROR';
-      friendlyMessage = 'Error de autenticación con Gemini. Verifica que GEMINI_API_KEY esté configurada correctamente.';
+      friendlyMessage = 'Error de autenticación con Gemini. Verifica que GEMINI_API_KEY esté configurada correctamente en Render.';
+    } else if (response.status === 404 || errDetail.toLowerCase().includes('not found')) {
+      errCode = 'MODEL_NOT_FOUND';
+      friendlyMessage = `El modelo Gemini especificado '${model}' no existe o no está disponible en la API (404). Verifica GEMINI_MODEL en Render.`;
     } else if (response.status === 429 || errDetail.toLowerCase().includes('quota') || errDetail.toLowerCase().includes('rate')) {
       errCode = 'RATE_LIMIT';
       friendlyMessage = 'Se ha alcanzado el límite de velocidad o cuota (Rate limit / Quota) en Gemini. Por favor, reintenta en unos momentos.';
@@ -234,6 +270,19 @@ async function callGeminiApi({ apiKey, model, messages, maxTokens, visionImage, 
 
   const data = await response.json();
   const candidate = data.candidates?.[0];
+
+  if (!candidate && data.promptFeedback?.blockReason) {
+    return {
+      ok: false,
+      status: 400,
+      error: {
+        code: 'BLOCKED',
+        message: `El mensaje fue bloqueado por Gemini: ${data.promptFeedback.blockReason}`,
+        retryable: false,
+      }
+    };
+  }
+
   const replyParts = candidate?.content?.parts || [];
   const reply = replyParts.map(p => p.text || '').join('');
   const finishReason = candidate?.finishReason === 'MAX_TOKENS' ? 'length' : (candidate?.finishReason || 'stop');
@@ -251,17 +300,21 @@ async function callGeminiApi({ apiKey, model, messages, maxTokens, visionImage, 
  * Provider Adapters Registry - Exclusively Gemini
  */
 const ProviderAdapters = {
-  gemini: async ({ settings, messages, maxTokens, modelOverride, visionImage, signal }) => {
+  gemini: async ({ settings, messages, maxTokens, modelOverride, visionImage, signal, temperature }) => {
     const apiKey = (settings.gemini_api_key || process.env.GEMINI_API_KEY || '').trim();
     if (!apiKey) {
-      return { ok: false, error: { code: 'NO_API_KEY', message: 'Gemini API Key no configurada en las variables de entorno (GEMINI_API_KEY).', retryable: true } };
+      return { ok: false, error: { code: 'NO_API_KEY', message: 'Gemini API Key no configurada en las variables de entorno (GEMINI_API_KEY en Render).', retryable: false } };
     }
-    const model = modelOverride || settings.gemini_model || process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+    const model = (modelOverride || settings.gemini_model || process.env.GEMINI_MODEL || '').trim();
+    if (!model) {
+      return { ok: false, error: { code: 'NO_MODEL', message: 'Modelo Gemini no configurado en las variables de entorno (GEMINI_MODEL en Render). Debe definirse en las variables de entorno.', retryable: false } };
+    }
     return callGeminiApi({
       apiKey,
       model,
       messages,
       maxTokens,
+      temperature: temperature !== undefined && temperature !== null ? temperature : settings.ai_temperature,
       visionImage,
       signal,
     });
@@ -277,6 +330,7 @@ async function chatCompletion({
   maxTokens = null,
   model = null,
   provider = null,
+  temperature = null,
   visionImage = null,
   timeoutMs = null,
   signal = null,
@@ -298,7 +352,7 @@ async function chatCompletion({
 
   formattedMessages = pruneMessages(formattedMessages, effectiveContextTokens);
 
-  const selectedModel = model || settings.gemini_model || process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+  const selectedModel = (model || settings.gemini_model || process.env.GEMINI_MODEL || '').trim();
 
   let lastError = null;
   let successfulResult = null;
@@ -317,6 +371,7 @@ async function chatCompletion({
       messages: formattedMessages,
       maxTokens: effectiveMaxTokens,
       modelOverride: selectedModel,
+      temperature,
       visionImage,
       signal: controller.signal,
     });
@@ -342,10 +397,16 @@ async function chatCompletion({
 
   if (!successfulResult) {
     let friendlyMsg = '⚠️ Estoy teniendo problemas técnicos para comunicarme con la IA.';
-    if (lastError?.code === 'NO_API_KEY' || lastError?.code === 'AUTH_ERROR' || lastError?.status === 401 || lastError?.status === 403) {
-      friendlyMsg = `⚠️ Error de autenticación en Gemini: ${lastError.message || 'Clave API GEMINI_API_KEY no configurada o inválida.'}`;
+    if (lastError?.code === 'NO_API_KEY') {
+      friendlyMsg = '⚠️ Error de configuración: La clave GEMINI_API_KEY no está configurada en las variables de entorno de Render.';
+    } else if (lastError?.code === 'NO_MODEL') {
+      friendlyMsg = '⚠️ Error de configuración: La variable GEMINI_MODEL no está configurada en Render.';
+    } else if (lastError?.code === 'AUTH_ERROR' || lastError?.status === 401 || lastError?.status === 403) {
+      friendlyMsg = `⚠️ Error de autenticación en Gemini: ${lastError.message || 'Clave API GEMINI_API_KEY no válida.'}`;
+    } else if (lastError?.code === 'MODEL_NOT_FOUND' || lastError?.status === 404) {
+      friendlyMsg = `⚠️ Error de modelo en Gemini: ${lastError.message || 'El modelo configurado en GEMINI_MODEL no existe.'}`;
     } else if (lastError?.code === 'RATE_LIMIT' || lastError?.status === 429) {
-      friendlyMsg = '⚠️ Se ha superado el límite de peticiones de Gemini. Intenta de nuevo en unos instantes.';
+      friendlyMsg = '⚠️ Se ha superado el límite de peticiones o cuota de Gemini. Intenta de nuevo en unos instantes.';
     } else if (lastError?.code === 'TIMEOUT') {
       friendlyMsg = `⚠️ El proveedor Gemini superó el tiempo de espera de respuesta (${effectiveTimeout}ms).`;
     } else if (lastError?.message) {
@@ -383,6 +444,7 @@ async function chatCompletion({
         messages: contMessages,
         maxTokens: effectiveMaxTokens,
         modelOverride: successfulResult.model_used,
+        temperature,
         visionImage: null,
         signal: controller.signal,
       });
