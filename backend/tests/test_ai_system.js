@@ -50,6 +50,13 @@ async function runSystemTests() {
   const intentNasa = ToolManager.detectToolIntent('imagen del dia nasa');
   assert.strictEqual(intentNasa?.tool, 'nasa.apod', 'Debe detectar intención de NASA APOD');
 
+  const intentNasa2 = ToolManager.detectToolIntent('muéstrame una foto de la nasa');
+  assert.strictEqual(intentNasa2?.tool, 'nasa.apod', 'Debe detectar intención de NASA para foto de la nasa');
+
+  const intentSatelite = ToolManager.detectToolIntent('dame una imagen de el satelite del caribe');
+  assert.strictEqual(intentSatelite?.tool, 'image.generate', 'Debe detectar intención de generar imagen satelital');
+  assert.ok(intentSatelite?.params?.prompt?.includes('satellite imagery photo'), 'El prompt debe solicitar imagen satelital');
+
   const intentHash = ToolManager.detectToolIntent('sha256 de hola mundo');
   assert.strictEqual(intentHash?.tool, 'crypto.hash', 'Debe detectar intención de Hash SHA256');
 

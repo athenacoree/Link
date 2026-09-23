@@ -776,3 +776,37 @@ body.animaciones-pausadas * {
 .tarjeta-reaccionada{
   position:absolute; top:8px; right:10px; font-size:13px; opacity:0.85; z-index:1;
 }
+
+/* Animación para barras de carga y progreso en IA y herramientas */
+@keyframes animCargaBarra {
+  0% { background-position: 0% 0%; }
+  100% { background-position: 200% 0%; }
+}
+
+.burbuja-loading-ai {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--morado-600, #7c3aed);
+  font-weight: 600;
+  padding: 8px 12px;
+}
+
+.burbuja-loading-dots span {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  background-color: var(--morado-600, #7c3aed);
+  border-radius: 50%;
+  margin: 0 1px;
+  animation: pulseLoading 1.4s infinite ease-in-out both;
+}
+
+.burbuja-loading-dots span:nth-child(1) { animation-delay: -0.32s; }
+.burbuja-loading-dots span:nth-child(2) { animation-delay: -0.16s; }
+
+@keyframes pulseLoading {
+  0%, 80%, 100% { transform: scale(0); opacity: 0.3; }
+  40% { transform: scale(1); opacity: 1; }
+}

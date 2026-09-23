@@ -202,6 +202,105 @@ const Chat = (() => {
       </div>`;
     }
 
+    // 6. NASA APOD / Astronomía
+    if (t === 'nasa_apod' || toolResult.type === 'nasa_apod') {
+      const title = toolResult.title || data.title || 'Foto Astronómica de la NASA';
+      const url = toolResult.url || data.url;
+      const date = toolResult.date || data.date || '';
+      const explanation = toolResult.explanation || data.explanation || '';
+      const isVideo = toolResult.media_type === 'video' || data.media_type === 'video';
+
+      const imgCardId = 'img_loader_' + Math.random().toString(36).substring(2, 9);
+
+      let mediaContent = '';
+      if (isVideo && url) {
+        mediaContent = `<div style="position:relative; padding-bottom:56.25%; height:0; overflow:hidden; border-radius:8px; margin-top:6px;">
+          <iframe src="${escapar(url)}" frameborder="0" allowfullscreen style="position:absolute; top:0; left:0; width:100%; height:100%;"></iframe>
+        </div>`;
+      } else if (url) {
+        mediaContent = `<div style="position:relative; margin-top:6px; min-height:160px; background:rgba(0,0,0,0.05); border-radius:10px; overflow:hidden;">
+          <div id="${imgCardId}_bar" style="position:absolute; top:0; left:0; width:100%; height:3px; background:linear-gradient(90deg, #8b5cf6, #3b82f6, #8b5cf6); background-size:200% 100%; animation:animCargaBarra 1.5s infinite linear;"></div>
+          <div id="${imgCardId}_spin" style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); font-size:12px; opacity:0.8; display:flex; align-items:center; gap:6px;">
+            <span>🚀 Cargando imagen NASA...</span>
+          </div>
+          <img src="${escapar(url)}" alt="${escapar(title)}" style="width:100%; max-height:300px; object-fit:cover; border-radius:10px; display:block; cursor:pointer; opacity:0; transition:opacity 0.4s ease;"
+            onload="this.style.opacity='1'; document.getElementById('${imgCardId}_spin').style.display='none'; document.getElementById('${imgCardId}_bar').style.display='none';"
+            onerror="document.getElementById('${imgCardId}_spin').innerHTML='⚠️ Error al cargar imagen'; document.getElementById('${imgCardId}_bar').style.display='none';"
+            onclick="window.abrirVisorImagen('${url.replace(/'/g, "\\'")}')">
+        </div>`;
+      }
+
+      return `<div style="margin-top:8px; padding:12px; background:var(--fondo-tarjeta, #fff); border:1px solid rgba(139,92,246,0.3); border-radius:12px; max-width:320px; font-size:12px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
+          <span style="font-weight:700; color:#8b5cf6;">🚀 NASA APOD ${date ? `(${escapar(date)})` : ''}</span>
+          <span style="font-size:10px; opacity:0.6;">api.nasa.gov</span>
+        </div>
+        <div style="font-weight:600; font-size:13px; margin-bottom:4px;">${escapar(title)}</div>
+        ${mediaContent}
+        ${explanation ? `<div style="margin-top:8px; font-size:11px; opacity:0.85; line-height:1.35; max-height:60px; overflow-y:auto;">${escapar(explanation)}</div>` : ''}
+      </div>`;
+    }
+
+    // 7. Tarjeta Generada de Imagen (image_card / satélite / DALL-E / Pollinations)
+    if (t === 'image_card' || (data && data.image_url)) {
+      const promptTxt = data.prompt || 'Imagen generada';
+      const imgUrl = data.image_url || toolResult.url;
+      const provider = data.provider || 'AI Engine';
+
+      const imgCardId = 'img_gen_' + Math.random().toString(36).substring(2, 9);
+
+      return `<div style="margin-top:8px; padding:10px; background:var(--fondo-tarjeta, #fff); border:1px solid var(--morado-500, #8b5cf6); border-radius:12px; max-width:320px; font-size:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+          <span style="font-weight:700; color:var(--morado-600, #7c3aed); font-size:12px;">🎨 Imagen Generada</span>
+          <span style="font-size:10px; opacity:0.6;">${escapar(provider)}</span>
+        </div>
+        <div style="position:relative; min-height:180px; background:rgba(0,0,0,0.05); border-radius:10px; overflow:hidden; margin-bottom:6px;">
+          <div id="${imgCardId}_bar" style="position:absolute; top:0; left:0; width:100%; height:3px; background:linear-gradient(90deg, #ec4899, #8b5cf6, #3b82f6); background-size:200% 100%; animation:animCargaBarra 1.5s infinite linear;"></div>
+          <div id="${imgCardId}_spin" style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); font-size:12px; opacity:0.8; display:flex; flex-direction:column; align-items:center; gap:6px; text-align:center;">
+            <span>⏳ Renderizando imagen...</span>
+            <span style="font-size:10px; opacity:0.6;">Esperando entrega del servidor...</span>
+          </div>
+          <img src="${escapar(imgUrl)}" alt="${escapar(promptTxt)}" style="width:100%; max-height:300px; object-fit:cover; border-radius:10px; display:block; cursor:pointer; opacity:0; transition:opacity 0.4s ease;"
+            onload="this.style.opacity='1'; document.getElementById('${imgCardId}_spin').style.display='none'; document.getElementById('${imgCardId}_bar').style.display='none';"
+            onerror="document.getElementById('${imgCardId}_spin').innerHTML='⚠️ No se pudo obtener la imagen'; document.getElementById('${imgCardId}_bar').style.display='none';"
+            onclick="window.abrirVisorImagen('${imgUrl.replace(/'/g, "\\'")}')">
+        </div>
+        <div style="font-size:11px; opacity:0.8; line-height:1.3; overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;"><b>Prompt:</b> ${escapar(promptTxt)}</div>
+      </div>`;
+    }
+
+    // 8. Cámaras Web
+    if (t === 'webcam_card' && data) {
+      const camId = 'cam_' + Math.random().toString(36).substring(2, 9);
+      return `<div style="margin-top:8px; padding:10px; background:var(--fondo-tarjeta, #fff); border:1px solid var(--borde, #e5e7eb); border-radius:12px; max-width:310px; font-size:12px;">
+        <div style="font-weight:700; color:var(--morado-600, #7c3aed); margin-bottom:4px; display:flex; align-items:center; gap:4px;">
+          <span>📹 Cámara en Vivo:</span> ${escapar(data.title || data.location)}
+        </div>
+        ${data.preview ? `
+        <div style="position:relative; margin-top:6px; border-radius:8px; overflow:hidden;">
+          <img src="${escapar(data.preview)}" style="width:100%; height:160px; object-fit:cover; border-radius:8px; cursor:pointer;" onclick="window.abrirVisorImagen('${data.preview.replace(/'/g, "\\'")}')">
+          <span style="position:absolute; bottom:6px; right:6px; background:rgba(0,0,0,0.7); color:#fff; font-size:10px; padding:2px 6px; border-radius:4px;">🔴 En Vivo / Transmisión</span>
+        </div>` : ''}
+        ${data.official_url ? `<a href="${escapar(data.official_url)}" target="_blank" class="mini-btn primario" style="display:block; text-align:center; padding:6px; font-size:11px; border-radius:6px; margin-top:8px; text-decoration:none;">Ver Transmisión Directa 🌐</a>` : ''}
+      </div>`;
+    }
+
+    // 9. Met Museum (Obras de arte)
+    if (t === 'met_museum' && Array.isArray(toolResult.artworks) && toolResult.artworks.length) {
+      const items = toolResult.artworks.map(art => `
+        <div style="padding:6px; background:rgba(0,0,0,0.02); border-radius:8px; margin-bottom:6px;">
+          ${art.primaryImage ? `<img src="${escapar(art.primaryImage)}" style="width:100%; max-height:160px; object-fit:cover; border-radius:6px; margin-bottom:4px; cursor:pointer;" onclick="window.abrirVisorImagen('${art.primaryImage.replace(/'/g, "\\'")}')">` : ''}
+          <div style="font-weight:700; font-size:12px;">${escapar(art.title)}</div>
+          <div style="font-size:11px; opacity:0.8;">${escapar(art.artist)} (${escapar(art.date || 'N/A')})</div>
+        </div>
+      `).join('');
+
+      return `<div style="margin-top:8px; padding:10px; background:var(--fondo-tarjeta, #fff); border:1px solid var(--borde, #e5e7eb); border-radius:12px; max-width:300px;">
+        <div style="font-weight:700; font-size:12px; margin-bottom:6px; color:#8b5cf6;">🖼️ Metropolitan Museum of Art:</div>
+        ${items}
+      </div>`;
+    }
+
     return '';
   }
 
@@ -434,8 +533,25 @@ const Chat = (() => {
       $('chatMensajes').appendChild(pintarBurbuja(msgUser, Sesion.usuario().id));
       $('chatMensajes').scrollTop = $('chatMensajes').scrollHeight;
 
+      // Crear burbuja de espera / pensándolo en el chat mientras se consulta la API
+      const loadingId = 'ai_loading_' + Date.now();
+      const loadingEl = document.createElement('div');
+      loadingEl.className = 'burbuja suya';
+      loadingEl.id = loadingId;
+      loadingEl.innerHTML = `
+        <div class="burbuja-loading-ai">
+          <span>🤖 Consultando API y procesando respuesta</span>
+          <div class="burbuja-loading-dots"><span></span><span></span><span></span></div>
+        </div>
+      `;
+      $('chatMensajes').appendChild(loadingEl);
+      $('chatMensajes').scrollTop = $('chatMensajes').scrollHeight;
+
       api('/ai/chat', { method: 'POST', body: { prompt: texto } })
         .then((res) => {
+          const elWait = document.getElementById(loadingId);
+          if (elWait) elWait.remove();
+
           const aiReplyText = res.reply || res.message || (res.error && res.error.message) || '⚠️ No se pudo obtener respuesta de la IA.';
           const msgAi = res.ai_message || {
             id: 'ai_bot_' + Date.now(),
@@ -455,6 +571,9 @@ const Chat = (() => {
           if (typeof cargarConversaciones === 'function') cargarConversaciones();
         })
         .catch((err) => {
+          const elWait = document.getElementById(loadingId);
+          if (elWait) elWait.remove();
+
           const msgError = {
             id: 'ai_bot_err_' + Date.now(),
             senderId: '00000000-0000-0000-0000-0000000000a1',
