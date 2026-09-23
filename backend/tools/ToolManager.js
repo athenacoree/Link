@@ -436,99 +436,140 @@ async function executeTool(name, params = {}, requesterId = null) {
 }
 
 /**
- * Detecta intenciones de herramientas mediante expresiones regulares
+ * Detecta intenciones de herramientas mediante lenguaje natural conversacional y contextual
  */
 function detectToolIntent(text) {
   if (!text || typeof text !== 'string') return null;
   const lower = text.toLowerCase().trim();
 
-  // Detecciones para Nuevas Herramientas Internas
-  if (lower.startsWith('hash') || lower.includes('sha256') || lower.includes('md5 de')) {
-    const txt = text.replace(/^(hash|sha256|md5 de|generar hash de)/i, '').trim();
-    return { tool: 'crypto.hash', params: { text: txt || text } };
-  }
-  if (lower.includes('generar uuid') || lower.includes('dame un uuid')) {
-    return { tool: 'crypto.uuid', params: {} };
-  }
-  if (lower.includes('métricas de texto') || lower.includes('contar palabras') || lower.includes('estadísticas de texto')) {
-    return { tool: 'text.stats', params: { text } };
-  }
-  if (lower.startsWith('slugify') || lower.includes('generar slug')) {
-    const txt = text.replace(/^(slugify|generar slug de)/i, '').trim();
-    return { tool: 'text.slugify', params: { text: txt || text } };
-  }
-  if (lower.includes('es primo') || lower.includes('numero primo') || lower.includes('número primo')) {
-    const numMatch = text.match(/\b\d+\b/);
-    if (numMatch) return { tool: 'math.prime_check', params: { number: parseInt(numMatch[0], 10) } };
+  // 1. Clima y tiempo atmosférico (conversacional)
+  if (
+    lower.includes('clima') || lower.includes('tiempo hace') || lower.includes('tiempo en') ||
+    lower.includes('temperatura en') || lower.includes('va a llover') || lower.includes('pronóstico') ||
+    lower.includes('pronostico') || lower.includes('hace frio en') || lower.includes('hace calor en')
+  ) {
+    const locMatch = text.match(/(?:clima|tiempo|temperatura|llover|pronóstico|pronostico|frio|calor)\s+(?:de|en|para|por)?\s*([a-záéíóúñ\s]+)/i);
+    let loc = locMatch ? locMatch[1].replace(/\b(hoy|mañana|esta semana|ahora|por favor)\b/gi, '').trim() : '';
+    if (!loc) {
+      const words = text.split(/\s+/);
+      loc = words.length > 2 ? words.slice(-2).join(' ') : 'La Habana';
+    }
+    return { tool: 'weather.get', params: { location: loc } };
   }
 
-  // Detecciones para APIs Externas
-  if (lower.includes('imagen del dia nasa') || lower.includes('nasa apod') || lower.includes('foto del dia de la nasa')) {
-    return { tool: 'nasa.apod', params: {} };
+  // 2. Cotización y precios de Criptomonedas
+  if (
+    lower.includes('bitcoin') || lower.includes('btc') || lower.includes('ethereum') ||
+    lower.includes('eth') || lower.includes('solana') || lower.includes('cripto') ||
+    lower.includes('criptomonedas') || lower.includes('precio de btc') || lower.includes('cuanto vale el bitcoin')
+  ) {
+    let ids = 'bitcoin,ethereum,solana';
+    if (lower.includes('bitcoin') || lower.includes('btc')) ids = 'bitcoin';
+    else if (lower.includes('ethereum') || lower.includes('eth')) ids = 'ethereum';
+    else if (lower.includes('solana') || lower.includes('sol')) ids = 'solana';
+    return { tool: 'coingecko.prices', params: { ids } };
   }
-  if (lower.includes('asteroides hoy') || lower.includes('asteroides cercanos') || lower.includes('nasa asteroides')) {
-    return { tool: 'nasa.asteroids', params: {} };
-  }
-  if (lower.includes('obras de arte') || lower.includes('met museum') || lower.includes('museo metropolitano')) {
-    const q = text.replace(/.*(?:obras de arte|met museum|museo metropolitano)\s*/i, '').trim();
-    return { tool: 'metmuseum.search', params: { query: q || 'sunflowers' } };
-  }
-  if (lower.includes('poema de') || lower.includes('poema sobre') || lower.includes('poetrydb')) {
-    const q = text.replace(/.*(?:poema de|poema sobre|poetrydb)\s*/i, '').trim();
-    return { tool: 'poetrydb.search', params: { query: q || 'love' } };
-  }
-  if (lower.includes('tasa de cambio') || lower.includes('tasas de cambio') || lower.includes('divisas hoy')) {
+
+  // 3. Conversión de divisas y tasas de cambio
+  if (
+    lower.includes('convierte') || lower.includes('conversión') || lower.includes('conversion') ||
+    lower.includes('cuántos euros son') || lower.includes('cuantos euros son') || lower.includes('cuántos dólares son') ||
+    lower.includes('cuantos dolares son') || lower.includes('dólares a euros') || lower.includes('euros a dólares') ||
+    lower.includes('tasa de cambio') || lower.includes('tasas de cambio') || lower.includes('divisas hoy')
+  ) {
+    const convMatch = text.match(/(\d+(?:\.\d+)?)\s*([a-z$€£¥]+)\s*(?:a|en|por)\s*([a-z$€£¥]+)/i);
+    if (convMatch) {
+      const amount = parseFloat(convMatch[1]);
+      const fromStr = convMatch[2].toUpperCase();
+      const toStr = convMatch[3].toUpperCase();
+      const mapCurrency = (s) => {
+        if (s.includes('$') || s.includes('USD') || s.includes('DOLAR')) return 'USD';
+        if (s.includes('€') || s.includes('EUR') || s.includes('EURO')) return 'EUR';
+        if (s.includes('£') || s.includes('GBP')) return 'GBP';
+        if (s.includes('CUP') || s.includes('PESO')) return 'CUP';
+        return s;
+      };
+      return { tool: 'frankfurter.convert', params: { amount: amount || 1, from: mapCurrency(fromStr), to: mapCurrency(toStr) } };
+    }
     return { tool: 'exchangerate.latest', params: { base: 'USD' } };
   }
-  if (lower.includes('definicion de') || lower.includes('definición de') || lower.includes('diccionario en ingles')) {
-    const w = text.replace(/.*(?:definicion de|definición de|diccionario en ingles)\s*/i, '').trim();
-    return { tool: 'dictionary.lookup', params: { word: w || 'science' } };
+
+  // 4. Hora mundial
+  if (
+    lower.includes('hora en') || lower.includes('qué hora es') || lower.includes('que hora es') ||
+    lower.includes('hora tiene') || lower.includes('hora actual en')
+  ) {
+    const locMatch = text.match(/(?:hora\s+(?:en|de|tiene)?)\s*([a-záéíóúñ\s]+)/i);
+    const loc = locMatch ? locMatch[1].replace(/\b(ahora|por favor)\b/gi, '').trim() : 'La Habana';
+    return { tool: 'world.time', params: { location: loc || 'La Habana' } };
   }
-  if (lower.includes('anime sobre') || lower.includes('buscar anime') || lower.includes('jikan anime')) {
-    const q = text.replace(/.*(?:anime sobre|buscar anime|jikan anime)\s*/i, '').trim();
-    return { tool: 'jikan.anime', params: { query: q || 'naruto' } };
+
+  // 5. Chistes y humor
+  if (
+    lower.includes('chiste') || lower.includes('cuéntame algo gracioso') || lower.includes('cuentame algo gracioso') ||
+    lower.includes('dime algo divertido') || lower.includes('hazme reír') || lower.includes('hazme reir')
+  ) {
+    return { tool: 'joke.get', params: {} };
   }
-  if (lower.includes('dame un consejo') || lower.includes('consejo aleatorio') || lower.includes('advice slip')) {
+
+  // 6. Datos curiosos de números o curiosidades
+  if (
+    lower.includes('dato curioso del número') || lower.includes('dato curioso del numero') ||
+    lower.includes('curiosidad sobre el número') || lower.includes('curiosidad del número') ||
+    lower.includes('dato de número') || lower.includes('numbers api')
+  ) {
+    const numMatch = text.match(/\b\d+\b/);
+    return { tool: 'numbers.fact', params: { number: numMatch ? numMatch[0] : 'random', type: 'trivia' } };
+  }
+
+  // 7. Consejos y motivación
+  if (
+    lower.includes('dame un consejo') || lower.includes('necesito un consejo') || lower.includes('dame un tip') ||
+    lower.includes('consejo aleatorio') || lower.includes('advice slip')
+  ) {
     return { tool: 'advice.slip', params: {} };
   }
 
-  // Geolocalización por IP
-  if (lower.includes('mi ip') || lower.includes('geolocalización') || lower.includes('geolocalizacion') || lower.includes('ubicar ip') || lower.includes('donde esta la ip') || lower.includes('dónde está la ip')) {
-    const ipMatch = text.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/);
-    return { tool: 'ip.geolocation', params: { ip: ipMatch ? ipMatch[0] : '' } };
-  }
-
-  // Búsqueda por intereses
-  if (lower.includes('personas que les guste') || lower.includes('personas interesadas en') || lower.includes('buscar por interes') || lower.includes('buscar por interés') || lower.includes('quien le gusta')) {
-    const intMatch = text.replace(/.*(?:guste|interesadas en|interés|interes|gustos)\s+/i, '').trim();
-    if (intMatch) return { tool: 'user.search_by_interest', params: { interest: intMatch } };
-  }
-
-  // Publicaciones
-  if (lower.includes('publicaciones sobre') || lower.includes('posts sobre') || lower.includes('buscar publicaciones') || lower.includes('ver publicaciones') || lower.includes('que han publicado')) {
-    const postMatch = text.replace(/.*(?:publicaciones sobre|posts sobre|buscar publicaciones|ver publicaciones|publicaciones de)\s+/i, '').trim();
-    if (postMatch) return { tool: 'posts.search', params: { query: postMatch } };
-  }
-
-  // Descubrir APIs
-  if (lower.includes('descubre apis') || lower.includes('descubrir apis') || lower.includes('buscar api') || lower.includes('integrar api') || lower.includes('descubrir api')) {
-    const apiQuery = text.replace(/.*(?:descubre apis|descubrir apis|buscar api|integrar api|descubrir api)\s+/i, '').trim();
-    return { tool: 'dynamic.discover', params: { query: apiQuery || text } };
-  }
-
-  // Búsqueda de perfil de persona/usuario en la plataforma Enlace
+  // 8. Recetas de cocina
   if (
-    lower.includes('perfil de') ||
-    lower.includes('busca a') ||
-    lower.includes('buscar usuario') ||
-    lower.includes('ver perfil') ||
-    lower.includes('quién es') ||
-    lower.includes('quien es') ||
-    lower.includes('muéstrame a') ||
-    lower.includes('muestrame a') ||
-    lower.includes('encuentra a')
+    lower.includes('receta de') || lower.includes('cómo preparar') || lower.includes('como preparar') ||
+    lower.includes('cómo cocinar') || lower.includes('como cocinar') || lower.includes('ingredientes para')
   ) {
-    const userMatch = text.match(/(?:perfil\s+de|busca\s+a|buscar\s+usuario|ver\s+perfil|quién\s+es|quien\s+es|muéstrame\s+a|muestrame\s+a|encuentra\s+a)\s+@?([a-záéíóúñ0-9._\s]+)/i);
+    const dish = text.replace(/.*(?:receta de|cómo preparar|como preparar|cómo cocinar|como cocinar|ingredientes para)\s*/i, '').trim();
+    return { tool: 'themealdb.search', params: { query: dish || 'pasta' } };
+  }
+
+  // 9. Series y Televisión
+  if (
+    lower.includes('serie sobre') || lower.includes('serie de tv') || lower.includes('programa de tv') ||
+    lower.includes('información de la serie') || lower.includes('informacion de la serie') || lower.includes('tvmaze')
+  ) {
+    const show = text.replace(/.*(?:serie sobre|serie de tv|programa de tv|información de la serie|informacion de la serie|tvmaze)\s*/i, '').trim();
+    return { tool: 'tvmaze.search', params: { query: show || 'breaking bad' } };
+  }
+
+  // 10. Wikipedia / Enciclopedia / Quién es / Qué es
+  if (
+    lower.includes('quién fue') || lower.includes('quien fue') || lower.includes('quién es') || lower.includes('quien es') ||
+    lower.includes('biografía de') || lower.includes('biografia de') || lower.includes('qué es') || lower.includes('que es') ||
+    lower.includes('historia de') || lower.includes('wikipedia')
+  ) {
+    // Si menciona perfil o usuario de la red social Enlace, dejar pasar a la herramienta social
+    if (!lower.includes('en enlace') && !lower.includes('en la plataforma') && !lower.includes('en la red')) {
+      const topicMatch = text.replace(/.*(?:quién fue|quien fue|quién es|quien es|biografía de|biografia de|qué es|que es|historia de|wikipedia sobre|wikipedia)\s*/i, '').replace(/(\.|\?|!)+$/, '').trim();
+      if (topicMatch && topicMatch.length > 2) {
+        return { tool: 'wikipedia.search', params: { query: topicMatch, lang: 'es' } };
+      }
+    }
+  }
+
+  // 11. Búsqueda de perfil de usuario en la red social Enlace
+  if (
+    lower.includes('perfil de') || lower.includes('busca a') || lower.includes('buscar usuario') ||
+    lower.includes('ver perfil') || lower.includes('muéstrame a') || lower.includes('muestrame a') ||
+    lower.includes('encuentra a') || lower.includes('usuario @')
+  ) {
+    const userMatch = text.match(/(?:perfil\s+de|busca\s+a|buscar\s+usuario|ver\s+perfil|muéstrame\s+a|muestrame\s+a|encuentra\s+a|usuario\s+@?)\s+@?([a-záéíóúñ0-9._\s]+)/i);
     if (userMatch && userMatch[1]) {
       let cleanTarget = userMatch[1]
         .replace(/\b(en\s+la\s+plataforma|en\s+enlace|por\s+favor|en\s+la\s+red)\b/gi, '')
@@ -540,67 +581,136 @@ function detectToolIntent(text) {
     }
   }
 
-  // Wikipedia / Enciclopedia
-  if (lower.includes('quién fue') || lower.includes('quien fue') || lower.includes('biografía de') || lower.includes('wikipedia') || lower.includes('qué es') || lower.includes('que es')) {
-    const topicMatch = text.replace(/^(quién fue|quien fue|biografía de|qué es|que es|busca en wikipedia sobre|wikipedia sobre)/i, '').trim();
-    if (topicMatch) return { tool: 'wikipedia.search', params: { query: topicMatch, lang: 'es' } };
+  // 12. Búsqueda de usuarios por intereses en Enlace
+  if (
+    lower.includes('personas que les guste') || lower.includes('personas interesadas en') ||
+    lower.includes('buscar por interes') || lower.includes('buscar por interés') || lower.includes('quien le gusta') ||
+    lower.includes('gente que le guste') || lower.includes('usuarios que les guste')
+  ) {
+    const intMatch = text.replace(/.*(?:guste|interesadas en|interés|interes|gustos)\s+/i, '').trim();
+    if (intMatch) return { tool: 'user.search_by_interest', params: { interest: intMatch } };
   }
 
-  // Libros / Open Library
-  if (lower.includes('libro') || lower.includes('autor de') || lower.includes('busca el libro')) {
-    const bookMatch = text.replace(/^(libro|autor de|busca el libro)/i, '').trim();
+  // 13. Publicaciones en Enlace
+  if (
+    lower.includes('publicaciones sobre') || lower.includes('posts sobre') || lower.includes('buscar publicaciones') ||
+    lower.includes('ver publicaciones') || lower.includes('que han publicado')
+  ) {
+    const postMatch = text.replace(/.*(?:publicaciones sobre|posts sobre|buscar publicaciones|ver publicaciones|que han publicado|publicaciones de)\s+/i, '').trim();
+    if (postMatch) return { tool: 'posts.search', params: { query: postMatch } };
+  }
+
+  // 14. Libros y literatura (Open Library)
+  if (
+    lower.includes('libro') || lower.includes('autor de') || lower.includes('busca el libro') ||
+    lower.includes('recomiéndame un libro') || lower.includes('recomiendame un libro') || lower.includes('obras de')
+  ) {
+    const bookMatch = text.replace(/.*(?:libro sobre|libro de|autor de|busca el libro|recomiéndame un libro|recomiendame un libro|obras de)\s*/i, '').trim();
     if (bookMatch) return { tool: 'openlibrary.search', params: { query: bookMatch } };
   }
 
-  // Países / REST Countries
-  if (lower.includes('país') || lower.includes('pais') || lower.includes('capital de') || lower.includes('población de')) {
-    const countryMatch = text.replace(/^(país|pais|capital de|población de)/i, '').trim();
-    if (countryMatch) return { tool: 'restcountries.get', params: { country: countryMatch } };
+  // 15. Países e información geográfica (REST Countries)
+  if (
+    lower.includes('país') || lower.includes('pais') || lower.includes('capital de') ||
+    lower.includes('población de') || lower.includes('bandera de') || lower.includes('datos de')
+  ) {
+    const countryMatch = text.replace(/.*(?:país|pais|capital de|población de|bandera de|datos de)\s*/i, '').trim();
+    if (countryMatch && countryMatch.length > 2) return { tool: 'restcountries.get', params: { country: countryMatch } };
   }
 
-  // Cámara pública
-  if (lower.includes('cámara') || lower.includes('camara') || lower.includes('webcam') || lower.includes('muéstrame una cámara')) {
-    const locMatch = text.match(/(?:cámara|camara|webcam|de)\s+(?:de\s+)?([a-záéíóúñ\s]+)/i);
+  // 16. Cámaras web en vivo
+  if (
+    lower.includes('cámara') || lower.includes('camara') || lower.includes('webcam') ||
+    lower.includes('muéstrame una cámara') || lower.includes('camara en vivo')
+  ) {
+    const locMatch = text.match(/(?:cámara|camara|webcam)\s+(?:de|en)?\s*([a-záéíóúñ\s]+)/i);
     const loc = locMatch ? locMatch[1].replace(/pública|publica|en vivo/gi, '').trim() : 'Tokio';
     return { tool: 'webcam.search', params: { location: loc || 'Tokio' } };
   }
 
-  // Clima
-  if (lower.includes('clima') || lower.includes('tiempo en') || lower.includes('temperatura')) {
-    const locMatch = text.match(/(?:clima|tiempo|temperatura)\s+(?:de|en)?\s*([a-záéíóúñ\s]+)/i);
-    const loc = locMatch ? locMatch[1].trim() : 'La Habana';
-    return { tool: 'weather.get', params: { location: loc || 'La Habana' } };
+  // 17. Vídeos en YouTube
+  if (
+    lower.includes('youtube') || lower.includes('vídeo de') || lower.includes('video de') ||
+    lower.includes('buscar video') || lower.includes('búscame un video') || lower.includes('buscame un video')
+  ) {
+    const qMatch = text.replace(/.*(?:youtube|vídeo de|video de|buscar video|búscame un video|buscame un video)\s*/i, '').trim();
+    return { tool: 'youtube.search', params: { query: qMatch || text } };
   }
 
-  // Hora mundial
-  if (lower.includes('hora en') || lower.includes('qué hora es') || lower.includes('que hora es')) {
-    const locMatch = text.match(/(?:hora\s+(?:en|de)?)\s*([a-záéíóúñ\s]+)/i);
-    const loc = locMatch ? locMatch[1].trim() : 'La Habana';
-    return { tool: 'world.time', params: { location: loc || 'La Habana' } };
+  // 18. NASA y Obras de Arte (Prioridad antes de generación genérica de imágenes)
+  if (lower.includes('imagen del dia nasa') || lower.includes('nasa apod') || lower.includes('foto del dia de la nasa')) {
+    return { tool: 'nasa.apod', params: {} };
   }
 
-  // Vídeo YouTube
-  if (lower.includes('youtube') || lower.includes('vídeo de') || lower.includes('video de') || lower.includes('buscar video')) {
-    const qMatch = text.match(/(?:youtube|vídeo|video|de)\s+(?:de\s+)?([a-záéíóúñ0-9\s]+)/i);
-    return { tool: 'youtube.search', params: { query: qMatch ? qMatch[1].trim() : text } };
-  }
-
-  // Generar imagen
-  if (lower.startsWith('dibuja') || lower.startsWith('genera una imagen') || lower.startsWith('crea una imagen') || lower.includes('imagen de')) {
-    const promptMatch = text.replace(/^(dibuja|genera una imagen de|crea una imagen de|imagen de)/i, '').trim();
+  // 19. Generación de imágenes
+  if (
+    lower.startsWith('dibuja') || lower.startsWith('genera una imagen') || lower.startsWith('crea una imagen') ||
+    lower.includes('imagen de') || lower.includes('haz una imagen') || lower.includes('diseña una imagen')
+  ) {
+    const promptMatch = text.replace(/.*(?:dibuja|genera una imagen de|crea una imagen de|imagen de|haz una imagen de|diseña una imagen de)\s*/i, '').trim();
     return { tool: 'image.generate', params: { prompt: promptMatch || text, enhance: true } };
   }
 
-  // Búsqueda web
-  if (lower.startsWith('busca') || lower.startsWith('buscar en la web') || lower.includes('noticias sobre') || lower.includes('investiga')) {
-    const q = text.replace(/^(busca|buscar en la web|noticias sobre|investiga sobre|investiga)/i, '').trim();
-    return { tool: 'web.search', params: { query: q || text } };
+  // 20. Traducción de texto
+  if (
+    lower.startsWith('traduce') || lower.includes('traducir al') || lower.includes('cómo se dice') || lower.includes('como se dice')
+  ) {
+    let targetLang = 'en';
+    if (lower.includes('español') || lower.includes('espanol')) targetLang = 'es';
+    else if (lower.includes('francés') || lower.includes('frances')) targetLang = 'fr';
+    else if (lower.includes('alemán') || lower.includes('aleman')) targetLang = 'de';
+    else if (lower.includes('italiano')) targetLang = 'it';
+
+    const textToTranslate = text.replace(/.*(?:traduce|traducir al \w+|cómo se dice|como se dice)\s*/i, '').trim();
+    return { tool: 'translate', params: { text: textToTranslate || text, target_lang: targetLang } };
   }
 
-  // Cálculo
-  if (lower.startsWith('calcula') || lower.startsWith('cuánto es') || lower.startsWith('cuanto es')) {
+  // 21. Cálculos matemáticos y estadísticas
+  if (
+    lower.startsWith('calcula') || lower.startsWith('cuánto es') || lower.startsWith('cuanto es') ||
+    lower.match(/^[\d\s+\-*/().^%]+$/)
+  ) {
     const expr = text.replace(/^(calcula|cuánto es|cuanto es)/i, '').trim();
-    return { tool: 'math.calculate', params: { expression: expr } };
+    return { tool: 'math.calculate', params: { expression: expr || text } };
+  }
+  if (lower.includes('es primo') || lower.includes('numero primo') || lower.includes('número primo')) {
+    const numMatch = text.match(/\b\d+\b/);
+    if (numMatch) return { tool: 'math.prime_check', params: { number: parseInt(numMatch[0], 10) } };
+  }
+
+  // 22. Herramientas de desarrollo / GitHub / NPM
+  if (lower.includes('github') || lower.includes('repositorio de') || lower.includes('repositorios sobre')) {
+    const q = text.replace(/.*(?:github|repositorio de|repositorios sobre)\s*/i, '').trim();
+    return { tool: 'github.search', params: { query: q || 'node.js' } };
+  }
+  if (lower.includes('npm') || lower.includes('paquete de node') || lower.includes('paquete npm')) {
+    const pkg = text.replace(/.*(?:npm|paquete de node|paquete npm)\s*/i, '').trim();
+    return { tool: 'npm.search', params: { package: pkg || 'express' } };
+  }
+  if (lower.includes('obras de arte') || lower.includes('met museum') || lower.includes('museo metropolitano')) {
+    const q = text.replace(/.*(?:obras de arte|met museum|museo metropolitano)\s*/i, '').trim();
+    return { tool: 'metmuseum.search', params: { query: q || 'sunflowers' } };
+  }
+
+  // 23. Herramientas internas (Crypto, Texto)
+  if (lower.startsWith('hash') || lower.includes('sha256') || lower.includes('md5 de')) {
+    const txt = text.replace(/^(hash|sha256|md5 de|generar hash de)/i, '').trim();
+    return { tool: 'crypto.hash', params: { text: txt || text } };
+  }
+  if (lower.includes('generar uuid') || lower.includes('dame un uuid')) {
+    return { tool: 'crypto.uuid', params: {} };
+  }
+  if (lower.includes('métricas de texto') || lower.includes('contar palabras') || lower.includes('estadísticas de texto')) {
+    return { tool: 'text.stats', params: { text } };
+  }
+
+  // 24. Búsqueda web abierta (fallback para consultas informativas / investigativas)
+  if (
+    lower.startsWith('busca') || lower.startsWith('buscar en la web') || lower.includes('noticias sobre') ||
+    lower.includes('investiga sobre') || lower.includes('últimas noticias') || lower.includes('ultimas noticias')
+  ) {
+    const q = text.replace(/^(busca|buscar en la web|noticias sobre|investiga sobre|últimas noticias sobre|ultimas noticias sobre)/i, '').trim();
+    return { tool: 'web.search', params: { query: q || text } };
   }
 
   return null;

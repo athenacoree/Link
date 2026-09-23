@@ -52,7 +52,24 @@ async function runSystemTests() {
 
   const intentHash = ToolManager.detectToolIntent('sha256 de hola mundo');
   assert.strictEqual(intentHash?.tool, 'crypto.hash', 'Debe detectar intención de Hash SHA256');
-  console.log('   ✅ Detección de intenciones validada.');
+
+  // Pruebas adicionales de lenguaje natural conversacional
+  const intentWeatherNatural = ToolManager.detectToolIntent('oye dime qué tiempo hace en Madrid hoy por favor');
+  assert.strictEqual(intentWeatherNatural?.tool, 'weather.get', 'Debe detectar clima de forma conversacional');
+
+  const intentCryptoNatural = ToolManager.detectToolIntent('cuánto vale el bitcoin ahora mismo');
+  assert.strictEqual(intentCryptoNatural?.tool, 'coingecko.prices', 'Debe detectar precio de criptomoneda de forma conversacional');
+
+  const intentJokeNatural = ToolManager.detectToolIntent('cuéntame algo gracioso para reírme');
+  assert.strictEqual(intentJokeNatural?.tool, 'joke.get', 'Debe detectar chiste de forma conversacional');
+
+  const intentRecipeNatural = ToolManager.detectToolIntent('¿cómo preparar lasañas deliciosas?');
+  assert.strictEqual(intentRecipeNatural?.tool, 'themealdb.search', 'Debe detectar receta de forma conversacional');
+
+  const intentConvertNatural = ToolManager.detectToolIntent('convierte 100 USD a EUR');
+  assert.strictEqual(intentConvertNatural?.tool, 'frankfurter.convert', 'Debe detectar conversión de divisas de forma conversacional');
+
+  console.log('   ✅ Detección de intenciones validada con lenguaje natural.');
 
   // 4. Prueba de Ejecución de Herramientas Modulares (Existentes y Nuevas)
   console.log('4. Probando ejecuciones individuales de herramientas...');

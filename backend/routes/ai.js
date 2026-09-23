@@ -102,8 +102,9 @@ router.post('/chat', requireAuth, aiRateLimiter, async (req, res) => {
     if (toolResult) {
       if (toolResult.error) {
         toolContextText = `\n\n[Información de Herramienta '${detectedTool?.tool || 'desconocida'}']: Ocurrió un error al consultar: ${toolResult.error}`;
-      } else if (toolResult.data) {
-        toolContextText = `\n\n[Datos obtenidos de la herramienta '${detectedTool?.tool || toolResult.type || 'ejecutada'}']: ${JSON.stringify(toolResult.data)}`;
+      } else {
+        const payload = toolResult.data !== undefined ? toolResult.data : toolResult;
+        toolContextText = `\n\n[Datos obtenidos de la herramienta '${detectedTool?.tool || toolResult.type || 'ejecutada'}']: ${JSON.stringify(payload)}`;
       }
     }
 
