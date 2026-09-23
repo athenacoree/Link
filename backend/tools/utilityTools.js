@@ -179,6 +179,34 @@ async function getNumbersApiFact(number = 'random', type = 'trivia') {
   }
 }
 
+const AdmZip = require('adm-zip');
+
+async function createZipArchive(filename = 'archivo_enlace.zip', files = []) {
+  try {
+    const zip = new AdmZip();
+    if (Array.isArray(files) && files.length > 0) {
+      files.forEach(f => {
+        const fname = f.name || 'archivo.txt';
+        const fcontent = typeof f.content === 'string' ? f.content : JSON.stringify(f.content || '');
+        zip.addFile(fname, Buffer.from(fcontent, 'utf8'));
+      });
+    } else {
+      zip.addFile('nota.txt', Buffer.from('Archivo generado por Link AI en la red social Link.', 'utf8'));
+    }
+
+    const zipBase64 = zip.toBuffer().toString('base64');
+    return {
+      type: 'zip_download',
+      filename: filename.endsWith('.zip') ? filename : `${filename}.zip`,
+      download_url: `/api/ai/download-zip?filename=${encodeURIComponent(filename)}`,
+      zip_data_base64: zipBase64,
+      file_count: files.length || 1,
+    };
+  } catch (err) {
+    return { error: `Error al crear archivo ZIP: ${err.message}` };
+  }
+}
+
 module.exports = {
   getNagerHolidays,
   convertCurrencyFrankfurter,
@@ -188,4 +216,5 @@ module.exports = {
   getRandomDogImage,
   getCatFact,
   getNumbersApiFact,
+  createZipArchive,
 };

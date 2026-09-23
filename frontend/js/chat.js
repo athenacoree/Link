@@ -92,7 +92,7 @@ const Chat = (() => {
     const t = toolResult.type;
     const data = toolResult.data || {};
 
-    // 1. Tarjeta de Perfil Social / Usuario
+    // 1. Tarjeta de Perfil Social / Usuario con animación de pulso y latido
     if (t === 'social_profile_card') {
       const avatarSrc = data.avatar || iconoDefecto();
       const esAdmin = data.is_admin || data.role === 'admin';
@@ -102,11 +102,11 @@ const Chat = (() => {
       let badgeVerif = esVerificado ? `<span style="color:#3b82f6; font-size:13px; margin-left:2px;" title="Verificado">✓</span>` : '';
 
       let linksHtml = '';
-      if (data.instagram) linksHtml += `<a href="https://instagram.com/${escapar(data.instagram.replace(/^@/,''))}" target="_blank" style="color:#e1306c; text-decoration:none; font-size:12px; font-weight:600;">📷 Instagram</a> `;
-      if (data.telegram) linksHtml += `<a href="https://t.me/${escapar(data.telegram.replace(/^@/,''))}" target="_blank" style="color:#0088cc; text-decoration:none; font-size:12px; font-weight:600;">✈️ Telegram</a> `;
-      if (data.whatsapp) linksHtml += `<a href="https://wa.me/${escapar(data.whatsapp.replace(/\+/g,''))}" target="_blank" style="color:#25d366; text-decoration:none; font-size:12px; font-weight:600;">💬 WhatsApp</a> `;
+      if (data.instagram) linksHtml += `<a href="https://instagram.com/${escapar(data.instagram.replace(/^@/,''))}" target="_blank" style="color:#e1306c; text-decoration:none; font-size:12px; font-weight:600; display:inline-flex; align-items:center; gap:4px;"><img src="https://cdn-icons-png.flaticon.com/512/174/174855.png" style="width:14px; height:14px;"> Instagram</a> `;
+      if (data.telegram) linksHtml += `<a href="https://t.me/${escapar(data.telegram.replace(/^@/,''))}" target="_blank" style="color:#0088cc; text-decoration:none; font-size:12px; font-weight:600; display:inline-flex; align-items:center; gap:4px;"><img src="https://cdn-icons-png.flaticon.com/512/2111/2111646.png" style="width:14px; height:14px;"> Telegram</a> `;
+      if (data.whatsapp) linksHtml += `<a href="https://wa.me/${escapar(data.whatsapp.replace(/\+/g,''))}" target="_blank" style="color:#25d366; text-decoration:none; font-size:12px; font-weight:600; display:inline-flex; align-items:center; gap:4px;"><img src="https://cdn-icons-png.flaticon.com/512/733/733585.png" style="width:14px; height:14px;"> WhatsApp</a> `;
 
-      return `<div style="margin-top:8px; padding:12px; background:var(--fondo-tarjeta, #ffffff); border:1px solid var(--borde, #e5e7eb); border-radius:12px; box-shadow:0 2px 6px rgba(0,0,0,0.06); max-width:280px; color:var(--texto-900, #111827);">
+      return `<div class="tarjeta-contacto-pulsante">
         <div style="display:flex; align-items:center; gap:10px;">
           <img src="${escapar(avatarSrc)}" alt="" style="width:48px; height:48px; border-radius:50%; object-fit:cover; border:2px solid var(--morado-500, #8b5cf6);">
           <div style="flex:1; min-width:0;">
@@ -117,7 +117,10 @@ const Chat = (() => {
         </div>
         ${data.bio ? `<div style="margin-top:8px; font-size:12px; line-height:1.3; opacity:0.9; max-height:45px; overflow:hidden;">${escapar(data.bio)}</div>` : ''}
         ${linksHtml ? `<div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;">${linksHtml}</div>` : ''}
-        ${data.url ? `<div style="margin-top:10px;"><a href="${escapar(data.url)}" class="mini-btn primario" style="display:block; text-align:center; padding:5px 10px; font-size:12px; border-radius:8px; text-decoration:none;">Ver Perfil Completo 👤</a></div>` : ''}
+        <div style="margin-top:10px; display:flex; gap:6px;">
+          ${data.url ? `<a href="${escapar(data.url)}" class="mini-btn primario" style="flex:1; text-align:center; padding:6px 8px; font-size:11.5px; border-radius:8px; text-decoration:none;">Ver Perfil 👤</a>` : ''}
+          <button class="mini-btn secundario" style="flex:1; padding:6px 8px; font-size:11.5px; border-radius:8px;" onclick="Chat.enviarInvitacionCita('${escapar(data.id || '')}', '${escapar(data.name || data.username)}')">📅 Agendar Cita</button>
+        </div>
       </div>`;
     }
 
@@ -185,6 +188,20 @@ const Chat = (() => {
       </div>`;
     }
 
+    // 5. Archivo ZIP Descargable
+    if (t === 'zip_download' && data) {
+      return `<div style="margin-top:8px; padding:12px; background:var(--fondo-tarjeta, #fff); border:1px solid var(--morado-500, #8b5cf6); border-radius:12px; max-width:290px; font-size:12.5px;">
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+          <span style="font-size:20px;">📦</span>
+          <div>
+            <div style="font-weight:700; color:var(--morado-700);">${escapar(data.filename || 'archivo.zip')}</div>
+            <div style="font-size:11px; opacity:0.75;">${data.file_count || 1} archivo(s) comprimido(s)</div>
+          </div>
+        </div>
+        <a href="${escapar(data.download_url || '#')}" download="${escapar(data.filename || 'archivo.zip')}" class="mini-btn primario" style="display:block; text-align:center; padding:6px 10px; font-size:12px; border-radius:8px; text-decoration:none; margin-top:8px;">Descargar Archivo ZIP ⬇️</a>
+      </div>`;
+    }
+
     return '';
   }
 
@@ -209,16 +226,45 @@ const Chat = (() => {
       </div>`;
     }
 
-    if (msg.isAiMentionCard || msg.senderId === '00000000-0000-0000-0000-0000000000a1') {
+    let textoAMostrar = msg.text || '';
+    if (textoAMostrar.includes('[EMOTION:')) {
+      const matchEmotion = textoAMostrar.match(/\[EMOTION:\s*([a-z_]+)\]/i);
+      if (matchEmotion) {
+        const emocionClase = matchEmotion[1].toLowerCase();
+        cont.classList.add(`msg-emocion-${emocionClase}`);
+        textoAMostrar = textoAMostrar.replace(/\[EMOTION:\s*[a-z_]+\]/gi, '').trim();
+      }
+    }
+
+    if (textoAMostrar && textoAMostrar.includes('[INVITACION_CITA:')) {
+      const match = textoAMostrar.match(/\[INVITACION_CITA:([a-f0-9\-]+)\]/i);
+      const apptId = match ? match[1] : '';
+      const textoLimpio = textoAMostrar.replace(/\[INVITACION_CITA:[a-f0-9\-]+\]/gi, '').trim();
+
+      html += `<div class="tarjeta-cita-interactive">
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+          <span style="font-size:20px;">📅</span>
+          <div>
+            <div style="font-weight:800; font-size:13.5px; color:var(--morado-700);">Invitación de Cita / Plan</div>
+            <div style="font-size:11px; opacity:0.8;">${msg.senderId === yoId ? 'Enviada por ti' : 'Recibida de ' + (conversacionAbiertaCon?.name || 'Usuario')}</div>
+          </div>
+        </div>
+        <div style="font-size:12.5px; line-height:1.4; margin-bottom:10px;">${formatearUrlsTexto(escapar(textoLimpio))}</div>
+        ${!esMia && apptId ? `<div id="acciones_cita_${apptId}" style="display:flex; gap:8px; margin-top:8px;">
+          <button class="mini-btn primario" style="flex:1; padding:6px; font-size:11.5px; border-radius:8px;" onclick="Chat.responderCita('${apptId}', 'accept')">Aceptar ✅</button>
+          <button class="mini-btn secundario" style="flex:1; padding:6px; font-size:11.5px; border-radius:8px; color:var(--peligro);" onclick="Chat.responderCita('${apptId}', 'reject')">Rechazar ❌</button>
+        </div>` : ''}
+      </div>`;
+    } else if (msg.isAiMentionCard || msg.senderId === '00000000-0000-0000-0000-0000000000a1') {
       html += `<div class="cuadro-link-ai-expandible" style="background:linear-gradient(135deg, rgba(139,92,246,0.12), rgba(168,85,247,0.06)); border:1px solid var(--morado-500, #8b5cf6); border-radius:10px; padding:10px; margin-bottom:4px;">
         <div style="display:flex; align-items:center; gap:6px; margin-bottom:6px; border-bottom:1px solid rgba(139,92,246,0.2); padding-bottom:4px;">
           <span style="font-size:14px;">🤖</span>
           <span style="font-weight:700; font-size:12px; color:var(--morado-600, #7c3aed);">Link AI en el chat</span>
         </div>
-        <div style="font-size:12.5px; line-height:1.4;">${formatearUrlsTexto(escapar(msg.text))}</div>
+        <div style="font-size:12.5px; line-height:1.4;">${formatearUrlsTexto(escapar(textoAMostrar))}</div>
       </div>`;
-    } else if (msg.text) {
-      html += `<div>${formatearUrlsTexto(escapar(msg.text))}</div>`;
+    } else if (textoAMostrar) {
+      html += `<div>${formatearUrlsTexto(escapar(textoAMostrar))}</div>`;
     }
 
     if (msg.imageData) {
@@ -845,24 +891,31 @@ const Chat = (() => {
   }
 
   function enviarInvitacionCita(guestId, guestName) {
-    const fechaHora = prompt(`Programa la fecha y hora para la cita con ${guestName}:`, 'Mañana a las 5:00 PM');
+    const targetGuestId = guestId || (conversacionAbiertaCon ? conversacionAbiertaCon.id : null);
+    const targetGuestName = guestName || (conversacionAbiertaCon ? conversacionAbiertaCon.name : 'Contacto');
+    if (!targetGuestId) return mostrarToast('Abre un chat o selecciona un usuario para agendar cita.');
+
+    const fechaHora = prompt(`Programa la fecha y hora para la cita con ${targetGuestName}:`, 'Mañana a las 5:00 PM');
     if (!fechaHora) return;
-    const planes = prompt(`¿Qué planean hacer o a dónde ir con ${guestName}?`, 'Ir a tomar un café y conversar');
+    const planes = prompt(`¿Qué planean hacer, plan o compromiso con ${targetGuestName}?`, 'Ir a tomar un café y conversar');
     if (!planes) return;
+    const destino = prompt(`¿Destino o lugar propuesto?`, 'Cafetería Central / Lugar acordado') || 'Lugar acordado';
 
     api('/appointments', {
       method: 'POST',
       body: {
-        guest_id: guestId,
-        title: `Cita con ${guestName}`,
-        description: planes,
-        location: 'Lugar acordado',
+        guest_id: targetGuestId,
+        title: `Cita con ${targetGuestName}`,
+        description: `Plan: ${planes} | Destino: ${destino}`,
+        location: destino,
         scheduled_at: new Date(Date.now() + 86400000).toISOString()
       }
     }).then(res => {
       if (res.success && res.appointment) {
-        enviarMensaje(`📅 Te he enviado una invitación de cita para: ${fechaHora}.\nPlan: ${planes}`, null, null, 0);
-        mostrarToast('Invitación de cita enviada 📅');
+        const appt = res.appointment;
+        const citaCardTxt = `📅 [INVITACION_CITA:${appt.id}] Cita/Compromiso: ${planes}\nFecha: ${fechaHora}\nDestino: ${destino}`;
+        enviarMensaje(citaCardTxt, null, null, 0);
+        mostrarToast('Invitación de cita agendada y enviada 📅');
       }
     }).catch(err => mostrarToast(err.message || 'Error al agendar cita.'));
   }

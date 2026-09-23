@@ -273,6 +273,11 @@
         <div class="txt">Configuraciones de la cuenta</div>
         <div class="chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></div>
       </div>
+      <div class="fila-ajustes" id="btnDescubreQuePuedoHacer" style="background:linear-gradient(135deg, rgba(139,92,246,0.1), rgba(168,85,247,0.05)); border:1px solid var(--morado-300);">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--morado-700)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/><circle cx="12" cy="12" r="4"/></svg>
+        <div class="txt" style="font-weight:800; color:var(--morado-700);">✨ Descubre qué puedo hacer (Link AI)</div>
+        <div class="chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></div>
+      </div>
       <div class="fila-ajustes" id="btnDescargarBridgeApp">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         <div class="txt" data-i18n="opt_descargar_bridge_app">App Bridge Android (Edición de Fotos)</div>
@@ -1166,6 +1171,50 @@
     </div>
   </div>
   <div class="hoja-cancelar" id="cerrarConfiguraciones">Cerrar</div>
+</div>
+
+<!-- ---------- Modal Descubre qué puedo hacer (Capacidades Link AI) ---------- -->
+<div class="velo" id="veloDescubreAI"></div>
+<div class="hoja" id="hojaDescubreAI" style="bottom:20px; max-height:85vh;">
+  <div class="hoja-grupo">
+    <div class="hoja-persona"><span style="font-weight:800; color:var(--morado-700); font-size:16px;">✨ Descubre qué puedo hacer (Link AI)</span></div>
+    <div class="hoja-form" style="max-height:65vh; overflow-y:auto; font-size:13px; line-height:1.4;">
+      <p style="color:var(--texto-600); margin-bottom:12px;">Descubre algunas de las funciones más potentes de Link AI. Toca cualquier sugerencia para probarla directamente en tu chat de IA:</p>
+
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        <div style="background:var(--morado-50); border:1px solid var(--morado-200); border-radius:12px; padding:12px;">
+          <div style="font-weight:800; color:var(--morado-700); margin-bottom:4px;">🔍 Búsqueda de Personas por Intereses</div>
+          <p style="margin:0 0 8px; color:var(--texto-700);">Encuentra personas con tus mismos gustos o pasatiempos en Link.</p>
+          <button class="mini-btn primario" onclick="window.probarSugerenciaAI('Busca personas que les guste la música y la tecnología')">Probar: "Personas que les guste la música" 🚀</button>
+        </div>
+
+        <div style="background:var(--morado-50); border:1px solid var(--morado-200); border-radius:12px; padding:12px;">
+          <div style="font-weight:800; color:var(--morado-700); margin-bottom:4px;">📅 Agendamiento de Citas / Compromisos</div>
+          <p style="margin:0 0 8px; color:var(--texto-700);">Envía invitaciones interactivas con hora, plan y destino.</p>
+          <button class="mini-btn primario" onclick="window.probarSugerenciaAI('Programa una cita con Yaditza para tomar un café mañana')">Probar: "Agendar una cita para café" 📅</button>
+        </div>
+
+        <div style="background:var(--morado-50); border:1px solid var(--morado-200); border-radius:12px; padding:12px;">
+          <div style="font-weight:800; color:var(--morado-700); margin-bottom:4px;">📦 Generación y Entrega de Archivos ZIP</div>
+          <p style="margin:0 0 8px; color:var(--texto-700);">Crea archivos comprimidos descargables al instante.</p>
+          <button class="mini-btn primario" onclick="window.probarSugerenciaAI('Crea un archivo ZIP descargable con un informe')">Probar: "Entregar archivo ZIP" 📦</button>
+        </div>
+
+        <div style="background:var(--morado-50); border:1px solid var(--morado-200); border-radius:12px; padding:12px;">
+          <div style="font-weight:800; color:var(--morado-700); margin-bottom:4px;">🎨 Generación de Imágenes Digitales</div>
+          <p style="margin:0 0 8px; color:var(--texto-700);">Crea ilustraciones y arte digital a partir de tu descripción.</p>
+          <button class="mini-btn primario" onclick="window.probarSugerenciaAI('Dibuja un gato futurista con gafas de sol')">Probar: "Dibujar un gato futurista" 🎨</button>
+        </div>
+
+        <div style="background:var(--morado-50); border:1px solid var(--morado-200); border-radius:12px; padding:12px;">
+          <div style="font-weight:800; color:var(--morado-700); margin-bottom:4px;">🌐 Clima, Divisas y Misiones Inteligentes</div>
+          <p style="margin:0 0 8px; color:var(--texto-700);">Consulta el tiempo local, cotizaciones o ejecuta tareas completas.</p>
+          <button class="mini-btn primario" onclick="window.probarSugerenciaAI('¿Cómo está el clima hoy en La Habana y convierte 50 USD a EUR?')">Probar: "Clima y Conversión de USD a EUR" 🌤️</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="hoja-cancelar" onclick="document.getElementById('veloDescubreAI').classList.remove('activo'); document.getElementById('hojaDescubreAI').classList.remove('activo');">Cerrar</div>
 </div>
 
 <!-- ---------- Modal Vinculación / Descarga Enlace Bridge ---------- -->

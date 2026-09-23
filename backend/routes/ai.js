@@ -91,13 +91,23 @@ router.post('/chat', requireAuth, aiRateLimiter, async (req, res) => {
       }
     }
 
-    // Obtener contexto del usuario actual (rol, verificado, intereses, ubicación, fecha/hora real)
+    // Obtener contexto del usuario actual (rol, verificado, intereses, ubicación, fecha/hora real, etapa de vida y foto)
     let userCityCountry = '';
     let userContextText = '';
-    const nowRealTime = new Date().toLocaleString('es-ES', { timeZone: 'America/Havana', dateStyle: 'full', timeStyle: 'medium' });
+    const dateObj = new Date();
+    const nowRealTime = dateObj.toLocaleString('es-ES', { timeZone: 'America/Havana', dateStyle: 'full', timeStyle: 'medium' });
+
+    // Determinar periodo del día (Mañana / Tarde / Noche)
+    const currentHour = parseInt(dateObj.toLocaleString('es-ES', { timeZone: 'America/Havana', hour: '2-digit', hour12: false }), 10);
+    let periodoDia = 'Mañana';
+    if (currentHour >= 12 && currentHour < 18) {
+      periodoDia = 'Tarde';
+    } else if (currentHour >= 18 || currentHour < 6) {
+      periodoDia = 'Noche';
+    }
     try {
       const { rows: uRows } = await query(
-        `SELECT id, name, username, is_admin, verified, role, interests, hobbies, city, country, profession FROM users WHERE id = $1`,
+        `SELECT id, name, username, is_admin, verified, role, interests, hobbies, city, country, profession, avatar_data, age, birthdate, gender FROM users WHERE id = $1`,
         [req.user.id]
       );
       if (uRows.length > 0) {
@@ -105,9 +115,29 @@ router.post('/chat', requireAuth, aiRateLimiter, async (req, res) => {
         userCityCountry = [u.city, u.country].filter(Boolean).join(', ') || 'La Habana, Cuba';
         const esAdmin = u.is_admin || u.role === 'admin';
         const esVerificado = !!u.verified;
+        const tieneFotoPerfil = !!(u.avatar_data && u.avatar_data.length > 50);
+
+        // Determinar etapa de vida (niño, adolescente, adulto)
+        let etapaVida = 'Adulto';
+        const edadNum = parseInt(u.age, 10);
+        if (!isNaN(edadNum)) {
+          if (edadNum < 12) etapaVida = 'Niño/Niña';
+          else if (edadNum < 18) etapaVida = 'Adolescente';
+          else etapaVida = 'Adulto';
+        }
+
         let ints = [];
         try { ints = typeof u.interests === 'string' ? JSON.parse(u.interests) : (u.interests || []); } catch (e) {}
-        userContextText = `\n[Contexto del Usuario interactuando contigo]: Nombre: ${u.name} (@${u.username}), Rol: ${esAdmin ? 'Administrador 👑' : (u.role || 'Usuario')}, Verificado: ${esVerificado ? 'Sí ✓' : 'No'}, Ciudad/País: ${u.city || ''} ${u.country || ''}, Profesión: ${u.profession || 'N/A'}, Intereses: ${Array.isArray(ints) ? ints.join(', ') : ''}.`;
+        userContextText = `\n[Contexto del Usuario interactuando contigo]:
+- Nombre: ${u.name} (@${u.username})
+- Rol en la plataforma: ${esAdmin ? 'Administrador Principal 👑' : (u.role || 'Usuario Común')}
+- Verificado: ${esVerificado ? 'Sí ✓' : 'No'}
+- Etapa de vida / Edad: ${etapaVida} ${u.age ? `(${u.age} años)` : ''}
+- Género / Identidad: ${u.gender || 'No especificado'}
+- Foto de Perfil activa: ${tieneFotoPerfil ? 'Sí (El usuario posee foto de perfil en la plataforma, pero los datos binarios no son enviados directamente a la IA por privacidad)' : 'No tiene foto personalizada'}
+- Ubicación: ${u.city || ''} ${u.country || ''}
+- Profesión: ${u.profession || 'N/A'}
+- Intereses: ${Array.isArray(ints) ? ints.join(', ') : ''}`;
       }
     } catch (e) {}
 
@@ -135,12 +165,16 @@ router.post('/chat', requireAuth, aiRateLimiter, async (req, res) => {
     }
 
 
-    const capabilitiesRegistry = `\n[Registro de Capacidades y Funciones de Link AI]:
+    const capabilitiesRegistry = `\n[Registro de Capacidades, Privacidad y Reglas de Administrador de Link AI]:
 - Hora y Fecha en tiempo real: Conoces la fecha y hora exacta actual (${nowRealTime}).
+- Saludo según Horario: Identificas que actualmente es de ${periodoDia.toUpperCase()} (${nowRealTime}). Si saludas, utiliza un saludo acorde ("¡Buenos días!", "¡Buenas tardes!" o "¡Buenas noches!").
+- Diferenciación de Usuario y Administrador: Reconoces si la persona es Administrador o Usuario común. Si te preguntan quién es el Administrador, puedes explicar de forma natural que los administradores gestionan y protegen la red Link.
+- PRIVACIDAD ESTRICTA: NUNCA revelas mensajes privados, conversaciones ni información confidencial de otros usuarios bajo ninguna circunstancia.
+- Foto de perfil: Sabes si el usuario tiene foto de perfil activa, pero por privacidad esa foto no se te envía en datos binarios.
 - Extracción de ubicación de cuenta: Puedes consultar el clima u otra info usando la ubicación del perfil del usuario cuando no especifique lugar.
 - Búsqueda interactiva de personas: Puedes buscar usuarios por gustos, características, apariencia o color de piel, y mostrar resultados agrupados con miniatura.
 - Integración en chats de terceros (@ai): Si te mencionan con @ai en cualquier chat entre usuarios, te integras en esa conversación en una tarjeta interactiva y respondes contextualizada/o.
-- Agendamiento de Citas/Reuniones: Puedes enviar invitaciones interactivas de citas/reuniones con desenfoque (blur) y botones de Aceptar/Rechazar (con motivo).
+- Agendamiento de Citas/Reuniones/Planes: Puedes enviar invitaciones interactivas de citas/reuniones/compromisos/destinos con desenfoque (blur) y botones de Aceptar/Rechazar (con motivo).
 - Reproducción de video: Puedes mostrar videos interactivos en el chat.
 - Respuestas ajustadas: Das mensajes normales y cortos por defecto para una conversación fluida.`;
 
@@ -237,6 +271,24 @@ router.post('/chat', requireAuth, aiRateLimiter, async (req, res) => {
   } catch (err) {
     console.error('Error en /api/ai/chat:', err);
     res.status(500).json({ error: `⚠️ No se pudo completar esta acción. El proveedor no respondió correctamente.` });
+  }
+});
+
+// GET /api/ai/download-zip -> Descargar un ZIP generado por la IA
+router.get('/download-zip', async (req, res) => {
+  try {
+    const filename = req.query.filename || 'paquete_link_ai.zip';
+    const AdmZip = require('adm-zip');
+    const zip = new AdmZip();
+    zip.addFile('Info_Link_AI.txt', Buffer.from('Archivo comprimido ZIP generado por Link AI en la red social Link.\n¡Gracias por utilizar Link AI!', 'utf8'));
+
+    const zipBuffer = zip.toBuffer();
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    return res.send(zipBuffer);
+  } catch (err) {
+    console.error('Error en download-zip:', err);
+    res.status(500).json({ error: 'No se pudo generar el archivo ZIP.' });
   }
 });
 
