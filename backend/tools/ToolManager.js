@@ -645,17 +645,31 @@ function detectToolIntent(text) {
     return { tool: 'youtube.search', params: { query: qMatch || text } };
   }
 
-  // 18. NASA y Obras de Arte (Prioridad antes de generación genérica de imágenes)
-  if (lower.includes('imagen del dia nasa') || lower.includes('nasa apod') || lower.includes('foto del dia de la nasa')) {
+  // 18. NASA, Imágenes Espaciales y Satelitales (Prioridad antes de generación genérica de imágenes)
+  if (
+    lower.includes('imagen del dia nasa') || lower.includes('nasa apod') || lower.includes('foto del dia de la nasa') ||
+    lower.includes('imagen de la nasa') || lower.includes('foto de la nasa') || lower.includes('imagen nasa') ||
+    lower.includes('foto de la tierra') || lower.includes('tierra desde el espacio') || lower.includes('astronomia nasa')
+  ) {
     return { tool: 'nasa.apod', params: {} };
+  }
+
+  if (
+    lower.includes('imagen de el satelite') || lower.includes('imagen del satelite') || lower.includes('imagen del satélite') ||
+    lower.includes('foto del satelite') || lower.includes('foto del satélite') || lower.includes('imagen satelital') ||
+    lower.includes('foto satelital') || lower.includes('vista de satelite') || lower.includes('vista de satélite')
+  ) {
+    const satPrompt = text.replace(/.*(?:imagen|foto|vista)(?:\s+de|\s+del)?\s*(?:el\s+)?(?:satelite|satélite|satelital)\s*(?:de|en)?\s*/i, '').trim();
+    return { tool: 'image.generate', params: { prompt: `Realistic high-resolution satellite imagery photo of ${satPrompt || 'Earth landscape view from space orbit'}`, enhance: true } };
   }
 
   // 19. Generación de imágenes
   if (
     lower.startsWith('dibuja') || lower.startsWith('genera una imagen') || lower.startsWith('crea una imagen') ||
-    lower.includes('imagen de') || lower.includes('haz una imagen') || lower.includes('diseña una imagen')
+    lower.includes('imagen de') || lower.includes('haz una imagen') || lower.includes('diseña una imagen') ||
+    lower.includes('muestrame una imagen') || lower.includes('muéstrame una imagen') || lower.includes('dame una imagen')
   ) {
-    const promptMatch = text.replace(/.*(?:dibuja|genera una imagen de|crea una imagen de|imagen de|haz una imagen de|diseña una imagen de)\s*/i, '').trim();
+    const promptMatch = text.replace(/.*(?:dibuja|genera una imagen de|crea una imagen de|imagen de|haz una imagen de|diseña una imagen de|muestrame una imagen de|muéstrame una imagen de|dame una imagen de)\s*/i, '').trim();
     return { tool: 'image.generate', params: { prompt: promptMatch || text, enhance: true } };
   }
 
