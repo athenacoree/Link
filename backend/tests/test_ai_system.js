@@ -74,6 +74,9 @@ async function runSystemTests() {
   const intentPaymentLink = ToolManager.detectToolIntent('enlace de pago para pagar verificación');
   assert.strictEqual(intentPaymentLink?.tool, 'system.payment_link', 'Debe detectar enlace de pago');
 
+  const intentEditImage = ToolManager.detectToolIntent('edita esta foto para que sea estilo anime');
+  assert.strictEqual(intentEditImage?.tool, 'image.edit', 'Debe detectar intención de editar foto');
+
   console.log('   ✅ Detección de intenciones validada con lenguaje natural.');
 
   // 4. Prueba de Ejecución de Herramientas Modulares (Existentes y Nuevas)

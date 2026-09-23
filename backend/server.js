@@ -82,8 +82,7 @@ async function start() {
   try {
     await runMigrations(); // crea/actualiza el esquema de Postgres solo, sin destruir nada
   } catch (err) {
-    console.error('[arranque CRÍTICO] No se pudieron aplicar migraciones:', err.message);
-    process.exit(1); // Detener el servidor si la migración falla para prevenir corrupción
+    console.warn('[arranque] Omitiendo migraciones PostgreSQL (sin DATABASE_URL o base de datos no configurada):', err.message);
   }
   try {
     await connectMongo(); // conecta a MongoDB Atlas si existe

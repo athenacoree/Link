@@ -325,6 +325,72 @@ const Chat = (() => {
       </div>`;
     }
 
+    // 12. Edición de Imagen / Editor de Fotos
+    if (t === 'image_edit_card' || t === 'image_editor_job') {
+      const reqId = data.requestId || data.request_id || '';
+      const promptTxt = data.prompt || 'Edición de foto';
+      const initialStatus = data.status || 'queued';
+      const cardContainerId = 'img_edit_card_' + (reqId || Math.random().toString(36).substring(2, 9));
+
+      let resultImgHtml = '';
+      let statusBadge = `<span id="status_${cardContainerId}" style="background:#8b5cf6; color:#fff; font-size:10px; font-weight:800; padding:2px 8px; border-radius:10px;">Procesando</span>`;
+
+      if (data.job && data.job.result_data) {
+        let resObj = data.job.result_data;
+        if (typeof resObj === 'string') {
+          try { resObj = JSON.parse(resObj); } catch(e){}
+        }
+        const imgUrl = resObj?.image_url || resObj?.edited_image_url || resObj?.url || resObj?.result_base64 || '';
+        if (imgUrl) {
+          resultImgHtml = `<div style="margin-top:8px;"><img src="${meEscapar(imgUrl)}" style="width:100%; border-radius:10px; cursor:pointer;" onclick="window.abrirVisorImagen('${meEscapar(imgUrl)}')"></div>`;
+          statusBadge = `<span style="background:#10b981; color:#fff; font-size:10px; font-weight:800; padding:2px 8px; border-radius:10px;">Completado ✓</span>`;
+        }
+      }
+
+      // Iniciar sondeo si el estado es inicial o procesando
+      if (reqId && (!resultImgHtml || initialStatus === 'queued' || initialStatus === 'processing')) {
+        setTimeout(() => {
+          let intentos = 0;
+          const pollInterval = setInterval(async () => {
+            intentos++;
+            if (intentos > 20) { clearInterval(pollInterval); return; }
+            try {
+              const res = await api(`/image-editor/jobs/${reqId}/result`);
+              if (res && res.job && res.job.status === 'completed') {
+                clearInterval(pollInterval);
+                let resObj = res.result || res.job.result_data;
+                if (typeof resObj === 'string') {
+                  try { resObj = JSON.parse(resObj); } catch(e){}
+                }
+                const imgUrl = resObj?.image_url || resObj?.edited_image_url || resObj?.url || resObj?.result_base64 || (typeof resObj === 'string' && resObj.startsWith('http') ? resObj : '');
+                const targetCont = document.getElementById(cardContainerId);
+                if (targetCont) {
+                  const badgeEl = document.getElementById(`status_${cardContainerId}`);
+                  if (badgeEl) {
+                    badgeEl.style.background = '#10b981';
+                    badgeEl.textContent = 'Completado ✓';
+                  }
+                  const imgBox = document.getElementById(`img_box_${cardContainerId}`);
+                  if (imgBox && imgUrl) {
+                    imgBox.innerHTML = `<img src="${imgUrl}" style="width:100%; border-radius:10px; cursor:pointer; margin-top:8px;" onclick="window.abrirVisorImagen('${imgUrl.replace(/'/g, "\\'")}')">`;
+                  }
+                }
+              }
+            } catch (e) {}
+          }, 3000);
+        }, 1000);
+      }
+
+      return `<div id="${cardContainerId}" style="margin-top:8px; padding:12px; background:var(--fondo-tarjeta, #fff); border:1.5px solid var(--morado-500, #8b5cf6); border-radius:14px; max-width:300px; font-size:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+          <span style="font-weight:800; color:var(--morado-600, #7c3aed); font-size:13px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>Edición de Foto</span>
+          ${statusBadge}
+        </div>
+        <div style="font-size:11.5px; opacity:0.85; margin-bottom:4px; font-style:italic;">"${meEscapar(promptTxt)}"</div>
+        <div id="img_box_${cardContainerId}">${resultImgHtml || '<div style="font-size:11px; opacity:0.75; padding:8px 0; text-align:center;">🪄 Aplicando retoque/edición a la foto...</div>'}</div>
+      </div>`;
+    }
+
     // Helper auxiliar de escape
     function meEscapar(str) {
       if (!str) return '';
@@ -393,6 +459,13 @@ const Chat = (() => {
       </div>`;
     } else if (textoAMostrar) {
       html += `<div>${formatearUrlsTexto(escapar(textoAMostrar))}</div>`;
+    }
+
+    if (msg.tool_result) {
+      const cardHtml = renderizarTarjetaResultadoHerramienta(msg.tool_result);
+      if (cardHtml) {
+        html += cardHtml;
+      }
     }
 
     if (msg.imageData) {
@@ -580,7 +653,7 @@ const Chat = (() => {
       $('chatMensajes').appendChild(loadingEl);
       $('chatMensajes').scrollTop = $('chatMensajes').scrollHeight;
 
-      api('/ai/chat', { method: 'POST', body: { prompt: texto } })
+      api('/ai/chat', { method: 'POST', body: { prompt: texto || (imagenBase64 ? 'edita esta foto' : ''), image_base64: imagenBase64 || null } })
         .then((res) => {
           const elWait = document.getElementById(loadingId);
           if (elWait) elWait.remove();
