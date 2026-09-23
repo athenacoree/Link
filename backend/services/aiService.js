@@ -11,7 +11,7 @@ async function getAISettings() {
   const config = {
     ai_provider: 'cerebras',
     cerebras_api_key: process.env.CEREBRAS_API_KEY || '',
-    cerebras_model: process.env.CEREBRAS_MODEL || 'llama-3.3-70b',
+    cerebras_model: process.env.CEREBRAS_MODEL || 'gpt-oss-120b',
     ai_name: process.env.AI_NAME || 'Link AI',
     ai_avatar: process.env.AI_AVATAR || '',
     ai_personality: process.env.AI_PERSONALITY || 'Eres Link AI, un asistente inteligente integrado en la plataforma social Link. Responde siempre en español, con amabilidad y precisión.',
@@ -21,8 +21,8 @@ async function getAISettings() {
     ailab_max_personality_length: process.env.AILAB_MAX_PERSONALITY_LENGTH || '1000',
     ailab_max_image_size_mb: process.env.AILAB_MAX_IMAGE_SIZE_MB || '5',
     ailab_max_history: process.env.AILAB_MAX_HISTORY || '10',
-    ailab_timeout_ms: process.env.AILAB_TIMEOUT_MS || '30000',
-    ailab_auto_interval_min: process.env.AILAB_AUTO_INTERVAL_MIN || '0.5',
+    ailab_timeout_ms: process.env.AI_TIMEOUT_MS || process.env.AILAB_TIMEOUT_MS || '120000',
+    ailab_auto_interval_min: process.env.AILAB_AUTO_INTERVAL_MIN || '20',
     ai_max_continuations: process.env.AI_MAX_CONTINUATIONS || '2',
     ai_max_tool_steps: process.env.AI_MAX_TOOL_STEPS || '5',
   };
@@ -52,8 +52,14 @@ async function getAISettings() {
   if (process.env.AI_CONTEXT_TOKENS) config.ai_context_tokens = process.env.AI_CONTEXT_TOKENS;
   if (process.env.AILAB_AUTO_INTERVAL_MIN) config.ailab_auto_interval_min = process.env.AILAB_AUTO_INTERVAL_MIN;
 
-  config.cerebras_api_key = process.env.CEREBRAS_API_KEY || '';
-  config.cerebras_model = process.env.CEREBRAS_MODEL || 'llama-3.3-70b';
+  // Garantizar que CEREBRAS_API_KEY y CEREBRAS_MODEL tengan prioridad desde process.env
+  config.cerebras_api_key = process.env.CEREBRAS_API_KEY || config.cerebras_api_key || '';
+  config.cerebras_model = process.env.CEREBRAS_MODEL || config.cerebras_model || 'gpt-oss-120b';
+
+  // Garantizar un timeout mínimo seguro (mínimo 10.000 ms, por defecto 120.000 ms)
+  const envTimeout = process.env.AI_TIMEOUT_MS || process.env.AILAB_TIMEOUT_MS;
+  const parsedTimeout = parseInt(envTimeout || config.ailab_timeout_ms || '120000', 10);
+  config.ailab_timeout_ms = String(!isNaN(parsedTimeout) && parsedTimeout >= 10000 ? parsedTimeout : 120000);
 
   return config;
 }
@@ -124,6 +130,7 @@ async function callOpenAICompatible({ endpoint, apiKey, model, messages, maxToke
   const payload = {
     model,
     messages: payloadMessages,
+    max_completion_tokens: maxTokens,
     max_tokens: maxTokens,
   };
 
@@ -143,10 +150,19 @@ async function callOpenAICompatible({ endpoint, apiKey, model, messages, maxToke
   if (!response.ok) {
     const errText = await response.text();
     let errDetail = errText;
+    let errCode = `HTTP_${response.status}`;
+    const isQuotaOrPayment = response.status === 402 || errText.toLowerCase().includes('payment_required') || errText.toLowerCase().includes('quota');
+
     try {
       const parsed = JSON.parse(errText);
-      if (parsed.error && parsed.error.message) errDetail = parsed.error.message;
-      else if (parsed.error) errDetail = typeof parsed.error === 'string' ? parsed.error : JSON.stringify(parsed.error);
+      if (parsed.error && parsed.error.message) {
+        errDetail = parsed.error.message;
+      } else if (parsed.error) {
+        errDetail = typeof parsed.error === 'string' ? parsed.error : JSON.stringify(parsed.error);
+      }
+      if (parsed.error && parsed.error.code) {
+        errCode = parsed.error.code;
+      }
     } catch (e) {}
 
     const isVisionErr = visionImage && (
@@ -155,12 +171,31 @@ async function callOpenAICompatible({ endpoint, apiKey, model, messages, maxToke
       errDetail.toLowerCase().includes('support')
     );
 
+    let friendlyMessage = errDetail;
+    if (response.status === 401) {
+      errCode = 'AUTH_ERROR';
+      friendlyMessage = 'Error de autenticación con Cerebras. Verifica que CEREBRAS_API_KEY esté configurada correctamente.';
+    } else if (isQuotaOrPayment) {
+      errCode = 'PAYMENT_REQUIRED';
+      friendlyMessage = 'El servicio de Cerebras requiere pago o superó la cuota disponible (Payment required / Quota).';
+    } else if (response.status === 429) {
+      errCode = 'RATE_LIMIT';
+      friendlyMessage = 'Se ha alcanzado el límite de velocidad (Rate limit) en Cerebras. Por favor, reintenta en unos momentos.';
+    } else if (response.status === 400) {
+      errCode = 'BAD_REQUEST';
+      friendlyMessage = `Solicitud rechazada por Cerebras (400): ${errDetail}`;
+    } else if (response.status >= 500) {
+      errCode = 'SERVER_ERROR';
+      friendlyMessage = `El servidor de Cerebras experimentó un error interno (${response.status}).`;
+    }
+
     return {
       ok: false,
       status: response.status,
       error: {
-        code: isVisionErr ? 'VISION_NOT_SUPPORTED' : `HTTP_${response.status}`,
-        message: errDetail,
+        code: isVisionErr ? 'VISION_NOT_SUPPORTED' : errCode,
+        message: friendlyMessage,
+        raw_detail: errDetail,
         retryable: response.status === 429 || response.status >= 500 || isVisionErr,
       }
     };
@@ -186,9 +221,9 @@ const ProviderAdapters = {
   cerebras: async ({ settings, messages, maxTokens, modelOverride, visionImage, signal }) => {
     const apiKey = (settings.cerebras_api_key || process.env.CEREBRAS_API_KEY || '').trim();
     if (!apiKey) {
-      return { ok: false, error: { code: 'NO_API_KEY', message: 'Cerebras API Key no configurada en las variables de entorno.', retryable: true } };
+      return { ok: false, error: { code: 'NO_API_KEY', message: 'Cerebras API Key no configurada en las variables de entorno (CEREBRAS_API_KEY).', retryable: true } };
     }
-    const model = modelOverride || process.env.CEREBRAS_MODEL || 'llama-3.3-70b';
+    const model = modelOverride || settings.cerebras_model || process.env.CEREBRAS_MODEL || 'gpt-oss-120b';
     return callOpenAICompatible({
       endpoint: 'https://api.cerebras.ai/v1/chat/completions',
       apiKey,
@@ -218,7 +253,7 @@ async function chatCompletion({
 
   const effectiveMaxTokens = Math.max(50, Math.min(16000, parseInt(maxTokens || settings.ai_max_tokens || '1000', 10)));
   const effectiveContextTokens = parseInt(settings.ai_context_tokens || '4000', 10);
-  const effectiveTimeout = parseInt(timeoutMs || settings.ailab_timeout_ms || '120000', 10);
+  const effectiveTimeout = Math.max(10000, parseInt(timeoutMs || settings.ailab_timeout_ms || '120000', 10));
   const maxContinuations = Math.min(3, Math.max(0, parseInt(settings.ai_max_continuations || '2', 10)));
 
   let formattedMessages = Array.isArray(messages) ? [...messages] : [];
@@ -231,7 +266,7 @@ async function chatCompletion({
 
   formattedMessages = pruneMessages(formattedMessages, effectiveContextTokens);
 
-  const selectedModel = model || settings.cerebras_model || process.env.CEREBRAS_MODEL || 'llama-3.3-70b';
+  const selectedModel = model || settings.cerebras_model || process.env.CEREBRAS_MODEL || 'gpt-oss-120b';
 
   let lastError = null;
   let successfulResult = null;
@@ -274,13 +309,19 @@ async function chatCompletion({
   }
 
   if (!successfulResult) {
-    let friendlyMsg = '⚠️ Estoy teniendo problemas técnicos para comunicarme con el modelo de IA.';
+    let friendlyMsg = '⚠️ Estoy teniendo problemas técnicos para comunicarme con la IA.';
     if (lastError?.code === 'VISION_NOT_SUPPORTED') {
-      friendlyMsg = '⚠️ El modelo de IA seleccionado no soporta análisis de imágenes en este momento.';
-    } else if (lastError?.code === 'NO_API_KEY' || lastError?.status === 401 || (lastError?.message && (lastError.message.toLowerCase().includes('api key') || lastError.message.toLowerCase().includes('authentication header')))) {
-      friendlyMsg = `⚠️ Error de autenticación en la IA: ${lastError.message || 'Clave API de Cerebras no provista o inválida en las variables de entorno.'}`;
+      friendlyMsg = '⚠️ El modelo de IA de Cerebras no soporta análisis de imágenes en este momento.';
+    } else if (lastError?.code === 'NO_API_KEY' || lastError?.code === 'AUTH_ERROR' || lastError?.status === 401) {
+      friendlyMsg = `⚠️ Error de autenticación en Cerebras: ${lastError.message || 'Clave API CEREBRAS_API_KEY no configurada o inválida.'}`;
+    } else if (lastError?.code === 'PAYMENT_REQUIRED' || lastError?.status === 402) {
+      friendlyMsg = '⚠️ El servicio de Cerebras requiere pago o superó la cuota disponible (Payment required).';
+    } else if (lastError?.code === 'RATE_LIMIT' || lastError?.status === 429) {
+      friendlyMsg = '⚠️ Se ha superado el límite de peticiones de Cerebras. Intenta de nuevo en unos instantes.';
+    } else if (lastError?.code === 'TIMEOUT') {
+      friendlyMsg = `⚠️ El proveedor Cerebras superó el tiempo de espera de respuesta (${effectiveTimeout}ms).`;
     } else if (lastError?.message) {
-      friendlyMsg = `⚠️ Error al conectar con la IA: ${lastError.message}`;
+      friendlyMsg = `⚠️ Error al conectar con Cerebras: ${lastError.message}`;
     }
 
     return {

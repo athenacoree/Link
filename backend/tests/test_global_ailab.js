@@ -30,6 +30,15 @@ async function runTests() {
   assert.ok(adminRouter, 'Router de Admin debe cargar correctamente.');
 
   console.log('✅ Enrutadores de API verificados correctamente.');
+
+  // 4. Comprobar configuración predeterminada de Cerebras (gpt-oss-120b)
+  const { getAISettings } = require('../services/aiService');
+  delete process.env.CEREBRAS_MODEL;
+  const settings = await getAISettings();
+  assert.strictEqual(settings.cerebras_model, 'gpt-oss-120b', 'El modelo predeterminado debe ser gpt-oss-120b');
+  assert.ok(parseInt(settings.ailab_timeout_ms, 10) >= 10000, 'El timeout debe ser al menos 10000ms');
+
+  console.log('✅ Verificación de modelo gpt-oss-120b y timeout seguro realizada.');
   console.log('🎉 TODAS LAS PRUEBAS PASARON EXITOSAMENTE.');
 }
 

@@ -8,11 +8,11 @@ async function runSystemTests() {
   // 0. Prueba de Configuración Cerebras desde Entorno
   console.log('0. Probando getAISettings() y prioridad de variables de entorno (Cerebras)...');
   process.env.CEREBRAS_API_KEY = 'csk-test-key-12345';
-  process.env.CEREBRAS_MODEL = 'llama-3.3-70b';
+  process.env.CEREBRAS_MODEL = 'gpt-oss-120b';
 
   const settings = await getAISettings();
   assert.strictEqual(settings.cerebras_api_key, 'csk-test-key-12345', 'cerebras_api_key debe coincidir con process.env.CEREBRAS_API_KEY');
-  assert.strictEqual(settings.cerebras_model, 'llama-3.3-70b', 'cerebras_model debe coincidir con process.env.CEREBRAS_MODEL');
+  assert.strictEqual(settings.cerebras_model, 'gpt-oss-120b', 'cerebras_model debe coincidir con process.env.CEREBRAS_MODEL');
 
   assert.ok(typeof ProviderAdapters.cerebras === 'function', 'ProviderAdapters.cerebras debe existir');
   console.log('   ✅ Configuración de Cerebras en entorno validada.');

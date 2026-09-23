@@ -5,7 +5,7 @@ const { query, pool } = require('../db/postgres');
 const Message = require('../models/Message');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { publicUser, meUser } = require('../utils/serialize');
-const { chatCompletion } = require('../services/aiService');
+const { getAISettings, chatCompletion } = require('../services/aiService');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 const router = express.Router();
@@ -240,13 +240,13 @@ router.delete('/ai-characters/:id', async (req, res) => {
   }
 });
 
-// ---- CONFIGURACIÓN DEL SISTEMA (AI Cerebras, Hugging Face, etc.) ----
+// ---- CONFIGURACIÓN DEL SISTEMA (AI Cerebras) ----
 router.get('/system-settings', async (req, res) => {
   try {
     const { rows } = await query(`SELECT key, value, updated_at FROM system_settings`);
     const settingsMap = {};
     rows.forEach(r => { settingsMap[r.key] = r.value; });
-    settingsMap['cerebras_model'] = process.env.CEREBRAS_MODEL || 'llama-3.3-70b';
+    settingsMap['cerebras_model'] = process.env.CEREBRAS_MODEL || settingsMap['cerebras_model'] || 'gpt-oss-120b';
     res.json({ settings: settingsMap });
   } catch (err) {
     console.error(err);
@@ -288,15 +288,16 @@ router.post('/system-settings', async (req, res) => {
 router.post('/test-ai', async (req, res) => {
   try {
     const { ai_personality } = req.body;
+    const settings = await getAISettings();
 
-    if (!process.env.CEREBRAS_API_KEY) {
+    if (!process.env.CEREBRAS_API_KEY && !settings.cerebras_api_key) {
       return res.status(400).json({ error: 'No se detectó la variable de entorno CEREBRAS_API_KEY en el servidor/Render.' });
     }
 
-    await query(`INSERT INTO system_settings (key, value, updated_at) VALUES ('ai_provider', 'cerebras', now()) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`);
+    await query(`INSERT INTO system_settings (key, value, updated_at) VALUES ('ai_provider', 'cerebras', now()) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`).catch(() => {});
 
     const testMessages = [
-      { role: 'system', content: ai_personality || 'Eres un asistente de pruebas.' },
+      { role: 'system', content: ai_personality || settings.ai_personality || 'Eres un asistente de pruebas.' },
       { role: 'user', content: 'Hola, prueba de conexión a la API.' }
     ];
 
@@ -307,7 +308,8 @@ router.post('/test-ai', async (req, res) => {
     });
 
     if (!result.available) {
-      return res.status(400).json({ error: result.error || 'Falló la prueba del proveedor Cerebras.' });
+      const errDetail = typeof result.error === 'object' ? (result.error?.message || JSON.stringify(result.error)) : result.error;
+      return res.status(400).json({ error: result.reply || errDetail || 'Falló la prueba del proveedor Cerebras.' });
     }
 
     res.json({
@@ -319,7 +321,7 @@ router.post('/test-ai', async (req, res) => {
     });
   } catch (err) {
     console.error('Error probando proveedor de IA:', err);
-    res.status(500).json({ error: `Error de red al conectar con Cerebras: ${err.message}` });
+    res.status(500).json({ error: `Error al conectar con Cerebras: ${err.message}` });
   }
 });
 

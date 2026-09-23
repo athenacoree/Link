@@ -183,13 +183,7 @@ async function processUserMessageInGlobalRoom({
     return { userMessage: userMsgObj, aiMessage: null };
   }
 
-  // Reiniciar contador de respuestas consecutivas de IA (un humano ha intervenido y la IA está activa)
-  await query(
-    `INSERT INTO system_settings (key, value, updated_at) VALUES ('ailab_auto_consecutive_counter', '0', NOW())
-     ON CONFLICT (key) DO UPDATE SET value = '0', updated_at = NOW()`
-  ).catch(() => {});
-
-  // 5. Seleccionar personaje de IA
+  // 5. Seleccionar un único personaje de IA para responder
   let activeChar = null;
 
   if (characterId) {
@@ -233,7 +227,7 @@ async function processUserMessageInGlobalRoom({
   });
 
   // 6. Obtener contexto reciente de la sala global
-  const recentHistory = await getGlobalMessages(12);
+  const recentHistory = await getGlobalMessages(10);
   const formattedHistory = recentHistory.map(m => {
     if (m.sender_type === 'ai') {
       return { role: 'assistant', content: `${m.sender_name}: ${m.text}` };
@@ -242,7 +236,7 @@ async function processUserMessageInGlobalRoom({
     }
   });
 
-  const sysPrompt = `Eres ${activeChar.name} (${activeChar.personality}). Estás en la sala global pública de Enlace con todos los usuarios. Responde amablemente en español manteniendo siempre tu personaje. Puedes usar formato conciso y emojis si aplica.`;
+  const sysPrompt = `Eres ${activeChar.name} (${activeChar.personality}). Estás respondiendo directamente a un usuario en la sala global pública. Responde amablemente en español de forma concisa y natural (1 a 3 oraciones cortas). No inicies un diálogo autónomo entre otros avatares.`;
 
   let toolContextText = '';
   if (toolResult) {
@@ -287,7 +281,8 @@ async function processUserMessageInGlobalRoom({
 }
 
 /**
- * Bucle autónomo de conversación IA <-> IA sin requerir usuarios conectados
+ * Bucle autónomo de conversación IA <-> IA sin requerir usuarios conectados.
+ * Cada ciclo se ejecuta aprox. cada 20 minutos y genera exactamente 3 o 4 mensajes cortos entre avatares.
  */
 async function runAutoAIChatLoopTurn() {
   if (isProcessingAILoop) return;
@@ -304,88 +299,82 @@ async function runAutoAIChatLoopTurn() {
       return;
     }
 
-    const maxTurnsRaw = settings.ailab_auto_max_consecutive_turns;
-    const maxTurns = (maxTurnsRaw === '0' || maxTurnsRaw === 0 || maxTurnsRaw === 'unlimited') ? Infinity : (parseInt(maxTurnsRaw, 10) || 10);
-    const currentCounter = parseInt(settings.ailab_auto_consecutive_counter, 10) || 0;
-
-    if (maxTurns !== Infinity && currentCounter >= maxTurns) {
-      isProcessingAILoop = false;
-      return;
-    }
-
     const { rows: chars } = await query(`SELECT * FROM ai_characters WHERE is_public = true ORDER BY created_at ASC`);
     if (chars.length < 2) {
       isProcessingAILoop = false;
       return;
     }
 
-    const { rows: lastMsgs } = await query(
-      `SELECT * FROM ailab_messages WHERE is_deleted = false ORDER BY created_at DESC LIMIT 10`
-    );
+    // Un ciclo autónomo consta de solamente 3 o 4 mensajes breves entre avatares
+    const turnsInCycle = Math.floor(Math.random() * 2) + 3; // 3 o 4 mensajes
 
-    const lastSpeakerId = lastMsgs.length > 0 ? lastMsgs[0].sender_id : null;
+    for (let turn = 0; turn < turnsInCycle; turn++) {
+      const currentSettings = await getAISettings();
+      if (currentSettings.ailab_auto_paused === 'true' || currentSettings.ailab_auto_enabled === 'false') {
+        break;
+      }
 
-    let nextSpeaker = chars.find(c => c.id !== lastSpeakerId);
-    if (!nextSpeaker) nextSpeaker = chars[0];
+      const { rows: lastMsgs } = await query(
+        `SELECT * FROM ailab_messages WHERE is_deleted = false ORDER BY created_at DESC LIMIT 10`
+      );
 
-    let otherSpeaker = chars.find(c => c.id !== nextSpeaker.id) || chars[1];
+      const lastSpeakerId = lastMsgs.length > 0 ? lastMsgs[0].sender_id : null;
 
-    const recentHistory = lastMsgs.slice().reverse();
-    const formattedHistory = recentHistory.map(m => ({
-      role: m.sender_type === 'ai' ? 'assistant' : 'user',
-      content: `${m.sender_name}: ${m.text}`
-    }));
+      let nextSpeaker = chars.find(c => c.id !== lastSpeakerId);
+      if (!nextSpeaker) nextSpeaker = chars[0];
 
-    const lastText = recentHistory.length > 0
-      ? recentHistory[recentHistory.length - 1].text
-      : '¿Qué opinan sobre el avance de la ciencia y la tecnología en la sociedad actual?';
+      let otherSpeaker = chars.find(c => c.id !== nextSpeaker.id) || chars[1];
 
-    const sysPrompt = `Eres ${nextSpeaker.name}. Tu personalidad es: "${nextSpeaker.personality}". Estás en un diálogo en vivo en la sala global pública con ${otherSpeaker.name} y la comunidad. Responde de forma concisa (2-3 oraciones en español), natural y amigable dirigiéndote a los demás o continuando la conversación.`;
+      const recentHistory = lastMsgs.slice().reverse();
+      const formattedHistory = recentHistory.map(m => ({
+        role: m.sender_type === 'ai' ? 'assistant' : 'user',
+        content: `${m.sender_name}: ${m.text}`
+      }));
 
-    broadcastToGlobalRoom('ailab:status', {
-      isWorking: true,
-      text: `${nextSpeaker.avatar || '🤖'} ${nextSpeaker.name} está conversando...`
-    });
+      const lastText = recentHistory.length > 0
+        ? recentHistory[recentHistory.length - 1].text
+        : '¿Qué opina la comunidad sobre los avances recientes en la ciencia y la tecnología?';
 
-    activeAbortController = new AbortController();
-    const result = await chatCompletion({
-      messages: [
-        { role: 'system', content: sysPrompt },
-        ...formattedHistory,
-        { role: 'user', content: `Tema/Mensaje actual: ${lastText}` }
-      ],
-      maxTokens: settings.ai_max_tokens,
-      signal: activeAbortController.signal,
-    });
-    activeAbortController = null;
+      const sysPrompt = `Eres ${nextSpeaker.name}. Tu personalidad es: "${nextSpeaker.personality}". Estás conversando de forma natural en la sala global pública con ${otherSpeaker.name}.
+REGLA OBLIGATORIA: Responde de forma MUY BREVE (1 o 2 oraciones cortas en español), amigable y concisa. No generes párrafos largos.`;
 
-    broadcastToGlobalRoom('ailab:status', { isWorking: false });
-
-    if (result && result.reply && result.reply.trim()) {
-      await saveGlobalMessage({
-        senderType: 'ai',
-        senderId: nextSpeaker.id,
-        senderName: nextSpeaker.name,
-        senderAvatar: nextSpeaker.avatar || '🤖',
-        text: result.reply.trim()
+      broadcastToGlobalRoom('ailab:status', {
+        isWorking: true,
+        text: `${nextSpeaker.avatar || '🤖'} ${nextSpeaker.name} está conversando...`
       });
 
-      const newCounter = currentCounter + 1;
-      await query(
-        `INSERT INTO system_settings (key, value, updated_at) VALUES ('ailab_auto_consecutive_counter', $1, NOW())
-         ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()`,
-        [String(newCounter)]
-      ).catch(() => {});
-
-      broadcastToGlobalRoom('ailab:auto_status', {
-        counter: newCounter,
-        maxTurns,
-        paused: newCounter >= maxTurns
+      activeAbortController = new AbortController();
+      const result = await chatCompletion({
+        messages: [
+          { role: 'system', content: sysPrompt },
+          ...formattedHistory,
+          { role: 'user', content: `Tema/Mensaje actual: ${lastText}` }
+        ],
+        maxTokens: 120,
+        signal: activeAbortController.signal,
       });
+      activeAbortController = null;
+
+      broadcastToGlobalRoom('ailab:status', { isWorking: false });
+
+      if (result && result.reply && result.reply.trim()) {
+        await saveGlobalMessage({
+          senderType: 'ai',
+          senderId: nextSpeaker.id,
+          senderName: nextSpeaker.name,
+          senderAvatar: nextSpeaker.avatar || '🤖',
+          text: result.reply.trim()
+        });
+      }
+
+      // Pausa breve entre turnos dentro del mismo ciclo (3.5 segundos)
+      if (turn < turnsInCycle - 1) {
+        await new Promise(resolve => setTimeout(resolve, 3500));
+      }
     }
   } catch (err) {
     broadcastToGlobalRoom('ailab:status', { isWorking: false });
-    console.error('Error en bucle autónomo IA <-> IA:', err);
+    console.error('Error en ciclo autónomo de IA <-> IA:', err);
   } finally {
     isProcessingAILoop = false;
   }
@@ -423,13 +412,14 @@ async function scheduleNextAutoLoopTurn() {
     autoLoopTimer = null;
   }
 
-  let intervalSec = 30;
+  let intervalSec = 20 * 60; // 20 minutos por defecto
   try {
     const settings = await getAISettings();
     if (settings.ailab_auto_interval_min) {
-      intervalSec = Math.max(5, Math.round((parseFloat(settings.ailab_auto_interval_min) || 0.5) * 60));
-    } else {
-      intervalSec = Math.max(5, parseInt(settings.ailab_auto_interval_sec, 10) || 30);
+      const parsedMin = parseFloat(settings.ailab_auto_interval_min);
+      if (!isNaN(parsedMin) && parsedMin > 0) {
+        intervalSec = Math.max(10, Math.round(parsedMin * 60));
+      }
     }
   } catch (e) {}
 
