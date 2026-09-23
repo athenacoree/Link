@@ -6,6 +6,30 @@ let ioInstance = null;
 let autoLoopTimer = null;
 let retentionJobTimer = null;
 let isProcessingAILoop = false;
+let activeAbortController = null;
+
+async function stopAILabConversation() {
+  await query(
+    `INSERT INTO system_settings (key, value, updated_at) VALUES ('ailab_auto_paused', 'true', NOW())
+     ON CONFLICT (key) DO UPDATE SET value = 'true', updated_at = NOW()`
+  ).catch(() => {});
+
+  if (activeAbortController) {
+    try {
+      activeAbortController.abort();
+    } catch (e) {}
+    activeAbortController = null;
+  }
+
+  isProcessingAILoop = false;
+
+  broadcastToGlobalRoom('ailab:status', {
+    isWorking: false,
+    text: 'Conversación de IA detenida.'
+  });
+
+  return { ok: true, message: 'Conversación detenida correctamente.' };
+}
 
 function setAILabIO(io) {
   ioInstance = io;
@@ -230,6 +254,7 @@ async function processUserMessageInGlobalRoom({
   }
 
   try {
+    activeAbortController = new AbortController();
     const aiResult = await chatCompletion({
       messages: [
         { role: 'system', content: sysPrompt },
@@ -238,7 +263,9 @@ async function processUserMessageInGlobalRoom({
       ],
       maxTokens: settings.ai_max_tokens,
       visionImage: imageUrl || null,
+      signal: activeAbortController.signal,
     });
+    activeAbortController = null;
 
     // 7. Guardar y transmitir respuesta de la IA
     const aiMsgObj = await saveGlobalMessage({
@@ -320,14 +347,17 @@ async function runAutoAIChatLoopTurn() {
       text: `${nextSpeaker.avatar || '🤖'} ${nextSpeaker.name} está conversando...`
     });
 
+    activeAbortController = new AbortController();
     const result = await chatCompletion({
       messages: [
         { role: 'system', content: sysPrompt },
         ...formattedHistory,
         { role: 'user', content: `Tema/Mensaje actual: ${lastText}` }
       ],
-      maxTokens: settings.ai_max_tokens
+      maxTokens: settings.ai_max_tokens,
+      signal: activeAbortController.signal,
     });
+    activeAbortController = null;
 
     broadcastToGlobalRoom('ailab:status', { isWorking: false });
 
@@ -439,5 +469,6 @@ module.exports = {
   deleteGlobalMessage,
   processUserMessageInGlobalRoom,
   runAutoAIChatLoopTurn,
+  stopAILabConversation,
   initAILabBackgroundJobs,
 };

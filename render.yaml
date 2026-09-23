@@ -41,7 +41,7 @@ services:
       - key: CEREBRAS_API_KEY
         sync: false
       - key: CEREBRAS_MODEL
-        value: llama-3.3-70b
+        sync: false
       # --- QvaPay Monetización ---
       - key: QVAPAY_APP_ID
         sync: false

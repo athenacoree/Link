@@ -31,7 +31,6 @@ async function getAISettings() {
     const { rows } = await query(
       `SELECT key, value FROM system_settings WHERE key IN (
         'ai_provider',
-        'cerebras_model',
         'ai_name', 'ai_avatar', 'ai_personality',
         'ai_max_tokens', 'ai_context_tokens',
         'ailab_max_msg_length', 'ailab_max_personality_length',
@@ -48,13 +47,13 @@ async function getAISettings() {
     // If system_settings cannot be queried, fall back to defaults
   }
 
-  // Las claves y límites principales provienen prioritariamente de process.env en Render
+  // Las claves y límites principales provienen directamente de process.env en Render
   if (process.env.AI_MAX_TOKENS) config.ai_max_tokens = process.env.AI_MAX_TOKENS;
   if (process.env.AI_CONTEXT_TOKENS) config.ai_context_tokens = process.env.AI_CONTEXT_TOKENS;
   if (process.env.AILAB_AUTO_INTERVAL_MIN) config.ailab_auto_interval_min = process.env.AILAB_AUTO_INTERVAL_MIN;
 
   config.cerebras_api_key = process.env.CEREBRAS_API_KEY || '';
-  config.cerebras_model = process.env.CEREBRAS_MODEL || config.cerebras_model || 'llama-3.3-70b';
+  config.cerebras_model = process.env.CEREBRAS_MODEL || 'llama-3.3-70b';
 
   return config;
 }
@@ -189,7 +188,7 @@ const ProviderAdapters = {
     if (!apiKey) {
       return { ok: false, error: { code: 'NO_API_KEY', message: 'Cerebras API Key no configurada en las variables de entorno.', retryable: true } };
     }
-    const model = modelOverride || process.env.CEREBRAS_MODEL || settings.cerebras_model || 'llama-3.3-70b';
+    const model = modelOverride || process.env.CEREBRAS_MODEL || 'llama-3.3-70b';
     return callOpenAICompatible({
       endpoint: 'https://api.cerebras.ai/v1/chat/completions',
       apiKey,
@@ -213,12 +212,13 @@ async function chatCompletion({
   provider = null,
   visionImage = null,
   timeoutMs = null,
+  signal = null,
 } = {}) {
   const settings = await getAISettings();
 
   const effectiveMaxTokens = Math.max(50, Math.min(16000, parseInt(maxTokens || settings.ai_max_tokens || '1000', 10)));
   const effectiveContextTokens = parseInt(settings.ai_context_tokens || '4000', 10);
-  const effectiveTimeout = parseInt(timeoutMs || settings.ailab_timeout_ms || '30000', 10);
+  const effectiveTimeout = parseInt(timeoutMs || settings.ailab_timeout_ms || '120000', 10);
   const maxContinuations = Math.min(3, Math.max(0, parseInt(settings.ai_max_continuations || '2', 10)));
 
   let formattedMessages = Array.isArray(messages) ? [...messages] : [];
@@ -231,13 +231,18 @@ async function chatCompletion({
 
   formattedMessages = pruneMessages(formattedMessages, effectiveContextTokens);
 
-  const selectedModel = model || process.env.CEREBRAS_MODEL || settings.cerebras_model || 'llama-3.3-70b';
+  const selectedModel = model || settings.cerebras_model || process.env.CEREBRAS_MODEL || 'llama-3.3-70b';
 
   let lastError = null;
   let successfulResult = null;
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), effectiveTimeout);
+
+  if (signal) {
+    if (signal.aborted) controller.abort();
+    else signal.addEventListener('abort', () => controller.abort());
+  }
 
   try {
     const res = await ProviderAdapters.cerebras({

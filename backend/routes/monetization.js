@@ -135,9 +135,14 @@ router.get('/precios', requireAuth, async (req, res) => {
   try {
     const verifPrice = await getPriceSetting('price_verification', 5.00);
     const unamePrice = await getPriceSetting('price_username', 10.00);
-    res.json({ price_verification: verifPrice, price_username: unamePrice });
+    const minAdBudget = await getPriceSetting('price_min_ad_budget', 2.00);
+    res.json({
+      price_verification: verifPrice,
+      price_username: unamePrice,
+      price_min_ad_budget: minAdBudget
+    });
   } catch (e) {
-    res.json({ price_verification: 5.00, price_username: 10.00 });
+    res.json({ price_verification: 5.00, price_username: 10.00, price_min_ad_budget: 2.00 });
   }
 });
 
@@ -360,9 +365,10 @@ router.post('/campanas', requireAuth, async (req, res) => {
     return res.status(400).json({ error: 'La URL de destino es obligatoria.' });
   }
 
+  const MIN_AD_BUDGET = await getPriceSetting('price_min_ad_budget', 2.00);
   const numBudget = parseFloat(budget);
-  if (isNaN(numBudget) || numBudget < 2.00) {
-    return res.status(400).json({ error: 'El presupuesto mínimo para una campaña es de $2.00 USD.' });
+  if (isNaN(numBudget) || numBudget < MIN_AD_BUDGET) {
+    return res.status(400).json({ error: `El presupuesto mínimo para una campaña es de $${MIN_AD_BUDGET.toFixed(2)} USD.` });
   }
 
   const numDays = Math.max(1, parseInt(duration_days) || 7);
