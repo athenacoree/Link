@@ -179,6 +179,11 @@
         <!-- Mensajes renderizados dinámicamente -->
       </div>
 
+      <!-- Botón flotante para bajar al último mensaje -->
+      <button id="ailabScrollBottomBtn" class="ailab-scroll-bottom-btn oculto" onclick="AILab.scrollToBottom()" title="Bajar al último mensaje" aria-label="Bajar al último mensaje">
+        ↓
+      </button>
+
       <!-- Botón Flotante Discreto para abrir Compositor -->
       <div class="ailab-fab-container">
         <button class="ailab-fab-btn" id="ailabFabOpenComposer" onclick="AILab.openComposer()" title="Escribir a la IA" aria-label="Escribir a la IA">
@@ -626,13 +631,12 @@
     <!-- CONFIGURACIÓN DE ASISTENTE DE IA -->
     <div id="adminVistaAIConfig" class="oculto" style="margin-top:16px;">
       <p style="font-size:13.5px; color:var(--texto-600); margin-bottom:14px;">
-        Configura la integración central de Inteligencia Artificial (OpenRouter o Hugging Face Inference Providers).
+        Configura la integración central de Inteligencia Artificial (Cerebras AI Cloud o Hugging Face Inference Providers).
       </p>
 
       <div class="campo">
         <label>Proveedor de IA</label>
         <select id="adminAIProvider">
-          <option value="openrouter">OpenRouter API (Gratuito / Render Env)</option>
           <option value="cerebras">Cerebras AI Cloud (Gratuito / Render Env)</option>
           <option value="xai">xAI / Grok (xAI API / Render Env)</option>
           <option value="huggingface">Hugging Face Inference</option>
@@ -640,10 +644,19 @@
       </div>
 
       <div style="background:var(--morado-50); border:1px solid var(--morado-200); border-radius:12px; padding:12px; margin-bottom:14px; font-size:12.5px; color:var(--texto-800);">
-        💡 <strong>Gestión Segura de Claves API:</strong> Las claves secreta API (OPENROUTER_API_KEY, CEREBRAS_API_KEY, XAI_API_KEY, HF_TOKEN, etc.) y los límites (AI_MAX_TOKENS, AILAB_AUTO_INTERVAL_MIN) se leen directamente desde las variables de entorno de Render para máxima seguridad y no se almacenan en la base de datos.
+        💡 <strong>Gestión Segura de Claves API:</strong> Las claves secreta API (CEREBRAS_API_KEY, XAI_API_KEY, HF_TOKEN, etc.) y los límites (AI_MAX_TOKENS, AILAB_AUTO_INTERVAL_MIN) se leen directamente desde las variables de entorno de Render para máxima seguridad y no se almacenan en la base de datos.
       </div>
 
       <div class="campo"><label>Nombre del Asistente</label><input type="text" id="adminAIName" placeholder="Link AI"></div>
+
+      <!-- Configuración de Descarga de APK -->
+      <div class="campo">
+        <label>URL de Descarga del APK de la App Bridge (Android)</label>
+        <input type="url" id="adminAPKDownloadUrl" placeholder="https://github.com/.../enlace-bridge-release.apk">
+        <div style="font-size:11.5px; color:var(--texto-500); margin-top:2px;">
+          Esta URL será la que usará el botón "Descargar App Bridge (.apk)" para los usuarios.
+        </div>
+      </div>
 
       <!-- Avatar con URL o Carga de Archivo del Dispositivo -->
       <div class="campo">

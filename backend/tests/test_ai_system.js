@@ -1,29 +1,21 @@
 const assert = require('assert');
-const { getAISettings, pruneMessages, chatCompletion, getOpenRouterFreeModels, ProviderAdapters } = require('../services/aiService');
+const { getAISettings, pruneMessages, chatCompletion, ProviderAdapters } = require('../services/aiService');
 const ToolManager = require('../tools/ToolManager');
 
 async function runSystemTests() {
   console.log('=== INICIANDO PRUEBAS DEL SISTEMA IA DE ENLACE ===');
 
-  // 0. Prueba de Configuración OpenRouter y Cerebras desde Entorno
-  console.log('0. Probando getAISettings() y prioridad de variables de entorno (OpenRouter y Cerebras)...');
-  process.env.OPENROUTER_MODEL = 'openrouter/free';
-  process.env.OPENROUTER_API_KEY = 'sk-or-v1-test-key';
+  // 0. Prueba de Configuración Cerebras desde Entorno
+  console.log('0. Probando getAISettings() y prioridad de variables de entorno (Cerebras)...');
   process.env.CEREBRAS_API_KEY = 'csk-test-key-12345';
   process.env.CEREBRAS_MODEL = 'llama-3.3-70b';
 
   const settings = await getAISettings();
-  assert.strictEqual(settings.openrouter_model, 'openrouter/free', 'openrouter_model debe coincidir con process.env.OPENROUTER_MODEL');
-  assert.strictEqual(settings.openrouter_api_key, 'sk-or-v1-test-key', 'openrouter_api_key debe coincidir con process.env.OPENROUTER_API_KEY');
   assert.strictEqual(settings.cerebras_api_key, 'csk-test-key-12345', 'cerebras_api_key debe coincidir con process.env.CEREBRAS_API_KEY');
   assert.strictEqual(settings.cerebras_model, 'llama-3.3-70b', 'cerebras_model debe coincidir con process.env.CEREBRAS_MODEL');
 
   assert.ok(typeof ProviderAdapters.cerebras === 'function', 'ProviderAdapters.cerebras debe existir');
-
-  const freeModels = await getOpenRouterFreeModels();
-  assert.ok(Array.isArray(freeModels) && freeModels.length > 0, 'getOpenRouterFreeModels debe devolver al menos un modelo');
-  console.log(`   ℹ️ Se obtuvieron ${freeModels.length} modelos gratuitos de OpenRouter.`);
-  console.log('   ✅ Configuración de OpenRouter y Cerebras en entorno validada.');
+  console.log('   ✅ Configuración de Cerebras en entorno validada.');
 
   // 1. Prueba de Prune Messages (Context Budgeting)
   console.log('1. Probando pruneMessages()...');

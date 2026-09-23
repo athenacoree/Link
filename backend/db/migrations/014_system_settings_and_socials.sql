@@ -1,5 +1,5 @@
 -- 014_system_settings_and_socials.sql
--- Tablas y columnas para configuración del sistema (AI OpenRouter) y redes sociales / juegos del usuario.
+-- Tablas y columnas para configuración del sistema (AI Cerebras) y redes sociales / juegos del usuario.
 
 CREATE TABLE IF NOT EXISTS system_settings (
   key TEXT PRIMARY KEY,
