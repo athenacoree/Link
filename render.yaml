@@ -37,10 +37,10 @@ services:
       # sesión (separados por coma). Pégalo tú a mano en el panel de Render.
       - key: ADMIN_EMAILS
         sync: false
-      # --- Cerebras AI Cloud (Gratuito) ---
-      - key: CEREBRAS_API_KEY
+      # --- Google Gemini API ---
+      - key: GEMINI_API_KEY
         sync: false
-      - key: CEREBRAS_MODEL
+      - key: GEMINI_MODEL
         sync: false
       # --- QvaPay Monetización ---
       - key: QVAPAY_APP_ID

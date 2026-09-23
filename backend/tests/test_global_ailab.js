@@ -31,14 +31,14 @@ async function runTests() {
 
   console.log('✅ Enrutadores de API verificados correctamente.');
 
-  // 4. Comprobar configuración predeterminada de Cerebras (gpt-oss-120b)
+  // 4. Comprobar configuración predeterminada de Gemini (gemini-2.5-flash)
   const { getAISettings } = require('../services/aiService');
-  delete process.env.CEREBRAS_MODEL;
+  delete process.env.GEMINI_MODEL;
   const settings = await getAISettings();
-  assert.strictEqual(settings.cerebras_model, 'gpt-oss-120b', 'El modelo predeterminado debe ser gpt-oss-120b');
+  assert.strictEqual(settings.gemini_model, 'gemini-2.5-flash', 'El modelo predeterminado debe ser gemini-2.5-flash');
   assert.ok(parseInt(settings.ailab_timeout_ms, 10) >= 10000, 'El timeout debe ser al menos 10000ms');
 
-  console.log('✅ Verificación de modelo gpt-oss-120b y timeout seguro realizada.');
+  console.log('✅ Verificación de modelo gemini-2.5-flash y timeout seguro realizada.');
   console.log('🎉 TODAS LAS PRUEBAS PASARON EXITOSAMENTE.');
 }
 
