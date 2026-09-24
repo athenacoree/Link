@@ -727,10 +727,9 @@ const Chat = (() => {
 
   function solicitarUbicacionYEnviar(texto, imagenBase64, audioBase64, audioDur) {
     const lowerTxt = (texto || '').toLowerCase();
-    const pideUbicacion = lowerTxt.includes('clima') || lowerTxt.includes('tiempo') || lowerTxt.includes('temperatura') || lowerTxt.includes('dónde estoy') || lowerTxt.includes('donde estoy') || lowerTxt.includes('mi ubicación') || lowerTxt.includes('mi ubicacion');
+    const pideUbicacion = lowerTxt.includes('clima') || lowerTxt.includes('tiempo') || lowerTxt.includes('temperatura') || lowerTxt.includes('dónde estoy') || lowerTxt.includes('donde estoy') || lowerTxt.includes('mi ubicación') || lowerTxt.includes('mi ubicacion') || lowerTxt.includes('mi posicion') || lowerTxt.includes('mi posición');
 
     if (pideUbicacion && navigator.geolocation) {
-      mostrarToast('Obteniendo ubicación para consulta...');
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           const lat = pos.coords.latitude;
@@ -739,10 +738,10 @@ const Chat = (() => {
           enviarMensaje(textoConUbicacion, imagenBase64, audioBase64, audioDur);
         },
         (err) => {
-          // Si deniega o falla, enviar normal (el backend utilizará IP o perfil)
+          console.warn('[Geolocalización Web] Permiso denegado o no disponible:', err.message);
           enviarMensaje(texto, imagenBase64, audioBase64, audioDur);
         },
-        { timeout: 5000 }
+        { timeout: 6000, enableHighAccuracy: false }
       );
       return;
     }

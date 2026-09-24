@@ -71,18 +71,9 @@ async function getProfile(queryOrUsername, requesterId = null) {
     }
 
     return {
-      type: 'social_profile_card',
-      data: {
-        name: cleanTerm,
-        username: cleanTerm,
-        avatar: '',
-        profession: 'Perfil público',
-        city: 'Redes Sociales',
-        bio: `Información de perfil público para @${cleanTerm}.`,
-        verified: false,
-        instagram: cleanTerm,
-        url: `https://instagram.com/${cleanTerm}`
-      }
+      found: false,
+      term: cleanTerm,
+      message: `No se encontró ningún usuario registrado en la plataforma Enlace con el nombre o usuario '@${cleanTerm}'.`
     };
   } catch (err) {
     console.error('Error en social.profile:', err);
