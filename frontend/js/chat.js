@@ -614,6 +614,31 @@ const Chat = (() => {
     );
   }
 
+  function solicitarUbicacionYEnviar(texto, imagenBase64, audioBase64, audioDur) {
+    const lowerTxt = (texto || '').toLowerCase();
+    const pideUbicacion = lowerTxt.includes('clima') || lowerTxt.includes('tiempo') || lowerTxt.includes('temperatura') || lowerTxt.includes('dónde estoy') || lowerTxt.includes('donde estoy') || lowerTxt.includes('mi ubicación') || lowerTxt.includes('mi ubicacion');
+
+    if (pideUbicacion && navigator.geolocation) {
+      mostrarToast('Obteniendo ubicación para consulta...');
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const lat = pos.coords.latitude;
+          const lon = pos.coords.longitude;
+          const textoConUbicacion = `${texto} [Ubicación GPS: Lat ${lat.toFixed(4)}, Lon ${lon.toFixed(4)}]`;
+          enviarMensaje(textoConUbicacion, imagenBase64, audioBase64, audioDur);
+        },
+        (err) => {
+          // Si deniega o falla, enviar normal (el backend utilizará IP o perfil)
+          enviarMensaje(texto, imagenBase64, audioBase64, audioDur);
+        },
+        { timeout: 5000 }
+      );
+      return;
+    }
+
+    enviarMensaje(texto, imagenBase64, audioBase64, audioDur);
+  }
+
   function enviarMensaje(texto, imagenBase64, audioBase64, audioDur) {
     if (!conversacionAbiertaCon) return;
     if (!texto && !imagenBase64 && !audioBase64) return;
@@ -895,7 +920,7 @@ const Chat = (() => {
       const input = $('chatInputTexto');
       const texto = input.value.trim();
       if (!texto) return;
-      enviarMensaje(texto, null, null, 0);
+      solicitarUbicacionYEnviar(texto, null, null, 0);
       input.value = '';
       if (window.socket && conversacionAbiertaCon) {
         window.socket.emit('mensaje:detener_escribiendo', { receiverId: conversacionAbiertaCon.id });
@@ -1020,6 +1045,9 @@ const Chat = (() => {
       $('hojaChatAdjuntos')?.classList.remove('activo');
     };
 
+    $('chatBtnAdjuntarFotoDirecto')?.addEventListener('click', () => {
+      $('chatImagenInput')?.click();
+    });
     $('chatBtnMasOpciones')?.addEventListener('click', abrirMenuAdjuntos);
     $('cerrarChatAdjuntos')?.addEventListener('click', cerrarMenuAdjuntos);
     $('veloChatAdjuntos')?.addEventListener('click', cerrarMenuAdjuntos);
@@ -1066,6 +1094,18 @@ const Chat = (() => {
 
   function enlazarSocket(socket) {
     socket.on('mensaje:nuevo', onMensajeEntrante);
+    socket.on('cita:nueva', ({ hostName, appointment }) => {
+      mostrarToast(`📅 Nueva invitación de cita/plan recibida de ${hostName}`);
+    });
+    socket.on('cita:respuesta', ({ appointment, action, status, reject_reason }) => {
+      const el = document.getElementById(`acciones_cita_${appointment.id}`);
+      if (el) {
+        el.innerHTML = `<div style="font-size:11.5px; font-weight:700; color:${action === 'accept' ? '#10b981' : '#ef4444'};">
+          ${action === 'accept' ? 'Cita Aceptada ✓' : `Cita Rechazada ${reject_reason ? `(${escapar(reject_reason)})` : ''}`}
+        </div>`;
+      }
+      mostrarToast(action === 'accept' ? '¡Tu invitación de cita fue aceptada! 🎉' : 'La invitación de cita fue rechazada.');
+    });
     socket.on('mensaje:escribiendo', ({ de }) => {
       if (conversacionAbiertaCon && conversacionAbiertaCon.id === de) {
         $('chatEstadoEscribiendo').classList.remove('oculto');

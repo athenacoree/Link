@@ -68,6 +68,11 @@ router.post('/', requireAuth, async (req, res) => {
           body: `${hostName} te ha invitado a: ${appt.title}`,
           appointment: appt
         });
+        req.io.to(`user_${guest_id}`).emit('cita:nueva', {
+          hostId: req.userId,
+          hostName,
+          appointment: appt
+        });
       }
     } catch (e) {
       console.warn('[Appointments Notification Error]', e.message);
@@ -99,7 +104,19 @@ router.post('/:id/respond', requireAuth, async (req, res) => {
       return res.status(404).json({ error: 'Cita no encontrada o no tienes autorización.' });
     }
 
-    res.json({ success: true, appointment: rows[0] });
+    const appt = rows[0];
+    if (req.io) {
+      const targetUserId = appt.host_id === req.userId ? appt.guest_id : appt.host_id;
+      req.io.to(`user_${targetUserId}`).emit('cita:respuesta', {
+        appointment: appt,
+        action,
+        status,
+        reject_reason,
+        respondedBy: req.userId
+      });
+    }
+
+    res.json({ success: true, appointment: appt });
   } catch (err) {
     console.error('[appointments respond]', err);
     res.status(500).json({ error: 'Error al responder a la cita.' });
