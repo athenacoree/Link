@@ -77,6 +77,15 @@ async function runSystemTests() {
   const intentEditImage = ToolManager.detectToolIntent('edita esta foto para que sea estilo anime');
   assert.strictEqual(intentEditImage?.tool, 'image.edit', 'Debe detectar intención de editar foto');
 
+  const intentCapabilitiesNL = ToolManager.detectToolIntent('que puedes hacer');
+  assert.strictEqual(intentCapabilitiesNL?.tool, 'system.capabilities', 'Debe detectar capacidades con "que puedes hacer"');
+
+  const intentCapabilitiesNL2 = ToolManager.detectToolIntent('para que sirves');
+  assert.strictEqual(intentCapabilitiesNL2?.tool, 'system.capabilities', 'Debe detectar capacidades con "para que sirves"');
+
+  const intentGameNL = ToolManager.detectToolIntent('quiero jugar un juego');
+  assert.strictEqual(intentGameNL?.tool, 'game.list', 'Debe detectar lista de juegos con "quiero jugar un juego"');
+
   console.log('   ✅ Detección de intenciones validada con lenguaje natural.');
 
   // 4. Prueba de Ejecución de Herramientas Modulares (Existentes y Nuevas)

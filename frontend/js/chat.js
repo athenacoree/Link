@@ -93,7 +93,7 @@ const Chat = (() => {
     const categoriesHtml = categories.map(cat => renderCapabilityCategoryCard(cat, cardMsgId)).join('');
 
     return `
-      <div id="${cardMsgId}" class="capabilities-container" style="margin-top:8px; padding:14px; background:var(--fondo-tarjeta, #111827); border:1.5px solid var(--morado-500, #8b5cf6); border-radius:20px; max-width:340px; color:#fff; box-shadow:0 8px 24px rgba(139,92,246,0.25); font-family:var(--fuente);">
+      <div id="${cardMsgId}" class="capabilities-container" style="margin-top:8px; padding:14px; background:var(--fondo-tarjeta, #111827); border:1.5px solid var(--morado-500, #8b5cf6); border-radius:20px; max-width:100%; color:#fff; box-shadow:0 8px 24px rgba(139,92,246,0.25); font-family:var(--fuente);">
         <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; border-bottom:1px solid rgba(139,92,246,0.25); padding-bottom:8px;">
           <div style="display:flex; align-items:center; gap:8px;">
             <div style="width:34px; height:34px; border-radius:10px; background:linear-gradient(135deg, #8b5cf6, #6366f1); display:flex; align-items:center; justify-content:center; font-size:18px;">✨</div>
@@ -273,8 +273,12 @@ const Chat = (() => {
       }
     }
 
-    // Ejecutar vía flujo normal del chat enviando el mensaje a la IA
-    solicitarUbicacionYEnviar(finalPrompt, null, null, 0);
+    // Ejecutar vía flujo normal del chat o AILab enviando el mensaje a la IA
+    if (document.getElementById('vistaAilab')?.classList.contains('activo') && window.AILab) {
+      window.AILab.quickPrompt(finalPrompt);
+    } else {
+      solicitarUbicacionYEnviar(finalPrompt, null, null, 0);
+    }
   }
 
   function renderizarTarjetaResultadoHerramienta(toolResult) {
@@ -1637,7 +1641,7 @@ const Chat = (() => {
     abrirConversacion({ id: userId, name: userName });
   }
 
-  return { abrirConversacion, cerrarConversacion, enlazarUI, enlazarSocket, actualizarBadgeMensajes, alternarVelocidadAudio, alternarPanelUsuario, seleccionarEsteUsuario, abrirConversacionConId, cambiarCalidadVideo, enviarInvitacionCita, responderCita, enviarRespuestaDirectaEnChatCard, enviarSolicitudAmistadDirecta, abrirCategoriaCapabilities, volverACategoriasCapabilities, ejecutarHerramientaDesdeCard };
+  return { abrirConversacion, cerrarConversacion, enlazarUI, enlazarSocket, actualizarBadgeMensajes, alternarVelocidadAudio, alternarPanelUsuario, seleccionarEsteUsuario, abrirConversacionConId, cambiarCalidadVideo, enviarInvitacionCita, responderCita, enviarRespuestaDirectaEnChatCard, enviarSolicitudAmistadDirecta, abrirCategoriaCapabilities, volverACategoriasCapabilities, ejecutarHerramientaDesdeCard, renderCapabilitiesCard };
 })();
 
 document.addEventListener('DOMContentLoaded', () => Chat.enlazarUI());
