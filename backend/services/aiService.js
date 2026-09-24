@@ -1,4 +1,5 @@
 const { query } = require('../db/postgres');
+const ToolManager = require('../tools/ToolManager');
 
 /**
  * Centralized AI System Service for Enlace.
@@ -111,7 +112,7 @@ function pruneMessages(messages, maxContextTokens = 4000) {
 /**
  * Invoker for Google Gemini REST API Endpoints
  */
-async function callGeminiApi({ apiKey, model, messages, maxTokens, temperature, visionImage, signal }) {
+async function callGeminiApi({ apiKey, model, messages, tools, maxTokens, temperature, visionImage, signal }) {
   if (!model) {
     return {
       ok: false,
@@ -148,13 +149,22 @@ async function callGeminiApi({ apiKey, model, messages, maxTokens, temperature, 
         parts: [{ text: typeof m.content === 'string' ? m.content : JSON.stringify(m.content) }]
       };
     } else {
-      const role = m.role === 'assistant' ? 'model' : 'user';
+      const role = (m.role === 'assistant' || m.role === 'model') ? 'model' : (m.role === 'function' ? 'function' : 'user');
       const parts = [];
-      if (typeof m.content === 'string') {
-        parts.push({ text: m.content });
+
+      if (m.parts && Array.isArray(m.parts)) {
+        parts.push(...m.parts);
+      } else if (m.functionCall) {
+        parts.push({ functionCall: m.functionCall });
+      } else if (m.functionResponse) {
+        parts.push({ functionResponse: m.functionResponse });
+      } else if (typeof m.content === 'string') {
+        if (m.content.trim()) parts.push({ text: m.content });
       } else if (Array.isArray(m.content)) {
         for (const part of m.content) {
           if (part.type === 'text') parts.push({ text: part.text });
+          else if (part.functionCall) parts.push({ functionCall: part.functionCall });
+          else if (part.functionResponse) parts.push({ functionResponse: part.functionResponse });
           else if (part.type === 'image_url' && part.image_url?.url) {
             const imgUrl = part.image_url.url;
             if (imgUrl.startsWith('data:')) {
@@ -164,10 +174,13 @@ async function callGeminiApi({ apiKey, model, messages, maxTokens, temperature, 
             }
           }
         }
-      } else {
+      } else if (m.content) {
         parts.push({ text: JSON.stringify(m.content) });
       }
-      geminiContents.push({ role, parts });
+
+      if (parts.length > 0) {
+        geminiContents.push({ role, parts });
+      }
     }
   }
 
@@ -214,6 +227,10 @@ async function callGeminiApi({ apiKey, model, messages, maxTokens, temperature, 
 
   if (systemInstruction) {
     payload.systemInstruction = systemInstruction;
+  }
+
+  if (tools && Array.isArray(tools) && tools.length > 0) {
+    payload.tools = tools;
   }
 
   const response = await fetch(endpoint, {
@@ -285,11 +302,14 @@ async function callGeminiApi({ apiKey, model, messages, maxTokens, temperature, 
 
   const replyParts = candidate?.content?.parts || [];
   const reply = replyParts.map(p => p.text || '').join('');
+  const functionCalls = replyParts.filter(p => p.functionCall).map(p => p.functionCall);
   const finishReason = candidate?.finishReason === 'MAX_TOKENS' ? 'length' : (candidate?.finishReason || 'stop');
 
   return {
     ok: true,
     reply,
+    functionCalls: functionCalls.length > 0 ? functionCalls : null,
+    candidateContent: candidate?.content || null,
     finish_reason: finishReason,
     model_used: model,
     usage: data.usageMetadata || null,
@@ -300,7 +320,7 @@ async function callGeminiApi({ apiKey, model, messages, maxTokens, temperature, 
  * Provider Adapters Registry - Exclusively Gemini
  */
 const ProviderAdapters = {
-  gemini: async ({ settings, messages, maxTokens, modelOverride, visionImage, signal, temperature }) => {
+  gemini: async ({ settings, messages, tools, maxTokens, modelOverride, visionImage, signal, temperature }) => {
     const apiKey = (settings.gemini_api_key || process.env.GEMINI_API_KEY || '').trim();
     if (!apiKey) {
       return { ok: false, error: { code: 'NO_API_KEY', message: 'Gemini API Key no configurada en las variables de entorno (GEMINI_API_KEY en Render).', retryable: false } };
@@ -313,6 +333,7 @@ const ProviderAdapters = {
       apiKey,
       model,
       messages,
+      tools,
       maxTokens,
       temperature: temperature !== undefined && temperature !== null ? temperature : settings.ai_temperature,
       visionImage,
@@ -334,6 +355,8 @@ async function chatCompletion({
   visionImage = null,
   timeoutMs = null,
   signal = null,
+  requesterId = null,
+  enableTools = true,
 } = {}) {
   const settings = await getAISettings();
 
@@ -341,6 +364,7 @@ async function chatCompletion({
   const effectiveContextTokens = parseInt(settings.ai_context_tokens || '4000', 10);
   const effectiveTimeout = Math.max(10000, parseInt(timeoutMs || settings.ailab_timeout_ms || '120000', 10));
   const maxContinuations = Math.min(3, Math.max(0, parseInt(settings.ai_max_continuations || '2', 10)));
+  const maxToolSteps = Math.min(10, Math.max(1, parseInt(settings.ai_max_tool_steps || '5', 10)));
 
   let formattedMessages = Array.isArray(messages) ? [...messages] : [];
 
@@ -353,9 +377,11 @@ async function chatCompletion({
   formattedMessages = pruneMessages(formattedMessages, effectiveContextTokens);
 
   const selectedModel = (model || settings.gemini_model || process.env.GEMINI_MODEL || '').trim();
+  const geminiTools = enableTools ? ToolManager.getGeminiToolDeclarations() : null;
 
   let lastError = null;
   let successfulResult = null;
+  const executedToolResults = [];
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), effectiveTimeout);
@@ -365,25 +391,73 @@ async function chatCompletion({
     else signal.addEventListener('abort', () => controller.abort());
   }
 
+  let step = 0;
+  let currentMessages = [...formattedMessages];
+
   try {
-    const res = await ProviderAdapters.gemini({
-      settings,
-      messages: formattedMessages,
-      maxTokens: effectiveMaxTokens,
-      modelOverride: selectedModel,
-      temperature,
-      visionImage,
-      signal: controller.signal,
-    });
+    while (step < maxToolSteps) {
+      const res = await ProviderAdapters.gemini({
+        settings,
+        messages: currentMessages,
+        tools: geminiTools,
+        maxTokens: effectiveMaxTokens,
+        modelOverride: selectedModel,
+        temperature,
+        visionImage: step === 0 ? visionImage : null,
+        signal: controller.signal,
+      });
+
+      if (!res.ok) {
+        lastError = res.error;
+        console.warn(`[AI Service] Gemini provider failed on step ${step}: ${res.error?.message || 'Error desconocido'}`);
+        break;
+      }
+
+      if (res.functionCalls && res.functionCalls.length > 0) {
+        step++;
+        console.log(`[AI Service] Gemini requested function calls (step ${step}/${maxToolSteps}):`, res.functionCalls.map(f => f.name));
+
+        for (const fCall of res.functionCalls) {
+          const fnName = fCall.name;
+          const fnArgs = fCall.args || {};
+
+          let toolRes = null;
+          try {
+            toolRes = await ToolManager.executeTool(fnName, fnArgs, requesterId);
+          } catch (tErr) {
+            console.error(`[AI Service] Error executing tool '${fnName}':`, tErr);
+            toolRes = { error: `Error al ejecutar la herramienta '${fnName}': ${tErr.message}` };
+          }
+
+          executedToolResults.push({
+            tool: fnName,
+            params: fnArgs,
+            result: toolRes
+          });
+
+          // Append model function call and function response in exact Gemini REST API format
+          currentMessages.push({
+            role: 'model',
+            parts: [{ functionCall: fCall }]
+          });
+
+          currentMessages.push({
+            role: 'function',
+            parts: [{
+              functionResponse: {
+                name: fnName,
+                response: { name: fnName, content: toolRes }
+              }
+            }]
+          });
+        }
+      } else {
+        successfulResult = { ...res, provider: 'gemini' };
+        break;
+      }
+    }
 
     clearTimeout(timer);
-
-    if (res.ok) {
-      successfulResult = { ...res, provider: 'gemini' };
-    } else {
-      lastError = res.error;
-      console.warn(`[AI Service] Gemini provider failed: ${res.error?.message || 'Error desconocido'}`);
-    }
   } catch (err) {
     clearTimeout(timer);
     const isTimeout = err.name === 'AbortError';
@@ -469,6 +543,7 @@ async function chatCompletion({
     model_used: successfulResult.model_used,
     provider: 'gemini',
     usage: successfulResult.usage || null,
+    executed_tools: executedToolResults,
     continuations: continuationCount,
   };
 }

@@ -188,132 +188,303 @@ function getToolDefinitions() {
   const baseDefs = [
     {
       name: 'search_videos',
-      description: 'Busca y muestra videos directamente dentro de Link según la consulta, orientación (landscape, portrait, square) y categoría.',
+      description: 'Busca y muestra videos de Pexels directamente en la UI de la plataforma Enlace según la consulta, orientación (landscape, portrait, square) y categoría.',
       parameters: {
         type: 'object',
         properties: {
-          query: { type: 'string', description: 'Término de búsqueda del video (ej. naturaleza, ciudad, autos, espacio, tecnología)' },
-          orientation: { type: 'string', enum: ['landscape', 'portrait', 'square'], description: 'Orientación del video (opcional: horizontal/landscape, vertical/portrait, cuadrado/square)' },
-          category: { type: 'string', description: 'Categoría o etiqueta opcional' }
+          query: { type: 'string', description: 'Término de búsqueda del video (ej. naturaleza, ciudad, autos, tecnología, espacio)' },
+          orientation: { type: 'string', enum: ['landscape', 'portrait', 'square'], description: 'Orientación del video (landscape/horizontal, portrait/vertical, square/cuadrado)' },
+          category: { type: 'string', description: 'Categoría opcional del video' }
         },
         required: ['query']
       }
     },
     {
-      name: 'chat.preview',
-      description: 'Muestra una vista previa del chat con otro usuario y permite responderle directamente.',
-      parameters: { type: 'object', properties: { username: { type: 'string' }, userId: { type: 'string' } } }
-    },
-    {
-      name: 'user.edit_profile',
-      description: 'Edita la información del perfil del usuario (bio, profesión, ciudad, color de piel, nombre).',
-      parameters: { type: 'object', properties: { bio: { type: 'string' }, profession: { type: 'string' }, city: { type: 'string' }, skin_color: { type: 'string' }, name: { type: 'string' } } }
-    },
-    {
-      name: 'status.create',
-      description: 'Publica un nuevo estado o historia temporal en la plataforma Enlace.',
-      parameters: { type: 'object', properties: { text: { type: 'string' }, duration_hours: { type: 'number' } }, required: ['text'] }
-    },
-    {
-      name: 'status.delete',
-      description: 'Elimina un estado o historia activa del usuario.',
-      parameters: { type: 'object', properties: { id: { type: 'string' } } }
-    },
-    {
-      name: 'friend.send_request',
-      description: 'Envía una solicitud de amistad a otro usuario.',
-      parameters: { type: 'object', properties: { username: { type: 'string' }, userId: { type: 'string' } } }
-    },
-    {
-      name: 'youtube.live',
-      description: 'Busca transmisiones en vivo y directos en YouTube.',
-      parameters: { type: 'object', properties: { query: { type: 'string' } } }
-    },
-    {
-      name: 'duckduckgo.search',
-      description: 'Realiza búsquedas instantáneas y consultas web vía DuckDuckGo API.',
-      parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] }
-    },
-    {
-      name: 'stock.photos',
-      description: 'Busca imágenes profesionales de stock en bancos de fotos gratuitos.',
-      parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] }
-    },
-    {
-      name: 'free.videos',
-      description: 'Busca videos y contenido audiovisual gratuito y de dominio público.',
-      parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] }
-    },
-    {
-      name: 'system.payment_link',
-      description: 'Genera enlaces y tarjetas de pago/checkout del sistema (QvaPay/Monetización).',
-      parameters: { type: 'object', properties: { service: { type: 'string' }, amount: { type: 'string' } } }
+      name: 'weather.get',
+      description: 'Obtiene el clima real actual e información meteorológica de una ciudad o coordenadas GPS utilizando Open-Meteo.',
+      parameters: {
+        type: 'object',
+        properties: {
+          location: { type: 'string', description: 'Nombre de la ciudad (ej. Madrid, Ciudad de México) o coordenadas GPS (Lat xx, Lon yy)' }
+        },
+        required: ['location']
+      }
     },
     {
       name: 'web.search',
       description: 'Busca información actualizada en la web.',
-      parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] }
-    },
-    {
-      name: 'ip.geolocation',
-      description: 'Obtiene la geolocalización e información de red por dirección IP.',
-      parameters: { type: 'object', properties: { ip: { type: 'string' } } }
-    },
-    {
-      name: 'user.search_by_interest',
-      description: 'Busca usuarios en Enlace por sus intereses o gustos.',
-      parameters: { type: 'object', properties: { interest: { type: 'string' } }, required: ['interest'] }
-    },
-    {
-      name: 'posts.search',
-      description: 'Busca publicaciones compartidas en la plataforma Enlace por palabras clave.',
-      parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] }
-    },
-    {
-      name: 'dynamic.discover',
-      description: 'Descubre e integra automáticamente nuevas APIs públicas o especificaciones OpenAPI en la plataforma.',
-      parameters: { type: 'object', properties: { query: { type: 'string' } } }
-    },
-    {
-      name: 'webcam.search',
-      description: 'Busca cámaras públicas en tiempo real por ciudad.',
-      parameters: { type: 'object', properties: { location: { type: 'string' } }, required: ['location'] }
-    },
-    {
-      name: 'youtube.search',
-      description: 'Busca vídeos en YouTube.',
-      parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] }
-    },
-    {
-      name: 'twitch.search',
-      description: 'Busca transmisiones en vivo en Twitch.',
-      parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] }
-    },
-    {
-      name: 'weather.get',
-      description: 'Obtiene el clima actual de una ciudad.',
-      parameters: { type: 'object', properties: { location: { type: 'string' } }, required: ['location'] }
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'Consulta de búsqueda web' }
+        },
+        required: ['query']
+      }
     },
     {
       name: 'social.profile',
-      description: 'Busca el perfil de un usuario en Enlace.',
-      parameters: { type: 'object', properties: { username: { type: 'string' } }, required: ['username'] }
+      description: 'Busca un perfil de usuario registrado en la plataforma Enlace por su nombre de usuario o nombre.',
+      parameters: {
+        type: 'object',
+        properties: {
+          username: { type: 'string', description: 'Nombre de usuario o nombre en la plataforma Enlace' }
+        },
+        required: ['username']
+      }
+    },
+    {
+      name: 'user.search_by_interest',
+      description: 'Busca usuarios en Enlace según sus intereses, gustos o pasatiempos.',
+      parameters: {
+        type: 'object',
+        properties: {
+          interest: { type: 'string', description: 'Interés, gusto o pasatiempo a buscar' }
+        },
+        required: ['interest']
+      }
+    },
+    {
+      name: 'posts.search',
+      description: 'Busca publicaciones compartidas por usuarios en la plataforma Enlace.',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'Palabra clave o tema de búsqueda' }
+        },
+        required: ['query']
+      }
+    },
+    {
+      name: 'youtube.search',
+      description: 'Busca videos en YouTube.',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'Búsqueda de videos en YouTube' }
+        },
+        required: ['query']
+      }
+    },
+    {
+      name: 'youtube.live',
+      description: 'Busca transmisiones en vivo y directos en YouTube.',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'Tema o canal para buscar directo en vivo' }
+        }
+      }
+    },
+    {
+      name: 'wikipedia.search',
+      description: 'Busca artículos explicativos e información enciclopédica en Wikipedia.',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'Concepto, persona, evento o artículo a buscar' },
+          lang: { type: 'string', description: 'Idioma de Wikipedia (ej. es, en)' }
+        },
+        required: ['query']
+      }
+    },
+    {
+      name: 'wikimedia.search',
+      description: 'Busca imágenes y archivos multimedia libres en Wikimedia Commons.',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'Término de búsqueda de archivos' }
+        },
+        required: ['query']
+      }
+    },
+    {
+      name: 'osm.search',
+      description: 'Busca lugares, direcciones o puntos geográficos en OpenStreetMap.',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'Lugar, dirección o ciudad' }
+        },
+        required: ['query']
+      }
+    },
+    {
+      name: 'github.search',
+      description: 'Busca repositorios, proyectos y código en GitHub.',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'Nombre de proyecto, tecnología o repositorio' }
+        },
+        required: ['query']
+      }
+    },
+    {
+      name: 'reddit.search',
+      description: 'Busca publicaciones y discusiones en Reddit.',
+      parameters: {
+        type: 'object',
+        properties: {
+          subreddit: { type: 'string', description: 'Nombre del subreddit (opcional, ej. all)' },
+          query: { type: 'string', description: 'Término de búsqueda' }
+        }
+      }
+    },
+    {
+      name: 'nasa.apod',
+      description: 'Obtiene la imagen o fotografía del día espacial provista por la NASA.',
+      parameters: {
+        type: 'object',
+        properties: {
+          date: { type: 'string', description: 'Fecha opcional (YYYY-MM-DD)' }
+        }
+      }
+    },
+    {
+      name: 'openlibrary.search',
+      description: 'Busca libros, obras literarias y autores en Open Library.',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'Título de libro, autor o tema' }
+        },
+        required: ['query']
+      }
+    },
+    {
+      name: 'stock.photos',
+      description: 'Busca imágenes profesionales de stock en bancos de imágenes libres.',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'Término de búsqueda de imagen' }
+        },
+        required: ['query']
+      }
     },
     {
       name: 'image.generate',
-      description: 'Genera una imagen digital.',
-      parameters: { type: 'object', properties: { prompt: { type: 'string' } }, required: ['prompt'] }
+      description: 'Genera una imagen digital ilustrada mediante IA según una descripción.',
+      parameters: {
+        type: 'object',
+        properties: {
+          prompt: { type: 'string', description: 'Descripción detallada de la imagen a generar' }
+        },
+        required: ['prompt']
+      }
     },
     {
       name: 'image.edit',
-      description: 'Edita o modifica una imagen digital existente según las instrucciones o el prompt del usuario.',
-      parameters: { type: 'object', properties: { prompt: { type: 'string' }, image_base64: { type: 'string' } }, required: ['prompt'] }
+      description: 'Edita o retoca una imagen adjunta.',
+      parameters: {
+        type: 'object',
+        properties: {
+          prompt: { type: 'string', description: 'Instrucciones de edición o retoque' },
+          image_base64: { type: 'string', description: 'Imagen en base64 (opcional)' }
+        },
+        required: ['prompt']
+      }
     },
     {
       name: 'translate',
-      description: 'Traduce texto a otro idioma.',
-      parameters: { type: 'object', properties: { text: { type: 'string' }, target_lang: { type: 'string' } }, required: ['text'] }
+      description: 'Traduce un texto a un idioma especificado.',
+      parameters: {
+        type: 'object',
+        properties: {
+          text: { type: 'string', description: 'Texto a traducir' },
+          target_lang: { type: 'string', description: 'Idioma destino (ej. en, es, fr, de)' }
+        },
+        required: ['text']
+      }
     },
+    {
+      name: 'math.calculate',
+      description: 'Evalúa expresiones matemáticas y cálculos exactos.',
+      parameters: {
+        type: 'object',
+        properties: {
+          expression: { type: 'string', description: 'Expresión matemática (ej. 25 * 4 + 10)' }
+        },
+        required: ['expression']
+      }
+    },
+    {
+      name: 'world.time',
+      description: 'Obtiene la hora mundial actual en una ubicación especificada.',
+      parameters: {
+        type: 'object',
+        properties: {
+          location: { type: 'string', description: 'Ciudad o país' }
+        },
+        required: ['location']
+      }
+    },
+    {
+      name: 'coingecko.prices',
+      description: 'Obtiene precios y cotizaciones en tiempo real de criptomonedas (Bitcoin, Ethereum, etc.).',
+      parameters: {
+        type: 'object',
+        properties: {
+          ids: { type: 'string', description: 'Identificador de la criptomoneda (ej. bitcoin, ethereum, solana)' }
+        }
+      }
+    },
+    {
+      name: 'chat.preview',
+      description: 'Muestra una vista previa de una conversación en la plataforma.',
+      parameters: {
+        type: 'object',
+        properties: {
+          username: { type: 'string', description: 'Nombre de usuario' }
+        }
+      }
+    },
+    {
+      name: 'user.edit_profile',
+      description: 'Edita la biografía, profesión o datos del perfil del usuario.',
+      parameters: {
+        type: 'object',
+        properties: {
+          bio: { type: 'string' },
+          profession: { type: 'string' },
+          city: { type: 'string' }
+        }
+      }
+    },
+    {
+      name: 'status.create',
+      description: 'Publica un nuevo estado o historia temporal.',
+      parameters: {
+        type: 'object',
+        properties: {
+          text: { type: 'string', description: 'Texto del estado' }
+        },
+        required: ['text']
+      }
+    },
+    {
+      name: 'friend.send_request',
+      description: 'Envía una solicitud de amistad a otro usuario.',
+      parameters: {
+        type: 'object',
+        properties: {
+          username: { type: 'string', description: 'Nombre de usuario destino' }
+        },
+        required: ['username']
+      }
+    },
+    {
+      name: 'system.payment_link',
+      description: 'Genera un enlace de pago del sistema.',
+      parameters: {
+        type: 'object',
+        properties: {
+          service: { type: 'string', description: 'Nombre del servicio' },
+          amount: { type: 'string', description: 'Monto en USD' }
+        }
+      }
+    }
   ];
 
   const dynamicApis = dynamicEngine.INITIAL_DISCOVERY_CATALOG || [];
@@ -329,11 +500,83 @@ function getToolDefinitions() {
   return baseDefs;
 }
 
+/**
+ * Convierte una definición de parámetro a tipos válidos para Gemini REST API
+ */
+function convertTypeToGemini(typeStr) {
+  if (!typeStr) return 'STRING';
+  const t = String(typeStr).toLowerCase();
+  if (t === 'string') return 'STRING';
+  if (t === 'number') return 'NUMBER';
+  if (t === 'integer') return 'INTEGER';
+  if (t === 'boolean') return 'BOOLEAN';
+  if (t === 'array') return 'ARRAY';
+  if (t === 'object') return 'OBJECT';
+  return 'STRING';
+}
+
+function cleanSchemaForGemini(schema) {
+  if (!schema || typeof schema !== 'object') return { type: 'STRING' };
+  const clean = {};
+  clean.type = convertTypeToGemini(schema.type);
+
+  if (schema.description) clean.description = schema.description;
+  if (schema.enum && Array.isArray(schema.enum)) clean.enum = schema.enum;
+
+  if (schema.properties && typeof schema.properties === 'object') {
+    clean.properties = {};
+    for (const [key, val] of Object.entries(schema.properties)) {
+      clean.properties[key] = cleanSchemaForGemini(val);
+    }
+  }
+
+  if (schema.required && Array.isArray(schema.required)) {
+    clean.required = schema.required;
+  }
+
+  return clean;
+}
+
+/**
+ * Genera el arreglo `tools` en el formato requerido por Gemini REST API:
+ * `[{ functionDeclarations: [ { name, description, parameters }, ... ] }]`
+ */
+function getGeminiToolDeclarations() {
+  const toolDefs = getToolDefinitions();
+  const declarations = toolDefs.map(def => {
+    // Normalizar nombre quitando puntos
+    const safeName = def.name.replace(/\./g, '_');
+    return {
+      name: safeName,
+      description: def.description || `Herramienta ${safeName}`,
+      parameters: cleanSchemaForGemini(def.parameters || { type: 'object', properties: {} })
+    };
+  });
+
+  return [
+    {
+      functionDeclarations: declarations
+    }
+  ];
+}
+
 // Sincronizar de forma síncrona/inicial el catálogo de APIs dinámicas
 dynamicEngine.syncDynamicApisWithToolManager({ tools }).catch(() => {});
 
 async function executeTool(name, params = {}, requesterId = null) {
-  const toolFn = tools[name];
+  // Manejar nombres normalizados (con o sin punto)
+  let realName = name;
+  if (!tools[realName]) {
+    // Intentar buscar mapeo si se usó con guión bajo en vez de punto
+    for (const registeredKey of Object.keys(tools)) {
+      if (registeredKey.replace(/\./g, '_') === name) {
+        realName = registeredKey;
+        break;
+      }
+    }
+  }
+
+  const toolFn = tools[realName];
   if (!toolFn) {
     return { error: `La herramienta '${name}' no existe o no está registrada.` };
   }
@@ -898,6 +1141,7 @@ module.exports = {
   executeTool,
   detectToolIntent,
   getToolDefinitions,
+  getGeminiToolDeclarations,
   executeMission,
   tools,
 };
