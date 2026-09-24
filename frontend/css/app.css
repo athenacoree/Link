@@ -817,3 +817,57 @@ body.animaciones-pausadas * {
   0%, 80%, 100% { transform: scale(0); opacity: 0.3; }
   40% { transform: scale(1); opacity: 1; }
 }
+
+/* ---- Capacidades de Link (Widgets Interactivos) ---- */
+.capabilities-container {
+  animation: capabilitiesEntrada 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+@keyframes capabilitiesEntrada {
+  0% { transform: scale(0.92) translateY(10px); opacity: 0; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+.capability-category-card:hover {
+  transform: translateY(-2px) scale(1.02);
+  border-color: rgba(139, 92, 246, 0.6) !important;
+  background: rgba(139, 92, 246, 0.12) !important;
+  box-shadow: 0 6px 18px rgba(139, 92, 246, 0.2);
+}
+
+.capability-category-card:active {
+  transform: scale(0.96);
+}
+
+.capability-tool-card {
+  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.capability-tool-card:hover {
+  border-color: rgba(139, 92, 246, 0.4) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+.capability-action-btn:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+.capability-action-btn:active {
+  transform: scale(0.95);
+}
+
+.capabilities-fade-in {
+  animation: capabilitiesFadeIn 0.25s ease-in-out forwards;
+}
+
+@keyframes capabilitiesFadeIn {
+  0% { opacity: 0; transform: scale(0.96); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@media (max-width: 360px) {
+  .capabilities-body-grid {
+    grid-template-columns: 1fr !important;
+  }
+}

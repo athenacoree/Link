@@ -35,7 +35,130 @@ const internalTools = require('./internalTools');
 const userActionTools = require('./userActionTools');
 const gameTool = require('./gameTool');
 
+function getCapabilities(params = {}) {
+  const gamesList = gameTool.listGames({});
+  const gameTools = (gamesList.games || []).map(g => ({
+    id: `game_${g.id}`,
+    name: g.name,
+    icon: getGameIcon(g.id),
+    description: g.description || `Juega a ${g.name} en Link`,
+    tool: 'game.launch',
+    params: { gameId: g.id },
+    prompt_example: `Quiero jugar ${g.name}`
+  }));
+
+  function getGameIcon(id) {
+    const icons = {
+      tictactoe: '❌', connect4: '🟡', pong: '🏓', trivia: '🧠', memory: '🃏',
+      snake: '🐍', '2048': '🔢', flappy: '🐤', breakout: '🧱', wordle: '🔤',
+      minesweeper: '💣', simon: '🔴', sudoku: '🔢', spaceinvaders: '👾',
+      whackamole: '🔨', solitaire: '🎴', checkers: '⚪', hanoi: '🗼',
+      pacman: '👻', typing: '⌨️', towerstack: '🏗️', match3: '💎',
+      mathquiz: '➕', doodlejump: '🦘', lightsout: '💡', hangman: '🪢',
+      wordsearch: '🔠'
+    };
+    return icons[id] || '🎮';
+  }
+
+  const categories = [
+    {
+      id: 'herramientas',
+      name: 'Herramientas',
+      icon: '🛠️',
+      tools: [
+        { id: 'weather.get', name: 'Clima', icon: '🌤️', description: 'Consulta el clima actual y pronóstico en tiempo real', tool: 'weather.get', params: { location: 'auto' }, prompt_example: 'Dame el clima actual' },
+        { id: 'wikipedia.search', name: 'Wikipedia', icon: '📚', description: 'Busca artículos y conceptos en Wikipedia', tool: 'wikipedia.search', params: { query: 'Tecnología' }, prompt_example: 'Busca en Wikipedia sobre la tecnología' },
+        { id: 'github.search', name: 'GitHub', icon: '💻', description: 'Explora repositorios y código en GitHub', tool: 'github.search', params: { query: 'JavaScript' }, prompt_example: 'Busca proyectos de Node.js en GitHub' },
+        { id: 'translate', name: 'Traductor', icon: '🌐', description: 'Traduce textos entre múltiples idiomas al instante', tool: 'translate', params: { text: 'Hola, ¿cómo estás?', target_lang: 'en' }, prompt_example: 'Traduce al inglés: Hola' },
+        { id: 'math.calculate', name: 'Calculadora', icon: '🧮', description: 'Cálculos matemáticos exactos y fórmulas', tool: 'math.calculate', params: { expression: '128 * 4 + 50' }, prompt_example: 'Calcula 128 * 4 + 50' },
+        { id: 'world.time', name: 'Hora Mundial', icon: '🕒', description: 'Consulta la hora actual en cualquier ciudad del mundo', tool: 'world.time', params: { location: 'Madrid' }, prompt_example: '¿Qué hora es en Tokio?' },
+        { id: 'frankfurter.convert', name: 'Divisas', icon: '💱', description: 'Convierte divisas y consulta tasas de cambio oficiales', tool: 'frankfurter.convert', params: { amount: 10, from: 'USD', to: 'EUR' }, prompt_example: 'Convierte 10 dólares a euros' },
+        { id: 'doc.extract', name: 'Lector de Docs', icon: '📄', description: 'Extrae y analiza texto de archivos y PDF adjuntos', tool: 'doc.extract', params: {}, prompt_example: 'Extrae texto del documento' }
+      ]
+    },
+    {
+      id: 'juegos',
+      name: 'Juegos',
+      icon: '🎮',
+      tools: gameTools
+    },
+    {
+      id: 'entretenimiento',
+      name: 'Entretenimiento',
+      icon: '🎵',
+      tools: [
+        { id: 'gif.search', name: 'GIFs Animados', icon: '🎞️', description: 'Busca y comparte GIFs animados en el chat', tool: 'gif.search', params: { query: 'alegre' }, prompt_example: 'Muéstrame un GIF divertido' },
+        { id: 'sticker.animated', name: 'Stickers', icon: '✨', description: 'Colección de stickers animados y expresivos', tool: 'sticker.animated', params: { category: 'happy' }, prompt_example: 'Muéstrame stickers animados' },
+        { id: 'graphics3d.generate', name: 'Gráfico 3D', icon: '🧊', description: 'Genera figuras 3D interactivas con rotación y Wiggle', tool: 'graphics3d.generate', params: { shape: 'cube', title: 'Cubo 3D Interactivo' }, prompt_example: 'Genera una figura 3D' },
+        { id: 'joke.get', name: 'Chistes', icon: '😂', description: 'Ríete con chistes divertidos y humor', tool: 'joke.get', params: {}, prompt_example: 'Cuéntame un chiste' },
+        { id: 'numbers.fact', name: 'Datos de Números', icon: '🔢', description: 'Curiosidades y datos interesantes sobre números', tool: 'numbers.fact', params: { number: 'random' }, prompt_example: 'Dime un dato curioso sobre números' },
+        { id: 'advice.slip', name: 'Consejos', icon: '💡', description: 'Recibe consejos e inspiración cotidiana', tool: 'advice.slip', params: {}, prompt_example: 'Dame un consejo' }
+      ]
+    },
+    {
+      id: 'busqueda',
+      name: 'Búsqueda',
+      icon: '🔎',
+      tools: [
+        { id: 'web.search', name: 'Búsqueda Web', icon: '🌐', description: 'Busca información fresca y actualizada en la web', tool: 'web.search', params: { query: 'Últimas noticias' }, prompt_example: 'Busca noticias sobre ciencia' },
+        { id: 'duckduckgo.search', name: 'DuckDuckGo', icon: '🦆', description: 'Búsqueda web directa vía DuckDuckGo API', tool: 'duckduckgo.search', params: { query: 'Open source' }, prompt_example: 'Busca en DuckDuckGo' },
+        { id: 'youtube.search', name: 'YouTube', icon: '▶️', description: 'Busca videos e información en YouTube', tool: 'youtube.search', params: { query: 'Música de fondo' }, prompt_example: 'Busca un video de música en YouTube' },
+        { id: 'youtube.live', name: 'Directos YouTube', icon: '🔴', description: 'Transmisiones y eventos en vivo en directo', tool: 'youtube.live', params: { query: 'Noticias en vivo' }, prompt_example: 'Busca transmisiones en vivo' },
+        { id: 'search_videos', name: 'Videos HD', icon: '🎬', description: 'Encuentra videos libres en HD con reproductor integrado', tool: 'search_videos', params: { query: 'naturaleza', orientation: 'landscape' }, prompt_example: 'Muéstrame un video de naturaleza' },
+        { id: 'wikimedia.search', name: 'Wikimedia', icon: '🖼️', description: 'Busca fotos y archivos libres de Wikimedia Commons', tool: 'wikimedia.search', params: { query: 'Espacio exterior' }, prompt_example: 'Fotos de Wikimedia Commons' },
+        { id: 'stock.photos', name: 'Banco de Fotos', icon: '📷', description: 'Galería de fotos de alta calidad de stock', tool: 'stock.photos', params: { query: 'tecnología' }, prompt_example: 'Muestra fotos de stock de tecnología' },
+        { id: 'openlibrary.search', name: 'Open Library', icon: '📖', description: 'Busca libros, autores y obras literarias', tool: 'openlibrary.search', params: { query: 'Cien años de soledad' }, prompt_example: 'Busca el libro Cien años de soledad' }
+      ]
+    },
+    {
+      id: 'informacion',
+      name: 'Información',
+      icon: '🌤️',
+      tools: [
+        { id: 'nasa.apod', name: 'NASA APOD', icon: '🚀', description: 'La foto astronómica del día provista por la NASA', tool: 'nasa.apod', params: {}, prompt_example: 'Muéstrame la imagen del día de la NASA' },
+        { id: 'coingecko.prices', name: 'Criptomonedas', icon: '🪙', description: 'Precios en tiempo real de Bitcoin, Ethereum y Solana', tool: 'coingecko.prices', params: { ids: 'bitcoin,ethereum,solana' }, prompt_example: '¿Cuál es el precio de Bitcoin?' },
+        { id: 'themealdb.search', name: 'Recetas', icon: '🍳', description: 'Busca recetas, platillos e ingredientes culinarios', tool: 'themealdb.search', params: { query: 'pasta' }, prompt_example: 'Busca una receta de pasta' },
+        { id: 'tvmaze.search', name: 'Series TV', icon: '📺', description: 'Información de programas, series y shows de TV', tool: 'tvmaze.search', params: { query: 'Breaking Bad' }, prompt_example: 'Información sobre la serie Breaking Bad' },
+        { id: 'restcountries.get', name: 'Países del Mundo', icon: '🗺️', description: 'Capitales, población, banderas y datos de países', tool: 'restcountries.get', params: { country: 'Cuba' }, prompt_example: 'Datos del país España' },
+        { id: 'osm.search', name: 'Mapas OSM', icon: '📍', description: 'Lugares y geolocalización en OpenStreetMap', tool: 'osm.search', params: { query: 'La Habana' }, prompt_example: 'Busca en el mapa La Habana' }
+      ]
+    },
+    {
+      id: 'pagos',
+      name: 'Pagos',
+      icon: '💰',
+      tools: [
+        { id: 'system.payment_link', name: 'Pago QvaPay', icon: '💳', description: 'Genera enlaces de pago y facturas con QvaPay', tool: 'system.payment_link', params: { service: 'Servicio Enlace', amount: '5.00' }, prompt_example: 'Genera un enlace de pago' }
+      ]
+    },
+    {
+      id: 'funciones_link',
+      name: 'Funciones de Link',
+      icon: '📱',
+      tools: [
+        { id: 'social.profile', name: 'Buscar Perfil', icon: '👤', description: 'Encuentra perfiles de personas registradas en Link', tool: 'social.profile', params: { username: 'admin' }, prompt_example: 'Busca el perfil de admin' },
+        { id: 'user.search_by_interest', name: 'Buscar por Gustos', icon: '👥', description: 'Encuentra usuarios según pasatiempos e intereses', tool: 'user.search_by_interest', params: { interest: 'música' }, prompt_example: 'Busca personas interesadas en música' },
+        { id: 'posts.search', name: 'Publicaciones', icon: '📝', description: 'Busca publicaciones compartidas en el feed social', tool: 'posts.search', params: { query: 'tecnología' }, prompt_example: 'Busca publicaciones sobre tecnología' },
+        { id: 'user.edit_profile', name: 'Editar Perfil', icon: '✏️', description: 'Actualiza tu biografía, ciudad o profesión en Link', tool: 'user.edit_profile', params: {}, prompt_example: 'Edita mi biografía de perfil' },
+        { id: 'status.create', name: 'Publicar Estado', icon: '📸', description: 'Comparte un estado temporal de 24 horas en tu perfil', tool: 'status.create', params: { text: 'Compartiendo un momento en Link ✨' }, prompt_example: 'Publica un estado' },
+        { id: 'friend.send_request', name: 'Agregar Amigo', icon: '🤝', description: 'Envía una solicitud de amistad a otro usuario', tool: 'friend.send_request', params: { username: 'usuario' }, prompt_example: 'Envía solicitud de amistad' },
+        { id: 'chat.preview', name: 'Vista Previa Chat', icon: '💬', description: 'Muestra los mensajes recientes en un chat privado', tool: 'chat.preview', params: {}, prompt_example: 'Muestra mi chat con un amigo' }
+      ]
+    }
+  ];
+
+  return {
+    type: 'capabilities_card',
+    data: {
+      title: 'Capacidades de Link',
+      description: 'Explora todas las herramientas y funciones interactivas disponibles:',
+      categories: categories
+    }
+  };
+}
+
 const tools = {
+  'system.capabilities': (params) => getCapabilities(params),
   'game.list': (params) => gameTool.listGames(params),
   'game.launch': (params) => gameTool.launchGame(params),
   'web.search': webSearch.search,
@@ -189,6 +312,14 @@ const tools = {
 
 function getToolDefinitions() {
   const baseDefs = [
+    {
+      name: 'system.capabilities',
+      description: 'Muestra el catálogo interactivo de capacidades, herramientas y juegos disponibles en Link agrupados por categorías.',
+      parameters: {
+        type: 'object',
+        properties: {}
+      }
+    },
     {
       name: 'game.list',
       description: 'Consulta y muestra la lista de minijuegos disponibles en la biblioteca oficial de Link Games.',
@@ -648,6 +779,21 @@ async function executeTool(name, params = {}, requesterId = null) {
 function detectToolIntent(text) {
   if (!text || typeof text !== 'string') return null;
   const lower = text.toLowerCase().trim();
+
+  // -1. Capacidades de Link (Consultas sobre herramientas, funciones y capacidades disponibles)
+  if (
+    lower.includes('qué puedes hacer') || lower.includes('que puedes hacer') ||
+    lower.includes('qué herramientas tienes') || lower.includes('que herramientas tienes') ||
+    lower.includes('qué puedo hacer en link') || lower.includes('que puedo hacer en link') ||
+    lower.includes('muéstrame tus funciones') || lower.includes('muestrame tus funciones') ||
+    lower.includes('muéstrame tus herramientas') || lower.includes('muestrame tus herramientas') ||
+    lower.includes('qué funciones tienes') || lower.includes('que funciones tienes') ||
+    lower.includes('mis capacidades') || lower.includes('capacidades de link') ||
+    lower.includes('tus capacidades') || lower.includes('qué capacidades tienes') ||
+    lower.includes('ver herramientas') || lower.includes('qué juegos tienes') || lower.includes('que juegos tienes')
+  ) {
+    return { tool: 'system.capabilities', params: {} };
+  }
 
   // 0. Búsqueda y Apertura de Minijuegos en Link Games (game.list / game.launch)
   if (

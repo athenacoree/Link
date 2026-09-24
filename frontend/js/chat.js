@@ -85,10 +85,208 @@ const Chat = (() => {
     return textoFormateado + ytEmbeds;
   }
 
+  function renderCapabilitiesCard(data, cardMsgId) {
+    window.linkCapabilitiesData = window.linkCapabilitiesData || {};
+    window.linkCapabilitiesData[cardMsgId] = data;
+
+    const categories = data.categories || [];
+    const categoriesHtml = categories.map(cat => renderCapabilityCategoryCard(cat, cardMsgId)).join('');
+
+    return `
+      <div id="${cardMsgId}" class="capabilities-container" style="margin-top:8px; padding:14px; background:var(--fondo-tarjeta, #111827); border:1.5px solid var(--morado-500, #8b5cf6); border-radius:20px; max-width:340px; color:#fff; box-shadow:0 8px 24px rgba(139,92,246,0.25); font-family:var(--fuente);">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; border-bottom:1px solid rgba(139,92,246,0.25); padding-bottom:8px;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <div style="width:34px; height:34px; border-radius:10px; background:linear-gradient(135deg, #8b5cf6, #6366f1); display:flex; align-items:center; justify-content:center; font-size:18px;">✨</div>
+            <div>
+              <div style="font-weight:800; font-size:14.5px; color:#fff; letter-spacing:-0.2px;">${meEscapar(data.title || 'Capacidades de Link')}</div>
+              <div style="font-size:10.5px; opacity:0.75; color:#cbd5e1;">Catálogo de herramientas interactivas</div>
+            </div>
+          </div>
+          <span style="font-size:10px; font-weight:800; background:rgba(139,92,246,0.25); color:#a78bfa; padding:3px 8px; border-radius:10px; border:1px solid rgba(139,92,246,0.4);">Link AI</span>
+        </div>
+
+        <div id="caps_nav_${cardMsgId}" style="margin-bottom:10px;">
+          <div style="font-size:11.5px; opacity:0.85; color:#cbd5e1; margin-bottom:6px;">Selecciona una categoría para explorar:</div>
+        </div>
+
+        <div id="caps_body_${cardMsgId}" class="capabilities-body-grid" style="display:grid; grid-template-columns:repeat(2, 1fr); gap:10px; transition:all 0.3s ease;">
+          ${categoriesHtml}
+        </div>
+      </div>
+    `;
+  }
+
+  function renderCapabilityCategoryCard(cat, cardMsgId) {
+    const toolCount = (cat.tools || []).length;
+    return `
+      <div class="capability-category-card" onclick="Chat.abrirCategoriaCapabilities('${cardMsgId}', '${cat.id}')" style="background:rgba(255,255,255,0.06); border:1px solid rgba(139,92,246,0.3); border-radius:16px; padding:12px 10px; text-align:center; cursor:pointer; transition:all 0.2s cubic-bezier(0.175,0.885,0.32,1.275); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; min-height:105px; user-select:none;">
+        <div style="font-size:30px; width:48px; height:48px; border-radius:14px; background:linear-gradient(135deg, rgba(139,92,246,0.25), rgba(99,102,241,0.15)); display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(0,0,0,0.2);">${cat.icon || '🛠️'}</div>
+        <div style="font-weight:800; font-size:12.5px; color:#fff; line-height:1.2;">${meEscapar(cat.name)}</div>
+        <span style="font-size:9.5px; font-weight:700; background:rgba(139,92,246,0.2); color:#c4b5fd; padding:2px 8px; border-radius:10px;">${toolCount} ${toolCount === 1 ? 'función' : 'funciones'}</span>
+      </div>
+    `;
+  }
+
+  function renderCapabilityToolCard(tool, cardMsgId) {
+    return `
+      <div class="capability-tool-card" style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:14px; padding:10px; display:flex; flex-direction:column; justify-content:space-between; gap:8px; min-height:120px;">
+        <div style="display:flex; align-items:flex-start; gap:8px;">
+          <div style="font-size:22px; width:36px; height:36px; border-radius:10px; background:rgba(139,92,246,0.2); display:flex; align-items:center; justify-content:center; flex:0 0 auto;">${tool.icon || '⚙️'}</div>
+          <div style="min-width:0; flex:1;">
+            <div style="font-weight:800; font-size:12.5px; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${meEscapar(tool.name)}</div>
+            <div style="font-size:10.5px; opacity:0.75; color:#cbd5e1; line-height:1.3; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; margin-top:2px;">${meEscapar(tool.description)}</div>
+          </div>
+        </div>
+        ${renderCapabilityActionButton(tool, cardMsgId)}
+      </div>
+    `;
+  }
+
+  function renderCapabilityActionButton(tool, cardMsgId) {
+    return `
+      <button class="capability-action-btn" onclick="event.stopPropagation(); Chat.ejecutarHerramientaDesdeCard('${meEscapar(tool.id)}', '${cardMsgId}', this)" style="width:100%; text-align:center; padding:7px 10px; font-size:11.5px; font-weight:800; border-radius:10px; background:linear-gradient(135deg, #8b5cf6, #6366f1); color:#fff; border:none; cursor:pointer; box-shadow:0 3px 10px rgba(99,102,241,0.25); transition:all 0.15s ease;">
+        🚀 Iniciar
+      </button>
+    `;
+  }
+
+  function abrirCategoriaCapabilities(cardMsgId, catId) {
+    const data = (window.linkCapabilitiesData && window.linkCapabilitiesData[cardMsgId]) || null;
+    if (!data) return;
+
+    const cat = (data.categories || []).find(c => c.id === catId);
+    if (!cat) return;
+
+    const navEl = document.getElementById(`caps_nav_${cardMsgId}`);
+    const bodyEl = document.getElementById(`caps_body_${cardMsgId}`);
+
+    if (navEl) {
+      navEl.innerHTML = `
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
+          <button onclick="event.stopPropagation(); Chat.volverACategoriasCapabilities('${cardMsgId}')" style="background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.2); color:#fff; font-size:11px; font-weight:700; padding:4px 10px; border-radius:10px; cursor:pointer; display:flex; align-items:center; gap:4px;">
+            ← Volver a Categorías
+          </button>
+          <span style="font-weight:800; font-size:12.5px; color:#a78bfa;">${cat.icon} ${meEscapar(cat.name)}</span>
+        </div>
+      `;
+    }
+
+    if (bodyEl) {
+      bodyEl.style.gridTemplateColumns = 'repeat(2, 1fr)';
+      const toolsHtml = (cat.tools || []).map(t => {
+        t.catId = catId;
+        return renderCapabilityToolCard(t, cardMsgId);
+      }).join('');
+
+      bodyEl.classList.add('capabilities-fade-in');
+      bodyEl.innerHTML = toolsHtml;
+      setTimeout(() => bodyEl.classList.remove('capabilities-fade-in'), 300);
+    }
+  }
+
+  function volverACategoriasCapabilities(cardMsgId) {
+    const data = (window.linkCapabilitiesData && window.linkCapabilitiesData[cardMsgId]) || null;
+    if (!data) return;
+
+    const navEl = document.getElementById(`caps_nav_${cardMsgId}`);
+    const bodyEl = document.getElementById(`caps_body_${cardMsgId}`);
+
+    if (navEl) {
+      navEl.innerHTML = `<div style="font-size:11.5px; opacity:0.85; color:#cbd5e1; margin-bottom:6px;">Selecciona una categoría para explorar:</div>`;
+    }
+
+    if (bodyEl) {
+      bodyEl.style.gridTemplateColumns = 'repeat(2, 1fr)';
+      const categoriesHtml = (data.categories || []).map(cat => renderCapabilityCategoryCard(cat, cardMsgId)).join('');
+      bodyEl.classList.add('capabilities-fade-in');
+      bodyEl.innerHTML = categoriesHtml;
+      setTimeout(() => bodyEl.classList.remove('capabilities-fade-in'), 300);
+    }
+  }
+
+  function ejecutarHerramientaDesdeCard(toolId, cardMsgId, btnElem) {
+    const data = (window.linkCapabilitiesData && window.linkCapabilitiesData[cardMsgId]) || null;
+    if (!data) return;
+
+    let targetTool = null;
+    for (const cat of (data.categories || [])) {
+      const found = (cat.tools || []).find(t => t.id === toolId);
+      if (found) {
+        targetTool = found;
+        break;
+      }
+    }
+
+    if (!targetTool) return;
+
+    if (btnElem) {
+      btnElem.disabled = true;
+      btnElem.innerHTML = '⏳ Cargando...';
+      setTimeout(() => {
+        if (btnElem) {
+          btnElem.disabled = false;
+          btnElem.innerHTML = '🚀 Iniciar';
+        }
+      }, 2500);
+    }
+
+    const toolName = targetTool.tool;
+    const toolParams = targetTool.params || {};
+
+    // Si es un minijuego (game.launch)
+    if (toolName === 'game.launch' && toolParams.gameId) {
+      api('/ai/chat', { method: 'POST', body: { tool_name: 'game.launch', tool_params: { gameId: toolParams.gameId } } })
+        .then((res) => {
+          if (res && res.tool_result) {
+            const burbujaEl = pintarBurbuja({
+              id: 'game_launch_' + Date.now(),
+              senderId: '00000000-0000-0000-0000-0000000000a1',
+              text: `🎮 Iniciando ${targetTool.name}...`,
+              createdAt: new Date().toISOString()
+            }, Sesion.usuario().id);
+
+            const cardHtml = renderizarTarjetaResultadoHerramienta(res.tool_result);
+            if (cardHtml) burbujaEl.insertAdjacentHTML('beforeend', cardHtml);
+            $('chatMensajes').appendChild(burbujaEl);
+            $('chatMensajes').scrollTop = $('chatMensajes').scrollHeight;
+
+            // Lanzar juego directamente si URL está presente
+            const gData = res.tool_result.data || {};
+            if (window.abrirJuego && gData.url) {
+              window.abrirJuego(gData.url, gData.name || targetTool.name, gData.game_id || toolParams.gameId);
+            }
+          }
+        })
+        .catch((err) => {
+          mostrarToast('Error al lanzar minijuego: ' + (err.message || 'Desconocido'));
+        });
+      return;
+    }
+
+    // Si requiere consulta del usuario (búsqueda web, wikipedia, etc.)
+    let finalPrompt = targetTool.prompt_example || `Ejecuta ${targetTool.name}`;
+    if (toolName === 'web.search' || toolName === 'wikipedia.search' || toolName === 'github.search' || toolName === 'social.profile' || toolName === 'user.search_by_interest' || toolName === 'posts.search' || toolName === 'openlibrary.search' || toolName === 'youtube.search' || toolName === 'stock.photos') {
+      const userInput = prompt(`Ingresa el término o consulta para ${targetTool.name}:`, targetTool.prompt_example || '');
+      if (userInput === null) return; // Cancelado por usuario
+      if (userInput.trim()) {
+        finalPrompt = userInput.trim();
+      }
+    }
+
+    // Ejecutar vía flujo normal del chat enviando el mensaje a la IA
+    solicitarUbicacionYEnviar(finalPrompt, null, null, 0);
+  }
+
   function renderizarTarjetaResultadoHerramienta(toolResult) {
     if (!toolResult || !toolResult.type) return '';
     const t = toolResult.type;
     const data = toolResult.data || {};
+
+    // 0. Tarjeta de Capacidades de Link (capabilities_card)
+    if (t === 'capabilities_card' && data) {
+      const cardMsgId = 'caps_' + Math.random().toString(36).substring(2, 9);
+      return renderCapabilitiesCard(data, cardMsgId);
+    }
 
     // 0a. Tarjeta de Lanzamiento de Minijuego (game_launch_card)
     if (t === 'game_launch_card') {
@@ -1439,7 +1637,7 @@ const Chat = (() => {
     abrirConversacion({ id: userId, name: userName });
   }
 
-  return { abrirConversacion, cerrarConversacion, enlazarUI, enlazarSocket, actualizarBadgeMensajes, alternarVelocidadAudio, alternarPanelUsuario, seleccionarEsteUsuario, abrirConversacionConId, cambiarCalidadVideo, enviarInvitacionCita, responderCita, enviarRespuestaDirectaEnChatCard, enviarSolicitudAmistadDirecta };
+  return { abrirConversacion, cerrarConversacion, enlazarUI, enlazarSocket, actualizarBadgeMensajes, alternarVelocidadAudio, alternarPanelUsuario, seleccionarEsteUsuario, abrirConversacionConId, cambiarCalidadVideo, enviarInvitacionCita, responderCita, enviarRespuestaDirectaEnChatCard, enviarSolicitudAmistadDirecta, abrirCategoriaCapabilities, volverACategoriasCapabilities, ejecutarHerramientaDesdeCard };
 })();
 
 document.addEventListener('DOMContentLoaded', () => Chat.enlazarUI());
