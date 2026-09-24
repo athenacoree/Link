@@ -149,7 +149,7 @@ async function callGeminiApi({ apiKey, model, messages, tools, maxTokens, temper
         parts: [{ text: typeof m.content === 'string' ? m.content : JSON.stringify(m.content) }]
       };
     } else {
-      const role = (m.role === 'assistant' || m.role === 'model') ? 'model' : (m.role === 'function' ? 'function' : 'user');
+      const role = (m.role === 'assistant' || m.role === 'model') ? 'model' : 'user';
       const parts = [];
 
       if (m.parts && Array.isArray(m.parts)) {
@@ -442,7 +442,7 @@ async function chatCompletion({
           });
 
           currentMessages.push({
-            role: 'function',
+            role: 'user',
             parts: [{
               functionResponse: {
                 name: fnName,
