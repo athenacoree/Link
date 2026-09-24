@@ -70,7 +70,8 @@ const tools = {
   'archive.search': (params) => internetArchive.searchArchive(params.query, params.limit || 5),
   'wayback.check': (params) => internetArchive.checkWayback(params.url, params.timestamp),
   'wikipedia.search': (params) => wikipedia.searchWikipedia(params.query, params.lang || 'es'),
-  'wikimedia.search': (params) => wikipedia.searchWikimediaCommons(params.query, params.limit || 5),
+  'wikimedia.search': (params) => wikipedia.searchWikimediaCommons(params.query, params.limit || 6),
+  'image.random': (params) => wikipedia.getRandomPhotos(params?.topic || params?.query, params?.count || 4),
 
   // Académicas
   'arxiv.search': (params) => academicTools.searchArxiv(params.query, params.limit || 5),
@@ -101,11 +102,23 @@ const tools = {
   'npm.search': (params) => devTools.searchNpm(params.package || params.query),
   'pypi.search': (params) => devTools.searchPyPI(params.package || params.query),
 
-  // Medios & Juegos
+  // Medios & Juegos & GIFs Animados
   'tvmaze.search': (params) => mediaTools.searchTVMaze(params.query || params.show),
   'pokeapi.get': (params) => mediaTools.getPokeAPI(params.pokemon || params.query),
   'opentrivia.get': (params) => mediaTools.getOpenTriviaQuestions(params.amount || 3, params.category, params.difficulty),
   'musicbrainz.search': (params) => mediaTools.searchMusicBrainz(params.query || params.artist),
+  'gif.search': (params) => mediaTools.searchGifs(params.query || params.topic, params.limit || 6),
+  'sticker.animated': (params) => mediaTools.getAnimatedStickers(params.category || params.query),
+  'graphics3d.generate': (params) => ({
+    type: '3d_graphics_card',
+    data: {
+      title: params.title || 'Gráfico 3D Interactivo con Wiggle',
+      shape: params.shape || params.type || 'cube',
+      color: params.color || '#8b5cf6',
+      speed: params.speed || 1.5,
+      interactive: true,
+    }
+  }),
 
   // Sociales & Datos
   'reddit.search': (params) => socialDataTools.searchReddit(params.subreddit || 'all', params.query || '', params.limit || 5),
@@ -412,7 +425,17 @@ function detectToolIntent(text) {
     return { tool: 'youtube.live', params: { query: liveTopic || 'noticias' } };
   }
 
-  // 7. Banco de fotos / Fotos de Stock
+  // 7. Banco de fotos / Fotos de Stock / Fotos Random / Wikimedia Commons
+  if (
+    lower.includes('foto random') || lower.includes('fotos random') || lower.includes('imagen random') ||
+    lower.includes('imágenes random') || lower.includes('foto al azar') || lower.includes('fotos al azar') ||
+    lower.includes('imágenes al azar') || lower.includes('fotos aleatorias') || lower.includes('fotos de wikimedia') ||
+    lower.includes('imágenes de wikimedia') || lower.includes('fotos de wikipedia')
+  ) {
+    const topicMatch = text.replace(/.*(?:foto random|fotos random|imagen random|imágenes random|foto al azar|fotos al azar|imágenes al azar|fotos aleatorias|fotos de wikimedia|imágenes de wikimedia|fotos de wikipedia)\s*(?:de|sobre)?\s*/i, '').trim();
+    return { tool: 'image.random', params: { topic: topicMatch || 'al azar', count: 4 } };
+  }
+
   if (
     lower.includes('foto de stock') || lower.includes('fotos de stock') || lower.includes('banco de fotos') ||
     lower.includes('imagen de stock') || lower.includes('imágenes de stock') || lower.includes('foto libre') ||
@@ -429,6 +452,31 @@ function detectToolIntent(text) {
   ) {
     const vidTopic = text.replace(/.*(?:video gratuito|videos gratuitos|contenido gratuito|video libre|videos libres)\s*(?:de|sobre)?\s*/i, '').trim();
     return { tool: 'free.videos', params: { query: vidTopic || 'documentary' } };
+  }
+
+  // 8b. GIFs Animados y Stickers en Movimiento
+  if (
+    lower.includes('gif de') || lower.includes('un gif') || lower.includes('dame un gif') ||
+    lower.includes('muéstrame un gif') || lower.includes('muestrame un gif') || lower.includes('sticker animado') ||
+    lower.includes('emoji animado') || lower.includes('emojis animados') || lower.includes('sticker que se mueva') ||
+    lower.includes('gif animado')
+  ) {
+    const gifTopic = text.replace(/.*(?:gif de|un gif|dame un gif|muéstrame un gif|muestrame un gif|sticker animado|emoji animado|emojis animados|sticker que se mueva|gif animado)\s*(?:de|sobre)?\s*/i, '').trim();
+    return { tool: 'gif.search', params: { query: gifTopic || 'happy' } };
+  }
+
+  // 8c. Gráficos 3D Interactivos, Wiggle y Figuras Tridimensionales
+  if (
+    lower.includes('gráfico 3d') || lower.includes('grafico 3d') || lower.includes('gráficos 3d') ||
+    lower.includes('graficos 3d') || lower.includes('wiggle') || lower.includes('efecto 3d') ||
+    lower.includes('objeto 3d') || lower.includes('esfera 3d') || lower.includes('cubo 3d') ||
+    lower.includes('figura 3d') || lower.includes('animación 3d') || lower.includes('animacion 3d')
+  ) {
+    let shape = 'cube';
+    if (lower.includes('esfera') || lower.includes('globo') || lower.includes('pelota')) shape = 'sphere';
+    else if (lower.includes('torus') || lower.includes('anillo') || lower.includes('dona')) shape = 'torus';
+    else if (lower.includes('pirámide') || lower.includes('piramide')) shape = 'pyramid';
+    return { tool: 'graphics3d.generate', params: { shape, title: 'Visualización 3D Interactiva (Wiggle Depth)', color: '#8b5cf6' } };
   }
 
   // 9. Enlaces de pago del sistema
@@ -573,13 +621,21 @@ function detectToolIntent(text) {
     return { tool: 'user.search_by_interest', params: { interest: text.replace(/.*(?:cita con|reunion con|reunión con|para)\s*/i, '').trim() || 'amigos' } };
   }
 
-  // 22. Búsqueda de perfil de usuario en la red social Enlace
+  // 22. Búsqueda o consulta de perfil de usuario en la red social Enlace
+  if (
+    lower.includes('mi perfil') || lower.includes('muéstrame mi perfil') || lower.includes('muestrame mi perfil') ||
+    lower.includes('ver mi perfil') || lower.includes('mi información') || lower.includes('mi informacion')
+  ) {
+    return { tool: 'social.profile', params: { username: 'mi_perfil' } };
+  }
+
   if (
     lower.includes('perfil de') || lower.includes('busca a') || lower.includes('buscar usuario') ||
-    lower.includes('ver perfil') || lower.includes('muéstrame a') || lower.includes('muestrame a') ||
-    lower.includes('encuentra a') || lower.includes('usuario @')
+    lower.includes('ver perfil') || lower.includes('muéstrame el perfil') || lower.includes('muestrame el perfil') ||
+    lower.includes('muestra el perfil') || lower.includes('muéstrame a') || lower.includes('muestrame a') ||
+    lower.includes('encuentra a') || lower.includes('usuario @') || lower.includes('quién es') || lower.includes('quien es')
   ) {
-    const userMatch = text.match(/(?:perfil\s+de|busca\s+a|buscar\s+usuario|ver\s+perfil|muéstrame\s+a|muestrame\s+a|encuentra\s+a|usuario\s+@?)\s+@?([a-záéíóúñ0-9._\s]+)/i);
+    const userMatch = text.match(/(?:perfil\s+de|busca\s+a|buscar\s+usuario|ver\s+perfil|muéstrame\s+el\s+perfil\s+de|muestrame\s+el\s+perfil\s+de|muestra\s+el\s+perfil\s+de|muéstrame\s+a|muestrame\s+a|encuentra\s+a|quién\s+es|quien\s+es|usuario\s+@?)\s+@?([a-záéíóúñ0-9._\s]+)/i);
     if (userMatch && userMatch[1]) {
       let cleanTarget = userMatch[1]
         .replace(/\b(en\s+la\s+plataforma|en\s+enlace|por\s+favor|en\s+la\s+red)\b/gi, '')

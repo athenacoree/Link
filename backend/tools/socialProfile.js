@@ -5,20 +5,38 @@
 const { query } = require('../db/postgres');
 
 async function getProfile(queryOrUsername, requesterId = null) {
-  const cleanTerm = (queryOrUsername || '').replace(/^@/, '').trim();
-  if (!cleanTerm) return { error: 'Nombre de usuario o término de búsqueda no proporcionado.' };
+  let rawInput = typeof queryOrUsername === 'object' ? (queryOrUsername.username || queryOrUsername.query || '') : (queryOrUsername || '');
+  let cleanTerm = rawInput
+    .replace(/^@/, '')
+    .replace(/^(?:el\s+perfil\s+de|perfil\s+de|al\s+usuario|a\s+la\s+persona|a|ver\s+a)\s+/i, '')
+    .trim();
+
+  const isSelfQuery = !cleanTerm || cleanTerm.toLowerCase() === 'mi perfil' || cleanTerm.toLowerCase() === 'mi_perfil' || cleanTerm.toLowerCase() === 'me' || cleanTerm.toLowerCase() === 'yo';
 
   try {
-    const { rows } = await query(
-      `SELECT id, name, username, avatar_data, profession, city, bio, verified, social_links, created_at
-       FROM users
-       WHERE LOWER(username) = LOWER($1)
-          OR LOWER(name) ILIKE $2
-          OR LOWER(username) ILIKE $2
-       ORDER BY (CASE WHEN LOWER(username) = LOWER($1) THEN 1 ELSE 2 END), created_at DESC
-       LIMIT 1`,
-      [cleanTerm, `%${cleanTerm}%`]
-    );
+    let rows = [];
+    if (isSelfQuery && requesterId) {
+      const selfRes = await query(
+        `SELECT id, name, username, avatar_data, profession, city, bio, verified, social_links, role, is_admin, created_at
+         FROM users WHERE id = $1 LIMIT 1`,
+        [requesterId]
+      );
+      rows = selfRes.rows;
+    }
+
+    if (rows.length === 0 && cleanTerm) {
+      const termRes = await query(
+        `SELECT id, name, username, avatar_data, profession, city, bio, verified, social_links, role, is_admin, created_at
+         FROM users
+         WHERE LOWER(username) = LOWER($1)
+            OR LOWER(name) ILIKE $2
+            OR LOWER(username) ILIKE $2
+         ORDER BY (CASE WHEN LOWER(username) = LOWER($1) THEN 1 ELSE 2 END), created_at DESC
+         LIMIT 1`,
+        [cleanTerm, `%${cleanTerm}%`]
+      );
+      rows = termRes.rows;
+    }
 
     if (rows.length > 0) {
       const u = rows[0];

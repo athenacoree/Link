@@ -113,6 +113,71 @@ async function searchMusicBrainz(artistOrAlbum) {
   }
 }
 
+async function searchGifs(query = 'funny', limit = 6) {
+  const searchTerm = (query || 'happy').trim();
+  const apiKey = process.env.GIPHY_API_KEY || '';
+  if (apiKey) {
+    try {
+      const url = `https://api.giphy.com/v1/gifs/search?api_key=${encodeURIComponent(apiKey)}&q=${encodeURIComponent(searchTerm)}&limit=${limit}&rating=g`;
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 7000);
+      const res = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeout);
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.data && data.data.length > 0) {
+          const gifs = data.data.map(g => ({
+            id: g.id,
+            title: g.title || searchTerm,
+            url: g.images?.fixed_height?.url || g.images?.original?.url,
+            preview_url: g.images?.fixed_height_small?.url || g.images?.fixed_height?.url,
+            width: g.images?.fixed_height?.width,
+            height: g.images?.fixed_height?.height,
+          }));
+          return { type: 'gif_card', data: { query: searchTerm, gifs } };
+        }
+      }
+    } catch (err) {
+      console.warn('[searchGifs] Giphy fallback activation:', err.message);
+    }
+  }
+
+  // Fallback a GIFs y Emojis Animados
+  const seed = Math.floor(Math.random() * 900) + 100;
+  return {
+    type: 'gif_card',
+    data: {
+      query: searchTerm,
+      gifs: [
+        {
+          id: `gif_${seed}_1`,
+          title: `${searchTerm} GIF animado`,
+          url: `https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExM3p0eDZocXp2YjBsazQ0OHp2Nmh6ZWV4enkyNmpxMW90Zm03bm5ldyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/l0AMJLcdHl7XpA7fy/giphy.gif`,
+          preview_url: `https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExM3p0eDZocXp2YjBsazQ0OHp2Nmh6ZWV4enkyNmpxMW90Zm03bm5ldyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/l0AMJLcdHl7XpA7fy/giphy.gif`,
+        }
+      ]
+    }
+  };
+}
+
+async function getAnimatedStickers(category = 'happy') {
+  const stickers = [
+    { name: 'Aalegre ✨', emoji: '🎉', gif_url: 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExeDlhNTV4ZWV4dTZsbWV2MXI0cjlmdTZ6NWU5Z3dxcDFjYmJsbWp1ZyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/26u4cqiYI30juCOGY/giphy.gif' },
+    { name: 'Risa 😂', emoji: '🤣', gif_url: 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNm45Ynpnbm5tMG9wbTh0M3Z6cjlsc2dydjlsaTFzYWNuaHNsd2M5dyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/l3fQf1OEAq0iri9RC/giphy.gif' },
+    { name: 'Amor ❤️', emoji: '💖', gif_url: 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHN3YmpmY29oZXZlZ3Y2czdrMXptdXZocXdqNmZ2OHM3b3VudXBvYyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/26hpKMTa5Hg1XUA36/giphy.gif' },
+    { name: 'Fiesta 🥳', emoji: '🎈', gif_url: 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNnhoc2s0MGc2dzcxbHRlODdrNG5wNXR2YWpxNWZubXpvcThqYmcxdCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/g9582DNuQppxC/giphy.gif' },
+  ];
+
+  return {
+    type: 'animated_sticker_card',
+    data: {
+      category,
+      stickers
+    }
+  };
+}
+
 function decodeHTMLEntities(str) {
   if (!str) return '';
   return str
@@ -123,4 +188,4 @@ function decodeHTMLEntities(str) {
     .replace(/&gt;/g, '>');
 }
 
-module.exports = { searchTVMaze, getPokeAPI, getOpenTriviaQuestions, searchMusicBrainz };
+module.exports = { searchTVMaze, getPokeAPI, getOpenTriviaQuestions, searchMusicBrainz, searchGifs, getAnimatedStickers };

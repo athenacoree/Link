@@ -337,6 +337,160 @@ function abrirVisorPDF(fileId, driveUrl, titulo) {
 }
 window.abrirVisorPDF = abrirVisorPDF;
 
+/* ================= VISUALIZADOR 3D INTERACTIVO WIGGLE ================= */
+function inicializarCanvas3D(canvasId, shape = 'cube', hexColor = '#8b5cf6') {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width || 280;
+  canvas.height = rect.height || 180;
+
+  let rotX = 0.5;
+  let rotY = 0.5;
+  let isDragging = false;
+  let lastMouseX = 0;
+  let lastMouseY = 0;
+
+  // Generar vértices y caras según la figura 3D seleccionada
+  let vertices = [];
+  let faces = [];
+
+  if (shape === 'sphere') {
+    const latBands = 8;
+    const lonBands = 8;
+    for (let lat = 0; lat <= latBands; lat++) {
+      const theta = (lat * Math.PI) / latBands;
+      const sinTheta = Math.sin(theta);
+      const cosTheta = Math.cos(theta);
+      for (let lon = 0; lon <= lonBands; lon++) {
+        const phi = (lon * 2 * Math.PI) / lonBands;
+        vertices.push({ x: sinTheta * Math.cos(phi), y: cosTheta, z: sinTheta * Math.sin(phi) });
+      }
+    }
+  } else if (shape === 'pyramid') {
+    vertices = [
+      { x: 0, y: -1, z: 0 },
+      { x: -1, y: 1, z: -1 },
+      { x: 1, y: 1, z: -1 },
+      { x: 1, y: 1, z: 1 },
+      { x: -1, y: 1, z: 1 }
+    ];
+    faces = [[0,1,2], [0,2,3], [0,3,4], [0,4,1], [1,4,3,2]];
+  } else {
+    // Cubo 3D por defecto
+    vertices = [
+      { x: -1, y: -1, z: -1 }, { x: 1, y: -1, z: -1 },
+      { x: 1, y: 1, z: -1 }, { x: -1, y: 1, z: -1 },
+      { x: -1, y: -1, z: 1 }, { x: 1, y: -1, z: 1 },
+      { x: 1, y: 1, z: 1 }, { x: -1, y: 1, z: 1 }
+    ];
+    faces = [
+      [0,1,2,3], [5,4,7,6], [4,0,3,7], [1,5,6,2], [4,5,1,0], [3,2,6,7]
+    ];
+  }
+
+  function render() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+    const scale = Math.min(cx, cy) * 0.55;
+
+    rotY += isDragging ? 0 : 0.015;
+    rotX += isDragging ? 0 : 0.008;
+
+    const projected = vertices.map(v => {
+      // Rotación X
+      let y1 = v.y * Math.cos(rotX) - v.z * Math.sin(rotX);
+      let z1 = v.y * Math.sin(rotX) + v.z * Math.cos(rotX);
+      // Rotación Y
+      let x2 = v.x * Math.cos(rotY) + z1 * Math.sin(rotY);
+      let z2 = -v.x * Math.sin(rotY) + z1 * Math.cos(rotY);
+
+      const fov = 3.5;
+      const pFactor = fov / (fov + z2 + 2);
+      return {
+        x: cx + x2 * scale * pFactor,
+        y: cy + y1 * scale * pFactor,
+        z: z2
+      };
+    });
+
+    if (faces.length > 0) {
+      faces.forEach(face => {
+        ctx.beginPath();
+        ctx.moveTo(projected[face[0]].x, projected[face[0]].y);
+        for (let i = 1; i < face.length; i++) {
+          ctx.lineTo(projected[face[i]].x, projected[face[i]].y);
+        }
+        ctx.closePath();
+        ctx.fillStyle = hexColor + '33';
+        ctx.strokeStyle = hexColor;
+        ctx.lineWidth = 2;
+        ctx.fill();
+        ctx.stroke();
+      });
+    } else {
+      ctx.strokeStyle = hexColor;
+      ctx.lineWidth = 1.8;
+      projected.forEach((p, idx) => {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 2.5, 0, Math.PI * 2);
+        ctx.fillStyle = hexColor;
+        ctx.fill();
+      });
+    }
+
+    requestAnimationFrame(render);
+  }
+
+  canvas.addEventListener('mousedown', e => {
+    isDragging = true;
+    lastMouseX = e.clientX;
+    lastMouseY = e.clientY;
+  });
+
+  window.addEventListener('mouseup', () => { isDragging = false; });
+
+  canvas.addEventListener('mousemove', e => {
+    if (!isDragging) return;
+    const dx = e.clientX - lastMouseX;
+    const dy = e.clientY - lastMouseY;
+    rotY += dx * 0.01;
+    rotX += dy * 0.01;
+    lastMouseX = e.clientX;
+    lastMouseY = e.clientY;
+  });
+
+  canvas.addEventListener('touchstart', e => {
+    if (e.touches.length === 1) {
+      isDragging = true;
+      lastMouseX = e.touches[0].clientX;
+      lastMouseY = e.touches[0].clientY;
+    }
+  }, { passive: true });
+
+  canvas.addEventListener('touchmove', e => {
+    if (isDragging && e.touches.length === 1) {
+      const dx = e.touches[0].clientX - lastMouseX;
+      const dy = e.touches[0].clientY - lastMouseY;
+      rotY += dx * 0.01;
+      rotX += dy * 0.01;
+      lastMouseX = e.touches[0].clientX;
+      lastMouseY = e.touches[0].clientY;
+    }
+  }, { passive: true });
+
+  canvas.addEventListener('touchend', () => { isDragging = false; });
+
+  render();
+}
+
+window.inicializarCanvas3D = inicializarCanvas3D;
+window.abrirVisorPDF = abrirVisorPDF;
+
 function cerrarVisorPDF() {
   const visor = $('modalVisorPDF');
   const velo = $('veloVisorPDF');
