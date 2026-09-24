@@ -29,12 +29,15 @@ const socialDataTools = require('./socialDataTools');
 const utilityTools = require('./utilityTools');
 const dynamicEngine = require('./dynamicApiEngine');
 
-// Módulos añadidos de APIs públicas externas, Utilidades internas y Acciones de Usuario
+// Módulos añadidos de APIs públicas externas, Utilidades internas, Acciones de Usuario y Minijuegos
 const externalApis = require('./externalApis');
 const internalTools = require('./internalTools');
 const userActionTools = require('./userActionTools');
+const gameTool = require('./gameTool');
 
 const tools = {
+  'game.list': (params) => gameTool.listGames(params),
+  'game.launch': (params) => gameTool.launchGame(params),
   'web.search': webSearch.search,
   'webcam.search': webcamSearch.search,
   'youtube.search': videoSearch.searchYouTube,
@@ -186,6 +189,28 @@ const tools = {
 
 function getToolDefinitions() {
   const baseDefs = [
+    {
+      name: 'game.list',
+      description: 'Consulta y muestra la lista de minijuegos disponibles en la biblioteca oficial de Link Games.',
+      parameters: {
+        type: 'object',
+        properties: {
+          category: { type: 'string', description: 'Categoría opcional (board, arcade, puzzle, trivia)' },
+          query: { type: 'string', description: 'Palabra clave o filtro de búsqueda' }
+        }
+      }
+    },
+    {
+      name: 'game.launch',
+      description: 'Inicia o abre un minijuego directamente dentro de la plataforma Link resolviendo su gameId oficial (ej. snake, 2048, memory, tictactoe, flappy, trivia, wordle, minesweeper, breakout, etc.).',
+      parameters: {
+        type: 'object',
+        properties: {
+          gameId: { type: 'string', description: 'Identificador único del juego (gameId) en Link Games (ej. snake, 2048, memory, tictactoe, flappy, wordle, minesweeper, etc.)' }
+        },
+        required: ['gameId']
+      }
+    },
     {
       name: 'search_videos',
       description: 'Busca y muestra videos de Pexels directamente en la UI de la plataforma Enlace según la consulta, orientación (landscape, portrait, square) y categoría.',
@@ -582,6 +607,9 @@ async function executeTool(name, params = {}, requesterId = null) {
   }
 
   try {
+    if (name === 'game.list' || name === 'game.launch') {
+      return await toolFn(params);
+    }
     if (name === 'social.profile' || name === 'chat.preview' || name === 'user.edit_profile' || name === 'status.create' || name === 'status.delete' || name === 'friend.send_request' || name === 'system.payment_link') {
       return await toolFn(params, requesterId);
     }
@@ -620,6 +648,63 @@ async function executeTool(name, params = {}, requesterId = null) {
 function detectToolIntent(text) {
   if (!text || typeof text !== 'string') return null;
   const lower = text.toLowerCase().trim();
+
+  // 0. Búsqueda y Apertura de Minijuegos en Link Games (game.list / game.launch)
+  if (
+    lower.includes('muéstrame los juegos') || lower.includes('muestrame los juegos') ||
+    lower.includes('qué juegos hay') || lower.includes('que juegos hay') ||
+    lower.includes('ver juegos') || lower.includes('ver los juegos') ||
+    lower.includes('catálogo de juegos') || lower.includes('catalogo de juegos') ||
+    lower.includes('lista de juegos') || lower.includes('enseñame los juegos') ||
+    lower === 'juegos' || lower === 'minijuegos' || lower === 'juegos gratis'
+  ) {
+    return { tool: 'game.list', params: {} };
+  }
+
+  if (
+    lower.includes('quiero jugar') || lower.includes('abre') || lower.includes('abrir') ||
+    lower.includes('jugar') || lower.includes('pon el juego') || lower.includes('lanzar juego')
+  ) {
+    const knownGames = [
+      { key: 'snake', names: ['snake', 'serpiente', 'culebra'] },
+      { key: '2048', names: ['2048'] },
+      { key: 'memory', names: ['memory', 'memoria', 'juego de memoria', 'parejas'] },
+      { key: 'tictactoe', names: ['tictactoe', 'tres en raya', '3 en raya', 'tateti'] },
+      { key: 'connect4', names: ['connect4', '4 en raya', 'cuatro en raya'] },
+      { key: 'pong', names: ['pong'] },
+      { key: 'trivia', names: ['trivia', 'preguntas', 'quiz'] },
+      { key: 'flappy', names: ['flappy', 'flappy link', 'pajarito'] },
+      { key: 'breakout', names: ['breakout', 'brick breaker', 'rompebloques', 'pelotita'] },
+      { key: 'wordle', names: ['wordle', 'adivina la palabra', 'palabras'] },
+      { key: 'minesweeper', names: ['minesweeper', 'buscaminas'] },
+      { key: 'simon', names: ['simon', 'secuencia de colores'] },
+      { key: 'sudoku', names: ['sudoku'] },
+      { key: 'spaceinvaders', names: ['spaceinvaders', 'space invaders', 'invasores'] },
+      { key: 'whackamole', names: ['whackamole', 'atrapa al topo', 'topo'] },
+      { key: 'solitaire', names: ['solitaire', 'solitario'] },
+      { key: 'checkers', names: ['checkers', 'damas'] },
+      { key: 'hanoi', names: ['hanoi', 'torres de hanoi'] },
+      { key: 'pacman', names: ['pacman', 'pac-man', 'pacrunner'] },
+      { key: 'typing', names: ['typing', 'mecanografía', 'mecanografia'] },
+      { key: 'towerstack', names: ['towerstack', 'torre de bloques', 'apilar'] },
+      { key: 'match3', names: ['match3', 'conecta 3', 'gemas'] },
+      { key: 'mathquiz', names: ['mathquiz', 'reto matemático', 'matemáticas'] },
+      { key: 'doodlejump', names: ['doodlejump', 'salto infinito'] },
+      { key: 'lightsout', names: ['lightsout', 'luces fuera'] },
+      { key: 'hangman', names: ['hangman', 'ahorcado'] },
+      { key: 'wordsearch', names: ['wordsearch', 'sopa de letras'] }
+    ];
+
+    for (const item of knownGames) {
+      if (item.names.some(n => lower.includes(n))) {
+        return { tool: 'game.launch', params: { gameId: item.key } };
+      }
+    }
+
+    if (lower === 'quiero jugar' || lower === 'quiero jugar algo' || lower === 'vamos a jugar') {
+      return { tool: 'game.list', params: {} };
+    }
+  }
 
   // 1. Ver chat con otra persona
   if (

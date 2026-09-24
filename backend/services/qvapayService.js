@@ -2,7 +2,7 @@
  * Centralized QvaPay Payment Service
  *
  * Exclusively uses process.env.QVAPAY_APP_ID, process.env.QVAPAY_APP_SECRET, and process.env.QVAPAY_WEBHOOK_URL.
- * Handles invoice creation, transaction status lookup, and webhook verification.
+ * Handles invoice creation, transaction status lookup, and strict webhook verification.
  */
 
 const QVAPAY_BASE_URL = 'https://qvapay.com/api/v1';
@@ -24,7 +24,7 @@ function isConfigured() {
 }
 
 /**
- * Creates a QvaPay invoice.
+ * Creates a QvaPay invoice via QvaPay API v1.
  * @param {Object} params
  * @param {number|string} params.amount Amount in USD (e.g., 5.00)
  * @param {string} params.description Invoice description
@@ -44,7 +44,7 @@ async function createInvoice({ amount, description, remoteId }) {
     throw new Error('Identificador remoto (remoteId) requerido.');
   }
 
-  // If QvaPay credentials are not configured (e.g., in local dev without env vars), generate a simulated checkout URL
+  // If QvaPay credentials are not configured in local dev environment, generate a simulated checkout URL
   if (!appId || !appSecret) {
     console.warn('[QvaPay] Credenciales de QvaPay no configuradas en entorno. Generando factura de simulación.');
     const mockTransId = `qvapay_sim_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
@@ -115,7 +115,7 @@ async function createInvoice({ amount, description, remoteId }) {
 }
 
 /**
- * Gets status of a transaction directly from QvaPay API.
+ * Gets transaction status directly from QvaPay API.
  * @param {string} transactionId QvaPay Transaction ID/UUID
  * @returns {Promise<Object>} Transaction status and details
  */
@@ -130,6 +130,7 @@ async function getTransactionStatus(transactionId) {
   if (!appId || !appSecret || transactionId.startsWith('qvapay_sim_')) {
     return {
       id: transactionId,
+      trans_id: transactionId,
       status: 'pending',
       paid: false,
       simulated: true,
@@ -145,7 +146,7 @@ async function getTransactionStatus(transactionId) {
   const timeoutId = setTimeout(() => controller.abort(), 15000);
 
   try {
-    const response = await fetch(`${QVAPAY_BASE_URL}/get_transaction/${transactionId}?${queryParams.toString()}`, {
+    const response = await fetch(`${QVAPAY_BASE_URL}/get_transaction/${encodeURIComponent(transactionId)}?${queryParams.toString()}`, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
       signal: controller.signal,
@@ -158,18 +159,20 @@ async function getTransactionStatus(transactionId) {
     if (!response.ok || data.error) {
       return {
         id: transactionId,
+        trans_id: transactionId,
         status: 'unknown',
-        error: data.error || data.message || 'Error al obtener estado',
+        paid: false,
+        error: data.error || data.message || `Error HTTP ${response.status}`,
       };
     }
 
     const rawStatus = (data.status || '').toLowerCase();
-    const isPaid = rawStatus === 'paid' || rawStatus === 'completed' || data.paid === 1 || data.paid === '1';
+    const isPaid = rawStatus === 'paid' || rawStatus === 'completed' || data.paid === 1 || data.paid === '1' || data.paid === true;
 
     return {
       id: data.id || transactionId,
       trans_id: data.trans_id || data.id || transactionId,
-      amount: data.amount,
+      amount: data.amount !== undefined ? parseFloat(data.amount) : undefined,
       remote_id: data.remote_id,
       status: isPaid ? 'paid' : (rawStatus || 'pending'),
       paid: isPaid,
@@ -180,7 +183,9 @@ async function getTransactionStatus(transactionId) {
     console.error('[QvaPay] Error al consultar estado de transacción:', err.message);
     return {
       id: transactionId,
+      trans_id: transactionId,
       status: 'unknown',
+      paid: false,
       error: err.message,
     };
   }
@@ -188,8 +193,10 @@ async function getTransactionStatus(transactionId) {
 
 /**
  * Validates incoming QvaPay webhook payload.
- * @param {Object} req Express request object or webhook body
- * @returns {Promise<Object>} Standardized transaction payload if valid
+ * NEVER marks a transaction as paid based solely on webhook body parameters.
+ * Mandatorily verifies transaction status with QvaPay API servers when configured.
+ * @param {Object} req Express request object
+ * @returns {Promise<Object>} Verified transaction payload
  */
 async function verifyWebhookPayload(req) {
   const body = req.body || {};
@@ -197,42 +204,57 @@ async function verifyWebhookPayload(req) {
 
   const remoteId = body.remote_id || query.remote_id;
   const transId = body.id || body.trans_id || query.id || query.trans_id;
-  const statusStr = (body.status || query.status || '').toLowerCase();
-  const paidVal = body.paid !== undefined ? body.paid : query.paid;
+  const rawAmount = body.amount !== undefined ? body.amount : query.amount;
 
   if (!remoteId) {
-    throw new Error('Webhook inválido: Falta remote_id.');
+    throw new Error('Webhook de QvaPay rechazado: Falta remote_id.');
   }
 
-  const isPaidSignal = statusStr === 'paid' || statusStr === 'completed' || paidVal === 1 || paidVal === '1' || paidVal === true;
-
-  // Double check transaction status with QvaPay backend API if credentials exist and transId present
-  if (isConfigured() && transId && !transId.startsWith('qvapay_sim_')) {
-    try {
-      const qvData = await getTransactionStatus(transId);
-      if (qvData && qvData.paid) {
-        return {
-          valid: true,
-          remote_id: remoteId,
-          trans_id: transId,
-          amount: qvData.amount || body.amount,
-          status: 'paid',
-          paid: true,
-          raw: body,
-        };
-      }
-    } catch (e) {
-      console.warn('[QvaPay Webhook] Falló verificación secundaria API:', e.message);
+  // Mandatory verification against QvaPay API when configured
+  if (isConfigured()) {
+    if (!transId || String(transId).startsWith('qvapay_sim_')) {
+      throw new Error('Webhook de QvaPay rechazado: ID de transacción de QvaPay ausente o de simulación.');
     }
+
+    const qvData = await getTransactionStatus(transId);
+
+    if (!qvData || !qvData.paid) {
+      console.warn(`[QvaPay Webhook] Verificación API rechazada para trans_id=${transId}, estado actual en QvaPay: ${qvData?.status}`);
+      return {
+        valid: false,
+        paid: false,
+        remote_id: remoteId,
+        trans_id: transId,
+        amount: qvData?.amount || rawAmount,
+        status: qvData?.status || 'unverified',
+        raw: body,
+      };
+    }
+
+    return {
+      valid: true,
+      paid: true,
+      remote_id: qvData.remote_id || remoteId,
+      trans_id: qvData.trans_id || transId,
+      amount: qvData.amount !== undefined ? qvData.amount : rawAmount,
+      status: 'paid',
+      raw: qvData.raw || body,
+    };
   }
+
+  // Simulation mode (dev environment without QvaPay API credentials)
+  const statusStr = (body.status || query.status || '').toLowerCase();
+  const paidVal = body.paid !== undefined ? body.paid : query.paid;
+  const isPaidSignal = statusStr === 'paid' || statusStr === 'completed' || paidVal === 1 || paidVal === '1' || paidVal === true;
 
   return {
     valid: isPaidSignal,
+    paid: isPaidSignal,
     remote_id: remoteId,
     trans_id: transId,
-    amount: body.amount || query.amount,
+    amount: rawAmount,
     status: isPaidSignal ? 'paid' : (statusStr || 'pending'),
-    paid: isPaidSignal,
+    simulated: true,
     raw: body,
   };
 }

@@ -40,6 +40,24 @@ async function processConfirmedPayment(remoteId, rawPayload = {}) {
       return { success: true, alreadyProcessed: true, transaction: tx };
     }
 
+    // Comprobación de monto de la transacción
+    if (rawPayload.amount !== undefined && rawPayload.amount !== null) {
+      const payloadAmt = parseFloat(rawPayload.amount);
+      const txAmt = parseFloat(tx.amount);
+      if (!isNaN(payloadAmt) && Math.abs(payloadAmt - txAmt) > 0.01) {
+        await client.query('ROLLBACK');
+        console.warn(`[Monetización] Rechazado: Monto del pago ($${payloadAmt}) no coincide con la factura ($${txAmt}) para remote_id: ${remoteId}`);
+        return { success: false, message: 'Monto de pago inconsistente o insuficiente.' };
+      }
+    }
+
+    // Comprobación de referencia / remote_id
+    if (rawPayload.remote_id && rawPayload.remote_id !== tx.remote_id) {
+      await client.query('ROLLBACK');
+      console.warn(`[Monetización] Rechazado: remote_id no coincide (${rawPayload.remote_id} vs ${tx.remote_id})`);
+      return { success: false, message: 'Referencia o identificador remoto no coincide.' };
+    }
+
     const transId = rawPayload.trans_id || rawPayload.id || tx.qvapay_trans_id;
 
     // Mark payment transaction as paid
@@ -592,15 +610,18 @@ router.all('/webhook/qvapay', async (req, res) => {
   try {
     const payload = await qvapayService.verifyWebhookPayload(req);
 
-    if (!payload || !payload.remote_id) {
-      return res.status(400).json({ error: 'Webhook payload inválido.' });
+    if (!payload || !payload.valid || !payload.paid || !payload.remote_id) {
+      console.warn('[QvaPay Webhook] Webhook no verificado o rechazada la confirmación:', payload);
+      return res.status(400).json({ error: 'Webhook payload o firma no autorizada por QvaPay.' });
     }
 
-    if (payload.paid) {
-      await processConfirmedPayment(payload.remote_id, payload.raw || payload);
+    const result = await processConfirmedPayment(payload.remote_id, payload);
+
+    if (!result.success && !result.alreadyProcessed) {
+      return res.status(400).json({ error: result.message || 'Error al procesar la confirmación del pago.' });
     }
 
-    res.json({ received: true, remote_id: payload.remote_id, status: payload.status });
+    res.json({ received: true, remote_id: payload.remote_id, status: 'paid', already_processed: !!result.alreadyProcessed });
   } catch (err) {
     console.error('[QvaPay Webhook Error]', err);
     res.status(500).json({ error: err.message });

@@ -90,6 +90,71 @@ const Chat = (() => {
     const t = toolResult.type;
     const data = toolResult.data || {};
 
+    // 0a. Tarjeta de Lanzamiento de Minijuego (game_launch_card)
+    if (t === 'game_launch_card') {
+      const g = data;
+      const icons = {
+        tictactoe: '❌', connect4: '🟡', pong: '🏓', trivia: '🧠', memory: '🃏',
+        snake: '🐍', '2048': '🔢', flappy: '🐤', breakout: '🧱', wordle: '🔤',
+        minesweeper: '💣', simon: '🔴', sudoku: '🔢', spaceinvaders: '👾',
+        whackamole: '🔨', solitaire: '🎴', checkers: '⚪', hanoi: '🗼',
+        pacman: '👻', typing: '⌨️', towerstack: '🏗️', match3: '💎',
+        mathquiz: '➕', doodlejump: '🦘', lightsout: '💡', hangman: '🪢',
+        wordsearch: '🔠'
+      };
+      const icon = icons[g.game_id] || '🕹️';
+
+      return `<div style="margin-top:8px; padding:14px; background:var(--fondo-tarjeta, #1e293b); border:1.5px solid var(--morado-500, #8b5cf6); border-radius:16px; max-width:320px; color:#fff; box-shadow:0 4px 12px rgba(139,92,246,0.15);">
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+          <div style="font-size:28px; background:rgba(139,92,246,0.2); width:46px; height:46px; border-radius:12px; display:flex; align-items:center; justify-content:center;">${icon}</div>
+          <div style="flex:1; min-width:0;">
+            <div style="font-weight:800; font-size:15px; color:#fff;">${meEscapar(g.name || 'Minijuego')}</div>
+            <span style="font-size:10px; font-weight:700; background:var(--morado-600, #7c3aed); color:#fff; padding:2px 8px; border-radius:10px; text-transform:uppercase;">${meEscapar(g.category || 'Juego')}</span>
+          </div>
+        </div>
+        <div style="font-size:12px; opacity:0.85; line-height:1.4; margin-bottom:12px; color:#cbd5e1;">${meEscapar(g.description || '')}</div>
+        <button class="mini-btn primario" style="width:100%; text-align:center; padding:9px; font-size:13px; font-weight:800; border-radius:10px; background:linear-gradient(135deg, #8b5cf6, #6366f1); color:#fff; cursor:pointer; border:none; box-shadow:0 3px 10px rgba(99,102,241,0.3);" onclick="if(window.abrirJuego) window.abrirJuego('${meEscapar(g.url)}', '${meEscapar(g.name)}', '${meEscapar(g.game_id)}')">
+          🎮 Jugar Ahora
+        </button>
+      </div>`;
+    }
+
+    // 0b. Tarjeta de Lista de Minijuegos (game_list_card)
+    if (t === 'game_list_card') {
+      const gamesList = toolResult.games || [];
+      const icons = {
+        tictactoe: '❌', connect4: '🟡', pong: '🏓', trivia: '🧠', memory: '🃏',
+        snake: '🐍', '2048': '🔢', flappy: '🐤', breakout: '🧱', wordle: '🔤',
+        minesweeper: '💣', simon: '🔴', sudoku: '🔢', spaceinvaders: '👾',
+        whackamole: '🔨', solitaire: '🎴', checkers: '⚪', hanoi: '🗼',
+        pacman: '👻', typing: '⌨️', towerstack: '🏗️', match3: '💎',
+        mathquiz: '➕', doodlejump: '🦘', lightsout: '💡', hangman: '🪢',
+        wordsearch: '🔠'
+      };
+
+      return `<div style="margin-top:8px; padding:12px; background:var(--fondo-tarjeta, #1e293b); border:1.5px solid rgba(139,92,246,0.3); border-radius:16px; max-width:340px; color:#fff;">
+        <div style="font-weight:800; font-size:14px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+          <span>🎮 Minijuegos de Link Games (${gamesList.length})</span>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:8px; max-height:220px; overflow-y:auto; padding-right:4px;">
+          ${gamesList.slice(0, 8).map(g => `
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:8px; background:rgba(255,255,255,0.05); border-radius:10px;">
+              <div style="display:flex; align-items:center; gap:8px; min-width:0; flex:1;">
+                <span style="font-size:18px;">${icons[g.id] || '🕹️'}</span>
+                <div style="min-width:0;">
+                  <div style="font-weight:700; font-size:12.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${meEscapar(g.name)}</div>
+                  <div style="font-size:10px; opacity:0.7;">${meEscapar(g.category)}</div>
+                </div>
+              </div>
+              <button style="padding:4px 10px; font-size:11px; font-weight:700; border-radius:6px; background:#8b5cf6; color:#fff; border:none; cursor:pointer;" onclick="if(window.abrirJuego) window.abrirJuego('${meEscapar(g.url)}', '${meEscapar(g.name)}', '${meEscapar(g.id)}')">
+                Jugar
+              </button>
+            </div>
+          `).join('')}
+        </div>
+      </div>`;
+    }
+
     // 1. Tarjeta de Perfil Social / Usuario con animación de pulso y latido de ondas
     if (t === 'social_profile_card') {
       const avatarSrc = data.avatar || iconoDefecto();

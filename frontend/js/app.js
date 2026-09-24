@@ -3418,6 +3418,78 @@ window.addEventListener('touchstart', () => {
   }, 1800);
 }, { passive: true });
 
+/* ================= LINK GAMES — INTERFACE & POSTMESSAGE BRIDGE ================= */
+let vistaPreviaJuego = null;
+
+function abrirJuego(gameUrl, gameName, gameId) {
+  if (!gameUrl) return;
+  const vistaJuego = $('vistaJuego');
+  const iframeJuego = $('iframeJuego');
+  const tituloHeader = $('juegoTituloHeader');
+  const subtituloHeader = $('juegoSubtituloHeader');
+
+  if (!vistaJuego || !iframeJuego) return;
+
+  const vistas = document.querySelectorAll('.vista-app');
+  vistas.forEach(v => {
+    if (v.style.display !== 'none' && v.id !== 'vistaJuego') {
+      vistaPreviaJuego = v.id;
+    }
+  });
+
+  if (tituloHeader) tituloHeader.textContent = gameName || 'Link Games';
+  if (subtituloHeader) subtituloHeader.textContent = gameId ? `Minijuego: @${gameId} • Link Platform` : 'Biblioteca Oficial de Minijuegos';
+
+  iframeJuego.src = gameUrl;
+  vistaJuego.classList.add('activo');
+  vistaJuego.style.display = 'flex';
+}
+
+function cerrarJuego() {
+  const vistaJuego = $('vistaJuego');
+  const iframeJuego = $('iframeJuego');
+
+  if (iframeJuego) iframeJuego.src = 'about:blank';
+  if (vistaJuego) {
+    vistaJuego.classList.remove('activo');
+    vistaJuego.style.display = 'none';
+  }
+
+  if (typeof mostrarToast === 'function') {
+    mostrarToast('Has salido del juego. De vuelta a Link.');
+  }
+}
+
+function recargarJuego() {
+  const iframeJuego = $('iframeJuego');
+  if (iframeJuego && iframeJuego.src && iframeJuego.src !== 'about:blank') {
+    const cur = iframeJuego.src;
+    iframeJuego.src = 'about:blank';
+    setTimeout(() => { iframeJuego.src = cur; }, 100);
+  }
+}
+
+window.abrirJuego = abrirJuego;
+window.cerrarJuego = cerrarJuego;
+window.recargarJuego = recargarJuego;
+
+window.addEventListener('message', (event) => {
+  if (!event || !event.data) return;
+  const data = event.data;
+
+  if (
+    data.action === 'close_game' || data.action === 'exit' ||
+    data.type === 'close_game' || data === 'close_game' ||
+    data === 'game_exit' || data.action === 'game_over_exit'
+  ) {
+    cerrarJuego();
+  } else if (data.action === 'game_score' && data.score !== undefined) {
+    if (typeof mostrarToast === 'function') {
+      mostrarToast(`🎮 Puntaje alcanzado: ${data.score} pts`);
+    }
+  }
+});
+
 /* ================= ARRANQUE ================= */
 if (Sesion.activa()) {
   iniciarApp().finally(() => {

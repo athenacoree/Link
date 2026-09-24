@@ -126,6 +126,11 @@ Copia `backend/.env.example` como guía. Las importantes:
 | `DATABASE_URL` | Render (automática con el Blueprint) | Postgres |
 | `MONGODB_URI` | Tú (Atlas) | Mensajes de chat |
 | `JWT_SECRET` | Render (`generateValue: true`) o tú | Firma de sesiones |
+| `GEMINI_API_KEY` | Tú (Render Environment) | Clave API de Google Gemini para IA y Tool Calling |
+| `GEMINI_MODEL` | Tú (Render Environment) | Modelo Gemini (ej. `gemini-1.5-flash` o `gemini-1.5-pro`) |
+| `QVAPAY_APP_ID` | Tú (Render Environment) | ID de Aplicación en QvaPay para Monetización |
+| `QVAPAY_APP_SECRET` | Tú (Render Environment) | Secreto de Aplicación en QvaPay para Monetización |
+| `QVAPAY_WEBHOOK_URL` | Tú (Render Environment) | URL pública del Webhook (ej. `https://tu-dominio.onrender.com/api/monetizacion/webhook/qvapay`) |
 | `CORS_ORIGIN` | Tú | `*` si sirves todo desde el mismo dominio |
 | `STORY_CLEANUP_INTERVAL_MIN` | Opcional | Cada cuánto se borran estados vencidos |
 
