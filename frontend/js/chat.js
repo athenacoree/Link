@@ -377,6 +377,42 @@ const Chat = (() => {
       </div>`;
     }
 
+    // 9b. Búsqueda de Videos Interna / Pexels / Reproductor Integrado
+    if (t === 'video_search_card' && data && Array.isArray(data.videos) && data.videos.length > 0) {
+      const vidItems = data.videos.slice(0, 3).map(v => `
+        <div style="margin-bottom:10px; padding:10px; background:rgba(0,0,0,0.05); border-radius:12px; border:1px solid rgba(139,92,246,0.2);">
+          <div style="font-weight:700; font-size:12.5px; margin-bottom:6px; color:var(--texto-900); display:flex; justify-content:space-between; align-items:center;">
+            <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:200px;">${meEscapar(v.title)}</span>
+            <span style="font-size:10px; opacity:0.75; font-weight:600;">${v.orientation === 'portrait' ? '📱 Vertical' : '📺 Horizontal'}</span>
+          </div>
+          <div style="position:relative; width:100%; border-radius:10px; overflow:hidden; background:#000; margin-bottom:6px;">
+            <video controls playsinline preload="metadata" poster="${meEscapar(v.thumbnail)}" style="width:100%; max-height:240px; display:block; border-radius:10px;">
+              <source src="${meEscapar(v.stream_url)}" type="video/mp4">
+              Tu navegador no soporta la reproducción de video HTML5.
+            </video>
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center; font-size:10.5px; opacity:0.85; margin-bottom:6px;">
+            <span>⏱️ ${v.duration ? v.duration + 's' : 'Video'}</span>
+            <a href="${meEscapar(v.user?.url || v.url)}" target="_blank" rel="noopener noreferrer" style="color:var(--morado-600); text-decoration:none; font-weight:700;">
+              📷 ${meEscapar(v.attribution_text || ('Video por ' + (v.user?.name || 'Creador') + ' en Pexels'))}
+            </a>
+          </div>
+          <div style="display:flex; gap:6px;">
+            <a href="${meEscapar(v.url)}" target="_blank" rel="noopener noreferrer" class="mini-btn primario" style="flex:1; text-align:center; padding:5px 8px; font-size:11px; border-radius:6px; text-decoration:none;">Ver en Pexels ↗</a>
+            <a href="${meEscapar(v.stream_url)}" target="_blank" download class="mini-btn secundario" style="padding:5px 8px; font-size:11px; border-radius:6px; text-decoration:none;">⬇️ HD</a>
+          </div>
+        </div>
+      `).join('');
+
+      return `<div style="margin-top:8px; padding:12px; background:var(--fondo-tarjeta, #fff); border:1.5px solid var(--morado-500, #8b5cf6); border-radius:14px; max-width:315px; font-size:12px;">
+        <div style="font-weight:800; color:var(--morado-700); margin-bottom:8px; font-size:13px; display:flex; justify-content:space-between; align-items:center;">
+          <span>🎬 Videos (${meEscapar(data.query || 'Pexels')}):</span>
+          <span style="font-size:10px; background:rgba(139,92,246,0.12); color:var(--morado-600); padding:2px 6px; border-radius:8px; font-weight:700;">${meEscapar(data.provider || 'Pexels')}</span>
+        </div>
+        ${vidItems}
+      </div>`;
+    }
+
     // 10. Tarjetas de Pago y Monetización QvaPay
     if (t === 'payment_link_card' && data) {
       return `<div style="margin-top:8px; padding:12px; background:var(--fondo-tarjeta, #fff); border:1.5px solid #10b981; border-radius:14px; max-width:300px; font-size:12px;">

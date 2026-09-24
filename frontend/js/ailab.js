@@ -416,6 +416,43 @@ window.AILab = {
       `;
     }
 
+    if (type === 'video_search_card' && d && Array.isArray(d.videos) && d.videos.length > 0) {
+      const vidItems = d.videos.slice(0, 3).map(v => `
+        <div style="margin-bottom:10px; padding:10px; background:rgba(0,0,0,0.05); border-radius:12px; border:1px solid rgba(139,92,246,0.2);">
+          <div style="font-weight:700; font-size:12.5px; margin-bottom:6px; color:var(--texto-900); display:flex; justify-content:space-between; align-items:center;">
+            <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:200px;">${escapeHTMLAILab(v.title)}</span>
+            <span style="font-size:10px; opacity:0.75; font-weight:600;">${v.orientation === 'portrait' ? '📱 Vertical' : '📺 Horizontal'}</span>
+          </div>
+          <div style="position:relative; width:100%; border-radius:10px; overflow:hidden; background:#000; margin-bottom:6px;">
+            <video controls playsinline preload="metadata" poster="${escapeHTMLAILab(v.thumbnail)}" style="width:100%; max-height:240px; display:block; border-radius:10px;">
+              <source src="${escapeHTMLAILab(v.stream_url)}" type="video/mp4">
+              Tu navegador no soporta la reproducción de video.
+            </video>
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center; font-size:10.5px; opacity:0.85; margin-bottom:6px;">
+            <span>⏱️ ${v.duration ? v.duration + 's' : 'Video'}</span>
+            <a href="${escapeHTMLAILab(v.user?.url || v.url)}" target="_blank" rel="noopener" style="color:var(--morado-600); text-decoration:none; font-weight:700;">
+              📷 ${escapeHTMLAILab(v.attribution_text || ('Video por ' + (v.user?.name || 'Creador') + ' en Pexels'))}
+            </a>
+          </div>
+          <div style="display:flex; gap:6px;">
+            <a href="${escapeHTMLAILab(v.url)}" target="_blank" rel="noopener" class="btn btn-primario mini-btn" style="flex:1; text-align:center; padding:5px 8px; font-size:11px; text-decoration:none;">Ver en Pexels ↗</a>
+            <a href="${escapeHTMLAILab(v.stream_url)}" target="_blank" download class="btn btn-secundario mini-btn" style="padding:5px 8px; font-size:11px; text-decoration:none;">⬇️ HD</a>
+          </div>
+        </div>
+      `).join('');
+
+      return `
+        <div class="card" style="margin-top:10px; padding:12px; border-radius:14px; background:var(--blanco); border:1.5px solid var(--morado-500, #8b5cf6);">
+          <div style="font-weight:800; font-size:13.5px; color:var(--morado-700); margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+            <span>🎬 Videos de Pexels (${escapeHTMLAILab(d.query || '')})</span>
+            <span style="font-size:10px; background:rgba(139,92,246,0.12); color:var(--morado-600); padding:2px 6px; border-radius:8px;">${escapeHTMLAILab(d.provider || 'Pexels')}</span>
+          </div>
+          ${vidItems}
+        </div>
+      `;
+    }
+
     if (type === 'video_card') {
       return `
         <div class="card" style="margin-top:10px; padding:12px; border-radius:14px; background:var(--blanco); border:1px solid var(--borde);">

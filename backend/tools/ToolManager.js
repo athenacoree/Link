@@ -14,6 +14,7 @@ const mathTool = require('./mathTool');
 const geoTimeTool = require('./geoTimeTool');
 const unitTool = require('./unitTool');
 const promptTool = require('./promptTool');
+const videoService = require('../services/videoService');
 
 // Nuevos módulos de APIs públicas
 const openLibrary = require('./openLibrary');
@@ -38,6 +39,7 @@ const tools = {
   'webcam.search': webcamSearch.search,
   'youtube.search': videoSearch.searchYouTube,
   'twitch.search': videoSearch.searchTwitch,
+  'search_videos': (params) => videoService.searchVideos(params),
   'weather.get': weather.getWeather,
   'social.profile': socialProfile.getProfile,
   'image.generate': imageTool.generateImage,
@@ -184,6 +186,19 @@ const tools = {
 
 function getToolDefinitions() {
   const baseDefs = [
+    {
+      name: 'search_videos',
+      description: 'Busca y muestra videos directamente dentro de Link según la consulta, orientación (landscape, portrait, square) y categoría.',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'Término de búsqueda del video (ej. naturaleza, ciudad, autos, espacio, tecnología)' },
+          orientation: { type: 'string', enum: ['landscape', 'portrait', 'square'], description: 'Orientación del video (opcional: horizontal/landscape, vertical/portrait, cuadrado/square)' },
+          category: { type: 'string', description: 'Categoría o etiqueta opcional' }
+        },
+        required: ['query']
+      }
+    },
     {
       name: 'chat.preview',
       description: 'Muestra una vista previa del chat con otro usuario y permite responderle directamente.',
@@ -333,6 +348,9 @@ async function executeTool(name, params = {}, requesterId = null) {
     if (name === 'youtube.search' || name === 'twitch.search' || name === 'youtube.live') {
       return await toolFn(params.query || params.q || params.topic);
     }
+    if (name === 'search_videos') {
+      return await toolFn(params);
+    }
     if (name === 'weather.get') {
       return await toolFn(params.location || params.city || params.query);
     }
@@ -445,7 +463,27 @@ function detectToolIntent(text) {
     return { tool: 'stock.photos', params: { query: stockTopic || 'nature' } };
   }
 
-  // 8. Videos gratuitos
+  // 8. Búsqueda de Videos Interna (search_videos) - Pexels/Multiproveedor
+  if (
+    lower.includes('busca un video') || lower.includes('buscame un video') || lower.includes('búscame un video') ||
+    lower.includes('muestra un video') || lower.includes('muestrame un video') || lower.includes('muéstrame un video') ||
+    lower.includes('quiero ver un video') || lower.includes('ver un video de') || lower.includes('video de pexels') ||
+    lower.includes('video vertical de') || lower.includes('video horizontal de') || lower.includes('videos de')
+  ) {
+    let orientation = 'landscape';
+    if (lower.includes('vertical') || lower.includes('reels') || lower.includes('tiktok') || lower.includes('shorts')) {
+      orientation = 'portrait';
+    } else if (lower.includes('cuadrado') || lower.includes('square')) {
+      orientation = 'square';
+    } else if (lower.includes('horizontal')) {
+      orientation = 'landscape';
+    }
+
+    const videoTopic = text.replace(/.*(?:busca un video|buscame un video|búscame un video|muestra un video|muestrame un video|muéstrame un video|quiero ver un video|ver un video|video de pexels|video vertical|video horizontal|videos)\s*(?:de|sobre)?\s*/i, '').trim();
+    return { tool: 'search_videos', params: { query: videoTopic || 'nature', orientation } };
+  }
+
+  // 8a. Videos gratuitos
   if (
     lower.includes('video gratuito') || lower.includes('videos gratuitos') || lower.includes('contenido gratuito') ||
     lower.includes('video libre') || lower.includes('videos libres')
