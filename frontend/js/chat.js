@@ -110,7 +110,7 @@ const Chat = (() => {
         </div>
         ${data.bio ? `<div style="margin-top:8px; font-size:12px; line-height:1.35; opacity:0.9; max-height:48px; overflow:hidden;">${escapar(data.bio)}</div>` : ''}
         <div style="margin-top:10px; display:flex; gap:6px; flex-wrap:wrap;">
-          ${data.url ? `<a href="${escapar(data.url)}" class="mini-btn primario" style="flex:1; text-align:center; padding:6px 8px; font-size:11.5px; border-radius:8px; text-decoration:none;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:2px;"><path d="M20 21c0-4.4-3.6-8-8-8s-8 3.6-8 8"/><circle cx="12" cy="7" r="4"/></svg>Ver Perfil</a>` : ''}
+          ${data.id ? `<button class="mini-btn primario" style="flex:1; text-align:center; padding:6px 8px; font-size:11.5px; border-radius:8px;" onclick="if(window.abrirPerfil) window.abrirPerfil('${escapar(data.id)}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:2px;"><path d="M20 21c0-4.4-3.6-8-8-8s-8 3.6-8 8"/><circle cx="12" cy="7" r="4"/></svg>Ver Perfil</button>` : ''}
           ${data.id ? `<button class="mini-btn secundario" style="flex:1; padding:6px 8px; font-size:11.5px; border-radius:8px;" onclick="Chat.enviarSolicitudAmistadDirecta('${escapar(data.id)}', '${escapar(data.name || data.username)}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:2px;"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>Agregar</button>` : ''}
           <button class="mini-btn secundario" style="flex:1; padding:6px 8px; font-size:11.5px; border-radius:8px;" onclick="Chat.enviarInvitacionCita('${escapar(data.id || '')}', '${escapar(data.name || data.username)}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:2px;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Cita</button>
         </div>
@@ -189,7 +189,7 @@ const Chat = (() => {
           <div id="user_panel_${u.id}_${cardGroupId}" class="panel-usuario-desplegable" style="display:none; margin-top:8px; padding-top:8px; border-top:1px dashed var(--borde, #e5e7eb); font-size:11.5px;">
             ${u.bio ? `<div style="margin-bottom:6px; opacity:0.85;">${escapar(u.bio)}</div>` : ''}
             <div style="display:flex; gap:6px; margin-top:6px; flex-wrap:wrap;">
-              <a href="/perfil/${u.id}" target="_blank" class="mini-btn primario" style="flex:1; text-align:center; padding:4px 6px; font-size:11px; border-radius:6px; text-decoration:none;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:2px;"><path d="M20 21c0-4.4-3.6-8-8-8s-8 3.6-8 8"/><circle cx="12" cy="7" r="4"/></svg>Ver perfil</a>
+              <button class="mini-btn primario" style="flex:1; text-align:center; padding:4px 6px; font-size:11px; border-radius:6px;" onclick="if(window.abrirPerfil) window.abrirPerfil('${u.id}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:2px;"><path d="M20 21c0-4.4-3.6-8-8-8s-8 3.6-8 8"/><circle cx="12" cy="7" r="4"/></svg>Ver perfil</button>
               <button class="mini-btn secundario" style="flex:1; padding:4px 6px; font-size:11px; border-radius:6px;" onclick="Chat.enviarSolicitudAmistadDirecta('${u.id}', '${escapar(u.name)}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:2px;"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>Agregar</button>
               <button class="mini-btn secundario" style="padding:4px 6px; font-size:11px; border-radius:6px;" onclick="Chat.abrirConversacionConId('${u.id}', '${escapar(u.name)}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:2px;"><path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.5 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7A8.4 8.4 0 0 1 3.5 11.5 8.5 8.5 0 1 1 21 11.5Z"/></svg>Mensaje</button>
             </div>
@@ -266,21 +266,96 @@ const Chat = (() => {
       </div>`;
     }
 
-    // 8. Galería de Fotos de Banco / Stock
-    if (t === 'stock_photos_card' && data && Array.isArray(data.photos)) {
+    // 8. Galería de Fotos de Banco / Stock / Wikimedia / Random Photos
+    if ((t === 'stock_photos_card' || t === 'random_photos_card') && data && Array.isArray(data.photos)) {
       const photoItems = data.photos.map(p => `
         <div style="position:relative; margin-bottom:6px; border-radius:10px; overflow:hidden;">
           <img src="${meEscapar(p.url)}" alt="${meEscapar(p.title)}" style="width:100%; height:160px; object-fit:cover; border-radius:10px; cursor:pointer;" onclick="window.abrirVisorImagen('${p.url.replace(/'/g, "\\'")}')">
           <div style="position:absolute; bottom:0; left:0; right:0; background:rgba(0,0,0,0.65); color:#fff; padding:4px 8px; font-size:10.5px; display:flex; justify-content:space-between; align-items:center;">
-            <span>${meEscapar(p.source)}</span>
+            <span>${meEscapar(p.source || 'Wikimedia / Photos')}</span>
             <a href="${meEscapar(p.url)}" download target="_blank" style="color:#60a5fa; font-weight:700; text-decoration:none;">Descargar ⬇️</a>
           </div>
         </div>
       `).join('');
 
       return `<div style="margin-top:8px; padding:10px; background:var(--fondo-tarjeta, #fff); border:1px solid var(--borde); border-radius:14px; max-width:310px; font-size:12px;">
-        <div style="font-weight:700; color:var(--morado-600); margin-bottom:8px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>Banco de Fotos HD (${meEscapar(data.query)}):</div>
+        <div style="font-weight:700; color:var(--morado-600); margin-bottom:8px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>Fotos (${meEscapar(data.query || data.topic || 'Random')}):</div>
         ${photoItems}
+      </div>`;
+    }
+
+    if (t === 'wikimedia_commons' && toolResult.media && Array.isArray(toolResult.media)) {
+      const mediaItems = toolResult.media.map(m => `
+        <div style="position:relative; margin-bottom:6px; border-radius:10px; overflow:hidden; background:#000;">
+          <img src="${meEscapar(m.url)}" alt="${meEscapar(m.title)}" style="width:100%; height:160px; object-fit:cover; border-radius:10px; cursor:pointer;" onclick="window.abrirVisorImagen('${m.url.replace(/'/g, "\\'")}')">
+          <div style="position:absolute; bottom:0; left:0; right:0; background:rgba(0,0,0,0.7); color:#fff; padding:4px 8px; font-size:10px; display:flex; justify-space-between; align-items:center;">
+            <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:180px;">${meEscapar(m.title)}</span>
+            <a href="${meEscapar(m.url)}" target="_blank" download style="color:#60a5fa; font-weight:700; text-decoration:none;">⬇️</a>
+          </div>
+        </div>
+      `).join('');
+
+      return `<div style="margin-top:8px; padding:10px; background:var(--fondo-tarjeta, #fff); border:1px solid var(--borde); border-radius:14px; max-width:310px; font-size:12px;">
+        <div style="font-weight:700; color:var(--morado-600); margin-bottom:8px;">📚 Wikimedia Commons (${meEscapar(toolResult.query)}):</div>
+        ${mediaItems || '<div style="font-size:11px; opacity:0.7;">No se encontraron imágenes en Wikimedia.</div>'}
+      </div>`;
+    }
+
+    // 8c. GIFs Animados y Stickers en Movimiento
+    if (t === 'gif_card' && data && Array.isArray(data.gifs)) {
+      const gifItems = data.gifs.map(g => `
+        <div style="position:relative; margin-bottom:8px; border-radius:12px; overflow:hidden; border:1px solid var(--borde);">
+          <img src="${meEscapar(g.url)}" alt="${meEscapar(g.title)}" style="width:100%; max-height:180px; object-fit:cover; border-radius:12px; display:block; cursor:pointer;" onclick="window.abrirVisorImagen('${g.url.replace(/'/g, "\\'")}')">
+          <div style="padding:4px 8px; font-size:10.5px; background:rgba(0,0,0,0.6); color:#fff; display:flex; justify-content:space-between; align-items:center;">
+            <span>🎞️ ${meEscapar(g.title)}</span>
+          </div>
+        </div>
+      `).join('');
+
+      return `<div style="margin-top:8px; padding:10px; background:var(--fondo-tarjeta, #fff); border:1.5px solid var(--morado-500, #8b5cf6); border-radius:14px; max-width:310px; font-size:12px;">
+        <div style="font-weight:800; color:var(--morado-700); margin-bottom:8px; font-size:13px;">🎬 GIFs Animados (${meEscapar(data.query)}):</div>
+        ${gifItems}
+      </div>`;
+    }
+
+    if (t === 'animated_sticker_card' && data && Array.isArray(data.stickers)) {
+      const stickerItems = data.stickers.map(s => `
+        <div style="text-align:center; padding:6px; background:var(--hueso); border-radius:10px;">
+          <img src="${meEscapar(s.gif_url)}" alt="${meEscapar(s.name)}" style="width:64px; height:64px; object-fit:contain; margin:0 auto 4px; display:block;">
+          <div style="font-size:10.5px; font-weight:700;">${meEscapar(s.name)} ${s.emoji || ''}</div>
+        </div>
+      `).join('');
+
+      return `<div style="margin-top:8px; padding:10px; background:var(--fondo-tarjeta, #fff); border:1.5px solid var(--morado-500, #8b5cf6); border-radius:14px; max-width:310px; font-size:12px;">
+        <div style="font-weight:800; color:var(--morado-700); margin-bottom:8px; font-size:13px;">✨ Stickers Animados:</div>
+        <div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:8px;">${stickerItems}</div>
+      </div>`;
+    }
+
+    // 8d. Gráficos 3D Interactivos, Wiggle y Figuras Tridimensionales
+    if (t === '3d_graphics_card' || t === 'interactive_chart_3d') {
+      const canvasId = 'canvas3d_' + Math.random().toString(36).substring(2, 9);
+      const title = data.title || 'Gráfico 3D Interactivo';
+      const shape = data.shape || 'cube';
+      const color = data.color || '#8b5cf6';
+
+      setTimeout(() => {
+        if (window.inicializarCanvas3D) {
+          window.inicializarCanvas3D(canvasId, shape, color);
+        }
+      }, 100);
+
+      return `<div class="tarjeta-3d-wiggle" style="margin-top:8px; padding:12px; background:linear-gradient(135deg, #111827, #1f2937); color:#fff; border:1.5px solid #8b5cf6; border-radius:16px; max-width:310px; font-size:12px; box-shadow:0 8px 24px rgba(139,92,246,0.25);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <span style="font-weight:800; color:#a78bfa; font-size:13px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>${meEscapar(title)}</span>
+          <span style="background:#8b5cf6; color:#fff; font-size:10px; font-weight:800; padding:2px 8px; border-radius:10px;">3D Wiggle</span>
+        </div>
+        <div style="position:relative; width:100%; height:180px; background:#000; border-radius:12px; overflow:hidden; border:1px solid rgba(255,255,255,0.15);">
+          <canvas id="${canvasId}" style="width:100%; height:100%; display:block; cursor:grab;"></canvas>
+        </div>
+        <div style="margin-top:8px; font-size:10.5px; opacity:0.8; text-align:center;">
+          💡 Arrastra con el dedo/mouse para rotar en 3D.
+        </div>
       </div>`;
     }
 

@@ -37,9 +37,10 @@ async function searchWikipedia(query, lang = 'es') {
   }
 }
 
-async function searchWikimediaCommons(query, limit = 5) {
+async function searchWikimediaCommons(query, limit = 6) {
+  const searchTerm = (query || 'nature').trim();
   try {
-    const url = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(query)}&gsrnamespace=6&gsrlimit=${limit}&prop=imageinfo&iiprop=url|size|mime&format=json&origin=*`;
+    const url = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(searchTerm)}&gsrnamespace=6&gsrlimit=${limit}&prop=imageinfo&iiprop=url|size|mime&format=json&origin=*`;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
     const res = await fetch(url, { signal: controller.signal });
@@ -57,12 +58,37 @@ async function searchWikimediaCommons(query, limit = 5) {
         width: info?.width,
         height: info?.height,
       };
-    }).filter(m => m.url);
+    }).filter(m => m.url && (m.url.endsWith('.jpg') || m.url.endsWith('.png') || m.url.endsWith('.webp') || m.url.endsWith('.jpeg')));
 
-    return { type: 'wikimedia_commons', query, media };
+    return { type: 'wikimedia_commons', query: searchTerm, media };
   } catch (err) {
     return { error: `Error al consultar Wikimedia Commons: ${err.message}` };
   }
 }
 
-module.exports = { searchWikipedia, searchWikimediaCommons };
+async function getRandomPhotos(topic = 'al azar', count = 4) {
+  const topics = ['nature', 'architecture', 'space', 'wildlife', 'cityscape', 'ocean', 'mountains', 'abstract art'];
+  const selectedTopic = (topic && topic !== 'al azar' && topic !== 'random') ? topic : topics[Math.floor(Math.random() * topics.length)];
+
+  const photos = [];
+  for (let i = 0; i < Math.min(count, 6); i++) {
+    const seed = Math.floor(Math.random() * 900000) + 100000;
+    photos.push({
+      id: `photo_${seed}`,
+      title: `Foto al azar de ${selectedTopic} #${i + 1}`,
+      url: `https://image.pollinations.ai/prompt/${encodeURIComponent(selectedTopic + ' scenic photograph masterpiece')}&width=800&height=600&nologo=true&seed=${seed}`,
+      source: 'Wikimedia Commons / Pollinations HD'
+    });
+  }
+
+  return {
+    type: 'random_photos_card',
+    data: {
+      topic: selectedTopic,
+      count: photos.length,
+      photos,
+    }
+  };
+}
+
+module.exports = { searchWikipedia, searchWikimediaCommons, getRandomPhotos };

@@ -381,6 +381,28 @@ window.AILab = {
       `;
     }
 
+    if (type === '3d_graphics_card' || type === 'interactive_chart_3d') {
+      const canvasId = 'ailab_canvas3d_' + Math.random().toString(36).substring(2, 9);
+      const title = d.title || 'Gráfico 3D Interactivo';
+      const shape = d.shape || 'cube';
+      const color = d.color || '#8b5cf6';
+
+      setTimeout(() => {
+        if (window.inicializarCanvas3D) {
+          window.inicializarCanvas3D(canvasId, shape, color);
+        }
+      }, 100);
+
+      return `
+        <div class="card" style="margin-top:10px; padding:12px; border-radius:16px; background:linear-gradient(135deg, #111827, #1f2937); color:#fff; border:1px solid #8b5cf6;">
+          <div style="font-weight:800; color:#a78bfa; font-size:13px; margin-bottom:6px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>${escapeHTMLAILab(title)}</div>
+          <div style="position:relative; width:100%; height:180px; background:#000; border-radius:10px; overflow:hidden;">
+            <canvas id="${canvasId}" style="width:100%; height:100%; display:block; cursor:grab;"></canvas>
+          </div>
+        </div>
+      `;
+    }
+
     if (type === 'webcam_card') {
       return `
         <div class="card" style="margin-top:10px; padding:12px; border-radius:14px; background:var(--blanco); border:1px solid var(--borde);">
