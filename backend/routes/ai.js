@@ -156,6 +156,10 @@ router.post('/chat', requireAuth, aiRateLimiter, async (req, res) => {
         detectedTool.params.image_base64 = detectedTool.params.image_base64 || currentImage;
       }
       toolResult = await ToolManager.executeTool(detectedTool.tool, detectedTool.params, req.user.id);
+    } else if (!toolResult && currentImage && (userPrompt.toLowerCase().includes('edita') || userPrompt.toLowerCase().includes('modifica') || userPrompt.toLowerCase().includes('retoca') || userPrompt.toLowerCase().includes('cambia') || userPrompt.toLowerCase().includes('foto') || userPrompt.toLowerCase().includes('imagen'))) {
+      // Si hay imagen adjunta y mención explícita o implícita de edición
+      const editParams = { prompt: userPrompt, image_base64: currentImage };
+      toolResult = await ToolManager.executeTool('image.edit', editParams, req.user.id);
     }
 
     let toolContextText = '';
