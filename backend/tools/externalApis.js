@@ -254,33 +254,44 @@ async function generatePaymentLink({ service = 'verificación', amount = '5.00' 
   const validAmount = parseFloat(amount) > 0 ? parseFloat(amount).toFixed(2) : '5.00';
   const remoteId = `pay_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
 
-  let checkoutUrl = `/api/monetization/checkout?service=${encodeURIComponent(serviceClean)}`;
-  let qvapayPayUrl = '';
-
   try {
     const invoice = await qvapayService.createInvoice({
       amount: validAmount,
       description: `Enlace - ${serviceClean}`,
       remoteId,
     });
-    qvapayPayUrl = invoice.url;
-  } catch (err) {
-    qvapayPayUrl = `https://qvapay.com/pay/${remoteId}`;
-  }
 
-  return {
-    type: 'payment_link_card',
-    data: {
-      service_name: serviceClean,
-      amount_usd: validAmount,
-      currency: 'USD (QvaPay / Cripto)',
-      checkout_url: checkoutUrl,
-      qvapay_link: qvapayPayUrl,
-      remote_id: remoteId,
-      description: `Factura oficial de pago para ${serviceClean}. Puedes realizar tu pago de forma rápida y segura vía QvaPay o Criptomonedas.`,
-      actions: ['Pagar con QvaPay', 'Ver Tarifas']
-    }
-  };
+    return {
+      type: 'payment_link_card',
+      data: {
+        service_name: serviceClean,
+        amount_usd: validAmount,
+        currency: 'USD (QvaPay / Cripto)',
+        qvapay_link: invoice.url,
+        remote_id: remoteId,
+        transaction_uuid: invoice.id || invoice.trans_id,
+        description: `Factura oficial de pago para ${serviceClean}. Puedes realizar tu pago de forma rápida y segura vía QvaPay o Criptomonedas.`,
+        actions: ['Pagar con QvaPay', 'Ver Tarifas']
+      }
+    };
+  } catch (err) {
+    console.error(`[QvaPay Tool] Error al generar factura real: ${err.message}`);
+    return {
+      type: 'payment_error_card',
+      data: {
+        service_name: serviceClean,
+        amount_usd: validAmount,
+        remote_id: remoteId,
+        error: {
+          code: err.code || 'QVAPAY_ERROR',
+          message: err.message || 'No se pudo conectar con la pasarela de pagos de QvaPay.',
+          httpStatus: err.httpStatus || 500,
+          remote_id: err.remoteId || remoteId,
+          transaction_uuid: err.transactionUuid || null
+        }
+      }
+    };
+  }
 }
 
 // 8. Metropolitan Museum of Art (Met Museum)

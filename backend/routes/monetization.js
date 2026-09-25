@@ -20,7 +20,7 @@ async function processConfirmedPayment(remoteId, rawPayload = {}) {
   try {
     await client.query('BEGIN');
 
-    // Lock payment_transaction row
+    // Lock payment_transaction row for atomic update
     const txRes = await client.query(
       `SELECT * FROM payment_transactions WHERE remote_id = $1 FOR UPDATE`,
       [remoteId]
@@ -201,7 +201,7 @@ router.post('/verificacion/solicitar', requireAuth, async (req, res) => {
     );
     const tx = txRes.rows[0];
 
-    // Create QvaPay invoice
+    // Create real QvaPay invoice
     let qvInvoice;
     try {
       qvInvoice = await qvapayService.createInvoice({
@@ -211,12 +211,20 @@ router.post('/verificacion/solicitar', requireAuth, async (req, res) => {
       });
     } catch (qErr) {
       console.error('[Monetización] Error al crear factura QvaPay:', qErr.message);
-      return res.status(400).json({
-        error: `No se pudo conectar con QvaPay para procesar el pago: ${qErr.message}. Por favor, reintenta más tarde.`
+      return res.status(qErr.httpStatus || 400).json({
+        success: false,
+        provider: 'qvapay',
+        error: {
+          code: qErr.code || 'QVAPAY_ERROR',
+          message: qErr.message || 'No se pudo generar la factura de QvaPay.',
+          httpStatus: qErr.httpStatus || 400,
+          remote_id: qErr.remoteId || remoteId,
+          transaction_uuid: qErr.transactionUuid || null
+        }
       });
     }
 
-    // Update transaction with QvaPay info
+    // Update transaction with real QvaPay info
     await query(
       `UPDATE payment_transactions SET qvapay_trans_id = $1, qvapay_url = $2 WHERE id = $3`,
       [qvInvoice.id, qvInvoice.url, tx.id]
@@ -244,7 +252,14 @@ router.post('/verificacion/solicitar', requireAuth, async (req, res) => {
     });
   } catch (err) {
     console.error('[Monetización] Error en /verificacion/solicitar:', err);
-    res.status(500).json({ error: err.message || 'Error del servidor al procesar la solicitud de verificación.' });
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'SERVER_ERROR',
+        message: err.message || 'Error del servidor al procesar la solicitud de verificación.',
+        httpStatus: 500
+      }
+    });
   }
 });
 
@@ -359,8 +374,16 @@ router.post('/username/comprar', requireAuth, async (req, res) => {
       });
     } catch (qErr) {
       console.error('[Monetización] Error al crear factura QvaPay:', qErr.message);
-      return res.status(400).json({
-        error: `No se pudo conectar con QvaPay para procesar el pago: ${qErr.message}. Por favor, reintenta más tarde.`
+      return res.status(qErr.httpStatus || 400).json({
+        success: false,
+        provider: 'qvapay',
+        error: {
+          code: qErr.code || 'QVAPAY_ERROR',
+          message: qErr.message || 'No se pudo generar la factura de QvaPay.',
+          httpStatus: qErr.httpStatus || 400,
+          remote_id: qErr.remoteId || remoteId,
+          transaction_uuid: qErr.transactionUuid || null
+        }
       });
     }
 
@@ -389,7 +412,14 @@ router.post('/username/comprar', requireAuth, async (req, res) => {
     });
   } catch (err) {
     console.error('[Monetización] Error en /username/comprar:', err);
-    res.status(500).json({ error: err.message || 'Error del servidor al procesar la compra de username.' });
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'SERVER_ERROR',
+        message: err.message || 'Error del servidor al procesar la compra de username.',
+        httpStatus: 500
+      }
+    });
   }
 });
 
@@ -439,8 +469,16 @@ router.post('/campanas', requireAuth, async (req, res) => {
       });
     } catch (qErr) {
       console.error('[Monetización] Error al crear factura QvaPay:', qErr.message);
-      return res.status(400).json({
-        error: `No se pudo conectar con QvaPay para procesar el pago: ${qErr.message}. Por favor, reintenta más tarde.`
+      return res.status(qErr.httpStatus || 400).json({
+        success: false,
+        provider: 'qvapay',
+        error: {
+          code: qErr.code || 'QVAPAY_ERROR',
+          message: qErr.message || 'No se pudo generar la factura de QvaPay.',
+          httpStatus: qErr.httpStatus || 400,
+          remote_id: qErr.remoteId || remoteId,
+          transaction_uuid: qErr.transactionUuid || null
+        }
       });
     }
 
@@ -483,7 +521,14 @@ router.post('/campanas', requireAuth, async (req, res) => {
     });
   } catch (err) {
     console.error('[Monetización] Error en /campanas:', err);
-    res.status(500).json({ error: err.message || 'Error del servidor al crear la campaña publicitaria.' });
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'SERVER_ERROR',
+        message: err.message || 'Error del servidor al crear la campaña publicitaria.',
+        httpStatus: 500
+      }
+    });
   }
 });
 

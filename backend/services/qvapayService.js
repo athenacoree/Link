@@ -5,8 +5,10 @@
  * Handles invoice creation, transaction status lookup, and strict webhook verification.
  */
 
-const QVAPAY_BASE_URL_V2 = 'https://qvapay.com/api/v2';
-const QVAPAY_BASE_URL_V1 = 'https://qvapay.com/api/v1';
+function getBaseUrl() {
+  const url = (process.env.QVAPAY_BASE_URL || 'https://qvapay.com/api/v2').trim();
+  return url.replace(/\/+$/, '');
+}
 
 function getAppId() {
   return (process.env.QVAPAY_APP_ID || '').trim();
@@ -25,7 +27,8 @@ function isConfigured() {
 }
 
 /**
- * Creates a QvaPay invoice via QvaPay API v1.
+ * Creates a QvaPay invoice via POST /v2/create_invoice.
+ * Sends credentials via app-id and app-secret headers.
  * @param {Object} params
  * @param {number|string} params.amount Amount in USD (e.g., 5.00)
  * @param {string} params.description Invoice description
@@ -38,97 +41,138 @@ async function createInvoice({ amount, description, remoteId }) {
 
   const numAmount = parseFloat(amount);
   if (isNaN(numAmount) || numAmount <= 0) {
-    throw new Error('Monto de factura no válido.');
+    const err = new Error('Monto de factura no válido.');
+    err.httpStatus = 400;
+    err.code = 'INVALID_AMOUNT';
+    throw err;
   }
 
   if (!remoteId) {
-    throw new Error('Identificador remoto (remoteId) requerido.');
+    const err = new Error('Identificador remoto (remoteId) requerido.');
+    err.httpStatus = 400;
+    err.code = 'MISSING_REMOTE_ID';
+    throw err;
   }
 
-  // If QvaPay credentials are not configured in local dev environment, generate a simulated checkout URL
   if (!appId || !appSecret) {
-    console.warn('[QvaPay] Credenciales de QvaPay no configuradas en entorno. Generando factura de simulación.');
-    const mockTransId = `qvapay_sim_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-    return {
-      id: mockTransId,
-      trans_id: mockTransId,
-      url: `https://qvapay.com/pay/${mockTransId}?simulated=1&remote_id=${encodeURIComponent(remoteId)}`,
-      amount: numAmount.toFixed(2),
-      remote_id: remoteId,
-      status: 'pending',
-      simulated: true,
-    };
+    console.warn('[QvaPay] Credenciales de QvaPay no configuradas en el entorno (QVAPAY_APP_ID / QVAPAY_APP_SECRET).');
+    const err = new Error('Credenciales de QvaPay no configuradas en el servidor.');
+    err.httpStatus = 500;
+    err.code = 'CONFIG_ERROR';
+    err.remoteId = remoteId;
+    throw err;
   }
 
-  const queryParams = new URLSearchParams({
-    app_id: appId,
-    app_secret: appSecret,
+  const baseUrl = getBaseUrl();
+  const webhookUrl = getWebhookUrl();
+
+  const payload = {
     amount: numAmount.toFixed(2),
     description: (description || 'Servicio de Enlace').slice(0, 100),
     remote_id: remoteId,
-    signed: '1',
-  });
-
-  const webhookUrl = getWebhookUrl();
+  };
   if (webhookUrl) {
-    queryParams.append('webhook', webhookUrl);
+    payload.webhook = webhookUrl;
   }
 
+  const startTime = Date.now();
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 15000);
 
+  console.log(`[QvaPay] Intentando crear factura: remote_id=${remoteId}, amount=$${payload.amount}`);
+
   try {
-    let response = await fetch(`${QVAPAY_BASE_URL_V2}/create_invoice?${queryParams.toString()}`, {
-      method: 'GET',
-      headers: { 'Accept': 'application/json' },
+    const response = await fetch(`${baseUrl}/create_invoice`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'app-id': appId,
+        'app-secret': appSecret,
+      },
+      body: JSON.stringify(payload),
       signal: controller.signal,
     });
 
-    // Fallback to v1 if v2 returns 404
-    if (response.status === 404) {
-      response = await fetch(`${QVAPAY_BASE_URL_V1}/create_invoice?${queryParams.toString()}`, {
-        method: 'GET',
-        headers: { 'Accept': 'application/json' },
-        signal: controller.signal,
-      });
-    }
-
     clearTimeout(timeoutId);
+    const elapsed = Date.now() - startTime;
 
-    const data = await response.json();
+    let data;
+    try {
+      data = await response.json();
+    } catch (parseErr) {
+      console.error(`[QvaPay] Respuesta no-JSON recibida (${response.status}) en ${elapsed}ms`);
+      const err = new Error(`QvaPay devolvió una respuesta no válida (HTTP ${response.status}).`);
+      err.httpStatus = response.status;
+      err.code = 'INVALID_RESPONSE';
+      err.remoteId = remoteId;
+      throw err;
+    }
 
     if (!response.ok || data.error) {
       const errDetail = typeof data.error === 'object'
         ? (data.error.message || JSON.stringify(data.error))
         : (data.error || data.message || `Error de QvaPay API (${response.status})`);
-      throw new Error(errDetail);
+
+      console.error(`[QvaPay] Error de API (${response.status}) en ${elapsed}ms: ${errDetail} | remote_id=${remoteId}`);
+
+      const err = new Error(errDetail);
+      err.httpStatus = response.status;
+      err.code = data.code || `HTTP_${response.status}`;
+      err.remoteId = remoteId;
+      err.transactionUuid = data.transaction_uuid || data.trans_id || data.id || null;
+      err.qvapayStatus = data.status || null;
+      err.raw = data;
+      throw err;
     }
 
-    const transId = data.trans_id || data.id || data.transaction_uuid || `qv_${Date.now()}`;
-    const payUrl = data.url || data.signedUrl || `https://qvapay.com/pay/${transId}`;
+    const transId = data.trans_id || data.id || data.transaction_uuid;
+    const payUrl = data.url || data.signedUrl;
+
+    if (!payUrl) {
+      console.error(`[QvaPay] La respuesta de QvaPay no incluyó una URL real de pago. remote_id=${remoteId}`);
+      const err = new Error('QvaPay no proporcionó una URL válida de pago.');
+      err.httpStatus = 502;
+      err.code = 'NO_PAYMENT_URL';
+      err.remoteId = remoteId;
+      err.transactionUuid = transId;
+      throw err;
+    }
+
+    console.log(`[QvaPay] Factura creada exitosamente en ${elapsed}ms: trans_id=${transId}, url=${payUrl}, remote_id=${remoteId}`);
 
     return {
       id: transId,
       trans_id: transId,
+      transaction_uuid: transId,
       url: payUrl,
       amount: numAmount.toFixed(2),
       remote_id: remoteId,
       status: data.status || 'pending',
-      simulated: false,
       raw: data,
     };
   } catch (err) {
     clearTimeout(timeoutId);
     if (err.name === 'AbortError') {
-      throw new Error('Tiempo de espera agotado al conectar con QvaPay.');
+      console.error(`[QvaPay] Timeout de 15s agotado al crear factura. remote_id=${remoteId}`);
+      const timeoutErr = new Error('Tiempo de espera agotado al conectar con QvaPay.');
+      timeoutErr.httpStatus = 504;
+      timeoutErr.code = 'TIMEOUT';
+      timeoutErr.remoteId = remoteId;
+      throw timeoutErr;
     }
-    console.error('[QvaPay] Error al crear factura:', err.message);
-    throw new Error(`Error al conectar con QvaPay: ${err.message}`);
+    if (!err.httpStatus) {
+      err.httpStatus = 500;
+      err.code = 'NETWORK_ERROR';
+      err.remoteId = remoteId;
+    }
+    throw err;
   }
 }
 
 /**
  * Gets transaction status directly from QvaPay API.
+ * Uses GET /v2/get_transaction/:id with header-based credentials.
  * @param {string} transactionId QvaPay Transaction ID/UUID
  * @returns {Promise<Object>} Transaction status and details
  */
@@ -137,50 +181,61 @@ async function getTransactionStatus(transactionId) {
   const appSecret = getAppSecret();
 
   if (!transactionId) {
-    throw new Error('ID de transacción requerido.');
+    const err = new Error('ID de transacción requerido.');
+    err.httpStatus = 400;
+    err.code = 'MISSING_TRANSACTION_ID';
+    throw err;
   }
 
-  if (!appId || !appSecret || transactionId.startsWith('qvapay_sim_')) {
+  if (!appId || !appSecret) {
     return {
       id: transactionId,
       trans_id: transactionId,
-      status: 'pending',
+      status: 'unknown',
       paid: false,
-      simulated: true,
+      error: 'Credenciales de QvaPay no configuradas.',
     };
   }
 
-  const queryParams = new URLSearchParams({
-    app_id: appId,
-    app_secret: appSecret,
-  });
-
+  const baseUrl = getBaseUrl();
+  const startTime = Date.now();
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 15000);
 
   try {
-    let response = await fetch(`${QVAPAY_BASE_URL_V2}/get_transaction/${encodeURIComponent(transactionId)}?${queryParams.toString()}`, {
+    const response = await fetch(`${baseUrl}/get_transaction/${encodeURIComponent(transactionId)}`, {
       method: 'GET',
-      headers: { 'Accept': 'application/json' },
+      headers: {
+        'Accept': 'application/json',
+        'app-id': appId,
+        'app-secret': appSecret,
+      },
       signal: controller.signal,
     });
 
-    if (response.status === 404) {
-      response = await fetch(`${QVAPAY_BASE_URL_V1}/get_transaction/${encodeURIComponent(transactionId)}?${queryParams.toString()}`, {
-        method: 'GET',
-        headers: { 'Accept': 'application/json' },
-        signal: controller.signal,
-      });
-    }
-
     clearTimeout(timeoutId);
+    const elapsed = Date.now() - startTime;
 
-    const data = await response.json();
+    let data;
+    try {
+      data = await response.json();
+    } catch (parseErr) {
+      return {
+        id: transactionId,
+        trans_id: transactionId,
+        status: 'unknown',
+        paid: false,
+        error: `Respuesta no válida de QvaPay (HTTP ${response.status})`,
+      };
+    }
 
     if (!response.ok || data.error) {
       const errDetail = typeof data.error === 'object'
         ? (data.error.message || JSON.stringify(data.error))
         : (data.error || data.message || `Error HTTP ${response.status}`);
+
+      console.warn(`[QvaPay] Estado de transacción ${transactionId} falló (${response.status}) en ${elapsed}ms: ${errDetail}`);
+
       return {
         id: transactionId,
         trans_id: transactionId,
@@ -194,7 +249,7 @@ async function getTransactionStatus(transactionId) {
     const isPaid = rawStatus === 'paid' || rawStatus === 'completed' || data.paid === 1 || data.paid === '1' || data.paid === true;
 
     return {
-      id: data.id || transactionId,
+      id: data.id || data.trans_id || transactionId,
       trans_id: data.trans_id || data.id || transactionId,
       amount: data.amount !== undefined ? parseFloat(data.amount) : undefined,
       remote_id: data.remote_id,
@@ -204,13 +259,14 @@ async function getTransactionStatus(transactionId) {
     };
   } catch (err) {
     clearTimeout(timeoutId);
-    console.error('[QvaPay] Error al consultar estado de transacción:', err.message);
+    const isTimeout = err.name === 'AbortError';
+    console.error(`[QvaPay] Error al consultar estado de transacción ${transactionId}: ${err.message}`);
     return {
       id: transactionId,
       trans_id: transactionId,
       status: 'unknown',
       paid: false,
-      error: err.message,
+      error: isTimeout ? 'Tiempo de espera agotado.' : err.message,
     };
   }
 }
@@ -218,7 +274,7 @@ async function getTransactionStatus(transactionId) {
 /**
  * Validates incoming QvaPay webhook payload.
  * NEVER marks a transaction as paid based solely on webhook body parameters.
- * Mandatorily verifies transaction status with QvaPay API servers when configured.
+ * Mandatorily verifies transaction status with QvaPay API servers.
  * @param {Object} req Express request object
  * @returns {Promise<Object>} Verified transaction payload
  */
@@ -227,59 +283,44 @@ async function verifyWebhookPayload(req) {
   const query = req.query || {};
 
   const remoteId = body.remote_id || query.remote_id;
-  const transId = body.id || body.trans_id || query.id || query.trans_id;
+  const transId = body.id || body.trans_id || body.transaction_uuid || query.id || query.trans_id;
   const rawAmount = body.amount !== undefined ? body.amount : query.amount;
 
   if (!remoteId) {
     throw new Error('Webhook de QvaPay rechazado: Falta remote_id.');
   }
 
-  // Mandatory verification against QvaPay API when configured
-  if (isConfigured()) {
-    if (!transId || String(transId).startsWith('qvapay_sim_')) {
-      throw new Error('Webhook de QvaPay rechazado: ID de transacción de QvaPay ausente o de simulación.');
-    }
+  if (!transId) {
+    throw new Error('Webhook de QvaPay rechazado: ID de transacción ausente.');
+  }
 
-    const qvData = await getTransactionStatus(transId);
+  if (!isConfigured()) {
+    throw new Error('Webhook de QvaPay rechazado: Credenciales de QvaPay no configuradas.');
+  }
 
-    if (!qvData || !qvData.paid) {
-      console.warn(`[QvaPay Webhook] Verificación API rechazada para trans_id=${transId}, estado actual en QvaPay: ${qvData?.status}`);
-      return {
-        valid: false,
-        paid: false,
-        remote_id: remoteId,
-        trans_id: transId,
-        amount: qvData?.amount || rawAmount,
-        status: qvData?.status || 'unverified',
-        raw: body,
-      };
-    }
+  const qvData = await getTransactionStatus(transId);
 
+  if (!qvData || !qvData.paid) {
+    console.warn(`[QvaPay Webhook] Verificación API rechazada para trans_id=${transId}, estado en QvaPay: ${qvData?.status}`);
     return {
-      valid: true,
-      paid: true,
-      remote_id: qvData.remote_id || remoteId,
-      trans_id: qvData.trans_id || transId,
-      amount: qvData.amount !== undefined ? qvData.amount : rawAmount,
-      status: 'paid',
-      raw: qvData.raw || body,
+      valid: false,
+      paid: false,
+      remote_id: remoteId,
+      trans_id: transId,
+      amount: qvData?.amount || rawAmount,
+      status: qvData?.status || 'unverified',
+      raw: body,
     };
   }
 
-  // Simulation mode (dev environment without QvaPay API credentials)
-  const statusStr = (body.status || query.status || '').toLowerCase();
-  const paidVal = body.paid !== undefined ? body.paid : query.paid;
-  const isPaidSignal = statusStr === 'paid' || statusStr === 'completed' || paidVal === 1 || paidVal === '1' || paidVal === true;
-
   return {
-    valid: isPaidSignal,
-    paid: isPaidSignal,
-    remote_id: remoteId,
-    trans_id: transId,
-    amount: rawAmount,
-    status: isPaidSignal ? 'paid' : (statusStr || 'pending'),
-    simulated: true,
-    raw: body,
+    valid: true,
+    paid: true,
+    remote_id: qvData.remote_id || remoteId,
+    trans_id: qvData.trans_id || transId,
+    amount: qvData.amount !== undefined ? qvData.amount : rawAmount,
+    status: 'paid',
+    raw: qvData.raw || body,
   };
 }
 
