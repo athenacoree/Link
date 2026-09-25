@@ -88,7 +88,10 @@ async function createInvoice({ amount, description, remoteId }) {
     const data = await response.json();
 
     if (!response.ok || data.error) {
-      throw new Error(data.error || data.message || `Error de QvaPay API (${response.status})`);
+      const errDetail = typeof data.error === 'object'
+        ? (data.error.message || JSON.stringify(data.error))
+        : (data.error || data.message || `Error de QvaPay API (${response.status})`);
+      throw new Error(errDetail);
     }
 
     const transId = data.trans_id || data.id || data.transaction_uuid || `qv_${Date.now()}`;
@@ -157,12 +160,15 @@ async function getTransactionStatus(transactionId) {
     const data = await response.json();
 
     if (!response.ok || data.error) {
+      const errDetail = typeof data.error === 'object'
+        ? (data.error.message || JSON.stringify(data.error))
+        : (data.error || data.message || `Error HTTP ${response.status}`);
       return {
         id: transactionId,
         trans_id: transactionId,
         status: 'unknown',
         paid: false,
-        error: data.error || data.message || `Error HTTP ${response.status}`,
+        error: errDetail,
       };
     }
 
