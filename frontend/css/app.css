@@ -987,7 +987,7 @@ body.animaciones-pausadas * {
   aspect-ratio: 1 / 1;
   background: var(--blanco, #ffffff);
   border: 1.5px solid var(--borde, #e5e7eb);
-  border-radius: 18px;
+  border-radius: 20px;
   padding: 12px 8px;
   display: flex;
   flex-direction: column;
@@ -996,33 +996,47 @@ body.animaciones-pausadas * {
   text-align: center;
   cursor: pointer;
   position: relative;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s ease, border-color 0.25s ease;
   user-select: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
 }
 
 .tool-card-square:hover {
-  transform: translateY(-3px);
-  border-color: var(--morado-400, #a78bfa);
-  box-shadow: 0 6px 16px rgba(124, 58, 237, 0.12);
+  transform: translateY(-4px) scale(1.03) rotate(0.8deg);
+  border-color: var(--morado-500, #8b5cf6);
+  box-shadow: 0 12px 28px -6px rgba(139, 92, 246, 0.3);
 }
 
 .tool-card-square:active {
-  transform: scale(0.95);
+  transform: scale(0.94) rotate(-1deg);
 }
 
 .tool-card-square.anim-pulse {
-  animation: cardPulse 3s infinite ease-in-out;
+  animation: cardWigglePulse 3s infinite ease-in-out;
 }
 
-@keyframes cardPulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.03); border-color: var(--morado-500, #8b5cf6); }
+@keyframes cardWigglePulse {
+  0%, 100% { transform: scale(1) rotate(0deg); }
+  25% { transform: scale(1.02) rotate(0.5deg); }
+  75% { transform: scale(1.02) rotate(-0.5deg); border-color: var(--morado-500, #8b5cf6); }
 }
 
 .tool-card-square .tool-icon {
-  font-size: 28px;
-  margin-bottom: 6px;
-  line-height: 1;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: rgba(139, 92, 246, 0.08);
+  color: var(--morado-600, #7c3aed);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+  transition: transform 0.25s ease, background-color 0.25s ease;
+}
+
+.tool-card-square:hover .tool-icon {
+  transform: scale(1.1) rotate(-3deg);
+  background: rgba(139, 92, 246, 0.16);
 }
 
 .tool-card-square .tool-name {

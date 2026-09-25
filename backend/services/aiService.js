@@ -350,57 +350,27 @@ const ProviderAdapters = {
     let lastResult = null;
     for (let i = 0; i < keyPool.length; i++) {
       const apiKey = keyPool[i];
-      let attempts = 0;
-      const maxAttempts = 3;
+      const res = await callGeminiApi({
+        apiKey,
+        model,
+        messages,
+        tools,
+        maxTokens,
+        temperature: temperature !== undefined && temperature !== null ? temperature : settings.ai_temperature,
+        visionImage,
+        signal,
+      });
 
-      while (attempts < maxAttempts) {
-        const res = await callGeminiApi({
-          apiKey,
-          model,
-          messages,
-          tools,
-          maxTokens,
-          temperature: temperature !== undefined && temperature !== null ? temperature : settings.ai_temperature,
-          visionImage,
-          signal,
-        });
-
-        if (res.ok) {
-          return res;
-        }
-
-        lastResult = res;
-
-        // If rate limited or server error, retry with exponential backoff and jitter
-        if (res.error?.retryable && attempts < maxAttempts - 1) {
-          attempts++;
-          const delayMs = Math.min(8000, Math.pow(2, attempts) * 1000 + Math.floor(Math.random() * 500));
-          console.warn(`[AI Service] Gemini ${res.status || res.error?.code}. Retrying attempt ${attempts}/${maxAttempts} in ${delayMs}ms...`);
-          try {
-            await new Promise((resolve, reject) => {
-              if (signal?.aborted) return reject(new Error('AbortError'));
-              const t = setTimeout(resolve, delayMs);
-              if (signal) {
-                signal.addEventListener('abort', () => {
-                  clearTimeout(t);
-                  reject(new Error('AbortError'));
-                }, { once: true });
-              }
-            });
-          } catch (e) {
-            break;
-          }
-        } else {
-          break;
-        }
+      if (res.ok) {
+        return res;
       }
 
-      if (keyPool.length > 1) {
-        console.warn(`[AI Service] Clave Gemini ${i + 1}/${keyPool.length} falló (${lastResult?.error?.code || lastResult?.status}). Reintentando con la siguiente clave del pool...`);
-      }
+      lastResult = res;
+      // Sin reintentos automáticos continuos en backend
+      break;
     }
 
-    return lastResult;
+    return lastResult || { ok: false, error: { code: 'GEMINI_ERROR', message: 'Error al comunicarse con Gemini. Toca para reintentar.', retryable: true } };
   }
 };
 
