@@ -14,6 +14,13 @@ const Chat = (() => {
 
   function conversationId(a, b) { return [a, b].sort().join('_'); }
 
+  // Helper auxiliar de escape HTML global para el chat y capacidades
+  function meEscapar(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+  }
+  window.meEscapar = meEscapar;
+
   function horaCorta(fecha) {
     if (!fecha) return '';
     const d = new Date(fecha);
@@ -767,12 +774,6 @@ const Chat = (() => {
         <div style="font-size:11.5px; opacity:0.85; margin-bottom:4px; font-style:italic;">"${meEscapar(promptTxt)}"</div>
         <div id="img_box_${cardContainerId}">${resultImgHtml || '<div style="font-size:11px; opacity:0.75; padding:8px 0; text-align:center;">🪄 Aplicando retoque/edición a la foto...</div>'}</div>
       </div>`;
-    }
-
-    // Helper auxiliar de escape
-    function meEscapar(str) {
-      if (!str) return '';
-      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
     }
 
     return '';

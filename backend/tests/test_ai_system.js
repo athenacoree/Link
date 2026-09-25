@@ -17,6 +17,48 @@ async function runSystemTests() {
   assert.ok(typeof ProviderAdapters.gemini === 'function', 'ProviderAdapters.gemini debe existir');
   console.log('   ✅ Configuración de Gemini en entorno validada.');
 
+  // 0b. Prueba de regresión de formato de roles para Gemini Function Calling
+  console.log('0b. Probando que Gemini function calling nunca use "role: function"...');
+  let fetchPayloads = [];
+  const originalFetch = global.fetch;
+  global.fetch = async (url, options) => {
+    if (url.includes('generativelanguage.googleapis.com')) {
+      const payload = JSON.parse(options.body);
+      fetchPayloads.push(payload);
+      return {
+        ok: true,
+        json: async () => ({
+          candidates: [{
+            finishReason: 'STOP',
+            content: { parts: [{ text: 'Respuesta con herramienta' }] }
+          }]
+        })
+      };
+    }
+    return originalFetch(url, options);
+  };
+
+  const testMessages = [
+    { role: 'user', content: '¿Qué hora es?' },
+    { role: 'model', parts: [{ functionCall: { name: 'world_time', args: { location: 'Madrid' } } }] },
+    { role: 'user', parts: [{ functionResponse: { name: 'world_time', response: { content: { time: '14:00' } } } }] }
+  ];
+
+  await ProviderAdapters.gemini({
+    settings: { gemini_api_key: 'test_key', gemini_model: 'gemini-1.5-flash', ai_temperature: '0.7' },
+    messages: testMessages,
+    tools: null,
+    maxTokens: 100,
+  });
+
+  global.fetch = originalFetch;
+
+  assert.strictEqual(fetchPayloads.length, 1, 'Debe haber capturado una llamada a Gemini API');
+  const contents = fetchPayloads[0].contents;
+  const invalidRole = contents.find(c => c.role === 'function');
+  assert.strictEqual(invalidRole, undefined, 'Gemini contents NUNCA debe contener role: "function"');
+  console.log('   ✅ Formato de roles para Gemini function calling validado correctamente.');
+
   // 1. Prueba de Prune Messages (Context Budgeting)
   console.log('1. Probando pruneMessages()...');
   const messages = [

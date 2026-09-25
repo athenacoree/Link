@@ -379,22 +379,22 @@ function getToolDefinitions() {
     },
     {
       name: 'social.profile',
-      description: 'Busca un perfil de usuario registrado en la plataforma Enlace por su nombre de usuario o nombre.',
+      description: 'Busca un perfil de usuario registrado en la plataforma Enlace por su nombre de usuario, nombre, o cuando se solicite ver el perfil de alguien (ej. @usuario, admin, "mi perfil").',
       parameters: {
         type: 'object',
         properties: {
-          username: { type: 'string', description: 'Nombre de usuario o nombre en la plataforma Enlace' }
+          username: { type: 'string', description: 'Nombre de usuario, @username o nombre de la persona en Enlace' }
         },
         required: ['username']
       }
     },
     {
       name: 'user.search_by_interest',
-      description: 'Busca usuarios en Enlace según sus intereses, gustos o pasatiempos.',
+      description: 'Busca usuarios en Enlace según sus gustos, intereses, pasatiempos, biografía, profesión, ubicación o ciudad (ej. "de La Habana", "le guste la música", "Santiago").',
       parameters: {
         type: 'object',
         properties: {
-          interest: { type: 'string', description: 'Interés, gusto o pasatiempo a buscar' }
+          interest: { type: 'string', description: 'Interés, pasatiempo, ciudad o característica a buscar (ej. música, La Habana, baile, programación)' }
         },
         required: ['interest']
       }
@@ -632,13 +632,84 @@ function getToolDefinitions() {
     },
     {
       name: 'system.payment_link',
-      description: 'Genera un enlace de pago del sistema.',
+      description: 'Genera un enlace de pago o factura oficial de QvaPay para un servicio (ej. verificación de cuenta, compra de usuario).',
       parameters: {
         type: 'object',
         properties: {
-          service: { type: 'string', description: 'Nombre del servicio' },
-          amount: { type: 'string', description: 'Monto en USD' }
+          service: { type: 'string', description: 'Nombre o descripción del servicio a pagar' },
+          amount: { type: 'string', description: 'Monto en USD (ej. 5.00)' }
         }
+      }
+    },
+    {
+      name: 'gif.search',
+      description: 'Busca y muestra un GIF animado en el chat según una emoción o búsqueda.',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'Término o tema del GIF (ej. divertido, risa, hola, baile)' }
+        },
+        required: ['query']
+      }
+    },
+    {
+      name: 'sticker.animated',
+      description: 'Busca y muestra stickers animados expresivos en el chat.',
+      parameters: {
+        type: 'object',
+        properties: {
+          category: { type: 'string', description: 'Categoría del sticker (ej. happy, love, laugh, party)' }
+        }
+      }
+    },
+    {
+      name: 'graphics3d.generate',
+      description: 'Genera una figura tridimensional interactiva en 3D con efecto Wiggle y rotación en el chat.',
+      parameters: {
+        type: 'object',
+        properties: {
+          shape: { type: 'string', description: 'Forma geométrica 3D: cube, sphere, torus, pyramid' },
+          title: { type: 'string', description: 'Título del gráfico 3D' }
+        }
+      }
+    },
+    {
+      name: 'joke.get',
+      description: 'Obtiene un chiste divertido o frase humorística.',
+      parameters: {
+        type: 'object',
+        properties: {}
+      }
+    },
+    {
+      name: 'advice.slip',
+      description: 'Obtiene un consejo o reflexión inspiradora.',
+      parameters: {
+        type: 'object',
+        properties: {}
+      }
+    },
+    {
+      name: 'frankfurter.convert',
+      description: 'Convierte montos entre divisas (USD, EUR, GBP, CUP, etc.).',
+      parameters: {
+        type: 'object',
+        properties: {
+          amount: { type: 'number', description: 'Monto a convertir' },
+          from: { type: 'string', description: 'Moneda origen (ej. USD)' },
+          to: { type: 'string', description: 'Moneda destino (ej. EUR)' }
+        }
+      }
+    },
+    {
+      name: 'restcountries.get',
+      description: 'Obtiene información geográfica y datos sobre un país.',
+      parameters: {
+        type: 'object',
+        properties: {
+          country: { type: 'string', description: 'Nombre del país' }
+        },
+        required: ['country']
       }
     }
   ];

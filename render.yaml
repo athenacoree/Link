@@ -49,3 +49,6 @@ services:
         sync: false
       - key: QVAPAY_WEBHOOK_URL
         sync: false
+      # --- Pexels Video API ---
+      - key: PEXELS_API_KEY
+        sync: false

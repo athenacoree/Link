@@ -6,7 +6,38 @@
 const LINK_GAMES_BASE_URL = 'https://athenacoree.github.io/link-games-/';
 const GAMES_CATALOG_URL = 'https://athenacoree.github.io/link-games-/games.json';
 
-// Catálogo estático de respaldo para garantizar funcionamiento resilete sin internet
+// Diccionario con metadata rica por omisión
+const RICH_METADATA_MAP = {
+  tictactoe: { mode: 'both', difficulty: 'fácil', duration: '2 min', tags: ['rápido', '2 jugadores', 'amigos', 'clásico', 'mesa'] },
+  connect4: { mode: 'both', difficulty: 'fácil', duration: '3 min', tags: ['rápido', '2 jugadores', 'amigos', 'estrategia'] },
+  pong: { mode: 'both', difficulty: 'fácil', duration: '2 min', tags: ['retro', '2 jugadores', 'rápido', 'arcade'] },
+  trivia: { mode: 'solo', difficulty: 'medio', duration: '5 min', tags: ['preguntas', 'conocimiento', 'quiz', 'mental'] },
+  memory: { mode: 'solo', difficulty: 'fácil', duration: '3 min', tags: ['cartas', 'memoria', 'cerebro', 'rápido'] },
+  snake: { mode: 'solo', difficulty: 'fácil', duration: '3 min', tags: ['clásico', 'arcade', 'retro', 'rápido'] },
+  '2048': { mode: 'solo', difficulty: 'medio', duration: '5-10 min', tags: ['números', 'puzzle', 'estrategia', 'mental'] },
+  flappy: { mode: 'solo', difficulty: 'difícil', duration: '2 min', tags: ['reflejos', 'arcade', 'rápido', 'desafío'] },
+  breakout: { mode: 'solo', difficulty: 'fácil', duration: '4 min', tags: ['bloques', 'pelota', 'arcade', 'retro'] },
+  wordle: { mode: 'solo', difficulty: 'medio', duration: '4 min', tags: ['palabras', 'letras', 'puzzle', 'diario'] },
+  minesweeper: { mode: 'solo', difficulty: 'medio', duration: '5 min', tags: ['minas', 'lógica', 'estrategia', 'clásico'] },
+  simon: { mode: 'solo', difficulty: 'fácil', duration: '3 min', tags: ['colores', 'memoria', 'secuencia', 'sonido'] },
+  sudoku: { mode: 'solo', difficulty: 'difícil', duration: '10 min', tags: ['números', 'lógica', 'puzzle', 'relajante'] },
+  spaceinvaders: { mode: 'solo', difficulty: 'medio', duration: '4 min', tags: ['espacio', 'disparos', 'arcade', 'retro'] },
+  whackamole: { mode: 'solo', difficulty: 'fácil', duration: '2 min', tags: ['reflejos', 'topos', 'rápido', 'divertido'] },
+  solitaire: { mode: 'solo', difficulty: 'medio', duration: '8 min', tags: ['cartas', 'solitario', 'clásico', 'relajante'] },
+  checkers: { mode: 'both', difficulty: 'medio', duration: '5 min', tags: ['damas', '2 jugadores', 'amigos', 'estrategia', 'mesa'] },
+  hanoi: { mode: 'solo', difficulty: 'difícil', duration: '5 min', tags: ['torres', 'lógica', 'puzzle', 'matemáticas'] },
+  pacman: { mode: 'solo', difficulty: 'medio', duration: '4 min', tags: ['laberinto', 'fantasma', 'arcade', 'retro'] },
+  typing: { mode: 'solo', difficulty: 'medio', duration: '3 min', tags: ['teclado', 'mecanografía', 'velocidad', 'agilidad'] },
+  towerstack: { mode: 'solo', difficulty: 'fácil', duration: '2 min', tags: ['apilar', 'bloques', 'torre', 'reflejos'] },
+  match3: { mode: 'solo', difficulty: 'fácil', duration: '5 min', tags: ['gemas', 'conecta3', 'puzzle', 'casual'] },
+  mathquiz: { mode: 'solo', difficulty: 'fácil', duration: '2 min', tags: ['matemáticas', 'cálculo', 'rápido', 'educativo'] },
+  doodlejump: { mode: 'solo', difficulty: 'medio', duration: '3 min', tags: ['salto', 'infinito', 'arcade', 'divertido'] },
+  lightsout: { mode: 'solo', difficulty: 'difícil', duration: '4 min', tags: ['luces', 'lógica', 'puzzle', 'desafío'] },
+  hangman: { mode: 'solo', difficulty: 'fácil', duration: '3 min', tags: ['ahorcado', 'palabras', 'letras', 'rápido'] },
+  wordsearch: { mode: 'solo', difficulty: 'fácil', duration: '5 min', tags: ['sopa de letras', 'palabras', 'puzzle', 'relajante'] }
+};
+
+// Catálogo estático de respaldo para garantizar funcionamiento resiliente sin internet
 const FALLBACK_CATALOG = [
   { id: 'tictactoe', name: 'Tres en Raya', description: 'Clásico juego de Tres en Raya con modo 1 vs AI o 2 jugadores local.', category: 'board', players: 2, mobile: true, url: './tictactoe/' },
   { id: 'connect4', name: '4 en Raya', description: 'Conecta 4 fichas de tu color en línea horizontal, vertical o diagonal.', category: 'board', players: 2, mobile: true, url: './connect4/' },
@@ -51,6 +82,26 @@ function resolveGameUrl(relUrl, gameId) {
   return `${LINK_GAMES_BASE_URL}${clean}`;
 }
 
+function enrichGameMetadata(item) {
+  const meta = RICH_METADATA_MAP[item.id] || {};
+  const numPlayers = item.players || meta.players || 1;
+  const mode = item.mode || meta.mode || (numPlayers > 1 ? 'both' : 'solo');
+  const difficulty = item.difficulty || meta.difficulty || 'fácil';
+  const duration = item.duration || meta.duration || '3-5 min';
+  const tags = item.tags && Array.isArray(item.tags) ? item.tags : (meta.tags || [item.category || 'juego']);
+
+  return {
+    ...item,
+    players: numPlayers,
+    mode,
+    difficulty,
+    duration,
+    mobile: item.mobile !== false,
+    tags,
+    full_url: resolveGameUrl(item.url, item.id),
+  };
+}
+
 /**
  * Consulta el catálogo oficial de Link Games desde la web o caché
  */
@@ -70,10 +121,7 @@ async function getGameCatalog() {
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
-        cachedCatalog = data.map(item => ({
-          ...item,
-          full_url: resolveGameUrl(item.url, item.id),
-        }));
+        cachedCatalog = data.map(enrichGameMetadata);
         lastFetchTime = now;
         return cachedCatalog;
       }
@@ -83,16 +131,13 @@ async function getGameCatalog() {
     console.warn('[Link Games] No se pudo cargar catálogo remoto, utilizando catálogo estático local:', err.message);
   }
 
-  cachedCatalog = FALLBACK_CATALOG.map(item => ({
-    ...item,
-    full_url: resolveGameUrl(item.url, item.id),
-  }));
+  cachedCatalog = FALLBACK_CATALOG.map(enrichGameMetadata);
   lastFetchTime = now;
   return cachedCatalog;
 }
 
 /**
- * game.list: Lista o busca minijuegos en el catálogo
+ * game.list: Lista o busca minijuegos en el catálogo con metadata completa
  */
 async function listGames(params = {}) {
   const catalog = await getGameCatalog();
@@ -110,7 +155,9 @@ async function listGames(params = {}) {
       (g.name || '').toLowerCase().includes(qFilter) ||
       (g.description || '').toLowerCase().includes(qFilter) ||
       (g.id || '').toLowerCase().includes(qFilter) ||
-      (g.category || '').toLowerCase().includes(qFilter)
+      (g.category || '').toLowerCase().includes(qFilter) ||
+      (g.mode || '').toLowerCase().includes(qFilter) ||
+      (g.tags || []).some(t => t.toLowerCase().includes(qFilter))
     );
   }
 
@@ -119,8 +166,12 @@ async function listGames(params = {}) {
     name: g.name,
     description: g.description,
     category: g.category,
-    players: g.players || 1,
-    mobile: g.mobile !== false,
+    players: g.players,
+    mode: g.mode,
+    difficulty: g.difficulty,
+    duration: g.duration,
+    mobile: g.mobile,
+    tags: g.tags,
     url: g.full_url,
   }));
 

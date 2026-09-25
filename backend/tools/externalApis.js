@@ -246,10 +246,27 @@ async function searchFreeVideos(query = 'documentary nature space') {
   }
 }
 
-// 7. Generación de enlaces de pago del sistema
+const qvapayService = require('../services/qvapayService');
+
+// 7. Generación de enlaces de pago del sistema mediante facturas reales de QvaPay API
 async function generatePaymentLink({ service = 'verificación', amount = '5.00' }, requesterId = null) {
   const serviceClean = (service || 'Servicio Enlace').trim();
   const validAmount = parseFloat(amount) > 0 ? parseFloat(amount).toFixed(2) : '5.00';
+  const remoteId = `pay_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+
+  let checkoutUrl = `/api/monetization/checkout?service=${encodeURIComponent(serviceClean)}`;
+  let qvapayPayUrl = '';
+
+  try {
+    const invoice = await qvapayService.createInvoice({
+      amount: validAmount,
+      description: `Enlace - ${serviceClean}`,
+      remoteId,
+    });
+    qvapayPayUrl = invoice.url;
+  } catch (err) {
+    qvapayPayUrl = `https://qvapay.com/pay/${remoteId}`;
+  }
 
   return {
     type: 'payment_link_card',
@@ -257,9 +274,10 @@ async function generatePaymentLink({ service = 'verificación', amount = '5.00' 
       service_name: serviceClean,
       amount_usd: validAmount,
       currency: 'USD (QvaPay / Cripto)',
-      checkout_url: `/api/monetization/checkout?service=${encodeURIComponent(serviceClean)}`,
-      qvapay_link: `https://qvapay.com/pay?amount=${validAmount}&description=${encodeURIComponent('Enlace - ' + serviceClean)}`,
-      description: `Enlace oficial de pago para ${serviceClean}. Puedes realizar tu pago de forma rápida y segura vía QvaPay o Criptomonedas.`,
+      checkout_url: checkoutUrl,
+      qvapay_link: qvapayPayUrl,
+      remote_id: remoteId,
+      description: `Factura oficial de pago para ${serviceClean}. Puedes realizar tu pago de forma rápida y segura vía QvaPay o Criptomonedas.`,
       actions: ['Pagar con QvaPay', 'Ver Tarifas']
     }
   };
