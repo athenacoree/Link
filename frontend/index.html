@@ -163,15 +163,51 @@
 
   <!-- ---------- LABORATORIO IA ---------- -->
   <main class="vista-app" id="vistaAilab" data-vista="ailab">
-    <!-- Cartel Central de Próximamente -->
-    <div style="margin:16px; padding:20px; background:linear-gradient(135deg, rgba(139,92,246,0.15), rgba(168,85,247,0.08)); border:1.5px solid var(--morado-500, #8b5cf6); border-radius:20px; text-align:center; box-shadow:0 10px 28px rgba(91,33,182,0.15); backdrop-filter:blur(8px);">
-      <div style="font-size:20px; font-weight:900; color:var(--morado-700, #5b21b6); margin-bottom:6px;">✨ Próximamente - Laboratorio de IA en Desarrollo ✨</div>
-      <div style="font-size:13px; color:var(--texto-800, #1f2937); line-height:1.5; max-width:340px; margin:0 auto 12px;">
-        Esta sección es una vista preliminar en desarrollo. El asistente inteligente <b>Link AI</b> está completamente activo y funcional en tu pestaña de chats.
+    <!-- SALA MULTIMEDIA COMPARTIDA Y EXPERIENCIA INTERACTIVA -->
+    <div class="ailab-experience-container" id="ailabExperienceContainer">
+      <div class="ailab-experience-header">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span class="ailab-experience-badge idle" id="ailabEventBadge">🧪 SALA PÚBLICA</span>
+          <span id="ailabEventTitle" style="font-weight:800; font-size:13px; color:#fff;">Experiencia Multimedia Sincronizada</span>
+        </div>
+        <div style="display:flex; gap:6px;">
+          <button class="btn btn-secundario mini-btn" onclick="AILab.abrirModalEventosDisponibles()" style="padding:4px 10px; font-size:11px; font-weight:700;">
+            📅 Eventos
+          </button>
+        </div>
       </div>
-      <button class="btn btn-primario" onclick="Chat.abrirConversacion({id:'00000000-0000-0000-0000-0000000000a1', name:'Link AI', is_ai:true})" style="margin:0 auto; padding:9px 18px; font-size:13px; font-weight:800; border-radius:20px;">
-        💬 Abrir Chat con Link AI
-      </button>
+
+      <!-- ESCENARIO DEL REPRODUCTOR SINCRONIZADO -->
+      <div class="ailab-experience-stage" id="ailabExperienceStage">
+        <!-- Reproductor de Video -->
+        <video id="ailabMediaVideo" class="ailab-media-player" playsinline style="display:none;"></video>
+
+        <!-- Reproductor de Audio -->
+        <audio id="ailabMediaAudio" style="display:none;"></audio>
+
+        <!-- Lector Progresivo de Libros y Textos -->
+        <div id="ailabBookReader" class="ailab-book-reader" style="display:none;">
+          <div id="ailabBookTextDisplay">Selecciona una experiencia multimedia para comenzar.</div>
+        </div>
+
+        <!-- Capas del Motor de Efectos Overlay (Client-Side Rendering) -->
+        <div class="ailab-fx-layer" id="ailabFxLayer"></div>
+        <div class="ailab-overlay-text" id="ailabOverlayText" style="display:none;"></div>
+        <div class="ailab-overlay-poll" id="ailabOverlayPoll" style="display:none;"></div>
+      </div>
+
+      <!-- Barra de Botones de Control Claras -->
+      <div class="ailab-experience-controls">
+        <button class="btn btn-primario mini-btn" id="btnEntrarExperiencia" onclick="AILab.entrarExperienciaActiva()" style="padding:6px 14px; font-size:12px; font-weight:800; border-radius:12px;">
+          🎬 Entrar a la Experiencia
+        </button>
+        <button class="btn btn-secundario mini-btn" id="btnSalirExperiencia" onclick="AILab.salirExperiencia()" style="padding:6px 14px; font-size:12px; font-weight:700; border-radius:12px; display:none;">
+          🚪 Salir
+        </button>
+        <button class="btn btn-secundario mini-btn" onclick="AILab.volverALabAI()" style="padding:6px 14px; font-size:12px; font-weight:700; border-radius:12px;">
+          🧪 Volver a Lab AI
+        </button>
+      </div>
     </div>
 
     <div class="ailab-messenger-container">
@@ -825,6 +861,69 @@
         </div>
       </div>
 
+      <!-- Experiencias Multimedia y Eventos IA (Sincronizados) -->
+      <div class="panel-acordeon" style="margin-top:10px;">
+        <div class="panel-header" onclick="toggleAcordeon(this)">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/></svg>
+            <span style="font-weight:700; font-size:13px;">Experiencias Multimedia y Eventos IA (Sincronizados)</span>
+          </div>
+          <svg class="chevron-acordeon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
+        </div>
+        <div class="panel-body">
+          <div style="font-weight:700; font-size:12px; margin-bottom:6px; color:var(--morado-700);">Crear / Analizar Experiencia Multimedia</div>
+          <div class="campo">
+            <label>Tipo de Contenido</label>
+            <select id="adminExpContentType">
+              <option value="video">Video (URL o Archivo)</option>
+              <option value="audio">Audio (Música / Podcast)</option>
+              <option value="book">Libro / Texto / Cuento</option>
+            </select>
+          </div>
+          <div class="campo"><label>Título de la Experiencia</label><input type="text" id="adminExpTitle" placeholder="Ej: La Odisea del Espacio, Cuentos de La Habana"></div>
+          <div class="campo"><label>Descripción</label><input type="text" id="adminExpDesc" placeholder="Breve resumen del contenido"></div>
+          <div class="campo"><label>URL de Video/Audio (o Fuente)</label><input type="url" id="adminExpContentUrl" placeholder="https://..."></div>
+          <div class="campo"><label>Texto del Libro / Capítulos (si aplica)</label><textarea id="adminExpRawText" rows="3" placeholder="Escribe o pega aquí el texto o capítulos autorizados..."></textarea></div>
+
+          <div style="display:flex; gap:8px; margin:8px 0 12px;">
+            <button class="btn btn-primario" id="adminBtnAnalyzeExpAI" onclick="adminGenerarTimelineIA()" style="flex:1; font-size:12px; font-weight:800;">
+              ✨ Generar experiencia automáticamente con IA
+            </button>
+          </div>
+
+          <div class="campo">
+            <label>Línea de Tiempo (Timeline JSON)</label>
+            <textarea id="adminExpTimelineJSON" rows="5" placeholder='[{"time": 10, "type": "tension", "effects": [{"type": "dim", "duration": 2}]}]' style="font-family:monospace; font-size:11.5px;"></textarea>
+          </div>
+
+          <button class="btn btn-secundario" onclick="adminGuardarExperiencia()" style="width:100%; font-size:12px; font-weight:800; margin-bottom:14px;">
+            💾 Guardar Experiencia en Base de Datos
+          </button>
+
+          <div style="border-top:1px solid var(--borde); padding-top:10px;">
+            <div style="font-weight:700; font-size:12px; margin-bottom:6px; color:var(--morado-700);">Programar Evento Multimedia Público</div>
+            <div class="campo">
+              <label>Seleccionar Experiencia</label>
+              <select id="adminSelectExpForEvent">
+                <option value="">Cargando experiencias...</option>
+              </select>
+            </div>
+            <div class="grid-2">
+              <div class="campo"><label>Fecha y Hora (Inicio)</label><input type="datetime-local" id="adminEventScheduledAt"></div>
+              <div class="campo"><label>Duración (Segundos)</label><input type="number" id="adminEventDuration" value="300"></div>
+            </div>
+            <button class="btn btn-primario" onclick="adminProgramarEvento()" style="width:100%; font-size:12px; font-weight:800; margin-top:6px;">
+              📅 Programar Evento Público
+            </button>
+          </div>
+
+          <div style="border-top:1px solid var(--borde); margin-top:14px; padding-top:10px;">
+            <div style="font-weight:700; font-size:12px; margin-bottom:8px; color:var(--morado-700);">Experiencias y Eventos Registrados</div>
+            <div id="adminListaExperienciasYEventos" style="display:flex; flex-direction:column; gap:8px;"></div>
+          </div>
+        </div>
+      </div>
+
       <!-- Gestión de Personajes e Identidades de IA -->
       <div class="panel-acordeon" style="margin-top:10px;">
         <div class="panel-header" onclick="toggleAcordeon(this)">
@@ -1356,6 +1455,21 @@
     </div>
   </div>
   <div class="hoja-cancelar" id="cerrarBridgePairing" onclick="document.getElementById('veloBridgePairing').classList.remove('activo'); document.getElementById('hojaBridgePairing').classList.remove('activo');">Cerrar</div>
+</div>
+
+<!-- ---------- Modal de Eventos Multimedia Disponibles en Lab AI ---------- -->
+<div class="velo" id="veloAilabEventos"></div>
+<div class="hoja" id="hojaAilabEventos" style="bottom:20px; max-height:85vh;">
+  <div class="hoja-grupo">
+    <div class="hoja-persona"><span style="font-weight:800; color:var(--morado-700); font-size:16px;">📅 Eventos Multimedia de Lab AI</span></div>
+    <div style="padding:4px 8px 12px; font-size:12.5px; color:var(--texto-600);">
+      Explora las experiencias compartidas programadas por la administración para todos los usuarios:
+    </div>
+    <div id="listaAilabEventos" style="display:flex; flex-direction:column; gap:10px; max-height:55vh; overflow-y:auto; padding:0 4px;">
+      <!-- Lista renderizada dinámicamente -->
+    </div>
+  </div>
+  <div class="hoja-cancelar" onclick="document.getElementById('veloAilabEventos').classList.remove('activo'); document.getElementById('hojaAilabEventos').classList.remove('activo');">Cerrar</div>
 </div>
 
 <!-- ---------- Modal Código QR de Perfil ---------- -->

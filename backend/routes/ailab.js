@@ -9,6 +9,20 @@ const {
   processUserMessageInGlobalRoom,
   runAutoAIChatLoopTurn,
   stopAILabConversation,
+  generateExperienceTimelineAI,
+  getExperiences,
+  createExperience,
+  getExperienceById,
+  updateExperienceTimeline,
+  setExperiencePublished,
+  deleteExperience,
+  getEvents,
+  createEvent,
+  getEventById,
+  getActiveEvent,
+  cancelEvent,
+  recordEventInteraction,
+  getEventSyncInfo,
 } = require('../services/aiLabService');
 
 const router = express.Router();
@@ -212,6 +226,207 @@ router.post('/tool', requireAuth, validateAILabLimits, async (req, res) => {
   } catch (err) {
     console.error('Error al ejecutar herramienta:', err);
     res.status(500).json({ error: '⚠️ Ocurrió un error al ejecutar la herramienta.' });
+  }
+});
+
+// ---------------- 4. EXPERIENCIAS MULTIMEDIA Y EVENTOS IA ----------------
+
+// GET /api/ailab/experiences - Listar todas las experiencias
+router.get('/experiences', requireAuth, async (req, res) => {
+  try {
+    const list = await getExperiences();
+    res.json(list);
+  } catch (err) {
+    console.error('Error al listar experiencias:', err);
+    res.status(500).json({ error: 'No se pudieron obtener las experiencias.' });
+  }
+});
+
+// POST /api/ailab/experiences - Crear nueva experiencia (Solo Administradores)
+router.post('/experiences', requireAuth, requireAdmin, async (req, res) => {
+  const { title, description, content_type, content_url, raw_text, timeline, is_published } = req.body;
+  if (!title) {
+    return res.status(400).json({ error: 'El título de la experiencia es requerido.' });
+  }
+
+  try {
+    const exp = await createExperience({
+      title,
+      description,
+      contentType: content_type || 'video',
+      contentUrl: content_url,
+      rawText: raw_text,
+      timeline,
+      userId: req.user.id,
+      isPublished: is_published,
+    });
+    res.json(exp);
+  } catch (err) {
+    console.error('Error al crear experiencia:', err);
+    res.status(500).json({ error: 'Error interno al crear experiencia.' });
+  }
+});
+
+// POST /api/ailab/experiences/analyze - Generar Timeline mediante IA Gemini (Solo Administradores)
+router.post('/experiences/analyze', requireAuth, requireAdmin, async (req, res) => {
+  const { content_type, content_url, raw_text, title, description } = req.body;
+  if (!title && !raw_text && !content_url) {
+    return res.status(400).json({ error: 'Debes proporcionar un título, texto o URL para analizar.' });
+  }
+
+  try {
+    const result = await generateExperienceTimelineAI({
+      contentType: content_type || 'video',
+      contentUrl: content_url || '',
+      rawText: raw_text || '',
+      title: title || 'Experiencia Multimedia',
+      description: description || '',
+    });
+    res.json(result);
+  } catch (err) {
+    console.error('Error al analizar contenido con IA:', err);
+    res.status(500).json({ error: 'No se pudo generar la timeline con la IA.' });
+  }
+});
+
+// PUT /api/ailab/experiences/:id/timeline - Actualizar Timeline JSON (Solo Administradores)
+router.put('/experiences/:id/timeline', requireAuth, requireAdmin, async (req, res) => {
+  const { timeline } = req.body;
+  if (!Array.isArray(timeline)) {
+    return res.status(400).json({ error: 'El timeline debe ser un arreglo de eventos.' });
+  }
+
+  try {
+    const updated = await updateExperienceTimeline(req.params.id, timeline);
+    if (!updated) {
+      return res.status(404).json({ error: 'Experiencia no encontrada.' });
+    }
+    res.json(updated);
+  } catch (err) {
+    console.error('Error al actualizar timeline:', err);
+    res.status(500).json({ error: 'Error al actualizar el timeline.' });
+  }
+});
+
+// POST /api/ailab/experiences/:id/publish - Publicar / Despublicar Experiencia (Solo Administradores)
+router.post('/experiences/:id/publish', requireAuth, requireAdmin, async (req, res) => {
+  const { is_published } = req.body;
+  try {
+    const updated = await setExperiencePublished(req.params.id, is_published);
+    if (!updated) {
+      return res.status(404).json({ error: 'Experiencia no encontrada.' });
+    }
+    res.json(updated);
+  } catch (err) {
+    console.error('Error al cambiar publicación:', err);
+    res.status(500).json({ error: 'Error al cambiar estado de publicación.' });
+  }
+});
+
+// DELETE /api/ailab/experiences/:id - Eliminar Experiencia (Solo Administradores)
+router.delete('/experiences/:id', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const ok = await deleteExperience(req.params.id);
+    if (!ok) {
+      return res.status(404).json({ error: 'Experiencia no encontrada.' });
+    }
+    res.json({ ok: true, message: 'Experiencia eliminada correctamente.' });
+  } catch (err) {
+    console.error('Error al eliminar experiencia:', err);
+    res.status(500).json({ error: 'Error al eliminar experiencia.' });
+  }
+});
+
+// GET /api/ailab/events - Listar eventos multimedia
+router.get('/events', requireAuth, async (req, res) => {
+  try {
+    const events = await getEvents();
+    res.json(events);
+  } catch (err) {
+    console.error('Error al listar eventos:', err);
+    res.status(500).json({ error: 'Error al obtener eventos.' });
+  }
+});
+
+// POST /api/ailab/events - Programar evento multimedia (Solo Administradores)
+router.post('/events', requireAuth, requireAdmin, async (req, res) => {
+  const { experience_id, title, scheduled_at, duration_seconds } = req.body;
+  if (!experience_id || !scheduled_at) {
+    return res.status(400).json({ error: 'experience_id y scheduled_at son requeridos.' });
+  }
+
+  try {
+    const evt = await createEvent({
+      experienceId: experience_id,
+      title: title || 'Evento Multimedia',
+      scheduledAt: scheduled_at,
+      durationSeconds: duration_seconds || 300,
+    });
+    res.json(evt);
+  } catch (err) {
+    console.error('Error al programar evento:', err);
+    res.status(500).json({ error: 'Error al programar evento.' });
+  }
+});
+
+// GET /api/ailab/events/active - Obtener el evento actualmente activo o próximo
+router.get('/events/active', requireAuth, async (req, res) => {
+  try {
+    const evt = await getActiveEvent();
+    res.json({ active_event: evt });
+  } catch (err) {
+    console.error('Error al obtener evento activo:', err);
+    res.status(500).json({ error: 'Error al obtener evento activo.' });
+  }
+});
+
+// GET /api/ailab/events/:id/sync - Obtener posición sincronizada y timestamp oficial
+router.get('/events/:id/sync', requireAuth, async (req, res) => {
+  try {
+    const syncData = await getEventSyncInfo(req.params.id);
+    if (!syncData) {
+      return res.status(404).json({ error: 'Evento no encontrado.' });
+    }
+    res.json(syncData);
+  } catch (err) {
+    console.error('Error al sincronizar evento:', err);
+    res.status(500).json({ error: 'Error al sincronizar evento.' });
+  }
+});
+
+// POST /api/ailab/events/:id/interaction - Registrar votación, respuesta o reacción
+router.post('/events/:id/interaction', requireAuth, async (req, res) => {
+  const { interaction_type, data } = req.body;
+  if (!interaction_type) {
+    return res.status(400).json({ error: 'El tipo de interacción es requerido.' });
+  }
+
+  try {
+    const interaction = await recordEventInteraction({
+      eventId: req.params.id,
+      userId: req.user.id,
+      userName: req.user.name || 'Usuario',
+      interactionType: interaction_type,
+      data: data || {},
+    });
+    res.json({ ok: true, interaction });
+  } catch (err) {
+    console.error('Error al registrar interacción:', err);
+    res.status(500).json({ error: 'Error al registrar interacción.' });
+  }
+});
+
+// DELETE /api/ailab/events/:id - Cancelar o eliminar evento (Solo Administradores)
+router.delete('/events/:id', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const ok = await cancelEvent(req.params.id);
+    if (!ok) {
+      return res.status(404).json({ error: 'Evento no encontrado.' });
+    }
+    res.json({ ok: true, message: 'Evento cancelado correctamente.' });
+  } catch (err) {
+    console.error('Error al cancelar evento:', err);
+    res.status(500).json({ error: 'Error al cancelar evento.' });
   }
 });
 

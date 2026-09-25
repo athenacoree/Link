@@ -2642,7 +2642,7 @@ document.querySelectorAll('#vistaAdmin > .admin-body > .sub-tabs > .sub-tab[data
     $('adminVistaMonetizacion')?.classList.toggle('oculto', target !== 'monetizacion');
     if (target === 'reportes') cargarAdminReportes('pendiente');
     if (target === 'anuncios') cargarAdminAnuncios();
-    if (target === 'ai-config') cargarAdminAIConfig();
+    if (target === 'ai-config') { cargarAdminAIConfig(); adminCargarExperienciasYEventos(); }
     if (target === 'editor-db') cargarAdminEditorDB();
     if (target === 'monetizacion' && window.Monetizacion) window.Monetizacion.renderAdminMonetizacion($('adminVistaMonetizacion'));
   });
@@ -3223,6 +3223,213 @@ function toggleAcordeon(headerElem) {
   }
 }
 window.toggleAcordeon = toggleAcordeon;
+
+/* ================= ADMINISTRACIÓN DE EXPERIENCIAS Y EVENTOS MULTIMEDIA ================= */
+
+async function adminGenerarTimelineIA() {
+  const btn = $('adminBtnAnalyzeExpAI');
+  const contentType = $('adminExpContentType')?.value || 'video';
+  const title = $('adminExpTitle')?.value.trim() || 'Experiencia Multimedia';
+  const description = $('adminExpDesc')?.value.trim() || '';
+  const contentUrl = $('adminExpContentUrl')?.value.trim() || '';
+  const rawText = $('adminExpRawText')?.value.trim() || '';
+
+  if (!title && !rawText && !contentUrl) {
+    mostrarToast('Proporciona un título, texto o URL para analizar.');
+    return;
+  }
+
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '⏳ Analizando contenido con la IA...';
+  }
+
+  try {
+    const res = await api('/ailab/experiences/analyze', {
+      method: 'POST',
+      body: { content_type: contentType, title, description, content_url: contentUrl, raw_text: rawText }
+    });
+
+    if (res && res.timeline) {
+      const jsonArea = $('adminExpTimelineJSON');
+      if (jsonArea) {
+        jsonArea.value = JSON.stringify(res.timeline, null, 2);
+      }
+      mostrarToast('✨ Timeline generada con éxito por la IA. Revisa los eventos antes de guardar.');
+    } else {
+      mostrarToast('No se pudo generar la timeline.');
+    }
+  } catch (err) {
+    mostrarToast(err.message || 'Error al generar la timeline con IA.');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = '✨ Generar experiencia automáticamente con IA';
+    }
+  }
+}
+window.adminGenerarTimelineIA = adminGenerarTimelineIA;
+
+async function adminGuardarExperiencia() {
+  const contentType = $('adminExpContentType')?.value || 'video';
+  const title = $('adminExpTitle')?.value.trim();
+  const description = $('adminExpDesc')?.value.trim() || '';
+  const contentUrl = $('adminExpContentUrl')?.value.trim() || '';
+  const rawText = $('adminExpRawText')?.value.trim() || '';
+  const timelineJSONStr = $('adminExpTimelineJSON')?.value.trim() || '[]';
+
+  if (!title) {
+    mostrarToast('Ingresa un título para la experiencia.');
+    return;
+  }
+
+  let timeline = [];
+  try {
+    timeline = JSON.parse(timelineJSONStr);
+  } catch (e) {
+    mostrarToast('El formato del JSON de timeline no es válido.');
+    return;
+  }
+
+  try {
+    await api('/ailab/experiences', {
+      method: 'POST',
+      body: {
+        title,
+        description,
+        content_type: contentType,
+        content_url: contentUrl,
+        raw_text: rawText,
+        timeline,
+        is_published: true
+      }
+    });
+
+    mostrarToast('Experiencia guardada correctamente');
+    if ($('adminExpTitle')) $('adminExpTitle').value = '';
+    if ($('adminExpDesc')) $('adminExpDesc').value = '';
+    if ($('adminExpContentUrl')) $('adminExpContentUrl').value = '';
+    if ($('adminExpRawText')) $('adminExpRawText').value = '';
+    if ($('adminExpTimelineJSON')) $('adminExpTimelineJSON').value = '';
+
+    await adminCargarExperienciasYEventos();
+  } catch (err) {
+    mostrarToast(err.message || 'Error al guardar la experiencia.');
+  }
+}
+window.adminGuardarExperiencia = adminGuardarExperiencia;
+
+async function adminCargarExperienciasYEventos() {
+  try {
+    const experiences = await api('/ailab/experiences');
+    const events = await api('/ailab/events');
+
+    // Poblar select de experiencias para eventos
+    const selectExp = $('adminSelectExpForEvent');
+    if (selectExp) {
+      if (!experiences || !experiences.length) {
+        selectExp.innerHTML = '<option value="">-- No hay experiencias registradas --</option>';
+      } else {
+        selectExp.innerHTML = '<option value="">-- Selecciona una experiencia --</option>' +
+          experiences.map(e => `<option value="${e.id}">${escaparHTMLGlobal(e.title)} (${escapeHTMLAILab(e.content_type)})</option>`).join('');
+      }
+    }
+
+    // Renderizar lista en panel de admin
+    const cont = $('adminListaExperienciasYEventos');
+    if (cont) {
+      let html = '';
+      if (experiences && experiences.length) {
+        html += '<div style="font-weight:800; font-size:12px; color:var(--texto-800); margin-bottom:4px;">Experiencias Multimedia:</div>';
+        html += experiences.map(exp => `
+          <div style="padding:8px 10px; background:var(--blanco); border:1px solid var(--borde); border-radius:10px; display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <div style="font-weight:700; font-size:12.5px;">${escaparHTMLGlobal(exp.title)}</div>
+              <div style="font-size:11px; color:var(--texto-500);">Tipo: ${escapeHTMLAILab(exp.content_type)} • ${(exp.timeline || []).length || 0} marcas de tiempo</div>
+            </div>
+            <button class="mini-btn peligro" onclick="adminEliminarExperiencia('${exp.id}')">Eliminar</button>
+          </div>
+        `).join('');
+      }
+
+      if (events && events.length) {
+        html += '<div style="font-weight:800; font-size:12px; color:var(--texto-800); margin:12px 0 4px;">Eventos Programados:</div>';
+        html += events.map(evt => `
+          <div style="padding:8px 10px; background:var(--blanco); border:1px solid var(--borde); border-radius:10px; display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <div style="font-weight:700; font-size:12.5px;">${escaparHTMLGlobal(evt.title)} (${escaparHTMLGlobal(evt.experience_title)})</div>
+              <div style="font-size:11px; color:var(--texto-500);">📅 ${new Date(evt.scheduled_at).toLocaleString()} • Estado: ${escapeHTMLAILab(evt.status)}</div>
+            </div>
+            <button class="mini-btn peligro" onclick="adminCancelarEvento('${evt.id}')">Cancelar</button>
+          </div>
+        `).join('');
+      }
+
+      if (!html) {
+        cont.innerHTML = '<div style="font-size:12px; color:var(--texto-500);">Aún no hay experiencias ni eventos registrados.</div>';
+      } else {
+        cont.innerHTML = html;
+      }
+    }
+  } catch (err) {
+    console.error('Error cargando experiencias y eventos en admin:', err);
+  }
+}
+window.adminCargarExperienciasYEventos = adminCargarExperienciasYEventos;
+
+async function adminProgramarEvento() {
+  const expId = $('adminSelectExpForEvent')?.value;
+  const scheduledAt = $('adminEventScheduledAt')?.value;
+  const durationSeconds = parseInt($('adminEventDuration')?.value || '300', 10);
+
+  if (!expId || !scheduledAt) {
+    mostrarToast('Selecciona una experiencia e ingresa fecha/hora de inicio.');
+    return;
+  }
+
+  try {
+    await api('/ailab/events', {
+      method: 'POST',
+      body: {
+        experience_id: expId,
+        scheduled_at: new Date(scheduledAt).toISOString(),
+        duration_seconds: durationSeconds
+      }
+    });
+
+    mostrarToast('Eventos programado correctamente');
+    await adminCargarExperienciasYEventos();
+    if (window.AILab) window.AILab.cargarEventoActivo();
+  } catch (err) {
+    mostrarToast(err.message || 'Error al programar evento.');
+  }
+}
+window.adminProgramarEvento = adminProgramarEvento;
+
+async function adminEliminarExperiencia(id) {
+  if (!confirm('¿Seguro que deseas eliminar esta experiencia?')) return;
+  try {
+    await api(`/ailab/experiences/${id}`, { method: 'DELETE' });
+    mostrarToast('Experiencia eliminada');
+    await adminCargarExperienciasYEventos();
+  } catch (err) {
+    mostrarToast(err.message);
+  }
+}
+window.adminEliminarExperiencia = adminEliminarExperiencia;
+
+async function adminCancelarEvento(id) {
+  if (!confirm('¿Seguro que deseas cancelar este evento?')) return;
+  try {
+    await api(`/ailab/events/${id}`, { method: 'DELETE' });
+    mostrarToast('Evento cancelado');
+    await adminCargarExperienciasYEventos();
+    if (window.AILab) window.AILab.cargarEventoActivo();
+  } catch (err) {
+    mostrarToast(err.message);
+  }
+}
+window.adminCancelarEvento = adminCancelarEvento;
 
 /* ================= RUTAS UNIVERSALES Y VINCULACIÓN ENLACE BRIDGE ================= */
 function procesarRutaUniversal(rawPath) {

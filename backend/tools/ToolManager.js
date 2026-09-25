@@ -287,6 +287,50 @@ const tools = {
   'advice.slip': () => externalApis.getAdviceSlip(),
   'agify.predict': (params) => externalApis.predictAgify(params.name),
 
+  // Experiencias Multimedia e Interactivas de Lab AI
+  'ailab.experience.list': async () => {
+    const aiLabService = require('../services/aiLabService');
+    const events = await aiLabService.getEvents();
+    return {
+      type: 'experience_events_card',
+      data: {
+        events: (events || []).map(e => ({
+          id: e.id,
+          title: e.title,
+          experience_title: e.experience_title,
+          content_type: e.content_type,
+          scheduled_at: e.scheduled_at,
+          status: e.status
+        }))
+      }
+    };
+  },
+  'ailab.experience.open': async (params) => {
+    const aiLabService = require('../services/aiLabService');
+    const activeEvt = params && params.eventId ? await aiLabService.getEventById(params.eventId) : await aiLabService.getActiveEvent();
+    if (!activeEvt) {
+      return { type: 'experience_card', data: { error: 'No hay experiencias multimedia activas en este momento.' } };
+    }
+    const sync = await aiLabService.getEventSyncInfo(activeEvt.id);
+    return {
+      type: 'experience_card',
+      data: sync
+    };
+  },
+  'ailab.experience.interact': async (params, requesterId) => {
+    const aiLabService = require('../services/aiLabService');
+    const { eventId, interactionType, question, options, duration } = params || {};
+    if (!eventId) return { error: 'eventId es requerido para la interacción.' };
+    const interaction = await aiLabService.recordEventInteraction({
+      eventId,
+      userId: requesterId,
+      userName: 'Mia AI Host',
+      interactionType: interactionType || 'question',
+      data: { question, options, duration: duration || 15 }
+    });
+    return { type: 'experience_interaction_card', data: interaction };
+  },
+
   // 20 Herramientas Internas de Procesamiento
   'text.stats': (params) => internalTools.getTextStats(params.text),
   'text.diff': (params) => internalTools.compareTextDiff(params.textA, params.textB),
@@ -711,6 +755,37 @@ function getToolDefinitions() {
         },
         required: ['country']
       }
+    },
+    {
+      name: 'ailab.experience.list',
+      description: 'Lista los eventos y experiencias multimedia compartidas activas y programadas en Lab AI.',
+      parameters: {
+        type: 'object',
+        properties: {}
+      }
+    },
+    {
+      name: 'ailab.experience.open',
+      description: 'Abre y sincroniza la experiencia multimedia pública compartida activa en Lab AI (videos, audios o libros).',
+      parameters: {
+        type: 'object',
+        properties: {
+          eventId: { type: 'string', description: 'ID opcional del evento a sincronizar' }
+        }
+      }
+    },
+    {
+      name: 'ailab.experience.interact',
+      description: 'Permite a Mia lanzar una encuesta, pregunta o interacción durante la experiencia compartida.',
+      parameters: {
+        type: 'object',
+        properties: {
+          eventId: { type: 'string', description: 'ID del evento activo' },
+          question: { type: 'string', description: 'Pregunta para la audiencia' },
+          options: { type: 'array', items: { type: 'string' }, description: 'Opciones de encuesta' }
+        },
+        required: ['eventId', 'question']
+      }
     }
   ];
 
@@ -850,6 +925,23 @@ async function executeTool(name, params = {}, requesterId = null) {
 function detectToolIntent(text) {
   if (!text || typeof text !== 'string') return null;
   const lower = text.toLowerCase().trim();
+
+  // -2. Experiencias Multimedia e Eventos IA
+  if (
+    lower.includes('ver eventos multimedia') || lower.includes('eventos de lab ai') ||
+    lower.includes('experiencias multimedia') || lower.includes('qué eventos hay') ||
+    lower.includes('que eventos hay') || lower.includes('lista de eventos')
+  ) {
+    return { tool: 'ailab.experience.list', params: {} };
+  }
+
+  if (
+    lower.includes('abrir experiencia') || lower.includes('entrar al evento') ||
+    lower.includes('unirse al evento') || lower.includes('ver la experiencia') ||
+    lower.includes('ver la película') || lower.includes('ver el video compartido')
+  ) {
+    return { tool: 'ailab.experience.open', params: {} };
+  }
 
   // -1. Capacidades de Link (Consultas sobre herramientas, funciones y capacidades disponibles)
   if (

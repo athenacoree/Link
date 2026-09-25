@@ -49,6 +49,21 @@ function initSockets(io) {
       socket.leave('room:ailab');
     });
 
+    socket.on('ailab:interaccion', async ({ eventId, interactionType, data }) => {
+      try {
+        const { recordEventInteraction } = require('../services/aiLabService');
+        await recordEventInteraction({
+          eventId,
+          userId,
+          userName: socket.userName || 'Usuario',
+          interactionType,
+          data
+        });
+      } catch (err) {
+        console.error('[socket] error en interaccion ailab:', err.message);
+      }
+    });
+
     // ---------------- MENSAJERÍA PRIVADA (persistida en PostgreSQL) ----------------
     socket.on('mensaje:enviar', async ({ receiverId, text, imageData, audioData, audioDuration, replyToId }, ack) => {
       try {
