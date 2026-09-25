@@ -17,6 +17,11 @@ async function limpiarEstadosVencidos() {
 
     const cleanedVideoCache = await cleanupExpiredCache();
     if (cleanedVideoCache) console.log(`[limpieza] ${cleanedVideoCache} resultado(s) de video en caché purgado(s).`);
+
+    const { rowCount: aiMsgsDeleted } = await query(
+      `DELETE FROM messages WHERE (sender_id = '00000000-0000-0000-0000-0000000000a1' OR receiver_id = '00000000-0000-0000-0000-0000000000a1') AND created_at <= (now() - interval '24 hours')`
+    );
+    if (aiMsgsDeleted) console.log(`[limpieza] ${aiMsgsDeleted} mensaje(s) de Link AI (>24h) eliminado(s).`);
   } catch (err) {
     console.error('[limpieza] Error durante la tarea de limpieza periódica:', err.message);
   }

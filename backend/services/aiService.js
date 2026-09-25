@@ -8,10 +8,20 @@ const ToolManager = require('../tools/ToolManager');
  * Context Budgeting, Vision Input, and Structured Tool Definitions.
  */
 
+function getGeminiApiKeyPool() {
+  const envKeys = (process.env.GEMINI_API_KEYS || process.env.GEMINI_API_KEY || '').trim();
+  const keys = envKeys
+    .split(/[\n,\s]+/)
+    .map(k => k.trim())
+    .filter(Boolean);
+  return [...new Set(keys)];
+}
+
 async function getAISettings() {
   const config = {
     ai_provider: 'gemini',
     gemini_api_key: (process.env.GEMINI_API_KEY || '').trim(),
+    gemini_api_keys: getGeminiApiKeyPool(),
     gemini_model: (process.env.GEMINI_MODEL || '').trim(),
     ai_temperature: process.env.AI_TEMPERATURE || '0.7',
     ai_name: process.env.AI_NAME || 'Link AI',
@@ -56,7 +66,8 @@ async function getAISettings() {
   if (process.env.AILAB_AUTO_INTERVAL_MIN) config.ailab_auto_interval_min = process.env.AILAB_AUTO_INTERVAL_MIN;
 
   // Garantizar que GEMINI_API_KEY y GEMINI_MODEL provienen estrictamente de process.env en Render sin fallbacks hardcodeados
-  config.gemini_api_key = (process.env.GEMINI_API_KEY || config.gemini_api_key || '').trim();
+  config.gemini_api_keys = getGeminiApiKeyPool();
+  config.gemini_api_key = config.gemini_api_keys[0] || (process.env.GEMINI_API_KEY || config.gemini_api_key || '').trim();
   config.gemini_model = (process.env.GEMINI_MODEL || config.gemini_model || '').trim();
 
   // Garantizar un timeout mínimo seguro (mínimo 10.000 ms, por defecto 120.000 ms)
@@ -321,24 +332,45 @@ async function callGeminiApi({ apiKey, model, messages, tools, maxTokens, temper
  */
 const ProviderAdapters = {
   gemini: async ({ settings, messages, tools, maxTokens, modelOverride, visionImage, signal, temperature }) => {
-    const apiKey = (settings.gemini_api_key || process.env.GEMINI_API_KEY || '').trim();
-    if (!apiKey) {
-      return { ok: false, error: { code: 'NO_API_KEY', message: 'Gemini API Key no configurada en las variables de entorno (GEMINI_API_KEY en Render).', retryable: false } };
+    const keyPool = getGeminiApiKeyPool();
+    if (keyPool.length === 0 && settings.gemini_api_key) {
+      keyPool.push(settings.gemini_api_key);
     }
+
+    if (keyPool.length === 0) {
+      return { ok: false, error: { code: 'NO_API_KEY', message: 'Gemini API Key no configurada en las variables de entorno (GEMINI_API_KEY / GEMINI_API_KEYS en Render).', retryable: false } };
+    }
+
     const model = (modelOverride || settings.gemini_model || process.env.GEMINI_MODEL || '').trim();
     if (!model) {
       return { ok: false, error: { code: 'NO_MODEL', message: 'Modelo Gemini no configurado en las variables de entorno (GEMINI_MODEL en Render). Debe definirse en las variables de entorno.', retryable: false } };
     }
-    return callGeminiApi({
-      apiKey,
-      model,
-      messages,
-      tools,
-      maxTokens,
-      temperature: temperature !== undefined && temperature !== null ? temperature : settings.ai_temperature,
-      visionImage,
-      signal,
-    });
+
+    let lastResult = null;
+    for (let i = 0; i < keyPool.length; i++) {
+      const apiKey = keyPool[i];
+      const res = await callGeminiApi({
+        apiKey,
+        model,
+        messages,
+        tools,
+        maxTokens,
+        temperature: temperature !== undefined && temperature !== null ? temperature : settings.ai_temperature,
+        visionImage,
+        signal,
+      });
+
+      if (res.ok) {
+        return res;
+      }
+
+      lastResult = res;
+      if (keyPool.length > 1) {
+        console.warn(`[AI Service] Clave Gemini ${i + 1}/${keyPool.length} falló (${res.error?.code || res.status}). Reintentando con la siguiente clave del pool...`);
+      }
+    }
+
+    return lastResult;
   }
 };
 
@@ -417,6 +449,16 @@ async function chatCompletion({
         step++;
         console.log(`[AI Service] Gemini requested function calls (step ${step}/${maxToolSteps}):`, res.functionCalls.map(f => f.name));
 
+        // Preservar la respuesta completa del modelo (candidateContent) para mantener thought_signatures y metadatos
+        if (res.candidateContent) {
+          currentMessages.push(res.candidateContent);
+        } else {
+          currentMessages.push({
+            role: 'model',
+            parts: res.functionCalls.map(f => ({ functionCall: f }))
+          });
+        }
+
         for (const fCall of res.functionCalls) {
           const fnName = fCall.name;
           const fnArgs = fCall.args || {};
@@ -435,12 +477,7 @@ async function chatCompletion({
             result: toolRes
           });
 
-          // Append model function call and function response in exact Gemini REST API format
-          currentMessages.push({
-            role: 'model',
-            parts: [{ functionCall: fCall }]
-          });
-
+          // Adjuntar la respuesta de la función por parte del usuario en formato Gemini REST API
           currentMessages.push({
             role: 'user',
             parts: [{
