@@ -783,6 +783,7 @@ function detectToolIntent(text) {
   // -1. Capacidades de Link (Consultas sobre herramientas, funciones y capacidades disponibles)
   if (
     lower.includes('qué puedes hacer') || lower.includes('que puedes hacer') ||
+    lower.includes('para qué sirves') || lower.includes('para que sirves') ||
     lower.includes('qué herramientas tienes') || lower.includes('que herramientas tienes') ||
     lower.includes('qué puedo hacer en link') || lower.includes('que puedo hacer en link') ||
     lower.includes('muéstrame tus funciones') || lower.includes('muestrame tus funciones') ||
@@ -847,7 +848,11 @@ function detectToolIntent(text) {
       }
     }
 
-    if (lower === 'quiero jugar' || lower === 'quiero jugar algo' || lower === 'vamos a jugar') {
+    if (
+      lower.includes('quiero jugar') || lower.includes('vamos a jugar') ||
+      lower.includes('pon un juego') || lower.includes('lanzar un juego') ||
+      lower.includes('enseñame un juego') || lower.includes('enseñame juegos')
+    ) {
       return { tool: 'game.list', params: {} };
     }
   }

@@ -357,6 +357,13 @@ window.AILab = {
     const d = toolResult.data || {};
     const type = toolResult.type;
 
+    if (type === 'capabilities_card' && d) {
+      const cardMsgId = 'caps_ailab_' + Math.random().toString(36).substring(2, 9);
+      if (typeof Chat !== 'undefined' && typeof Chat.renderCapabilitiesCard === 'function') {
+        return Chat.renderCapabilitiesCard(d, cardMsgId);
+      }
+    }
+
     if (type === 'game_launch_card') {
       const g = d;
       const icons = {
