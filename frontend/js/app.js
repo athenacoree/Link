@@ -1112,7 +1112,8 @@ function cambiarVista(nombre) {
     cargarConversaciones();
   }
   if (nombre === 'ailab') {
-    if (window.AILab) window.AILab.loadCharacters();
+    // AI Lab esta deshabilitado
+    cambiarVista('inicio');
   }
 }
 

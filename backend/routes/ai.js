@@ -176,18 +176,17 @@ router.post('/chat', requireAuth, aiRateLimiter, async (req, res) => {
       inputMessages = [...messages];
     } else {
       inputMessages.push({ role: 'system', content: fullSystemPrompt });
-      // Cargar historial de conversación guardada entre usuario y Link AI para mantener contexto
+      // Cargar únicamente el último mensaje previo de la IA para un contexto mínimo y liviano
       try {
         const convId = conversationId(req.user.id, LINK_AI_UUID);
         const { rows: historyRows } = await query(
-          `SELECT sender_id, text FROM messages WHERE conversation_id = $1 ORDER BY created_at DESC LIMIT 10`,
-          [convId]
+          `SELECT text FROM messages WHERE conversation_id = $1 AND sender_id = $2 ORDER BY created_at DESC LIMIT 1`,
+          [convId, LINK_AI_UUID]
         );
-        const historySorted = historyRows.reverse();
-        for (const hMsg of historySorted) {
+        if (historyRows.length > 0 && historyRows[0].text) {
           inputMessages.push({
-            role: hMsg.sender_id === req.user.id ? 'user' : 'assistant',
-            content: hMsg.text || ''
+            role: 'assistant',
+            content: historyRows[0].text
           });
         }
       } catch (e) {
