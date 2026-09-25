@@ -7,7 +7,7 @@ const router = express.Router();
 // GET /api/tools/categories -> Obtener categorías registradas
 router.get('/categories', requireAuth, async (req, res) => {
   try {
-    const caps = ToolManager.executeTool('system.capabilities', {});
+    const caps = await ToolManager.executeTool('system.capabilities', {});
     const categories = caps.data?.categories || [];
     res.json({ success: true, categories });
   } catch (err) {
@@ -19,7 +19,7 @@ router.get('/categories', requireAuth, async (req, res) => {
 router.get('/', requireAuth, async (req, res) => {
   try {
     const defs = ToolManager.getToolDefinitions();
-    const caps = ToolManager.executeTool('system.capabilities', {});
+    const caps = await ToolManager.executeTool('system.capabilities', {});
     const categories = caps.data?.categories || [];
 
     const toolList = [];
@@ -54,7 +54,7 @@ router.get('/', requireAuth, async (req, res) => {
 router.get('/:id', requireAuth, async (req, res) => {
   try {
     const toolId = req.params.id;
-    const caps = ToolManager.executeTool('system.capabilities', {});
+    const caps = await ToolManager.executeTool('system.capabilities', {});
     const categories = caps.data?.categories || [];
 
     let found = null;
