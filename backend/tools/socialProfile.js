@@ -84,29 +84,76 @@ async function getProfile(queryOrUsername, requesterId = null) {
 async function searchUsersByInterest(interest, limit = 10) {
   const cleanInterest = (interest || '').trim();
 
+  const stopwords = new Set(['de', 'que', 'le', 'guste', 'la', 'el', 'los', 'las', 'un', 'una', 'unos', 'unas', 'en', 'con', 'por', 'a', 'al', 'para', 'y', 'o', 'me', 'gustaria', 'conocer', 'gente', 'personas', 'alguien', 'buscame', 'muestrame', 'quiero', 'ver']);
+  const tokens = cleanInterest
+    .toLowerCase()
+    .replace(/[^\w\s\u00C0-\u00FF]/g, '')
+    .split(/\s+/)
+    .filter(t => t.length > 1 && !stopwords.has(t));
+
   try {
-    let sql = `SELECT id, name, username, avatar_data, profession, city, skin_color, bio, verified, is_admin, role, interests
+    let sql = `SELECT id, name, username, avatar_data, profession, city, country, skin_color, bio, verified, is_admin, role, interests
                FROM users`;
     let params = [];
 
-    if (cleanInterest && cleanInterest !== 'azar' && cleanInterest !== 'random') {
-      sql += ` WHERE interests::text ILIKE $1
-                  OR hobbies::text ILIKE $1
-                  OR bio ILIKE $1
-                  OR profession ILIKE $1
-                  OR skin_color ILIKE $1
-                  OR name ILIKE $1
-                  OR username ILIKE $1
-                  OR city ILIKE $1`;
-      params.push(`%${cleanInterest}%`);
-      sql += ` ORDER BY verified DESC, created_at DESC LIMIT $2`;
+    if (tokens.length > 0 && cleanInterest !== 'azar' && cleanInterest !== 'random') {
+      const conditions = [];
+      tokens.forEach((token, idx) => {
+        const paramIdx = idx + 1;
+        params.push(`%${token}%`);
+        conditions.push(`(
+          interests::text ILIKE $${paramIdx}
+          OR hobbies::text ILIKE $${paramIdx}
+          OR bio ILIKE $${paramIdx}
+          OR profession ILIKE $${paramIdx}
+          OR city ILIKE $${paramIdx}
+          OR country ILIKE $${paramIdx}
+          OR name ILIKE $${paramIdx}
+          OR username ILIKE $${paramIdx}
+          OR skin_color ILIKE $${paramIdx}
+        )`);
+      });
+
+      sql += ` WHERE ` + conditions.join(' AND ');
+      sql += ` ORDER BY verified DESC, created_at DESC LIMIT $${params.length + 1}`;
       params.push(limit);
     } else {
       sql += ` ORDER BY RANDOM() LIMIT $1`;
       params.push(limit);
     }
 
-    const { rows } = await query(sql, params);
+    let { rows } = await query(sql, params);
+
+    // Fallback con OR si la búsqueda AND estricta no devuelve resultados pero hay tokens
+    if (rows.length === 0 && tokens.length > 1) {
+      params = [`%${cleanInterest}%`, limit];
+      const fallbackSql = `SELECT id, name, username, avatar_data, profession, city, country, skin_color, bio, verified, is_admin, role, interests
+                           FROM users
+                           WHERE interests::text ILIKE $1
+                              OR hobbies::text ILIKE $1
+                              OR bio ILIKE $1
+                              OR profession ILIKE $1
+                              OR city ILIKE $1
+                              OR country ILIKE $1
+                              OR name ILIKE $1
+                              OR username ILIKE $1
+                           ORDER BY verified DESC, created_at DESC LIMIT $2`;
+      const fallbackRes = await query(fallbackSql, params);
+      rows = fallbackRes.rows;
+    }
+
+    if (rows.length === 0 && tokens.length > 0) {
+      // Buscar con el primer token significativo como último recurso
+      const singleParam = `%${tokens[0]}%`;
+      const lastRes = await query(
+        `SELECT id, name, username, avatar_data, profession, city, country, skin_color, bio, verified, is_admin, role, interests
+         FROM users
+         WHERE interests::text ILIKE $1 OR hobbies::text ILIKE $1 OR bio ILIKE $1 OR profession ILIKE $1 OR city ILIKE $1 OR country ILIKE $1 OR name ILIKE $1 OR username ILIKE $1
+         ORDER BY verified DESC, created_at DESC LIMIT $2`,
+        [singleParam, limit]
+      );
+      rows = lastRes.rows;
+    }
 
     const users = rows.map(u => ({
       id: u.id,

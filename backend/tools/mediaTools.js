@@ -163,7 +163,7 @@ async function searchGifs(query = 'funny', limit = 6) {
 
 async function getAnimatedStickers(category = 'happy') {
   const stickers = [
-    { name: 'Aalegre ✨', emoji: '🎉', gif_url: 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExeDlhNTV4ZWV4dTZsbWV2MXI0cjlmdTZ6NWU5Z3dxcDFjYmJsbWp1ZyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/26u4cqiYI30juCOGY/giphy.gif' },
+    { name: 'Alegre ✨', emoji: '🎉', gif_url: 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExeDlhNTV4ZWV4dTZsbWV2MXI0cjlmdTZ6NWU5Z3dxcDFjYmJsbWp1ZyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/26u4cqiYI30juCOGY/giphy.gif' },
     { name: 'Risa 😂', emoji: '🤣', gif_url: 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNm45Ynpnbm5tMG9wbTh0M3Z6cjlsc2dydjlsaTFzYWNuaHNsd2M5dyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/l3fQf1OEAq0iri9RC/giphy.gif' },
     { name: 'Amor ❤️', emoji: '💖', gif_url: 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHN3YmpmY29oZXZlZ3Y2czdrMXptdXZocXdqNmZ2OHM3b3VudXBvYyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/26hpKMTa5Hg1XUA36/giphy.gif' },
     { name: 'Fiesta 🥳', emoji: '🎈', gif_url: 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNnhoc2s0MGc2dzcxbHRlODdrNG5wNXR2YWpxNWZubXpvcThqYmcxdCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/g9582DNuQppxC/giphy.gif' },

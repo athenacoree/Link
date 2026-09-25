@@ -142,33 +142,14 @@ router.post('/chat', requireAuth, aiRateLimiter, async (req, res) => {
       }
     } catch (e) {}
 
-    // Detectar intención de herramienta automática y ejecutar antes de llamar a la IA
-    const detectedTool = ToolManager.detectToolIntent(userPrompt);
     let toolResult = docResult;
-    if (detectedTool && !toolResult) {
-      // Si solicita clima y no especificó ciudad explícita o la herramienta requiere fallback a la ubicación de la cuenta
-      if (detectedTool.tool === 'weather.get' && (!detectedTool.params.location || detectedTool.params.location === 'La Habana')) {
-        if (userCityCountry) {
-          detectedTool.params.location = userCityCountry;
-        }
-      }
-      if (detectedTool.tool === 'image.edit') {
-        detectedTool.params.image_base64 = detectedTool.params.image_base64 || currentImage;
-      }
-      toolResult = await ToolManager.executeTool(detectedTool.tool, detectedTool.params, req.user.id);
-    } else if (!toolResult && currentImage && (userPrompt.toLowerCase().includes('edita') || userPrompt.toLowerCase().includes('modifica') || userPrompt.toLowerCase().includes('retoca') || userPrompt.toLowerCase().includes('cambia') || userPrompt.toLowerCase().includes('foto') || userPrompt.toLowerCase().includes('imagen'))) {
-      // Si hay imagen adjunta y mención explícita o implícita de edición
-      const editParams = { prompt: userPrompt, image_base64: currentImage };
-      toolResult = await ToolManager.executeTool('image.edit', editParams, req.user.id);
-    }
-
     let toolContextText = '';
     if (toolResult) {
       if (toolResult.error) {
-        toolContextText = `\n\n[Información de Herramienta '${detectedTool?.tool || 'desconocida'}']: Ocurrió un error al consultar: ${toolResult.error}`;
+        toolContextText = `\n\n[Información de Herramienta Adjunta]: Ocurrió un error al consultar: ${toolResult.error}`;
       } else {
         const payload = toolResult.data !== undefined ? toolResult.data : toolResult;
-        toolContextText = `\n\n[Datos obtenidos de la herramienta '${detectedTool?.tool || toolResult.type || 'ejecutada'}']: ${JSON.stringify(payload)}`;
+        toolContextText = `\n\n[Datos de documento adjunto]: ${JSON.stringify(payload)}`;
       }
     }
 
@@ -229,8 +210,19 @@ router.post('/chat', requireAuth, aiRateLimiter, async (req, res) => {
       messages: inputMessages,
       systemPrompt: fullSystemPrompt,
       maxTokens: settings.ai_max_tokens,
-      visionImage: vision_image || null,
+      visionImage: currentImage || vision_image || null,
+      requesterId: req.user.id,
+      enableTools: true,
     });
+
+    // Extraer el resultado de la última herramienta ejecutada por Gemini
+    let finalToolResult = toolResult;
+    if (result.executed_tools && result.executed_tools.length > 0) {
+      const lastExec = result.executed_tools[result.executed_tools.length - 1];
+      if (lastExec && lastExec.result) {
+        finalToolResult = lastExec.result;
+      }
+    }
 
     // Guardar la conversación en la base de datos PostgreSQL
     let aiMessageObj = null;
@@ -274,7 +266,8 @@ router.post('/chat', requireAuth, aiRateLimiter, async (req, res) => {
       provider: result.provider,
       finish_reason: result.finish_reason,
       usage: result.usage,
-      tool_result: toolResult,
+      tool_result: finalToolResult,
+      executed_tools: result.executed_tools || [],
       continuations: result.continuations || 0,
       ai_message: aiMessageObj,
     });

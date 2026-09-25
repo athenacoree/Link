@@ -394,6 +394,40 @@ window.AILab = {
       `;
     }
 
+    if (type === 'gif_card' && d && Array.isArray(d.gifs)) {
+      const gifItems = d.gifs.map(g => `
+        <div style="position:relative; margin-bottom:8px; border-radius:12px; overflow:hidden; border:1px solid var(--borde);">
+          <img src="${escapeHTMLAILab(g.url)}" alt="${escapeHTMLAILab(g.title)}" style="width:100%; max-height:180px; object-fit:cover; border-radius:12px; display:block; cursor:pointer;" onclick="if(window.abrirVisorImagen) window.abrirVisorImagen('${escapeHTMLAILab(g.url)}')">
+          <div style="padding:4px 8px; font-size:10.5px; background:rgba(0,0,0,0.6); color:#fff;">
+            <span>🎞️ ${escapeHTMLAILab(g.title)}</span>
+          </div>
+        </div>
+      `).join('');
+
+      return `
+        <div class="card" style="margin-top:10px; padding:10px; border-radius:14px; background:var(--blanco); border:1.5px solid var(--morado-500, #8b5cf6); max-width:310px;">
+          <div style="font-weight:800; color:var(--morado-700); margin-bottom:8px; font-size:13px;">🎬 GIFs Animados (${escapeHTMLAILab(d.query || '')}):</div>
+          ${gifItems}
+        </div>
+      `;
+    }
+
+    if (type === 'animated_sticker_card' && d && Array.isArray(d.stickers)) {
+      const stickerItems = d.stickers.map(s => `
+        <div style="text-align:center; padding:6px; background:rgba(139,92,246,0.08); border-radius:10px;">
+          <img src="${escapeHTMLAILab(s.gif_url)}" alt="${escapeHTMLAILab(s.name)}" style="width:64px; height:64px; object-fit:contain; margin:0 auto 4px; display:block;">
+          <div style="font-size:10.5px; font-weight:700;">${escapeHTMLAILab(s.name)} ${s.emoji || ''}</div>
+        </div>
+      `).join('');
+
+      return `
+        <div class="card" style="margin-top:10px; padding:10px; border-radius:14px; background:var(--blanco); border:1.5px solid var(--morado-500, #8b5cf6); max-width:310px;">
+          <div style="font-weight:800; color:var(--morado-700); margin-bottom:8px; font-size:13px;">✨ Stickers Animados:</div>
+          <div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:8px;">${stickerItems}</div>
+        </div>
+      `;
+    }
+
     if (type === 'game_list_card') {
       const gamesList = toolResult.games || [];
       const icons = {

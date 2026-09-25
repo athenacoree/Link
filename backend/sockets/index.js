@@ -105,19 +105,12 @@ function initSockets(io) {
               const queryText = text.replace(/@(ai|LinkAI|linkai)/gi, '').trim() || 'Hola';
               const attachedImage = imageData || (doc.replyTo ? doc.replyTo.imageData : null);
 
-              const detectedTool = ToolManager.detectToolIntent(queryText);
-              let toolRes = null;
-              if (detectedTool) {
-                if (detectedTool.tool === 'image.edit') {
-                  detectedTool.params.image_base64 = detectedTool.params.image_base64 || attachedImage;
-                }
-                toolRes = await ToolManager.executeTool(detectedTool.tool, detectedTool.params, userId);
-              }
-
-              const sysPrompt = `Eres Link AI integrándote temporalmente en un chat de terceros. Responde de forma breve, amigable y natural al usuario. Tienes la capacidad de editar imágenes. Si el usuario te envía o señala una foto sin dar instrucciones de qué editar, pregúntale de forma natural qué cambios desea hacerle. Al final de tu mensaje, aclara amablemente que te retiras del chat hasta que te vuelvan a mencionar con @ai.`;
+              const sysPrompt = `Eres Link AI integrándote temporalmente en un chat de terceros. Responde de forma breve, amigable y natural al usuario. Tienes la capacidad de editar imágenes y consultar herramientas. Si el usuario te envía o señala una foto sin dar instrucciones de qué editar, pregúntale de forma natural qué cambios desea hacerle. Al final de tu mensaje, aclara amablemente que te retiras del chat hasta que te vuelvan a mencionar con @ai.`;
               const aiComp = await chatCompletion({
                 messages: [{ role: 'system', content: sysPrompt }, { role: 'user', content: queryText }],
                 visionImage: attachedImage || null,
+                requesterId: userId,
+                enableTools: true,
               });
 
               const replyText = aiComp.reply || '🤖 Hola, aquí estoy. Me retiro por ahora hasta que me vuelvas a mencionar con @ai.';

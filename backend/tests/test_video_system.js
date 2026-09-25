@@ -6,27 +6,57 @@ const ToolManager = require('../tools/ToolManager');
 async function testVideoSystem() {
   console.log('\n=== INICIANDO PRUEBAS DEL SISTEMA DE VIDEOS (PEXELS/LINK) ===\n');
 
-  // 1. Probando adaptador Pexels (Fallback / API Response)
-  console.log('1. Probando adaptador searchPexelsVideos()...');
+  // 1. Probando adaptador Pexels sin API key (Error controlado)
+  console.log('1. Probando adaptador searchPexelsVideos() sin API key...');
+  delete process.env.PEXELS_API_KEY;
+  const pexelsNoKeyRes = await searchPexelsVideos({ query: 'mar oceano', orientation: 'landscape' });
+  assert.ok(pexelsNoKeyRes.error, 'Debe retornar error controlado si falta PEXELS_API_KEY');
+  assert.strictEqual(pexelsNoKeyRes.videos.length, 0, 'No debe retornar videos simulados falsos');
+
+  // 1b. Probando adaptador Pexels con API Key configurada (Mock)
+  console.log('1b. Probando adaptador searchPexelsVideos() con API key...');
+  process.env.PEXELS_API_KEY = 'pexels_test_key_abc123';
+  const originalFetch = global.fetch;
+  global.fetch = async (url, opts) => {
+    return {
+      ok: true,
+      json: async () => ({
+        total_results: 10,
+        videos: [
+          {
+            id: 857195,
+            width: 1920,
+            height: 1080,
+            url: 'https://www.pexels.com/video/857195/',
+            duration: 20,
+            user: { name: 'Pexels Creator', url: 'https://www.pexels.com/@creator' },
+            video_files: [{ file_type: 'video/mp4', width: 1920, height: 1080, link: 'https://video.pexels.com/stream.mp4' }],
+            video_pictures: [{ picture: 'https://images.pexels.com/thumb.jpg' }]
+          }
+        ]
+      })
+    };
+  };
+
   const pexelsRes = await searchPexelsVideos({ query: 'mar oceano', orientation: 'landscape' });
   assert.ok(pexelsRes, 'searchPexelsVideos debe retornar un objeto');
   assert.ok(pexelsRes.videos && pexelsRes.videos.length > 0, 'Debe retornar al menos 1 video');
   const sampleVideo = pexelsRes.videos[0];
-  assert.ok(sampleVideo.id, 'El video debe tener id');
-  assert.ok(sampleVideo.stream_url, 'El video debe tener URL de streaming MP4');
+  assert.strictEqual(sampleVideo.id, '857195', 'El video debe tener id correcto');
+  assert.strictEqual(sampleVideo.stream_url, 'https://video.pexels.com/stream.mp4', 'El video debe tener URL de streaming MP4 real de Pexels');
   assert.ok(sampleVideo.user && sampleVideo.user.name, 'El video debe tener atribución de usuario/fotógrafo');
   assert.ok(sampleVideo.attribution_text.includes('Pexels'), 'Debe incluir atribución a Pexels');
-  console.log('   ✅ Adaptador Pexels validado correctamente.');
+  console.log('   ✅ Adaptador Pexels validado correctamente con API key y sin fallbacks falsos.');
 
   // 2. Probando Servicio de Video y Caché
   console.log('2. Probando videoService.searchVideos() y Caché...');
-  const query = 'naturaleza tropical ' + Date.now();
-  const searchResult1 = await searchVideos({ query, orientation: 'portrait' });
+  const queryTerm = 'naturaleza tropical ' + Date.now();
+  const searchResult1 = await searchVideos({ query: queryTerm, orientation: 'portrait' });
   assert.strictEqual(searchResult1.type, 'video_search_card', 'El tipo de resultado debe ser video_search_card');
   assert.ok(searchResult1.data.videos.length > 0, 'Debe contener lista de videos');
 
   // Segunda consulta inmediata debe recuperar de caché
-  const searchResult2 = await searchVideos({ query, orientation: 'portrait' });
+  const searchResult2 = await searchVideos({ query: queryTerm, orientation: 'portrait' });
   assert.strictEqual(searchResult2.cached, true, 'La segunda consulta idéntica debe devolverse desde caché');
   console.log('   ✅ Sistema de caché de videos (10 min TTL) validado correctamente.');
 
@@ -65,6 +95,7 @@ async function testVideoSystem() {
   assert.strictEqual(typeof countCleaned, 'number');
   console.log('   ✅ Purga de caché ejecutada exitosamente.');
 
+  global.fetch = originalFetch;
   console.log('\n=== TODAS LAS PRUEBAS DEL SISTEMA DE VIDEOS PASARON EXITOSAMENTE ===\n');
 }
 
