@@ -1,5 +1,10 @@
 const assert = require('assert');
 const { getAISettings, pruneMessages, chatCompletion, ProviderAdapters } = require('../services/aiService');
+
+// Configurar variables para pruebas
+process.env.QVAPAY_APP_ID = process.env.QVAPAY_APP_ID || 'test_app_id_123';
+process.env.QVAPAY_APP_SECRET = process.env.QVAPAY_APP_SECRET || 'test_app_secret_abc';
+
 const ToolManager = require('../tools/ToolManager');
 
 async function runSystemTests() {
@@ -21,9 +26,10 @@ async function runSystemTests() {
   console.log('0b. Probando que Gemini function calling nunca use "role: function"...');
   let fetchPayloads = [];
   const originalFetch = global.fetch;
-  global.fetch = async (url, options) => {
-    if (url.includes('generativelanguage.googleapis.com')) {
-      const payload = JSON.parse(options.body);
+  global.fetch = async (url, options = {}) => {
+    const urlStr = String(url);
+    if (urlStr.includes('generativelanguage.googleapis.com')) {
+      const payload = JSON.parse(options.body || '{}');
       fetchPayloads.push(payload);
       return {
         ok: true,
@@ -35,7 +41,24 @@ async function runSystemTests() {
         })
       };
     }
-    return originalFetch(url, options);
+    if (urlStr.includes('/create_invoice')) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          trans_id: `qv_tx_${Date.now()}`,
+          transaction_uuid: `qv_tx_${Date.now()}`,
+          url: `https://qvapay.com/pay/qv_tx_${Date.now()}`,
+          amount: '5.00',
+          remote_id: 'test_remote',
+          status: 'pending'
+        })
+      };
+    }
+    if (originalFetch) {
+      return originalFetch(url, options);
+    }
+    return { ok: false, status: 404, json: async () => ({}) };
   };
 
   const testMessages = [
@@ -50,8 +73,6 @@ async function runSystemTests() {
     tools: null,
     maxTokens: 100,
   });
-
-  global.fetch = originalFetch;
 
   assert.strictEqual(fetchPayloads.length, 1, 'Debe haber capturado una llamada a Gemini API');
   const contents = fetchPayloads[0].contents;
@@ -168,6 +189,9 @@ async function runSystemTests() {
   assert.ok(chatRes, 'chatCompletion debe retornar un objeto de respuesta');
   assert.ok(typeof chatRes.reply === 'string', 'La respuesta debe ser una cadena');
   console.log('   ✅ chatCompletion() ejecutado de forma resiliente.');
+
+  // Restore fetch
+  global.fetch = originalFetch;
 
   // 7. Carga de Rutas Express
   console.log('7. Probando carga de rutas Express...');

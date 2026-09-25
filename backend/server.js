@@ -49,6 +49,7 @@ app.use('/api/citas', require('./routes/appointments'));
 app.use('/api/appointments', require('./routes/appointments'));
 app.use('/api/image-editor', require('./routes/imageEditor'));
 app.use('/api/videos', require('./routes/videoRoutes'));
+app.use('/api/tools', require('./routes/tools'));
 
 // Endpoint para Android App Links (Digital Asset Links)
 app.get('/.well-known/assetlinks.json', (req, res) => {

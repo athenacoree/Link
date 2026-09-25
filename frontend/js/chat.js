@@ -776,6 +776,16 @@ const Chat = (() => {
       </div>`;
     }
 
+    if (toolRes) {
+      return `<div style="margin-top:8px; padding:12px; background:var(--fondo-tarjeta, #fff); border:1.5px solid var(--morado-500, #8b5cf6); border-radius:14px; max-width:310px; font-size:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+          <span style="font-weight:800; color:var(--morado-700); font-size:13px;">🛠️ Resultado de Herramienta</span>
+          <span style="font-size:10px; font-weight:800; color:#10b981; background:rgba(16,185,129,0.1); padding:2px 6px; border-radius:6px;">✓ Completado</span>
+        </div>
+        <pre style="font-size:11px; white-space:pre-wrap; word-break:break-word; background:var(--hueso); padding:8px; border-radius:8px; margin:0;">${meEscapar(typeof data === 'string' ? data : JSON.stringify(data || toolRes, null, 2))}</pre>
+      </div>`;
+    }
+
     return '';
   }
 
@@ -1468,6 +1478,243 @@ const Chat = (() => {
     $('chatBtnVideoInput')?.addEventListener('click', () => {
       if (conversacionAbiertaCon) Llamada.iniciar(conversacionAbiertaCon, 'video');
     });
+
+    // Eventos del Panel de Herramientas e Inicio Directo
+    $('chatBtnHerramientas')?.addEventListener('click', abrirPanelHerramientas);
+    $('cerrarPanelHerramientas')?.addEventListener('click', cerrarPanelHerramientas);
+    $('veloHerramientas')?.addEventListener('click', cerrarPanelHerramientas);
+    $('cerrarDetalleHerramienta')?.addEventListener('click', cerrarHojaDetalleHerramienta);
+    $('btnCancelarDetailTool')?.addEventListener('click', cerrarHojaDetalleHerramienta);
+
+    $('btnIniciarTool')?.addEventListener('click', () => {
+      if (!herramientaSeleccionada) return;
+      const extraParams = {};
+      (herramientaSeleccionada.inputs || []).forEach(inp => {
+        const val = document.getElementById(`input_tool_param_${inp}`)?.value;
+        if (val !== undefined && val !== null) {
+          extraParams[inp] = val.trim();
+        }
+      });
+      iniciarHerramientaDirecto(herramientaSeleccionada, extraParams);
+    });
+  }
+
+  // ---------------- NUEVO SISTEMA DE HERRAMIENTAS INDEPENDIENTE ----------------
+  let listaHerramientasGlobal = [];
+  let listaCategoriasGlobal = [];
+  let herramientaSeleccionada = null;
+  let categoriaFiltroActual = 'todas';
+  let tapTimersMap = {};
+
+  async function abrirPanelHerramientas() {
+    $('veloHerramientas')?.classList.add('activo');
+    $('panelHerramientas')?.classList.add('activo');
+    await cargarHerramientasPanel();
+  }
+
+  function cerrarPanelHerramientas() {
+    $('veloHerramientas')?.classList.remove('activo');
+    $('panelHerramientas')?.classList.remove('activo');
+  }
+
+  function cerrarHojaDetalleHerramienta() {
+    $('hojaDetalleHerramienta')?.classList.remove('activo');
+    herramientaSeleccionada = null;
+  }
+
+  async function cargarHerramientasPanel() {
+    const grid = $('panelGridHerramientas');
+    const catContainer = $('panelCategoriasHerramientas');
+    if (!grid) return;
+
+    try {
+      if (listaHerramientasGlobal.length === 0) {
+        const [toolsRes, catRes] = await Promise.all([
+          api('/tools'),
+          api('/tools/categories')
+        ]);
+        listaHerramientasGlobal = toolsRes.tools || [];
+        listaCategoriasGlobal = catRes.categories || [];
+      }
+
+      // Renderizar chips de categorías
+      if (catContainer) {
+        let catHtml = `<div class="cat-chip ${categoriaFiltroActual === 'todas' ? 'activo' : ''}" data-cat="todas">✨ Todas</div>`;
+        listaCategoriasGlobal.forEach(c => {
+          catHtml += `<div class="cat-chip ${categoriaFiltroActual === c.id ? 'activo' : ''}" data-cat="${c.id}">${c.icon || '🛠️'} ${c.name}</div>`;
+        });
+        catContainer.innerHTML = catHtml;
+
+        catContainer.querySelectorAll('.cat-chip').forEach(chip => {
+          chip.addEventListener('click', () => {
+            catContainer.querySelectorAll('.cat-chip').forEach(ch => ch.classList.remove('activo'));
+            chip.classList.add('activo');
+            categoriaFiltroActual = chip.dataset.cat;
+            renderizarGridHerramientas();
+          });
+        });
+      }
+
+      renderizarGridHerramientas();
+    } catch (e) {
+      grid.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:var(--peligro);">${e.message || 'Error al cargar herramientas.'}</div>`;
+    }
+  }
+
+  function renderizarGridHerramientas() {
+    const grid = $('panelGridHerramientas');
+    if (!grid) return;
+
+    const filtradas = categoriaFiltroActual === 'todas'
+      ? listaHerramientasGlobal
+      : listaHerramientasGlobal.filter(t => t.category === categoriaFiltroActual);
+
+    if (filtradas.length === 0) {
+      grid.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:30px; color:var(--texto-500);">No hay herramientas en esta categoría.</div>`;
+      return;
+    }
+
+    grid.innerHTML = filtradas.map(t => {
+      return `
+        <div class="tool-card-square anim-pulse" id="card_tool_${t.id}" data-id="${t.id}">
+          <div class="tool-status-badge"></div>
+          <div class="tool-icon">${t.icon || '🛠️'}</div>
+          <div class="tool-name">${meEscapar(t.name)}</div>
+        </div>
+      `;
+    }).join('');
+
+    grid.querySelectorAll('.tool-card-square').forEach(card => {
+      const toolId = card.dataset.id;
+      const toolObj = listaHerramientasGlobal.find(t => t.id === toolId);
+
+      card.addEventListener('click', (e) => {
+        if (tapTimersMap[toolId]) {
+          // Doble Toque
+          clearTimeout(tapTimersMap[toolId]);
+          delete tapTimersMap[toolId];
+          if (toolObj && toolObj.supportsDoubleTap) {
+            iniciarHerramientaDirecto(toolObj, {});
+          } else {
+            mostrarDetalleHerramienta(toolObj);
+          }
+        } else {
+          // Toque simple con retardo para detectar doble toque
+          tapTimersMap[toolId] = setTimeout(() => {
+            delete tapTimersMap[toolId];
+            mostrarDetalleHerramienta(toolObj);
+          }, 250);
+        }
+      });
+    });
+  }
+
+  function mostrarDetalleHerramienta(tool) {
+    if (!tool) return;
+    herramientaSeleccionada = tool;
+
+    if ($('toolDetailIcon')) $('toolDetailIcon').textContent = tool.icon || '🛠️';
+    if ($('toolDetailName')) $('toolDetailName').textContent = tool.name;
+    if ($('toolDetailCategory')) $('toolDetailCategory').textContent = tool.category_name || tool.category || 'Herramienta';
+    if ($('toolDetailDesc')) $('toolDetailDesc').textContent = tool.description || 'Herramienta interactiva de Link.';
+
+    const inputsContainer = $('toolInputsContainer');
+    if (inputsContainer) {
+      if (tool.inputs && tool.inputs.length > 0) {
+        inputsContainer.innerHTML = tool.inputs.map(inp => `
+          <div class="campo" style="margin-bottom:10px;">
+            <label style="font-size:12px; font-weight:700; color:var(--texto-800); text-transform:capitalize;">${inp}</label>
+            <input type="text" id="input_tool_param_${inp}" value="${meEscapar(tool.params?.[inp] || '')}" placeholder="Ingresa ${inp}..." style="width:100%; padding:8px 12px; border:1px solid var(--borde); border-radius:10px; font-size:13px;">
+          </div>
+        `).join('');
+      } else {
+        inputsContainer.innerHTML = `<div style="font-size:12px; color:var(--texto-500); font-style:italic;">No requiere parámetros adicionales.</div>`;
+      }
+    }
+
+    $('hojaDetalleHerramienta')?.classList.add('activo');
+  }
+
+  async function iniciarHerramientaDirecto(tool, extraParams = {}) {
+    if (!tool) return;
+    cerrarHojaDetalleHerramienta();
+    cerrarPanelHerramientas();
+
+    const toolCardElem = document.getElementById(`card_tool_${tool.id}`);
+    if (toolCardElem) {
+      toolCardElem.classList.add('cargando');
+    }
+
+    mostrarToast(`🚀 Ejecutando ${tool.name}...`);
+
+    try {
+      const finalParams = { ...(tool.params || {}), ...extraParams };
+      const res = await api('/tools/execute', {
+        method: 'POST',
+        body: { tool_id: tool.tool || tool.id, params: finalParams }
+      });
+
+      if (toolCardElem) {
+        toolCardElem.classList.remove('cargando');
+        if (res.success && res.status === 'completed') {
+          toolCardElem.classList.add('completado');
+        } else {
+          toolCardElem.classList.add('error');
+        }
+      }
+
+      if (res.status === 'waiting_for_input') {
+        const userInput = prompt(res.message || 'Por favor ingresa los datos requeridos:');
+        if (userInput) {
+          const inputKey = res.missing_inputs?.[0] || 'query';
+          return await iniciarHerramientaDirecto(tool, { [inputKey]: userInput });
+        }
+        return;
+      }
+
+      if (!res.success || res.status === 'error') {
+        mostrarToast(`⚠️ Error en ${tool.name}: ${res.error || 'Fallo de ejecución'}`);
+        return;
+      }
+
+      // Renderizar tarjeta de resultado de herramienta directamente en el chat
+      insertarTarjetaResultadoDirectoChat(tool, res.result);
+    } catch (err) {
+      if (toolCardElem) {
+        toolCardElem.classList.remove('cargando');
+        toolCardElem.classList.add('error');
+      }
+      mostrarToast(`⚠️ Error al ejecutar ${tool.name}: ${err.message}`);
+    }
+  }
+
+  function insertarTarjetaResultadoDirectoChat(tool, resultData) {
+    const chatMsgs = $('chatMensajes');
+    if (!chatMsgs) return;
+
+    const cardHtml = renderizarTarjetaResultadoHerramienta(resultData) || `
+      <div style="margin-top:8px; padding:12px; background:var(--fondo-tarjeta, #fff); border:1.5px solid var(--morado-500, #8b5cf6); border-radius:14px; max-width:310px; font-size:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+          <span style="font-weight:800; color:var(--morado-700); font-size:13px;">${tool.icon || '🛠️'} ${meEscapar(tool.name)}</span>
+          <span style="font-size:10px; font-weight:800; color:#10b981; background:rgba(16,185,129,0.1); padding:2px 6px; border-radius:6px;">✓ Completado</span>
+        </div>
+        <pre style="font-size:11px; white-space:pre-wrap; word-break:break-word; background:var(--hueso); padding:8px; border-radius:8px; margin:0;">${meEscapar(JSON.stringify(resultData, null, 2))}</pre>
+      </div>
+    `;
+
+    const msgBox = document.createElement('div');
+    msgBox.className = 'mensaje entrante';
+    msgBox.style.maxWidth = '88%';
+    msgBox.innerHTML = `
+      <div class="burbuja" style="background:var(--blanco); border:1px solid var(--borde);">
+        <div style="font-weight:700; font-size:12px; color:var(--morado-700); margin-bottom:4px;">Herramienta Ejecutada (${tool.name})</div>
+        ${cardHtml}
+        <div class="meta"><span class="hora">${new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</span></div>
+      </div>
+    `;
+
+    chatMsgs.appendChild(msgBox);
+    chatMsgs.scrollTop = chatMsgs.scrollHeight;
   }
 
   function enlazarSocket(socket) {
