@@ -271,10 +271,76 @@ async function sendFriendRequest({ username, userId }, requesterId = null) {
   }
 }
 
+// 6. Agendar Cita o Compromiso
+async function createAppointment({ guest_username, title, description, location, scheduled_at }, requesterId = null) {
+  if (!requesterId) return { error: 'Se requiere estar autenticado para agendar una cita.' };
+  try {
+    let guestUser = null;
+    if (guest_username) {
+      const cleanU = guest_username.replace(/^@/, '').trim();
+      const { rows } = await query(
+        `SELECT id, name, username FROM users WHERE LOWER(username) = LOWER($1) OR LOWER(name) ILIKE $2 LIMIT 1`,
+        [cleanU, `%${cleanU}%`]
+      );
+      if (rows.length) guestUser = rows[0];
+    }
+    if (!guestUser) {
+      return { error: `No se encontró al usuario '${guest_username || 'invitado'}' para agendar la cita.` };
+    }
+    const { rows } = await query(
+      `INSERT INTO appointments (host_id, guest_id, title, description, location, scheduled_at, status)
+       VALUES ($1, $2, $3, $4, $5, $6, 'pendiente')
+       RETURNING *`,
+      [requesterId, guestUser.id, title || 'Cita / Reunión', description || '', location || '', scheduled_at || new Date()]
+    );
+    return {
+      type: 'appointment_created_card',
+      data: {
+        appointment: rows[0],
+        guest_name: guestUser.name,
+        message: `¡Cita agendada con ${guestUser.name}! Invitación enviada.`
+      }
+    };
+  } catch (err) {
+    console.error('Error en appointment.create:', err);
+    return { error: 'Error al agendar la cita.' };
+  }
+}
+
+// 7. Crear Recordatorio
+async function createReminder({ title, note, scheduled_at }, requesterId = null) {
+  if (!requesterId) return { error: 'Se requiere estar autenticado para crear un recordatorio.' };
+  try {
+    const { rows } = await query(
+      `INSERT INTO notifications (user_id, type, title, body, data)
+       VALUES ($1, 'reminder', $2, $3, $4)
+       RETURNING *`,
+      [
+        requesterId,
+        '⏰ Recordatorio',
+        title || 'Recordatorio programado',
+        JSON.stringify({ note: note || '', scheduled_at: scheduled_at || new Date() })
+      ]
+    );
+    return {
+      type: 'reminder_created_card',
+      data: {
+        reminder: rows[0],
+        message: `⏰ Recordatorio programado: "${title || 'Sin título'}"`
+      }
+    };
+  } catch (err) {
+    console.error('Error en reminder.create:', err);
+    return { error: 'Error al programar el recordatorio.' };
+  }
+}
+
 module.exports = {
   getChatPreview,
   editUserProfile,
   createStatus,
   deleteStatus,
   sendFriendRequest,
+  createAppointment,
+  createReminder,
 };

@@ -162,7 +162,9 @@ function getCapabilities(params = {}) {
         { id: 'user.edit_profile', name: 'Editar Perfil', icon: '✏️', description: 'Actualiza tu biografía, ciudad o profesión en Link', tool: 'user.edit_profile', params: {}, prompt_example: 'Edita mi biografía de perfil' },
         { id: 'status.create', name: 'Publicar Estado', icon: '📸', description: 'Comparte un estado temporal de 24 horas en tu perfil', tool: 'status.create', params: { text: 'Compartiendo un momento en Link ✨' }, prompt_example: 'Publica un estado' },
         { id: 'friend.send_request', name: 'Agregar Amigo', icon: '🤝', description: 'Envía una solicitud de amistad a otro usuario', tool: 'friend.send_request', params: { username: 'usuario' }, prompt_example: 'Envía solicitud de amistad' },
-        { id: 'chat.preview', name: 'Vista Previa Chat', icon: '💬', description: 'Muestra los mensajes recientes en un chat privado', tool: 'chat.preview', params: {}, prompt_example: 'Muestra mi chat con un amigo' }
+        { id: 'chat.preview', name: 'Vista Previa Chat', icon: '💬', description: 'Muestra los mensajes recientes en un chat privado', tool: 'chat.preview', params: {}, prompt_example: 'Muestra mi chat con un amigo' },
+        { id: 'appointment.create', name: 'Agendar Cita', icon: '📅', description: 'Programa una cita o reunión con otro usuario de Link', tool: 'appointment.create', params: { guest_username: 'amigo', title: 'Reunión de proyectos' }, prompt_example: 'Agenda una cita con un amigo' },
+        { id: 'reminder.create', name: 'Crear Recordatorio', icon: '⏰', description: 'Crea un recordatorio para tus actividades importantes', tool: 'reminder.create', params: { title: 'Comprar boletos', note: 'Mañana por la tarde' }, prompt_example: 'Crea un recordatorio' }
       ]
     }
   ];
@@ -170,8 +172,8 @@ function getCapabilities(params = {}) {
   return {
     type: 'capabilities_card',
     data: {
-      title: 'Capacidades de Link',
-      description: 'Explora todas las herramientas y funciones interactivas disponibles:',
+      title: 'Conexiones y Capacidades de Link',
+      description: 'Explora todas las herramientas, juegos y conexiones disponibles:',
       categories: categories
     }
   };
@@ -204,6 +206,8 @@ const tools = {
   'status.create': (params, requesterId) => userActionTools.createStatus(params, requesterId),
   'status.delete': (params, requesterId) => userActionTools.deleteStatus(params, requesterId),
   'friend.send_request': (params, requesterId) => userActionTools.sendFriendRequest(params, requesterId),
+  'appointment.create': (params, requesterId) => userActionTools.createAppointment(params, requesterId),
+  'reminder.create': (params, requesterId) => userActionTools.createReminder(params, requesterId),
 
   // Contenido Abierto, Videos, Fotos de Stock, Directos y Enlaces de Pago
   'youtube.live': (params) => externalApis.searchYouTubeLive(params.query || params.topic),

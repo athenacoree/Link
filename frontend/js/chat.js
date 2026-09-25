@@ -394,10 +394,10 @@ const Chat = (() => {
     // 2. Weather Widget con Sol/Nube/Sombrilla, números grandes y gráfica táctil SVG
     if (t === 'weather_card' || t === 'open_meteo') {
       const city = data.city || toolResult.city || 'Ubicación';
-      const temp = data.temp_c || (data.current_weather ? `${data.current_weather.temperature}°C` : '28°C');
-      const condition = data.condition || 'Soleado y despejado';
-      const hum = data.humidity || '65%';
-      const wind = data.wind || '12 km/h';
+      const temp = data.temp_c || (data.current_weather ? `${data.current_weather.temperature}°C` : 'N/A');
+      const condition = data.condition || 'Clima local';
+      const hum = data.humidity || 'N/A';
+      const wind = data.wind || 'N/A';
 
       let weatherIconSvg = `<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`;
       const condLower = condition.toLowerCase();
@@ -407,12 +407,13 @@ const Chat = (() => {
         weatherIconSvg = `<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>`;
       }
 
+      const numTemp = parseInt(temp) || 25;
       const points = [
-        { hr: '09:00', t: 24 },
-        { hr: '12:00', t: 28 },
-        { hr: '15:00', t: 30 },
-        { hr: '18:00', t: 27 },
-        { hr: '21:00', t: 24 }
+        { hr: '09:00', t: numTemp - 2 },
+        { hr: '12:00', t: numTemp + 2 },
+        { hr: '15:00', t: numTemp + 3 },
+        { hr: '18:00', t: numTemp + 1 },
+        { hr: '21:00', t: numTemp - 2 }
       ];
 
       return `<div style="margin-top:8px; padding:14px; background:var(--fondo-tarjeta, #fff); border:1.5px solid var(--morado-500, #8b5cf6); border-radius:16px; max-width:310px; font-size:12px;">
@@ -1093,15 +1094,35 @@ const Chat = (() => {
           const elWait = document.getElementById(loadingId);
           if (elWait) elWait.remove();
 
+          const errText = err.message || 'Error al comunicarse con la IA.';
+          const retryMsgId = 'ai_bot_err_' + Date.now();
           const msgError = {
-            id: 'ai_bot_err_' + Date.now(),
+            id: retryMsgId,
             senderId: '00000000-0000-0000-0000-0000000000a1',
-            text: `${err.message || 'Error al comunicarse con el asistente de IA.'}`,
+            text: `⚠️ ${errText}`,
             createdAt: new Date().toISOString(),
           };
-          $('chatMensajes').appendChild(pintarBurbuja(msgError, Sesion.usuario().id));
+
+          const burbujaErr = pintarBurbuja(msgError, Sesion.usuario().id);
+          const retryBtnHtml = `
+            <div style="margin-top:6px; font-size:11px; color:#ef4444; font-weight:700; cursor:pointer; text-decoration:underline; display:inline-flex; align-items:center; gap:4px;" class="btn-reintentar-mensaje-ai">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+              Toca aquí para reintentar
+            </div>
+          `;
+          burbujaErr.insertAdjacentHTML('beforeend', retryBtnHtml);
+
+          const btnRetry = burbujaErr.querySelector('.btn-reintentar-mensaje-ai');
+          if (btnRetry) {
+            btnRetry.addEventListener('click', () => {
+              burbujaErr.remove();
+              enviarMensaje(texto, imagenBase64);
+            });
+          }
+
+          $('chatMensajes').appendChild(burbujaErr);
           $('chatMensajes').scrollTop = $('chatMensajes').scrollHeight;
-          mostrarToast(err.message || 'Error en IA');
+          mostrarToast(errText);
         });
 
       cancelarRespuesta();
@@ -1522,6 +1543,65 @@ const Chat = (() => {
     herramientaSeleccionada = null;
   }
 
+  function obtenerIconoToolSVG(toolId = '', categoryId = '', fallbackIcon = '') {
+    const id = (toolId || '').toLowerCase();
+    const cat = (categoryId || '').toLowerCase();
+
+    // Categorías y Chips
+    if (id === 'cat_todas' || cat === 'todas') {
+      return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 6.8 7.2.4-5.4 4.8 1.8 7-6-3.8-6 3.8 1.8-7-5.4-4.8 7.2-.4z"/></svg>`;
+    }
+    if (id === 'cat_conexiones' || cat === 'conexiones') {
+      return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>`;
+    }
+    if (id === 'cat_multimedia' || cat === 'multimedia') {
+      return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/></svg>`;
+    }
+    if (id === 'cat_juegos' || cat === 'juegos' || id.startsWith('game_') || id.includes('game.')) {
+      return `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><circle cx="15" cy="13" r="1"/><circle cx="18" cy="11" r="1"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>`;
+    }
+
+    // Herramientas Específicas
+    if (id.includes('weather')) {
+      return `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>`;
+    }
+    if (id.includes('wikipedia')) {
+      return `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>`;
+    }
+    if (id.includes('github')) {
+      return `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>`;
+    }
+    if (id.includes('convert') || id.includes('currency') || id.includes('frankfurter')) {
+      return `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>`;
+    }
+    if (id.includes('coingecko') || id.includes('crypto')) {
+      return `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v12M15 9.5H9.5a2.5 2.5 0 0 0 0 5H15"/></svg>`;
+    }
+    if (id.includes('osm') || id.includes('map')) {
+      return `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f43f5e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>`;
+    }
+    if (id.includes('appointment') || id.includes('cita')) {
+      return `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ec4899" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
+    }
+    if (id.includes('reminder') || id.includes('recordatorio')) {
+      return `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;
+    }
+    if (id.includes('profile') || id.includes('user')) {
+      return `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
+    }
+    if (id.includes('translate')) {
+      return `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`;
+    }
+    if (id.includes('math') || id.includes('calculat')) {
+      return `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="16" y1="14" x2="16" y2="18"/><line x1="8" y1="12" x2="8" y2="12.01"/><line x1="12" y1="12" x2="12" y2="12.01"/><line x1="16" y1="12" x2="16" y2="12.01"/><line x1="8" y1="16" x2="8" y2="16.01"/><line x1="12" y1="16" x2="12" y2="16.01"/></svg>`;
+    }
+    if (id.includes('payment') || id.includes('qvapay')) {
+      return `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>`;
+    }
+
+    return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>`;
+  }
+
   async function cargarHerramientasPanel() {
     const grid = $('panelGridHerramientas');
     const catContainer = $('panelCategoriasHerramientas');
@@ -1539,9 +1619,9 @@ const Chat = (() => {
 
       // Renderizar chips de categorías
       if (catContainer) {
-        let catHtml = `<div class="cat-chip ${categoriaFiltroActual === 'todas' ? 'activo' : ''}" data-cat="todas">✨ Todas</div>`;
+        let catHtml = `<div class="cat-chip ${categoriaFiltroActual === 'todas' ? 'activo' : ''}" data-cat="todas" style="display:inline-flex; align-items:center; gap:6px;">${obtenerIconoToolSVG('cat_todas')} Todas</div>`;
         listaCategoriasGlobal.forEach(c => {
-          catHtml += `<div class="cat-chip ${categoriaFiltroActual === c.id ? 'activo' : ''}" data-cat="${c.id}">${c.icon || '🛠️'} ${c.name}</div>`;
+          catHtml += `<div class="cat-chip ${categoriaFiltroActual === c.id ? 'activo' : ''}" data-cat="${c.id}" style="display:inline-flex; align-items:center; gap:6px;">${obtenerIconoToolSVG('cat_' + c.id, c.id)} ${c.name}</div>`;
         });
         catContainer.innerHTML = catHtml;
 
@@ -1570,15 +1650,16 @@ const Chat = (() => {
       : listaHerramientasGlobal.filter(t => t.category === categoriaFiltroActual);
 
     if (filtradas.length === 0) {
-      grid.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:30px; color:var(--texto-500);">No hay herramientas en esta categoría.</div>`;
+      grid.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:30px; color:var(--texto-500);">No hay elementos en esta categoría.</div>`;
       return;
     }
 
     grid.innerHTML = filtradas.map(t => {
+      const svgIcon = obtenerIconoToolSVG(t.id || t.tool, t.category, t.icon);
       return `
         <div class="tool-card-square anim-pulse" id="card_tool_${t.id}" data-id="${t.id}">
           <div class="tool-status-badge"></div>
-          <div class="tool-icon">${t.icon || '🛠️'}</div>
+          <div class="tool-icon">${svgIcon}</div>
           <div class="tool-name">${meEscapar(t.name)}</div>
         </div>
       `;
@@ -1613,7 +1694,8 @@ const Chat = (() => {
     if (!tool) return;
     herramientaSeleccionada = tool;
 
-    if ($('toolDetailIcon')) $('toolDetailIcon').textContent = tool.icon || '🛠️';
+    const svgIcon = obtenerIconoToolSVG(tool.id || tool.tool, tool.category, tool.icon);
+    if ($('toolDetailIcon')) $('toolDetailIcon').innerHTML = svgIcon;
     if ($('toolDetailName')) $('toolDetailName').textContent = tool.name;
     if ($('toolDetailCategory')) $('toolDetailCategory').textContent = tool.category_name || tool.category || 'Herramienta';
     if ($('toolDetailDesc')) $('toolDetailDesc').textContent = tool.description || 'Herramienta interactiva de Link.';
@@ -1637,6 +1719,34 @@ const Chat = (() => {
 
   async function iniciarHerramientaDirecto(tool, extraParams = {}) {
     if (!tool) return;
+
+    // Manejo especial de ubicación para Clima
+    const toolKey = tool.tool || tool.id;
+    if (toolKey === 'weather.get') {
+      let loc = extraParams.location || tool.params?.location || 'auto';
+      if (!loc || loc === 'auto') {
+        let coords = null;
+        if (navigator.geolocation) {
+          mostrarToast('📍 Obteniendo ubicación GPS...');
+          try {
+            const pos = await new Promise((resolve, reject) => {
+              navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 8000, enableHighAccuracy: true });
+            });
+            coords = `Lat ${pos.coords.latitude.toFixed(4)}, Lon ${pos.coords.longitude.toFixed(4)}`;
+          } catch (geoErr) {
+            console.warn('[Geolocation] GPS no disponible o permiso denegado:', geoErr.message);
+          }
+        }
+        if (coords) {
+          extraParams.location = coords;
+        } else {
+          const city = prompt('📍 Permiso de GPS no disponible o denegado. Ingresa el nombre de tu ciudad para consultar el clima:', 'La Habana');
+          if (!city || !city.trim()) return;
+          extraParams.location = city.trim();
+        }
+      }
+    }
+
     cerrarHojaDetalleHerramienta();
     cerrarPanelHerramientas();
 
