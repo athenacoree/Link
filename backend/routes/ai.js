@@ -143,13 +143,28 @@ router.post('/chat', requireAuth, aiRateLimiter, async (req, res) => {
     } catch (e) {}
 
     let toolResult = docResult;
+    let detectedIntent = null;
+
+    // Detectar intención explícita en lenguaje natural antes de invocar la IA
+    if (!toolResult && userPrompt) {
+      detectedIntent = ToolManager.detectToolIntent(userPrompt);
+      if (detectedIntent && detectedIntent.tool) {
+        try {
+          toolResult = await ToolManager.executeTool(detectedIntent.tool, detectedIntent.params || {}, req.user.id);
+        } catch (tErr) {
+          console.error(`[AI Route] Error al ejecutar herramienta por intención '${detectedIntent.tool}':`, tErr);
+          toolResult = { error: tErr.message };
+        }
+      }
+    }
+
     let toolContextText = '';
     if (toolResult) {
       if (toolResult.error) {
         toolContextText = `\n\n[Información de Herramienta Adjunta]: Ocurrió un error al consultar: ${toolResult.error}`;
       } else {
         const payload = toolResult.data !== undefined ? toolResult.data : toolResult;
-        toolContextText = `\n\n[Datos de documento adjunto]: ${JSON.stringify(payload)}`;
+        toolContextText = `\n\n[Resultado de Herramienta Ejecutada Localmente]: ${JSON.stringify(payload)}`;
       }
     }
 
@@ -205,13 +220,17 @@ router.post('/chat', requireAuth, aiRateLimiter, async (req, res) => {
       }
     }
 
+    // Solo enviar declaraciones de herramientas a Gemini cuando NO se ejecutó una herramienta localmente
+    // o cuando el usuario solicita explícitamente una acción de herramienta no cubierta.
+    const shouldEnableToolsInGemini = !toolResult && (!userPrompt || userPrompt.length < 500);
+
     const result = await chatCompletion({
       messages: inputMessages,
       systemPrompt: fullSystemPrompt,
       maxTokens: settings.ai_max_tokens,
       visionImage: currentImage || vision_image || null,
       requesterId: req.user.id,
-      enableTools: true,
+      enableTools: shouldEnableToolsInGemini,
     });
 
     // Extraer el resultado de la última herramienta ejecutada por Gemini
