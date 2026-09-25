@@ -1,4 +1,4 @@
-/* Lógica para el Laboratorio IA Global en Enlace */
+/* Lógica para el Laboratorio IA Global y Experiencias Multimedia en Enlace */
 
 function escapeHTMLAILab(str) {
   if (!str) return '';
@@ -17,12 +17,42 @@ window.AILab = {
   isGenerating: false,
   socketConnected: false,
 
+  // Estado de la Experiencia Multimedia Sincronizada
+  activeEventData: null,
+  effectLoopTimer: null,
+  eventStartTime: null,
+  initialElapsedSeconds: 0,
+  activeEffects: new Set(),
+  answeredPolls: new Set(),
+  isExperienceActive: false,
+
   init() {
     if (this.initialized) return;
     this.initialized = true;
     this.bindEvents();
     this.bindSocketEvents();
+    this.bindOrientationEvents();
     this.loadGlobalMessages();
+    this.cargarEventoActivo();
+  },
+
+  bindOrientationEvents() {
+    const handleOrientation = () => {
+      const isLandscape = window.innerWidth > window.innerHeight && window.innerHeight < 600;
+      const stage = document.getElementById('ailabExperienceStage');
+      const messagesFeed = document.getElementById('ailabChatMessages');
+
+      if (this.isExperienceActive && isLandscape) {
+        if (stage) stage.classList.add('fullscreen-landscape');
+        if (messagesFeed) messagesFeed.classList.add('hidden-landscape');
+      } else {
+        if (stage) stage.classList.remove('fullscreen-landscape');
+        if (messagesFeed) messagesFeed.classList.remove('hidden-landscape');
+      }
+    };
+
+    window.addEventListener('resize', handleOrientation);
+    window.addEventListener('orientationchange', handleOrientation);
   },
 
   bindSocketEvents() {
@@ -48,6 +78,20 @@ window.AILab = {
             el.style.opacity = '0';
             el.style.transform = 'scale(0.95)';
             setTimeout(() => el.remove(), 200);
+          }
+        }
+      });
+
+      window.socket.off('ailab:evento_cambio');
+      window.socket.on('ailab:evento_cambio', () => {
+        this.cargarEventoActivo();
+      });
+
+      window.socket.off('ailab:interaccion_nueva');
+      window.socket.on('ailab:interaccion_nueva', (data) => {
+        if (data && data.interaction) {
+          if (typeof mostrarToast === 'function') {
+            mostrarToast(`💬 ${data.interaction.user_name} reaccionó en la experiencia`);
           }
         }
       });
@@ -120,6 +164,366 @@ window.AILab = {
       });
     }
   },
+
+  // ---------------- LÓGICA DE LA EXPERIENCIA MULTIMEDIA Y EVENTOS ----------------
+
+  async cargarEventoActivo() {
+    try {
+      const res = await api('/ailab/events/active');
+      const badge = document.getElementById('ailabEventBadge');
+      const title = document.getElementById('ailabEventTitle');
+
+      if (res && res.active_event) {
+        this.activeEventData = res.active_event;
+        const status = res.active_event.status;
+        if (badge) {
+          badge.className = `ailab-experience-badge ${status === 'live' ? 'live' : 'scheduled'}`;
+          badge.textContent = status === 'live' ? '🔴 EN VIVO' : '📅 PRÓXIMO';
+        }
+        if (title) {
+          title.textContent = `${res.active_event.title} (${res.active_event.experience_title || 'Multimedia'})`;
+        }
+      } else {
+        this.activeEventData = null;
+        if (badge) {
+          badge.className = 'ailab-experience-badge idle';
+          badge.textContent = '🧪 SALA PÚBLICA';
+        }
+        if (title) {
+          title.textContent = 'Experiencia Multimedia Sincronizada';
+        }
+      }
+    } catch (err) {
+      console.error('Error al cargar evento activo:', err);
+    }
+  },
+
+  async entrarExperienciaActiva() {
+    if (!this.activeEventData) {
+      await this.cargarEventoActivo();
+      if (!this.activeEventData) {
+        this.abrirModalEventosDisponibles();
+        return;
+      }
+    }
+
+    const eventId = this.activeEventData.id;
+    try {
+      const syncData = await api(`/ailab/events/${eventId}/sync`);
+      if (!syncData || !syncData.event) {
+        mostrarToast('No se pudo sincronizar con el evento.');
+        return;
+      }
+
+      const evt = syncData.event;
+      this.initialElapsedSeconds = syncData.elapsed_seconds || 0;
+      this.eventStartTime = Date.now();
+      this.isExperienceActive = true;
+
+      const videoEl = document.getElementById('ailabMediaVideo');
+      const audioEl = document.getElementById('ailabMediaAudio');
+      const bookEl = document.getElementById('ailabBookReader');
+      const btnEntrar = document.getElementById('btnEntrarExperiencia');
+      const btnSalir = document.getElementById('btnSalirExperiencia');
+
+      // Ocultar todos los escenarios primero
+      if (videoEl) videoEl.style.display = 'none';
+      if (audioEl) audioEl.style.display = 'none';
+      if (bookEl) bookEl.style.display = 'none';
+
+      if (evt.content_type === 'video' && evt.content_url) {
+        if (videoEl) {
+          videoEl.style.display = 'block';
+          videoEl.src = evt.content_url;
+          if (this.initialElapsedSeconds > 0) {
+            videoEl.currentTime = Math.max(0, this.initialElapsedSeconds);
+          }
+          videoEl.play().catch(() => {});
+        }
+      } else if (evt.content_type === 'audio' && evt.content_url) {
+        if (audioEl) {
+          audioEl.style.display = 'block';
+          audioEl.src = evt.content_url;
+          if (this.initialElapsedSeconds > 0) {
+            audioEl.currentTime = Math.max(0, this.initialElapsedSeconds);
+          }
+          audioEl.play().catch(() => {});
+        }
+      } else if (evt.content_type === 'book') {
+        if (bookEl) {
+          bookEl.style.display = 'flex';
+          this.renderizarLectorLibro(evt.raw_text, this.initialElapsedSeconds);
+        }
+      }
+
+      if (btnEntrar) btnEntrar.style.display = 'none';
+      if (btnSalir) btnSalir.style.display = 'inline-flex';
+
+      // Iniciar el motor de efectos overlay
+      let timeline = evt.timeline;
+      if (typeof timeline === 'string') {
+        try { timeline = JSON.parse(timeline); } catch (e) { timeline = []; }
+      }
+      this.iniciarMotorEfectos(timeline || []);
+
+      if (typeof mostrarToast === 'function') {
+        mostrarToast(`🎬 Sincronizado en ${Math.round(Math.max(0, this.initialElapsedSeconds))}s`);
+      }
+    } catch (err) {
+      console.error('Error al entrar a la experiencia:', err);
+      mostrarToast('Error al entrar a la experiencia multimedia.');
+    }
+  },
+
+  renderizarLectorLibro(rawText, elapsed) {
+    const textDisplay = document.getElementById('ailabBookTextDisplay');
+    if (!textDisplay) return;
+
+    if (!rawText) {
+      textDisplay.textContent = 'El texto del libro se está cargando...';
+      return;
+    }
+
+    const sentences = rawText.split(/(?<=[.?!])\s+/).filter(Boolean);
+    if (sentences.length === 0) {
+      textDisplay.textContent = rawText;
+      return;
+    }
+
+    // Calcular la frase activa según el tiempo transcurrido (asumiendo 4 segundos por frase)
+    const activeIndex = Math.min(sentences.length - 1, Math.floor(Math.max(0, elapsed) / 4));
+    const currentSentence = sentences[activeIndex] || sentences[0];
+
+    textDisplay.innerHTML = `
+      <div style="font-size:0.8rem; text-transform:uppercase; letter-spacing:1px; color:#a78bfa; margin-bottom:10px; font-weight:800;">📖 Lectura Sincronizada</div>
+      <div style="font-weight:700; font-size:1.1rem; line-height:1.6;" class="ailab-book-highlight">${escapeHTMLAILab(currentSentence)}</div>
+      <div style="font-size:0.8rem; opacity:0.6; margin-top:14px;">Párrafo ${activeIndex + 1} de ${sentences.length}</div>
+    `;
+  },
+
+  iniciarMotorEfectos(timeline = []) {
+    if (this.effectLoopTimer) {
+      clearInterval(this.effectLoopTimer);
+      this.effectLoopTimer = null;
+    }
+
+    const fxLayer = document.getElementById('ailabFxLayer');
+    const overlayText = document.getElementById('ailabOverlayText');
+    const overlayPoll = document.getElementById('ailabOverlayPoll');
+
+    this.effectLoopTimer = setInterval(() => {
+      if (!this.eventStartTime) return;
+
+      const currentElapsed = this.initialElapsedSeconds + (Date.now() - this.eventStartTime) / 1000;
+
+      // Actualizar texto si es tipo libro
+      if (this.activeEventData && this.activeEventData.content_type === 'book') {
+        this.renderizarLectorLibro(this.activeEventData.raw_text, currentElapsed);
+      }
+
+      // Evaluar eventos del timeline
+      const activeEvents = timeline.filter(item => {
+        const itemTime = item.time || 0;
+        const dur = item.duration || 5;
+        return currentElapsed >= itemTime && currentElapsed <= (itemTime + dur);
+      });
+
+      // Efectos activos acumulados
+      const currentFxClasses = new Set();
+      let currentTextOverlay = null;
+      let currentPoll = null;
+
+      activeEvents.forEach(item => {
+        if (Array.isArray(item.effects)) {
+          item.effects.forEach(fx => {
+            if (fx.type) currentFxClasses.add(`ailab-fx-${fx.type}`);
+          });
+        }
+        if (item.overlay && item.overlay.text) {
+          currentTextOverlay = item.overlay.text;
+        }
+        if (item.interaction && item.interaction.type === 'poll') {
+          const pollKey = `poll_${item.time}_${item.interaction.question}`;
+          if (!this.answeredPolls.has(pollKey)) {
+            currentPoll = { ...item.interaction, pollKey };
+          }
+        }
+        if (item.mia_host && item.mia_host.message && !item.mia_host_executed) {
+          item.mia_host_executed = true;
+          this.ejecutarIntervencionMia(item.mia_host);
+        }
+      });
+
+      // Aplicar clases de efecto al layer
+      if (fxLayer) {
+        fxLayer.className = `ailab-fx-layer ${Array.from(currentFxClasses).join(' ')}`;
+      }
+
+      // Mostrar u ocultar overlay de texto
+      if (overlayText) {
+        if (currentTextOverlay) {
+          overlayText.style.display = 'block';
+          overlayText.textContent = currentTextOverlay;
+        } else {
+          overlayText.style.display = 'none';
+        }
+      }
+
+      // Mostrar u ocultar overlay de encuesta
+      if (overlayPoll) {
+        if (currentPoll) {
+          overlayPoll.style.display = 'block';
+          overlayPoll.innerHTML = `
+            <div style="font-weight:800; font-size:13.5px; color:#c084fc; margin-bottom:6px;">❓ Pregunta de Mia AI</div>
+            <div style="font-size:13px; font-weight:700; color:#fff; margin-bottom:10px;">${escapeHTMLAILab(currentPoll.question)}</div>
+            ${(currentPoll.options || ['Sí', 'No']).map(opt => `
+              <button class="ailab-poll-option" onclick="AILab.responderEncuesta('${currentPoll.pollKey}', '${escapeHTMLAILab(opt)}')">
+                ${escapeHTMLAILab(opt)}
+              </button>
+            `).join('')}
+          `;
+        } else {
+          overlayPoll.style.display = 'none';
+        }
+      }
+    }, 400);
+  },
+
+  ejecutarIntervencionMia(miaHost) {
+    if (miaHost.message) {
+      this.appendSingleMessage({
+        id: 'mia_' + Date.now(),
+        sender_type: 'ai',
+        sender_name: 'Mia (Anfitriona)',
+        sender_avatar: '🤖',
+        text: miaHost.message,
+        created_at: new Date().toISOString()
+      }, true);
+    }
+
+    if (miaHost.speak_tts && window.speechSynthesis) {
+      try {
+        const utterance = new SpeechSynthesisUtterance(miaHost.message);
+        utterance.lang = 'es-ES';
+        window.speechSynthesis.speak(utterance);
+      } catch (e) {}
+    }
+  },
+
+  responderEncuesta(pollKey, option) {
+    this.answeredPolls.add(pollKey);
+    const overlayPoll = document.getElementById('ailabOverlayPoll');
+    if (overlayPoll) overlayPoll.style.display = 'none';
+
+    if (this.activeEventData && window.socket) {
+      window.socket.emit('ailab:interaccion', {
+        eventId: this.activeEventData.id,
+        interactionType: 'poll_vote',
+        data: { pollKey, option }
+      });
+    }
+
+    if (typeof mostrarToast === 'function') {
+      mostrarToast(`¡Voto registrado: ${option}!`);
+    }
+  },
+
+  salirExperiencia() {
+    this.isExperienceActive = false;
+    if (this.effectLoopTimer) {
+      clearInterval(this.effectLoopTimer);
+      this.effectLoopTimer = null;
+    }
+
+    const videoEl = document.getElementById('ailabMediaVideo');
+    const audioEl = document.getElementById('ailabMediaAudio');
+    const bookEl = document.getElementById('ailabBookReader');
+    const fxLayer = document.getElementById('ailabFxLayer');
+    const overlayText = document.getElementById('ailabOverlayText');
+    const overlayPoll = document.getElementById('ailabOverlayPoll');
+    const btnEntrar = document.getElementById('btnEntrarExperiencia');
+    const btnSalir = document.getElementById('btnSalirExperiencia');
+    const stage = document.getElementById('ailabExperienceStage');
+    const messagesFeed = document.getElementById('ailabChatMessages');
+
+    if (videoEl) { videoEl.pause(); videoEl.style.display = 'none'; }
+    if (audioEl) { audioEl.pause(); audioEl.style.display = 'none'; }
+    if (bookEl) bookEl.style.display = 'none';
+    if (fxLayer) fxLayer.className = 'ailab-fx-layer';
+    if (overlayText) overlayText.style.display = 'none';
+    if (overlayPoll) overlayPoll.style.display = 'none';
+
+    if (stage) stage.classList.remove('fullscreen-landscape');
+    if (messagesFeed) messagesFeed.classList.remove('hidden-landscape');
+
+    if (btnEntrar) btnEntrar.style.display = 'inline-flex';
+    if (btnSalir) btnSalir.style.display = 'none';
+
+    if (typeof mostrarToast === 'function') {
+      mostrarToast('Has salido de la experiencia multimedia.');
+    }
+  },
+
+  volverALabAI() {
+    this.salirExperiencia();
+    this.scrollToBottom();
+  },
+
+  async abrirModalEventosDisponibles() {
+    const velo = document.getElementById('veloAilabEventos');
+    const hoja = document.getElementById('hojaAilabEventos');
+    const contenedor = document.getElementById('listaAilabEventos');
+
+    if (!contenedor) return;
+
+    try {
+      const events = await api('/ailab/events');
+      if (!events || events.length === 0) {
+        contenedor.innerHTML = `<div class="aviso-vacio">No hay eventos multimedia programados por el momento.</div>`;
+      } else {
+        contenedor.innerHTML = events.map(evt => {
+          const dateStr = evt.scheduled_at ? new Date(evt.scheduled_at).toLocaleString() : '';
+          const isLive = evt.status === 'live';
+          return `
+            <div style="padding:12px; background:var(--blanco); border:1px solid var(--borde); border-radius:14px; display:flex; justify-content:space-between; align-items:center;">
+              <div>
+                <div style="font-weight:800; font-size:13.5px; color:var(--texto-900);">${escapeHTMLAILab(evt.title)} (${escapeHTMLAILab(evt.experience_title)})</div>
+                <div style="font-size:11.5px; color:var(--texto-500); margin-top:2px;">📅 ${dateStr} • Tipo: ${escapeHTMLAILab(evt.content_type)}</div>
+              </div>
+              <button class="btn btn-primario mini-btn" onclick="AILab.sincronizarConEvento('${evt.id}')">
+                ${isLive ? '🔴 Unirse Ahora' : '🔍 Ver'}
+              </button>
+            </div>
+          `;
+        }).join('');
+      }
+
+      if (velo) velo.classList.add('activo');
+      if (hoja) hoja.classList.add('activo');
+    } catch (err) {
+      console.error('Error al cargar eventos:', err);
+      mostrarToast('No se pudieron obtener los eventos.');
+    }
+  },
+
+  async sincronizarConEvento(eventId) {
+    const velo = document.getElementById('veloAilabEventos');
+    const hoja = document.getElementById('hojaAilabEventos');
+    if (velo) velo.classList.remove('activo');
+    if (hoja) hoja.classList.remove('activo');
+
+    try {
+      const syncData = await api(`/ailab/events/${eventId}/sync`);
+      if (syncData && syncData.event) {
+        this.activeEventData = syncData.event;
+        await this.entrarExperienciaActiva();
+      }
+    } catch (e) {
+      mostrarToast('No se pudo conectar al evento especificado.');
+    }
+  },
+
+  // ---------------- FUNCIONES DE MENSAJERÍA Y COMPOSITOR ----------------
 
   async processFileAttachment(file, category) {
     try {
@@ -227,7 +631,7 @@ window.AILab = {
           <div style="text-align:center; padding:30px 16px; color:var(--texto-600); font-size:13px; line-height:1.5;">
             <div style="margin-bottom:8px; color:var(--morado-600);"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.5 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7A8.4 8.4 0 0 1 3.5 11.5 8.5 8.5 0 1 1 21 11.5Z"/></svg></div>
             <div style="font-weight:800; color:var(--morado-700); font-size:15px;">¡Bienvenido a la Sala Global!</div>
-            <div>Todos los usuarios comparten este espacio de conversación en vivo.</div>
+            <div>Todos los usuarios comparten este espacio de conversación en vivo y experiencias multimedia.</div>
           </div>
         `;
         return;
@@ -258,11 +662,6 @@ window.AILab = {
     let toolResultObj = msg.tool_result;
     if (typeof toolResultObj === 'string') {
       try { toolResultObj = JSON.parse(toolResultObj); } catch (e) {}
-    }
-
-    let attachmentsObj = msg.attachments;
-    if (typeof attachmentsObj === 'string') {
-      try { attachmentsObj = JSON.parse(attachmentsObj); } catch (e) {}
     }
 
     let cardHtml = this.renderToolCard(toolResultObj);
@@ -356,6 +755,20 @@ window.AILab = {
     if (!toolResult) return '';
     const d = toolResult.data || {};
     const type = toolResult.type;
+
+    if (type === 'experience_card' && d.event) {
+      const evt = d.event;
+      return `
+        <div style="margin-top:8px; padding:12px; background:rgba(15,23,42,0.9); border:1.5px solid var(--morado-500, #8b5cf6); border-radius:14px; color:#fff;">
+          <div style="font-weight:800; font-size:14px; color:#a78bfa; margin-bottom:4px;">🎬 Experiencia Multimedia Sincronizada</div>
+          <div style="font-size:13px; font-weight:700;">${escapeHTMLAILab(evt.title)} (${escapeHTMLAILab(evt.experience_title)})</div>
+          <div style="font-size:11.5px; opacity:0.8; margin:4px 0 10px;">Tipo: ${escapeHTMLAILab(evt.content_type)} • Posición: ${Math.round(Math.max(0, d.elapsed_seconds || 0))}s</div>
+          <button class="btn btn-primario mini-btn" style="width:100%; text-align:center; padding:8px; font-size:12px; font-weight:800; border-radius:8px;" onclick="AILab.sincronizarConEvento('${evt.id}')">
+            🎬 Entrar a la Experiencia
+          </button>
+        </div>
+      `;
+    }
 
     if (type === 'capabilities_card' && d) {
       const cardMsgId = 'caps_ailab_' + Math.random().toString(36).substring(2, 9);
