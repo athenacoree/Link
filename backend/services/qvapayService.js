@@ -5,7 +5,8 @@
  * Handles invoice creation, transaction status lookup, and strict webhook verification.
  */
 
-const QVAPAY_BASE_URL = 'https://qvapay.com/api/v1';
+const QVAPAY_BASE_URL_V2 = 'https://qvapay.com/api/v2';
+const QVAPAY_BASE_URL_V1 = 'https://qvapay.com/api/v1';
 
 function getAppId() {
   return (process.env.QVAPAY_APP_ID || '').trim();
@@ -77,11 +78,20 @@ async function createInvoice({ amount, description, remoteId }) {
   const timeoutId = setTimeout(() => controller.abort(), 15000);
 
   try {
-    const response = await fetch(`${QVAPAY_BASE_URL}/create_invoice?${queryParams.toString()}`, {
+    let response = await fetch(`${QVAPAY_BASE_URL_V2}/create_invoice?${queryParams.toString()}`, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
       signal: controller.signal,
     });
+
+    // Fallback to v1 if v2 returns 404
+    if (response.status === 404) {
+      response = await fetch(`${QVAPAY_BASE_URL_V1}/create_invoice?${queryParams.toString()}`, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
+        signal: controller.signal,
+      });
+    }
 
     clearTimeout(timeoutId);
 
@@ -149,11 +159,19 @@ async function getTransactionStatus(transactionId) {
   const timeoutId = setTimeout(() => controller.abort(), 15000);
 
   try {
-    const response = await fetch(`${QVAPAY_BASE_URL}/get_transaction/${encodeURIComponent(transactionId)}?${queryParams.toString()}`, {
+    let response = await fetch(`${QVAPAY_BASE_URL_V2}/get_transaction/${encodeURIComponent(transactionId)}?${queryParams.toString()}`, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
       signal: controller.signal,
     });
+
+    if (response.status === 404) {
+      response = await fetch(`${QVAPAY_BASE_URL_V1}/get_transaction/${encodeURIComponent(transactionId)}?${queryParams.toString()}`, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
+        signal: controller.signal,
+      });
+    }
 
     clearTimeout(timeoutId);
 

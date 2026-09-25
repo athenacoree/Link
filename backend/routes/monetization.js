@@ -169,70 +169,83 @@ router.get('/precios', requireAuth, async (req, res) => {
 // ============================================================
 
 router.post('/verificacion/solicitar', requireAuth, async (req, res) => {
-  const userId = req.userId;
-  const VERIFICATION_PRICE = await getPriceSetting('price_verification', 5.00);
+  try {
+    const userId = req.userId;
+    const VERIFICATION_PRICE = await getPriceSetting('price_verification', 5.00);
 
-  // Check if user already has an active verification or pending request
-  const existingReq = await query(
-    `SELECT * FROM verification_requests
-      WHERE user_id = $1 AND status IN ('pending_payment', 'pending_review', 'approved')
-      ORDER BY created_at DESC LIMIT 1`,
-    [userId]
-  );
+    // Check if user already has an active verification or pending request
+    const existingReq = await query(
+      `SELECT * FROM verification_requests
+        WHERE user_id = $1 AND status IN ('pending_payment', 'pending_review', 'approved')
+        ORDER BY created_at DESC LIMIT 1`,
+      [userId]
+    );
 
-  if (existingReq.rows.length) {
-    const cur = existingReq.rows[0];
-    if (cur.status === 'approved') {
-      return res.status(400).json({ error: 'Tu perfil ya cuenta con la insignia de verificado.' });
+    if (existingReq.rows.length) {
+      const cur = existingReq.rows[0];
+      if (cur.status === 'approved') {
+        return res.status(400).json({ error: 'Tu perfil ya cuenta con la insignia de verificado.' });
+      }
+      if (cur.status === 'pending_review') {
+        return res.status(400).json({ error: 'Ya tienes una solicitud de verificación abonada y en revisión por el administrador.' });
+      }
     }
-    if (cur.status === 'pending_review') {
-      return res.status(400).json({ error: 'Ya tienes una solicitud de verificación abonada y en revisión por el administrador.' });
+
+    const remoteId = `verif_${userId.substring(0, 8)}_${Date.now()}`;
+
+    // Create payment transaction
+    const txRes = await query(
+      `INSERT INTO payment_transactions (user_id, service_type, amount, status, remote_id, metadata)
+       VALUES ($1, 'verification', $2, 'pending_payment', $3, $4) RETURNING *`,
+      [userId, VERIFICATION_PRICE, remoteId, JSON.stringify({ action: 'verification_request' })]
+    );
+    const tx = txRes.rows[0];
+
+    // Create QvaPay invoice
+    let qvInvoice;
+    try {
+      qvInvoice = await qvapayService.createInvoice({
+        amount: VERIFICATION_PRICE,
+        description: 'Solicitud de Revisión para Verificación de Perfil',
+        remoteId,
+      });
+    } catch (qErr) {
+      console.error('[Monetización] Error al crear factura QvaPay:', qErr.message);
+      return res.status(400).json({
+        error: `No se pudo conectar con QvaPay para procesar el pago: ${qErr.message}. Por favor, reintenta más tarde.`
+      });
     }
+
+    // Update transaction with QvaPay info
+    await query(
+      `UPDATE payment_transactions SET qvapay_trans_id = $1, qvapay_url = $2 WHERE id = $3`,
+      [qvInvoice.id, qvInvoice.url, tx.id]
+    );
+
+    // Record QvaPay invoice
+    await query(
+      `INSERT INTO qvapay_invoices (transaction_id, qvapay_id, remote_id, amount, status)
+       VALUES ($1, $2, $3, $4, 'pending')`,
+      [tx.id, qvInvoice.id, remoteId, VERIFICATION_PRICE]
+    );
+
+    // Record verification request
+    const verifRes = await query(
+      `INSERT INTO verification_requests (user_id, transaction_id, amount, status)
+       VALUES ($1, $2, $3, 'pending_payment') RETURNING *`,
+      [userId, tx.id, VERIFICATION_PRICE]
+    );
+
+    res.json({
+      ok: true,
+      solicitud: verifRes.rows[0],
+      transaccion: { ...tx, qvapay_trans_id: qvInvoice.id, qvapay_url: qvInvoice.url },
+      checkout_url: qvInvoice.url,
+    });
+  } catch (err) {
+    console.error('[Monetización] Error en /verificacion/solicitar:', err);
+    res.status(500).json({ error: err.message || 'Error del servidor al procesar la solicitud de verificación.' });
   }
-
-  const remoteId = `verif_${userId.substring(0, 8)}_${Date.now()}`;
-
-  // Create payment transaction
-  const txRes = await query(
-    `INSERT INTO payment_transactions (user_id, service_type, amount, status, remote_id, metadata)
-     VALUES ($1, 'verification', $2, 'pending_payment', $3, $4) RETURNING *`,
-    [userId, VERIFICATION_PRICE, remoteId, JSON.stringify({ action: 'verification_request' })]
-  );
-  const tx = txRes.rows[0];
-
-  // Create QvaPay invoice
-  const qvInvoice = await qvapayService.createInvoice({
-    amount: VERIFICATION_PRICE,
-    description: 'Solicitud de Revisión para Verificación de Perfil',
-    remoteId,
-  });
-
-  // Update transaction with QvaPay info
-  await query(
-    `UPDATE payment_transactions SET qvapay_trans_id = $1, qvapay_url = $2 WHERE id = $3`,
-    [qvInvoice.id, qvInvoice.url, tx.id]
-  );
-
-  // Record QvaPay invoice
-  await query(
-    `INSERT INTO qvapay_invoices (transaction_id, qvapay_id, remote_id, amount, status)
-     VALUES ($1, $2, $3, $4, 'pending')`,
-    [tx.id, qvInvoice.id, remoteId, VERIFICATION_PRICE]
-  );
-
-  // Record verification request
-  const verifRes = await query(
-    `INSERT INTO verification_requests (user_id, transaction_id, amount, status)
-     VALUES ($1, $2, $3, 'pending_payment') RETURNING *`,
-    [userId, tx.id, VERIFICATION_PRICE]
-  );
-
-  res.json({
-    ok: true,
-    solicitud: verifRes.rows[0],
-    transaccion: { ...tx, qvapay_trans_id: qvInvoice.id, qvapay_url: qvInvoice.url },
-    checkout_url: qvInvoice.url,
-  });
 });
 
 router.get('/verificacion/mi-solicitud', requireAuth, async (req, res) => {
@@ -299,72 +312,85 @@ router.post('/username/comprobar', requireAuth, async (req, res) => {
 });
 
 router.post('/username/comprar', requireAuth, async (req, res) => {
-  const userId = req.userId;
-  const rawName = (req.body.username || '').trim().toLowerCase().replace(/^@/, '');
-  const USERNAME_PRICE = await getPriceSetting('price_username', 10.00);
+  try {
+    const userId = req.userId;
+    const rawName = (req.body.username || '').trim().toLowerCase().replace(/^@/, '');
+    const USERNAME_PRICE = await getPriceSetting('price_username', 10.00);
 
-  if (!rawName || rawName.length < 1 || rawName.length >= 4 || !/^[a-z0-9_]+$/.test(rawName)) {
-    return res.status(400).json({ error: 'Username no válido. Debe tener entre 1 y 3 caracteres alfanuméricos.' });
+    if (!rawName || rawName.length < 1 || rawName.length >= 4 || !/^[a-z0-9_]+$/.test(rawName)) {
+      return res.status(400).json({ error: 'Username no válido. Debe tener entre 1 y 3 caracteres alfanuméricos.' });
+    }
+
+    if (RESERVED_USERNAMES.has(rawName)) {
+      return res.status(400).json({ error: 'Este nombre de usuario está reservado.' });
+    }
+
+    // Check availability
+    const userCheck = await query(`SELECT id FROM users WHERE LOWER(username) = $1`, [rawName]);
+    if (userCheck.rows.length) {
+      return res.status(400).json({ error: `El username @${rawName} ya está ocupado.` });
+    }
+
+    const purchaseCheck = await query(
+      `SELECT id FROM username_purchases WHERE LOWER(requested_username) = $1 AND status IN ('pending_payment', 'completed')`,
+      [rawName]
+    );
+    if (purchaseCheck.rows.length) {
+      return res.status(400).json({ error: `El username @${rawName} ya tiene un proceso de compra activo.` });
+    }
+
+    const remoteId = `uname_${rawName}_${Date.now()}`;
+
+    // Create payment transaction
+    const txRes = await query(
+      `INSERT INTO payment_transactions (user_id, service_type, amount, status, remote_id, metadata)
+       VALUES ($1, 'username', $2, 'pending_payment', $3, $4) RETURNING *`,
+      [userId, USERNAME_PRICE, remoteId, JSON.stringify({ requested_username: rawName })]
+    );
+    const tx = txRes.rows[0];
+
+    // Create QvaPay invoice
+    let qvInvoice;
+    try {
+      qvInvoice = await qvapayService.createInvoice({
+        amount: USERNAME_PRICE,
+        description: `Compra de Username Corto @${rawName}`,
+        remoteId,
+      });
+    } catch (qErr) {
+      console.error('[Monetización] Error al crear factura QvaPay:', qErr.message);
+      return res.status(400).json({
+        error: `No se pudo conectar con QvaPay para procesar el pago: ${qErr.message}. Por favor, reintenta más tarde.`
+      });
+    }
+
+    await query(
+      `UPDATE payment_transactions SET qvapay_trans_id = $1, qvapay_url = $2 WHERE id = $3`,
+      [qvInvoice.id, qvInvoice.url, tx.id]
+    );
+
+    await query(
+      `INSERT INTO qvapay_invoices (transaction_id, qvapay_id, remote_id, amount, status)
+       VALUES ($1, $2, $3, $4, 'pending')`,
+      [tx.id, qvInvoice.id, remoteId, USERNAME_PRICE]
+    );
+
+    const unameRes = await query(
+      `INSERT INTO username_purchases (user_id, transaction_id, requested_username, amount, status)
+       VALUES ($1, $2, $3, $4, 'pending_payment') RETURNING *`,
+      [userId, tx.id, rawName, USERNAME_PRICE]
+    );
+
+    res.json({
+      ok: true,
+      compra: unameRes.rows[0],
+      transaccion: { ...tx, qvapay_trans_id: qvInvoice.id, qvapay_url: qvInvoice.url },
+      checkout_url: qvInvoice.url,
+    });
+  } catch (err) {
+    console.error('[Monetización] Error en /username/comprar:', err);
+    res.status(500).json({ error: err.message || 'Error del servidor al procesar la compra de username.' });
   }
-
-  if (RESERVED_USERNAMES.has(rawName)) {
-    return res.status(400).json({ error: 'Este nombre de usuario está reservado.' });
-  }
-
-  // Check availability
-  const userCheck = await query(`SELECT id FROM users WHERE LOWER(username) = $1`, [rawName]);
-  if (userCheck.rows.length) {
-    return res.status(400).json({ error: `El username @${rawName} ya está ocupado.` });
-  }
-
-  const purchaseCheck = await query(
-    `SELECT id FROM username_purchases WHERE LOWER(requested_username) = $1 AND status IN ('pending_payment', 'completed')`,
-    [rawName]
-  );
-  if (purchaseCheck.rows.length) {
-    return res.status(400).json({ error: `El username @${rawName} ya tiene un proceso de compra activo.` });
-  }
-
-  const remoteId = `uname_${rawName}_${Date.now()}`;
-
-  // Create payment transaction
-  const txRes = await query(
-    `INSERT INTO payment_transactions (user_id, service_type, amount, status, remote_id, metadata)
-     VALUES ($1, 'username', $2, 'pending_payment', $3, $4) RETURNING *`,
-    [userId, USERNAME_PRICE, remoteId, JSON.stringify({ requested_username: rawName })]
-  );
-  const tx = txRes.rows[0];
-
-  // Create QvaPay invoice
-  const qvInvoice = await qvapayService.createInvoice({
-    amount: USERNAME_PRICE,
-    description: `Compra de Username Corto @${rawName}`,
-    remoteId,
-  });
-
-  await query(
-    `UPDATE payment_transactions SET qvapay_trans_id = $1, qvapay_url = $2 WHERE id = $3`,
-    [qvInvoice.id, qvInvoice.url, tx.id]
-  );
-
-  await query(
-    `INSERT INTO qvapay_invoices (transaction_id, qvapay_id, remote_id, amount, status)
-     VALUES ($1, $2, $3, $4, 'pending')`,
-    [tx.id, qvInvoice.id, remoteId, USERNAME_PRICE]
-  );
-
-  const unameRes = await query(
-    `INSERT INTO username_purchases (user_id, transaction_id, requested_username, amount, status)
-     VALUES ($1, $2, $3, $4, 'pending_payment') RETURNING *`,
-    [userId, tx.id, rawName, USERNAME_PRICE]
-  );
-
-  res.json({
-    ok: true,
-    compra: unameRes.rows[0],
-    transaccion: { ...tx, qvapay_trans_id: qvInvoice.id, qvapay_url: qvInvoice.url },
-    checkout_url: qvInvoice.url,
-  });
 });
 
 // ============================================================
@@ -372,80 +398,93 @@ router.post('/username/comprar', requireAuth, async (req, res) => {
 // ============================================================
 
 router.post('/campanas', requireAuth, async (req, res) => {
-  const userId = req.userId;
-  const { title, description, button_text, destination_url, image_url, target_audience, budget, duration_days } = req.body;
+  try {
+    const userId = req.userId;
+    const { title, description, button_text, destination_url, image_url, target_audience, budget, duration_days } = req.body;
 
-  if (!title || !title.trim()) {
-    return res.status(400).json({ error: 'El título de la campaña es obligatorio.' });
+    if (!title || !title.trim()) {
+      return res.status(400).json({ error: 'El título de la campaña es obligatorio.' });
+    }
+
+    if (!destination_url || !destination_url.trim()) {
+      return res.status(400).json({ error: 'La URL de destino es obligatoria.' });
+    }
+
+    const MIN_AD_BUDGET = await getPriceSetting('price_min_ad_budget', 2.00);
+    const numBudget = parseFloat(budget);
+    if (isNaN(numBudget) || numBudget < MIN_AD_BUDGET) {
+      return res.status(400).json({ error: `El presupuesto mínimo para una campaña es de $${MIN_AD_BUDGET.toFixed(2)} USD.` });
+    }
+
+    const numDays = Math.max(1, parseInt(duration_days) || 7);
+    const approxImpressions = Math.round(numBudget * 500); // 500 impresiones por dólar
+
+    const remoteId = `ad_${userId.substring(0, 8)}_${Date.now()}`;
+
+    // Create payment transaction
+    const txRes = await query(
+      `INSERT INTO payment_transactions (user_id, service_type, amount, status, remote_id, metadata)
+       VALUES ($1, 'ad_campaign', $2, 'pending_payment', $3, $4) RETURNING *`,
+      [userId, numBudget, remoteId, JSON.stringify({ title: title.trim(), duration_days: numDays })]
+    );
+    const tx = txRes.rows[0];
+
+    // Create QvaPay invoice
+    let qvInvoice;
+    try {
+      qvInvoice = await qvapayService.createInvoice({
+        amount: numBudget,
+        description: `Campaña Publicitaria: ${title.trim().slice(0, 30)}`,
+        remoteId,
+      });
+    } catch (qErr) {
+      console.error('[Monetización] Error al crear factura QvaPay:', qErr.message);
+      return res.status(400).json({
+        error: `No se pudo conectar con QvaPay para procesar el pago: ${qErr.message}. Por favor, reintenta más tarde.`
+      });
+    }
+
+    await query(
+      `UPDATE payment_transactions SET qvapay_trans_id = $1, qvapay_url = $2 WHERE id = $3`,
+      [qvInvoice.id, qvInvoice.url, tx.id]
+    );
+
+    await query(
+      `INSERT INTO qvapay_invoices (transaction_id, qvapay_id, remote_id, amount, status)
+       VALUES ($1, $2, $3, $4, 'pending')`,
+      [tx.id, qvInvoice.id, remoteId, numBudget]
+    );
+
+    const campaignRes = await query(
+      `INSERT INTO ad_campaigns (
+          user_id, transaction_id, title, description, button_text, destination_url, image_url,
+          target_audience, budget, approx_impressions, duration_days, status
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'pending_payment') RETURNING *`,
+      [
+        userId,
+        tx.id,
+        title.trim(),
+        (description || '').trim(),
+        (button_text || 'Ver más').trim(),
+        destination_url.trim(),
+        (image_url || '').trim(),
+        JSON.stringify(target_audience || {}),
+        numBudget,
+        approxImpressions,
+        numDays,
+      ]
+    );
+
+    res.json({
+      ok: true,
+      campana: campaignRes.rows[0],
+      transaccion: { ...tx, qvapay_trans_id: qvInvoice.id, qvapay_url: qvInvoice.url },
+      checkout_url: qvInvoice.url,
+    });
+  } catch (err) {
+    console.error('[Monetización] Error en /campanas:', err);
+    res.status(500).json({ error: err.message || 'Error del servidor al crear la campaña publicitaria.' });
   }
-
-  if (!destination_url || !destination_url.trim()) {
-    return res.status(400).json({ error: 'La URL de destino es obligatoria.' });
-  }
-
-  const MIN_AD_BUDGET = await getPriceSetting('price_min_ad_budget', 2.00);
-  const numBudget = parseFloat(budget);
-  if (isNaN(numBudget) || numBudget < MIN_AD_BUDGET) {
-    return res.status(400).json({ error: `El presupuesto mínimo para una campaña es de $${MIN_AD_BUDGET.toFixed(2)} USD.` });
-  }
-
-  const numDays = Math.max(1, parseInt(duration_days) || 7);
-  const approxImpressions = Math.round(numBudget * 500); // 500 impresiones por dólar
-
-  const remoteId = `ad_${userId.substring(0, 8)}_${Date.now()}`;
-
-  // Create payment transaction
-  const txRes = await query(
-    `INSERT INTO payment_transactions (user_id, service_type, amount, status, remote_id, metadata)
-     VALUES ($1, 'ad_campaign', $2, 'pending_payment', $3, $4) RETURNING *`,
-    [userId, numBudget, remoteId, JSON.stringify({ title: title.trim(), duration_days: numDays })]
-  );
-  const tx = txRes.rows[0];
-
-  // Create QvaPay invoice
-  const qvInvoice = await qvapayService.createInvoice({
-    amount: numBudget,
-    description: `Campaña Publicitaria: ${title.trim().slice(0, 30)}`,
-    remoteId,
-  });
-
-  await query(
-    `UPDATE payment_transactions SET qvapay_trans_id = $1, qvapay_url = $2 WHERE id = $3`,
-    [qvInvoice.id, qvInvoice.url, tx.id]
-  );
-
-  await query(
-    `INSERT INTO qvapay_invoices (transaction_id, qvapay_id, remote_id, amount, status)
-     VALUES ($1, $2, $3, $4, 'pending')`,
-    [tx.id, qvInvoice.id, remoteId, numBudget]
-  );
-
-  const campaignRes = await query(
-    `INSERT INTO ad_campaigns (
-        user_id, transaction_id, title, description, button_text, destination_url, image_url,
-        target_audience, budget, approx_impressions, duration_days, status
-     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'pending_payment') RETURNING *`,
-    [
-      userId,
-      tx.id,
-      title.trim(),
-      (description || '').trim(),
-      (button_text || 'Ver más').trim(),
-      destination_url.trim(),
-      (image_url || '').trim(),
-      JSON.stringify(target_audience || {}),
-      numBudget,
-      approxImpressions,
-      numDays,
-    ]
-  );
-
-  res.json({
-    ok: true,
-    campana: campaignRes.rows[0],
-    transaccion: { ...tx, qvapay_trans_id: qvInvoice.id, qvapay_url: qvInvoice.url },
-    checkout_url: qvInvoice.url,
-  });
 });
 
 router.get('/campanas/mis-campanas', requireAuth, async (req, res) => {

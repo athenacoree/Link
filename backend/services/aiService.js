@@ -426,7 +426,7 @@ async function chatCompletion({
   const effectiveContextTokens = parseInt(settings.ai_context_tokens || '4000', 10);
   const effectiveTimeout = Math.max(10000, parseInt(timeoutMs || settings.ailab_timeout_ms || '120000', 10));
   const maxContinuations = Math.min(3, Math.max(0, parseInt(settings.ai_max_continuations || '2', 10)));
-  const maxToolSteps = Math.min(10, Math.max(1, parseInt(settings.ai_max_tool_steps || '5', 10)));
+  const maxToolSteps = Math.min(2, Math.max(1, parseInt(settings.ai_max_tool_steps || '2', 10)));
 
   let formattedMessages = Array.isArray(messages) ? [...messages] : [];
 
