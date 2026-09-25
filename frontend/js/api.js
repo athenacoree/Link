@@ -88,13 +88,21 @@ const Sesion = {
   guardar(token, user) {
     localStorage.setItem(CLAVE_TOKEN, token);
     localStorage.setItem(CLAVE_USUARIO, JSON.stringify(user));
+    if (typeof window.actualizarManifestPorGenero === 'function') {
+      window.actualizarManifestPorGenero(user?.gender);
+    }
   },
   token() { return localStorage.getItem(CLAVE_TOKEN); },
   usuario() {
     try { return JSON.parse(localStorage.getItem(CLAVE_USUARIO) || 'null'); }
     catch (e) { return null; }
   },
-  actualizarUsuario(user) { localStorage.setItem(CLAVE_USUARIO, JSON.stringify(user)); },
+  actualizarUsuario(user) {
+    localStorage.setItem(CLAVE_USUARIO, JSON.stringify(user));
+    if (typeof window.actualizarManifestPorGenero === 'function') {
+      window.actualizarManifestPorGenero(user?.gender);
+    }
+  },
   cerrar() {
     localStorage.removeItem(CLAVE_TOKEN);
     localStorage.removeItem(CLAVE_USUARIO);

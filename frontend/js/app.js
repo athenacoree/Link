@@ -3698,8 +3698,32 @@ window.addEventListener('message', (event) => {
   }
 });
 
+/* ================= GESTIÓN DINÁMICA DE MANIFEST SEGÚN GÉNERO ================= */
+function actualizarManifestPorGenero(genero) {
+  const linkManifest = document.querySelector('link[rel="manifest"]');
+  if (!linkManifest) return;
+  const g = (genero || '').toLowerCase().trim();
+  if (g === 'hombre' || g === 'masculino' || g === 'macho') {
+    linkManifest.href = '/manifest-macho.json';
+  } else if (g === 'mujer' || g === 'femenino' || g === 'hembra') {
+    linkManifest.href = '/manifest-hembra.json';
+  } else {
+    linkManifest.href = '/manifest.json';
+  }
+}
+window.actualizarManifestPorGenero = actualizarManifestPorGenero;
+
+// Escuchar cambios en los select de género de registro y perfil en tiempo real
+$('regGenero')?.addEventListener('change', (e) => {
+  actualizarManifestPorGenero(e.target.value);
+});
+$('edGenero')?.addEventListener('change', (e) => {
+  actualizarManifestPorGenero(e.target.value);
+});
+
 /* ================= ARRANQUE ================= */
 if (Sesion.activa()) {
+  actualizarManifestPorGenero(Sesion.usuario()?.gender);
   iniciarApp().finally(() => {
     setTimeout(() => {
       ocultarSplashScreen();
@@ -3711,6 +3735,7 @@ if (Sesion.activa()) {
     }, 400);
   });
 } else {
+  actualizarManifestPorGenero($('regGenero')?.value);
   $('authScreen').classList.remove('oculto');
   setTimeout(ocultarSplashScreen, 400);
 }

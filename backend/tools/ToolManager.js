@@ -62,17 +62,37 @@ function getCapabilities(params = {}) {
 
   const categories = [
     {
+      id: 'conexiones',
+      name: 'Conexiones y APIs externas',
+      icon: '🔌',
+      tools: [
+        { id: 'wikipedia.search', name: 'Wikipedia API', icon: '📚', description: 'Busca artículos y referencias en la enciclopedia Wikipedia', tool: 'wikipedia.search', params: { query: 'Tecnología' }, prompt_example: 'Busca en Wikipedia sobre tecnología' },
+        { id: 'github.search', name: 'GitHub API', icon: '💻', description: 'Explora repositorios, código y desarrolladores en GitHub', tool: 'github.search', params: { query: 'JavaScript' }, prompt_example: 'Busca proyectos en GitHub' },
+        { id: 'frankfurter.convert', name: 'Divisas API', icon: '💱', description: 'Consulta tasas de cambio e intercambio de divisas oficiales', tool: 'frankfurter.convert', params: { amount: 10, from: 'USD', to: 'EUR' }, prompt_example: 'Convierte 10 dólares a euros' },
+        { id: 'coingecko.prices', name: 'Cripto API', icon: '🪙', description: 'Precios de criptomonedas en tiempo real vía CoinGecko', tool: 'coingecko.prices', params: { ids: 'bitcoin,ethereum,solana' }, prompt_example: 'Precio de Bitcoin' },
+        { id: 'osm.search', name: 'OpenStreetMap API', icon: '📍', description: 'Geolocalización y mapas globales vía OpenStreetMap', tool: 'osm.search', params: { query: 'La Habana' }, prompt_example: 'Busca en el mapa La Habana' }
+      ]
+    },
+    {
+      id: 'multimedia',
+      name: 'Ver Video y Multimedia',
+      icon: '🎬',
+      tools: [
+        { id: 'search_videos', name: 'Ver Videos HD', icon: '🎥', description: 'Busca y reproduce videos libres de alta calidad en HD', tool: 'search_videos', params: { query: 'naturaleza', orientation: 'landscape' }, prompt_example: 'Muéstrame un video de naturaleza' },
+        { id: 'youtube.search', name: 'YouTube Video', icon: '▶️', description: 'Busca videos, tráilers y canales en YouTube', tool: 'youtube.search', params: { query: 'Música de fondo' }, prompt_example: 'Busca un video en YouTube' },
+        { id: 'youtube.live', name: 'En Vivo / Directos', icon: '🔴', description: 'Transmisiones en vivo e impresiones en directo', tool: 'youtube.live', params: { query: 'Noticias en vivo' }, prompt_example: 'Transmisiones en vivo' },
+        { id: 'wikimedia.search', name: 'Wikimedia Media', icon: '🖼️', description: 'Imágenes y archivos de Wikimedia Commons', tool: 'wikimedia.search', params: { query: 'Galaxia' }, prompt_example: 'Fotos de Wikimedia' }
+      ]
+    },
+    {
       id: 'herramientas',
-      name: 'Herramientas',
+      name: 'Herramientas y Clima',
       icon: '🛠️',
       tools: [
-        { id: 'weather.get', name: 'Clima', icon: '🌤️', description: 'Consulta el clima actual y pronóstico en tiempo real', tool: 'weather.get', params: { location: 'auto' }, prompt_example: 'Dame el clima actual' },
-        { id: 'wikipedia.search', name: 'Wikipedia', icon: '📚', description: 'Busca artículos y conceptos en Wikipedia', tool: 'wikipedia.search', params: { query: 'Tecnología' }, prompt_example: 'Busca en Wikipedia sobre la tecnología' },
-        { id: 'github.search', name: 'GitHub', icon: '💻', description: 'Explora repositorios y código en GitHub', tool: 'github.search', params: { query: 'JavaScript' }, prompt_example: 'Busca proyectos de Node.js en GitHub' },
+        { id: 'weather.get', name: 'Clima Actual', icon: '🌤️', description: 'Consulta el tiempo y pronóstico meteorológico en tiempo real', tool: 'weather.get', params: { location: 'auto' }, prompt_example: 'Dame el clima actual' },
         { id: 'translate', name: 'Traductor', icon: '🌐', description: 'Traduce textos entre múltiples idiomas al instante', tool: 'translate', params: { text: 'Hola, ¿cómo estás?', target_lang: 'en' }, prompt_example: 'Traduce al inglés: Hola' },
         { id: 'math.calculate', name: 'Calculadora', icon: '🧮', description: 'Cálculos matemáticos exactos y fórmulas', tool: 'math.calculate', params: { expression: '128 * 4 + 50' }, prompt_example: 'Calcula 128 * 4 + 50' },
         { id: 'world.time', name: 'Hora Mundial', icon: '🕒', description: 'Consulta la hora actual en cualquier ciudad del mundo', tool: 'world.time', params: { location: 'Madrid' }, prompt_example: '¿Qué hora es en Tokio?' },
-        { id: 'frankfurter.convert', name: 'Divisas', icon: '💱', description: 'Convierte divisas y consulta tasas de cambio oficiales', tool: 'frankfurter.convert', params: { amount: 10, from: 'USD', to: 'EUR' }, prompt_example: 'Convierte 10 dólares a euros' },
         { id: 'doc.extract', name: 'Lector de Docs', icon: '📄', description: 'Extrae y analiza texto de archivos y PDF adjuntos', tool: 'doc.extract', params: {}, prompt_example: 'Extrae texto del documento' }
       ]
     },
