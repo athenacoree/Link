@@ -6,7 +6,31 @@
 <title>Link — conecta con tu gente</title>
 <meta name="description" content="Link: encuentra personas, agrégalas, chatea y haz videollamadas reales.">
 <meta name="theme-color" content="#faf8ff">
-<link rel="manifest" href="/manifest.json">
+<script>
+  (function() {
+    try {
+      var u = JSON.parse(localStorage.getItem('enlace_usuario') || 'null');
+      var g = (u && u.gender ? u.gender : '').toLowerCase().trim();
+      var href = '/manifest.json';
+      if (g === 'hombre' || g === 'masculino' || g === 'macho') {
+        href = '/manifest-macho.json';
+      } else if (g === 'mujer' || g === 'femenino' || g === 'hembra') {
+        href = '/manifest-hembra.json';
+      }
+      var link = document.createElement('link');
+      link.rel = 'manifest';
+      link.id = 'manifestLink';
+      link.href = href;
+      document.head.appendChild(link);
+    } catch (e) {
+      var link = document.createElement('link');
+      link.rel = 'manifest';
+      link.id = 'manifestLink';
+      link.href = '/manifest.json';
+      document.head.appendChild(link);
+    }
+  })();
+</script>
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <link rel="icon" href="/icons/icon-192.png">
 <link rel="stylesheet" href="/css/app.css">
