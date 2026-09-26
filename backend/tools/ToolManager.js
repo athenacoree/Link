@@ -35,8 +35,8 @@ const internalTools = require('./internalTools');
 const userActionTools = require('./userActionTools');
 const gameTool = require('./gameTool');
 
-function getCapabilities(params = {}) {
-  const gamesList = gameTool.listGames({});
+async function getCapabilities(params = {}) {
+  const gamesList = await gameTool.listGames({});
   const gameTools = (gamesList.games || []).map(g => ({
     id: `game_${g.id}`,
     name: g.name,

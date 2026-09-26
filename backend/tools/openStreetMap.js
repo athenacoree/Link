@@ -30,13 +30,19 @@ async function searchOSM(query, limit = 5) {
 
 async function queryOverpass(overpassQuery) {
   try {
+    const queryStr = (overpassQuery || '').trim();
+    if (!queryStr) {
+      return { error: 'Se requiere una consulta en formato Overpass QL (ej. node["amenity"="hospital"](around:5000,23.113,-82.366); out;).' };
+    }
+    const finalQuery = queryStr.includes('[out:json]') ? queryStr : `[out:json][timeout:25];${queryStr}`;
+
     const url = 'https://overpass-api.de/api/interpreter';
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 12000);
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: `data=${encodeURIComponent(overpassQuery)}`,
+      body: `data=${encodeURIComponent(finalQuery)}`,
       signal: controller.signal,
     });
     clearTimeout(timeout);

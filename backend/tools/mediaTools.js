@@ -29,9 +29,9 @@ async function searchTVMaze(showName) {
   }
 }
 
-async function getPokeAPI(pokemonNameOrId) {
+async function getPokeAPI(pokemonNameOrId = 'pikachu') {
   try {
-    const cleanQuery = String(pokemonNameOrId).toLowerCase().trim();
+    const cleanQuery = String(pokemonNameOrId || 'pikachu').toLowerCase().trim();
     const url = `https://pokeapi.co/api/v2/pokemon/${encodeURIComponent(cleanQuery)}`;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
