@@ -1532,6 +1532,16 @@ const Chat = (() => {
   }
 
   function obtenerIconoToolSVG(toolId = '', categoryId = '', fallbackIcon = '') {
+    if (fallbackIcon && typeof fallbackIcon === 'string') {
+      if (fallbackIcon.includes('<svg')) {
+        return fallbackIcon;
+      }
+      if (fallbackIcon.startsWith('http') || fallbackIcon.startsWith('data:') || fallbackIcon.includes('<img')) {
+        if (fallbackIcon.includes('<img')) return fallbackIcon;
+        return `<img src="${meEscapar(fallbackIcon)}" alt="" style="width:24px; height:24px; object-fit:contain; border-radius:4px;">`;
+      }
+    }
+
     const id = (toolId || '').toLowerCase();
     const cat = (categoryId || '').toLowerCase();
 
@@ -1545,7 +1555,7 @@ const Chat = (() => {
     if (id === 'cat_multimedia' || cat === 'multimedia') {
       return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/></svg>`;
     }
-    if (id === 'cat_juegos' || cat === 'juegos' || id.startsWith('game_') || id.includes('game.')) {
+    if (id === 'cat_juegos' || (cat === 'juegos' && !id.startsWith('game_') && !id.includes('game.'))) {
       return `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><circle cx="15" cy="13" r="1"/><circle cx="18" cy="11" r="1"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>`;
     }
 
@@ -1584,7 +1594,7 @@ const Chat = (() => {
       return `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="16" y1="14" x2="16" y2="18"/><line x1="8" y1="12" x2="8" y2="12.01"/><line x1="12" y1="12" x2="12" y2="12.01"/><line x1="16" y1="12" x2="16" y2="12.01"/><line x1="8" y1="16" x2="8" y2="16.01"/><line x1="12" y1="16" x2="12" y2="16.01"/></svg>`;
     }
     if (id.includes('payment') || id.includes('qvapay')) {
-      return `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>`;
+      return `<svg width="22" height="22" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="6" fill="#00D09C"/><path d="M12 5.5a6.5 6.5 0 1 0 4.16 11.5l2.42 2.42a1 1 0 0 0 1.42-1.42l-2.32-2.32A6.5 6.5 0 0 0 12 5.5zm0 3a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7z" fill="#003125"/></svg>`;
     }
 
     return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>`;

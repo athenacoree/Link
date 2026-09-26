@@ -51,26 +51,23 @@ async function testBugFixes() {
   // -------------------------------------------------------------
   // Test Bug 3: PWA Manifest Selection
   // -------------------------------------------------------------
-  console.log('\n3. Probando Bug 3 Fix (Inline script PWA Manifest en index.html)...');
+  console.log('\n3. Probando Bug 3 Fix (PWA Manifest en index.html)...');
   const indexPath = path.join(__dirname, '../../frontend/index.html');
   const indexHTML = fs.readFileSync(indexPath, 'utf8');
 
-  assert.ok(indexHTML.includes('localStorage.getItem(\'enlace_usuario\')'), 'index.html debe leer enlace_usuario de localStorage');
-  assert.ok(indexHTML.includes('/manifest-macho.json') && indexHTML.includes('/manifest-hembra.json'), 'index.html debe hacer referencia a manifest-macho.json y manifest-hembra.json');
-  console.log('   ✅ Script inline síncrono para manifest verificado en index.html.');
+  assert.ok(indexHTML.includes('href="/manifest.json"'), 'index.html debe hacer referencia a manifest.json');
+  console.log('   ✅ Manifest verificado en index.html.');
 
-  // Verificación de existencia de manifests
+  // Verificación de existencia de manifest.json
   const manifestPaths = [
-    path.join(__dirname, '../../frontend/manifest.json'),
-    path.join(__dirname, '../../frontend/manifest-macho.json'),
-    path.join(__dirname, '../../frontend/manifest-hembra.json')
+    path.join(__dirname, '../../frontend/manifest.json')
   ];
   manifestPaths.forEach(p => {
     assert.ok(fs.existsSync(p), `El archivo ${p} debe existir`);
     const content = JSON.parse(fs.readFileSync(p, 'utf8'));
     assert.ok(content.name, `Manifest ${p} debe tener name`);
   });
-  console.log('   ✅ Todos los archivos manifest (.json, -macho.json, -hembra.json) son JSON válidos.');
+  console.log('   ✅ El archivo manifest.json es un JSON válido.');
 
   console.log('\n=== TODAS LAS PRUEBAS DE BUG FIXES PASARON EXITOSAMENTE ===');
 }

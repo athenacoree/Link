@@ -169,22 +169,13 @@ router.post('/chat', requireAuth, aiRateLimiter, async (req, res) => {
     }
 
 
-    const capabilitiesRegistry = `\n[Registro de Capacidades, Privacidad y Reglas de Administrador de Link AI]:
-- Hora y Fecha en tiempo real: Conoces la fecha y hora exacta actual (${nowRealTime}).
-- Saludo según Horario: Identificas que actualmente es de ${periodoDia.toUpperCase()} (${nowRealTime}). Si saludas, utiliza un saludo acorde ("¡Buenos días!", "¡Buenas tardes!" o "¡Buenas noches!").
-- Diferenciación de Usuario y Administrador: Reconoces si la persona es Administrador o Usuario común. Si te preguntan quién es el Administrador, puedes explicar de forma natural que los administradores gestionan y protegen la red Link.
-- PRIVACIDAD ESTRICTA: NUNCA revelas mensajes privados, conversaciones ni información confidencial de otros usuarios bajo ninguna circunstancia.
-- Foto de perfil: Sabes si el usuario tiene foto de perfil activa, pero por privacidad esa foto no se te envía en datos binarios.
-- Extracción de ubicación de cuenta: Puedes consultar el clima u otra info usando la ubicación del perfil del usuario cuando no especifique lugar.
-- Búsqueda interactiva de personas: Puedes buscar usuarios por gustos, características, apariencia o color de piel, y mostrar resultados agrupados con miniatura.
-- Edición y Modificación de Fotos: Puedes editar y modificar imágenes y fotos de los usuarios de forma natural cuando te envíen una foto o te pidan editarla. Si el usuario te envía una foto o te pide editarla sin dar instrucciones específicas, pregúntale amablemente qué cambios, estilo o retoque desea aplicarle.
-- Integración en chats de terceros (@ai): Si te mencionan con @ai en cualquier chat entre usuarios, te integras en esa conversación en una tarjeta interactiva y respondes contextualizada/o.
-- Agendamiento de Citas/Reuniones/Planes: Puedes enviar invitaciones interactivas de citas/reuniones/compromisos/destinos con desenfoque (blur) y botones de Aceptar/Rechazar (con motivo).
-- Reproducción de video: Puedes mostrar videos interactivos en el chat.
-- Respuestas ajustadas: Das mensajes normales y cortos por defecto para una conversación fluida.
-- REGLES OBLIGATORIA DE SENTIMIENTO/EMOCIÓN: En CADA respuesta que generes, DEBES incluir al inicio del mensaje una etiqueta de sentimiento con el formato exacto [EMOTION: tipo], donde tipo puede ser uno de: alegre, entusiasmado, curioso, pensativo, amigable, sorprendido, empatico o sereno (por ejemplo: "[EMOTION: alegre] ¡Hola! ¿En qué te puedo colaborar?"). La plataforma utilizará esta etiqueta para generar animaciones dinámicas.`;
+    const rulesPrompt = `\n[Reglas del Asistente]:
+- Saludo según Horario: Activa actualmente la ${periodoDia.toUpperCase()} (${nowRealTime}). Si saludas, utiliza un saludo acorde ("¡Buenos días!", "¡Buenas tardes!" o "¡Buenas noches!").
+- PRIVACIDAD ESTRICTA: NUNCA revelas mensajes privados, conversaciones ni información confidencial.
+- Respuestas ajustadas: Mensajes normales y cortos por defecto para una conversación fluida.
+- REGLES OBLIGATORIA DE SENTIMIENTO/EMOCIÓN: En CADA respuesta que generes, DEBES incluir al inicio del mensaje una etiqueta de sentimiento con el formato exacto [EMOTION: tipo], donde tipo puede ser uno de: alegre, entusiasmado, curioso, pensativo, amigable, sorprendido, empatico o sereno (por ejemplo: "[EMOTION: alegre] ¡Hola! ¿En qué te puedo colaborar?").`;
 
-    const fullSystemPrompt = `${settings.ai_personality}\n[Fecha y Hora en tiempo real]: ${nowRealTime}${userContextText}${capabilitiesRegistry}`;
+    const fullSystemPrompt = `${settings.ai_personality}\n[Fecha y Hora en tiempo real]: ${nowRealTime}${userContextText}${rulesPrompt}`;
 
     let inputMessages = [];
     if (Array.isArray(messages) && messages.length > 0) {
@@ -220,27 +211,14 @@ router.post('/chat', requireAuth, aiRateLimiter, async (req, res) => {
       }
     }
 
-    // Solo enviar declaraciones de herramientas a Gemini cuando NO se ejecutó una herramienta localmente
-    // o cuando el usuario solicita explícitamente una acción de herramienta no cubierta.
-    const shouldEnableToolsInGemini = !toolResult && (!userPrompt || userPrompt.length < 500);
-
     const result = await chatCompletion({
       messages: inputMessages,
       systemPrompt: fullSystemPrompt,
       maxTokens: settings.ai_max_tokens,
       visionImage: currentImage || vision_image || null,
-      requesterId: req.user.id,
-      enableTools: shouldEnableToolsInGemini,
     });
 
-    // Extraer el resultado de la última herramienta ejecutada por Gemini
     let finalToolResult = toolResult;
-    if (result.executed_tools && result.executed_tools.length > 0) {
-      const lastExec = result.executed_tools[result.executed_tools.length - 1];
-      if (lastExec && lastExec.result) {
-        finalToolResult = lastExec.result;
-      }
-    }
 
     // Guardar la conversación en la base de datos PostgreSQL
     let aiMessageObj = null;
