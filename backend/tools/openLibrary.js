@@ -28,6 +28,9 @@ async function searchBooks(query, limit = 5) {
 
 async function getBookDetails(openLibraryKey) {
   try {
+    if (!openLibraryKey || typeof openLibraryKey !== 'string') {
+      return { error: 'Se requiere una clave de obra válida de Open Library (ej: OL45804W o /works/OL45804W).' };
+    }
     const cleanKey = openLibraryKey.startsWith('/') ? openLibraryKey : `/works/${openLibraryKey}`;
     const url = `https://openlibrary.org${cleanKey}.json`;
     const controller = new AbortController();

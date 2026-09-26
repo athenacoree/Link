@@ -112,9 +112,10 @@ async function getWorldBankIndicator(countryCode = 'CUB', indicator = 'NY.GDP.MK
   }
 }
 
-async function searchMastodonPosts(query, limit = 5) {
+async function searchMastodonPosts(query = 'technology', limit = 5) {
+  const cleanQ = (query || 'technology').trim();
   try {
-    const url = `https://mastodon.social/api/v2/search?q=${encodeURIComponent(query)}&limit=${limit}&type=statuses`;
+    const url = `https://mastodon.social/api/v2/search?q=${encodeURIComponent(cleanQ)}&limit=${limit}&type=statuses`;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
     const res = await fetch(url, { signal: controller.signal });

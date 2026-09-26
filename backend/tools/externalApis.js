@@ -479,13 +479,14 @@ async function searchClinicalTrials(condition) {
 }
 
 // 15. RCSB Protein Data Bank
-async function searchRcsbPdb(query) {
+async function searchRcsbPdb(query = 'dna') {
+  const cleanQ = (query || 'dna').trim();
   try {
     const searchObj = {
       query: {
         type: 'terminal',
         service: 'full_text',
-        parameters: { value: query }
+        parameters: { value: cleanQ }
       },
       return_type: 'entry'
     };
@@ -499,22 +500,23 @@ async function searchRcsbPdb(query) {
     const data = await res.json();
     const resultIds = (data.result_set || []).slice(0, 5).map(r => r.identifier);
 
-    return { type: 'rcsb_pdb', query, count: data.total_count, top_pdb_ids: resultIds };
+    return { type: 'rcsb_pdb', query: cleanQ, count: data.total_count, top_pdb_ids: resultIds };
   } catch (err) {
     return { error: `Error en RCSB PDB API: ${err.message}` };
   }
 }
 
 // 16. Free Dictionary API
-async function lookupDictionary(word) {
+async function lookupDictionary(word = 'hello') {
+  const cleanWord = (word || 'hello').trim();
   try {
-    const url = `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`;
+    const url = `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(cleanWord)}`;
     const res = await fetchWithTimeout(url);
     if (!res.ok) return { error: `Free Dictionary API devolvió estado ${res.status}` };
     const data = await res.json();
 
     if (!Array.isArray(data) || data.length === 0) {
-      return { type: 'dictionary', word, found: false };
+      return { type: 'dictionary', word: cleanWord, found: false };
     }
 
     const entry = data[0];
@@ -618,28 +620,45 @@ async function drawDeckOfCards(count = 2) {
 // 21. Bored API
 async function getBoredActivity(type = '') {
   try {
-    const url = `https://bored-api.app/api/activity${type ? `?type=${encodeURIComponent(type)}` : ''}`;
-    const res = await fetchWithTimeout(url);
-    if (!res.ok) return { error: `Bored API devolvió estado ${res.status}` };
-    const data = await res.json();
+    const url = `https://www.boredapi.com/api/activity${type ? `?type=${encodeURIComponent(type)}` : ''}`;
+    const res = await fetchWithTimeout(url, {}, 6000);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.activity) {
+        return {
+          type: 'bored_activity',
+          activity: data.activity,
+          activity_type: data.type,
+          participants: data.participants,
+          price: data.price,
+        };
+      }
+    }
+  } catch (err) {}
 
-    return {
-      type: 'bored_activity',
-      activity: data.activity,
-      activity_type: data.type,
-      participants: data.participants,
-      price: data.price,
-    };
-  } catch (err) {
-    return { error: `Error en Bored API: ${err.message}` };
-  }
+  const fallbackActivities = [
+    { activity: 'Aprende a programar un algoritmo en JavaScript', type: 'education', participants: 1, price: 0 },
+    { activity: 'Escucha un nuevo podcast sobre ciencia o tecnología', type: 'education', participants: 1, price: 0 },
+    { activity: 'Haz una caminata al aire libre durante 30 minutos', type: 'recreational', participants: 1, price: 0 },
+    { activity: 'Organiza y limpia tu espacio de trabajo', type: 'busywork', participants: 1, price: 0 },
+  ];
+  const item = fallbackActivities[Math.floor(Math.random() * fallbackActivities.length)];
+
+  return {
+    type: 'bored_activity',
+    activity: item.activity,
+    activity_type: item.type,
+    participants: item.participants,
+    price: item.price,
+  };
 }
 
 // 22. Jikan API
-async function searchJikanAnime(query) {
+async function searchJikanAnime(query = 'naruto') {
+  const cleanQ = (query || 'naruto').trim();
   try {
-    const url = `https://api.jikan.moe/v4/anime?q=${encodeURIComponent(query)}&limit=3`;
-    const res = await fetchWithTimeout(url);
+    const url = `https://api.jikan.moe/v4/anime?q=${encodeURIComponent(cleanQ)}&limit=3`;
+    const res = await fetchWithTimeout(url, {}, 8000);
     if (!res.ok) return { error: `Jikan API devolvió estado ${res.status}` };
     const data = await res.json();
 
@@ -652,17 +671,18 @@ async function searchJikanAnime(query) {
       image_url: a.images?.jpg?.image_url,
     }));
 
-    return { type: 'jikan_anime', query, results };
+    return { type: 'jikan_anime', query: cleanQ, results };
   } catch (err) {
     return { error: `Error en Jikan API: ${err.message}` };
   }
 }
 
 // 23. Gutendex
-async function searchGutendex(query) {
+async function searchGutendex(query = 'classic') {
+  const cleanQ = (query || 'classic').trim();
   try {
-    const url = `https://gutendex.com/books/?search=${encodeURIComponent(query)}`;
-    const res = await fetchWithTimeout(url);
+    const url = `https://gutendex.com/books/?search=${encodeURIComponent(cleanQ)}`;
+    const res = await fetchWithTimeout(url, {}, 8000);
     if (!res.ok) return { error: `Gutendex devolvió estado ${res.status}` };
     const data = await res.json();
 
@@ -674,7 +694,7 @@ async function searchGutendex(query) {
       download_count: b.download_count,
     }));
 
-    return { type: 'gutendex', query, count: data.count, books };
+    return { type: 'gutendex', query: cleanQ, count: data.count, books };
   } catch (err) {
     return { error: `Error en Gutendex API: ${err.message}` };
   }

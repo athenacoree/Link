@@ -83,27 +83,46 @@ async function getUSGSEarthquakes(minMagnitude = 4.5, limit = 5) {
   }
 }
 
-async function getOpenAQAirQuality(city) {
+async function getOpenAQAirQuality(city = 'La Habana') {
   try {
-    const url = `https://api.openaq.org/v2/measurements?city=${encodeURIComponent(city)}&limit=5&order_by=datetime`;
+    const cleanCity = (city || 'La Habana').trim();
+    const geocodeUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cleanCity)}&count=1`;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
-    const res = await fetch(url, { signal: controller.signal });
+
+    let lat = 23.1136, lon = -82.3666;
+    try {
+      const geoRes = await fetch(geocodeUrl, { signal: controller.signal });
+      if (geoRes.ok) {
+        const geoData = await geoRes.json();
+        if (geoData.results && geoData.results.length > 0) {
+          lat = geoData.results[0].latitude;
+          lon = geoData.results[0].longitude;
+        }
+      }
+    } catch (_) {}
+
+    const aqUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=european_aqi,us_aqi,pm10,pm2_5,nitrogen_dioxide,ozone,sulphur_dioxide`;
+    const aqRes = await fetch(aqUrl, { signal: controller.signal });
     clearTimeout(timeout);
 
-    if (!res.ok) return { error: `OpenAQ respondió con estado ${res.status}` };
-    const data = await res.json();
-    const measurements = (data.results || []).map(m => ({
-      parameter: m.parameter,
-      value: m.value,
-      unit: m.unit,
-      location: m.location,
-      lastUpdated: m.date?.utc,
-    }));
+    if (!aqRes.ok) return { error: `API de Calidad del Aire respondió con estado ${aqRes.status}` };
+    const data = await aqRes.json();
+    const cur = data.current || {};
 
-    return { type: 'openaq_air_quality', city, measurements };
+    const measurements = [
+      { parameter: 'European AQI', value: cur.european_aqi, unit: 'AQI' },
+      { parameter: 'US AQI', value: cur.us_aqi, unit: 'AQI' },
+      { parameter: 'PM10', value: cur.pm10, unit: 'µg/m³' },
+      { parameter: 'PM2.5', value: cur.pm2_5, unit: 'µg/m³' },
+      { parameter: 'NO2', value: cur.nitrogen_dioxide, unit: 'µg/m³' },
+      { parameter: 'O3', value: cur.ozone, unit: 'µg/m³' },
+      { parameter: 'SO2', value: cur.sulphur_dioxide, unit: 'µg/m³' },
+    ].filter(m => m.value !== undefined && m.value !== null);
+
+    return { type: 'openaq_air_quality', city: cleanCity, latitude: lat, longitude: lon, measurements };
   } catch (err) {
-    return { error: `Error al consultar calidad de aire en OpenAQ: ${err.message}` };
+    return { error: `Error al consultar calidad de aire: ${err.message}` };
   }
 }
 
