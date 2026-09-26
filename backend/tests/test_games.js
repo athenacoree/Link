@@ -46,8 +46,38 @@ async function runGamesTests() {
   assert.ok(Array.isArray(launchInvalid.available_games), 'game.launch debe listar juegos disponibles');
   console.log('   ✅ game.launch ejecutado sin inventar URLs.');
 
-  // 4. Detección de intenciones en lenguaje natural (detectToolIntent)
-  console.log('4. Probando detectToolIntent() para minijuegos...');
+  // 4. Configuración dinámica por variable de entorno (Render)
+  console.log('4. Probando variables de entorno dinámicas (LINK_GAMER_URL, LINK_GAMES_URL)...');
+  const originalGamerUrl = process.env.LINK_GAMER_URL;
+  const originalGamesUrl = process.env.LINK_GAMES_URL;
+  const originalGamesBaseUrl = process.env.LINK_GAMES_BASE_URL;
+
+  delete process.env.LINK_GAMER_URL;
+  delete process.env.LINK_GAMES_URL;
+  delete process.env.LINK_GAMES_BASE_URL;
+
+  // Probar LINK_GAMER_URL
+  process.env.LINK_GAMER_URL = 'https://custom-games.render.com/app';
+  gameTool.clearGameCache();
+  assert.strictEqual(gameTool.getLinkGamesBaseUrl(), 'https://custom-games.render.com/app/');
+  let customLaunch = await gameTool.launchGame({ gameId: 'snake' });
+  assert.strictEqual(customLaunch.data.url, 'https://custom-games.render.com/app/snake/');
+
+  // Probar LINK_GAMES_URL (precedencia de LINK_GAMER_URL)
+  delete process.env.LINK_GAMER_URL;
+  process.env.LINK_GAMES_URL = 'https://my-link-games.com/pages';
+  gameTool.clearGameCache();
+  assert.strictEqual(gameTool.getLinkGamesBaseUrl(), 'https://my-link-games.com/pages/');
+
+  // Restaurar estado de entorno original y limpiar caché
+  if (originalGamerUrl) process.env.LINK_GAMER_URL = originalGamerUrl; else delete process.env.LINK_GAMER_URL;
+  if (originalGamesUrl) process.env.LINK_GAMES_URL = originalGamesUrl; else delete process.env.LINK_GAMES_URL;
+  if (originalGamesBaseUrl) process.env.LINK_GAMES_BASE_URL = originalGamesBaseUrl; else delete process.env.LINK_GAMES_BASE_URL;
+  gameTool.clearGameCache();
+  console.log('   ✅ Configuración por variable de entorno en Render verificada correctamente.');
+
+  // 5. Detección de intenciones en lenguaje natural (detectToolIntent)
+  console.log('5. Probando detectToolIntent() para minijuegos...');
   const intentList = ToolManager.detectToolIntent('muéstrame los juegos');
   assert.deepStrictEqual(intentList, { tool: 'game.list', params: {} });
 
