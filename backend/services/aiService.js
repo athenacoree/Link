@@ -26,7 +26,7 @@ async function getAISettings() {
     ai_temperature: process.env.AI_TEMPERATURE || '0.7',
     ai_name: process.env.AI_NAME || 'Link AI',
     ai_avatar: process.env.AI_AVATAR || '',
-    ai_personality: process.env.AI_PERSONALITY || 'Eres Link AI, un asistente inteligente integrado en la plataforma social Link. Responde siempre en español, con amabilidad y precisión. REGLA DE LONGITUD: Responde siempre con mensajes normales y cortos por defecto (estilo chat conversacional breve). Entrega respuestas más largas y detalladas únicamente cuando el usuario te solicite explícitamente explicaciones profundas. EMOCIONES DE MENSAJE: Puedes incluir discretamente al inicio de tu respuesta uno de los siguientes tags de emoción según tu estado de ánimo o el tono de la respuesta: [EMOTION: happy], [EMOTION: angry], [EMOTION: love], [EMOTION: excited], [EMOTION: sad], [EMOTION: neutral], [EMOTION: cool]. Ejemplo: "[EMOTION: happy] ¡Hola! Me alegra mucho hablar contigo."',
+    ai_personality: process.env.AI_PERSONALITY || 'Eres Link AI, un asistente conversacional. Responde siempre en español, con amabilidad y precisión. REGLA DE LONGITUD: Responde siempre con mensajes normales y cortos por defecto (estilo chat conversacional breve). Entrega respuestas más largas y detalladas únicamente cuando el usuario te solicite explícitamente explicaciones profundas. EMOCIONES DE MENSAJE: Puedes incluir discretamente al inicio de tu respuesta uno de los siguientes tags de emoción según tu estado de ánimo o el tono de la respuesta: [EMOTION: happy], [EMOTION: angry], [EMOTION: love], [EMOTION: excited], [EMOTION: sad], [EMOTION: neutral], [EMOTION: cool]. Ejemplo: "[EMOTION: happy] ¡Hola! Me alegra mucho hablar contigo."',
     ai_max_tokens: process.env.AI_MAX_TOKENS || '1000',
     ai_context_tokens: process.env.AI_CONTEXT_TOKENS || '4000',
     ailab_max_msg_length: process.env.AILAB_MAX_MSG_LENGTH || '2000',
@@ -36,7 +36,6 @@ async function getAISettings() {
     ailab_timeout_ms: process.env.AI_TIMEOUT_MS || process.env.AILAB_TIMEOUT_MS || '120000',
     ailab_auto_interval_min: process.env.AILAB_AUTO_INTERVAL_MIN || '20',
     ai_max_continuations: process.env.AI_MAX_CONTINUATIONS || '2',
-    ai_max_tool_steps: process.env.AI_MAX_TOOL_STEPS || '5',
   };
 
   try {
@@ -124,7 +123,7 @@ function pruneMessages(messages, maxContextTokens = 4000) {
 /**
  * Invoker for Google Gemini REST API Endpoints
  */
-async function callGeminiApi({ apiKey, model, messages, tools, maxTokens, temperature, visionImage, signal }) {
+async function callGeminiApi({ apiKey, model, messages, maxTokens, temperature, visionImage, signal }) {
   if (!model) {
     return {
       ok: false,
@@ -241,9 +240,6 @@ async function callGeminiApi({ apiKey, model, messages, tools, maxTokens, temper
     payload.systemInstruction = systemInstruction;
   }
 
-  if (tools && Array.isArray(tools) && tools.length > 0) {
-    payload.tools = tools;
-  }
 
   const response = await fetch(endpoint, {
     method: 'POST',
@@ -314,14 +310,11 @@ async function callGeminiApi({ apiKey, model, messages, tools, maxTokens, temper
 
   const replyParts = candidate?.content?.parts || [];
   const reply = replyParts.map(p => p.text || '').join('');
-  const functionCalls = replyParts.filter(p => p.functionCall).map(p => p.functionCall);
   const finishReason = candidate?.finishReason === 'MAX_TOKENS' ? 'length' : (candidate?.finishReason || 'stop');
 
   return {
     ok: true,
     reply,
-    functionCalls: functionCalls.length > 0 ? functionCalls : null,
-    candidateContent: candidate?.content || null,
     finish_reason: finishReason,
     model_used: model,
     usage: data.usageMetadata || null,
@@ -332,7 +325,7 @@ async function callGeminiApi({ apiKey, model, messages, tools, maxTokens, temper
  * Provider Adapters Registry - Exclusively Gemini
  */
 const ProviderAdapters = {
-  gemini: async ({ settings, messages, tools, maxTokens, modelOverride, visionImage, signal, temperature }) => {
+  gemini: async ({ settings, messages, maxTokens, modelOverride, visionImage, signal, temperature }) => {
     const keyPool = getGeminiApiKeyPool();
     if (keyPool.length === 0 && settings.gemini_api_key) {
       keyPool.push(settings.gemini_api_key);
@@ -354,7 +347,6 @@ const ProviderAdapters = {
         apiKey,
         model,
         messages,
-        tools,
         maxTokens,
         temperature: temperature !== undefined && temperature !== null ? temperature : settings.ai_temperature,
         visionImage,
@@ -366,7 +358,6 @@ const ProviderAdapters = {
       }
 
       lastResult = res;
-      // Sin reintentos automáticos continuos en backend
       break;
     }
 
@@ -387,8 +378,6 @@ async function chatCompletion({
   visionImage = null,
   timeoutMs = null,
   signal = null,
-  requesterId = null,
-  enableTools = true,
 } = {}) {
   const settings = await getAISettings();
 
@@ -396,7 +385,6 @@ async function chatCompletion({
   const effectiveContextTokens = parseInt(settings.ai_context_tokens || '4000', 10);
   const effectiveTimeout = Math.max(10000, parseInt(timeoutMs || settings.ailab_timeout_ms || '120000', 10));
   const maxContinuations = Math.min(3, Math.max(0, parseInt(settings.ai_max_continuations || '2', 10)));
-  const maxToolSteps = Math.min(2, Math.max(1, parseInt(settings.ai_max_tool_steps || '2', 10)));
 
   let formattedMessages = Array.isArray(messages) ? [...messages] : [];
 
@@ -409,11 +397,9 @@ async function chatCompletion({
   formattedMessages = pruneMessages(formattedMessages, effectiveContextTokens);
 
   const selectedModel = (model || settings.gemini_model || process.env.GEMINI_MODEL || '').trim();
-  const geminiTools = enableTools ? ToolManager.getGeminiToolDeclarations() : null;
 
   let lastError = null;
   let successfulResult = null;
-  const executedToolResults = [];
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), effectiveTimeout);
@@ -423,91 +409,21 @@ async function chatCompletion({
     else signal.addEventListener('abort', () => controller.abort());
   }
 
-  let step = 0;
-  let currentMessages = [...formattedMessages];
-
   try {
-    while (step < maxToolSteps) {
-      const res = await ProviderAdapters.gemini({
-        settings,
-        messages: currentMessages,
-        tools: geminiTools,
-        maxTokens: effectiveMaxTokens,
-        modelOverride: selectedModel,
-        temperature,
-        visionImage: step === 0 ? visionImage : null,
-        signal: controller.signal,
-      });
+    const res = await ProviderAdapters.gemini({
+      settings,
+      messages: formattedMessages,
+      maxTokens: effectiveMaxTokens,
+      modelOverride: selectedModel,
+      temperature,
+      visionImage,
+      signal: controller.signal,
+    });
 
-      if (!res.ok) {
-        lastError = res.error;
-        console.warn(`[AI Service] Gemini provider failed on step ${step}: ${res.error?.message || 'Error desconocido'}`);
-        break;
-      }
-
-      if (res.functionCalls && res.functionCalls.length > 0) {
-        step++;
-        console.log(`[AI Service] Gemini requested function calls (step ${step}/${maxToolSteps}):`, res.functionCalls.map(f => f.name));
-
-        // Preservar la respuesta completa del modelo (candidateContent) para mantener thought_signatures y metadatos
-        if (res.candidateContent) {
-          currentMessages.push(res.candidateContent);
-        } else {
-          currentMessages.push({
-            role: 'model',
-            parts: res.functionCalls.map(f => ({ functionCall: f }))
-          });
-        }
-
-        for (const fCall of res.functionCalls) {
-          const fnName = fCall.name;
-          const fnArgs = fCall.args || {};
-
-          let toolRes = null;
-          try {
-            toolRes = await ToolManager.executeTool(fnName, fnArgs, requesterId);
-          } catch (tErr) {
-            console.error(`[AI Service] Error executing tool '${fnName}':`, tErr);
-            toolRes = { error: `Error al ejecutar la herramienta '${fnName}': ${tErr.message}` };
-          }
-
-          executedToolResults.push({
-            tool: fnName,
-            params: fnArgs,
-            result: toolRes
-          });
-
-          // Adjuntar la respuesta de la función por parte del usuario en formato Gemini REST API
-          currentMessages.push({
-            role: 'user',
-            parts: [{
-              functionResponse: {
-                name: fnName,
-                response: { name: fnName, content: toolRes }
-              }
-            }]
-          });
-        }
-
-        // Pacing delay between tool turns to avoid bursting Gemini RPM limits
-        if (step < maxToolSteps) {
-          try {
-            await new Promise((resolve, reject) => {
-              if (controller.signal.aborted) return reject(new Error('AbortError'));
-              const t = setTimeout(resolve, 1000);
-              controller.signal.addEventListener('abort', () => {
-                clearTimeout(t);
-                reject(new Error('AbortError'));
-              }, { once: true });
-            });
-          } catch (e) {
-            break;
-          }
-        }
-      } else {
-        successfulResult = { ...res, provider: 'gemini' };
-        break;
-      }
+    if (res.ok) {
+      successfulResult = { ...res, provider: 'gemini' };
+    } else {
+      lastError = res.error;
     }
 
     clearTimeout(timer);
@@ -596,7 +512,6 @@ async function chatCompletion({
     model_used: successfulResult.model_used,
     provider: 'gemini',
     usage: successfulResult.usage || null,
-    executed_tools: executedToolResults,
     continuations: continuationCount,
   };
 }
