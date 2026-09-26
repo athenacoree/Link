@@ -333,7 +333,7 @@
         <div class="chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></div>
       </div>
       <div class="fila-ajustes" id="btnMonetizacion">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style="vertical-align:middle; margin-right:2px;"><rect width="24" height="24" rx="6" fill="#00D09C"/><path d="M12 5.5a6.5 6.5 0 1 0 4.16 11.5l2.42 2.42a1 1 0 0 0 1.42-1.42l-2.32-2.32A6.5 6.5 0 0 0 12 5.5zm0 3a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7z" fill="#003125"/></svg>
         <div class="txt">Monetización y Servicios QvaPay</div>
         <div class="chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></div>
       </div>
@@ -1248,7 +1248,7 @@
 <div class="velo" id="veloMonetizacion"></div>
 <div class="hoja" id="hojaMonetizacion" style="bottom:20px; max-height:85vh;">
   <div class="hoja-grupo">
-    <div class="hoja-persona"><span style="font-weight:700; color:var(--morado-700); font-size:16px;">Servicios y Monetización QvaPay</span></div>
+    <div class="hoja-persona"><span style="font-weight:700; color:var(--morado-700); font-size:16px; display:inline-flex; align-items:center; gap:6px;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="6" fill="#00D09C"/><path d="M12 5.5a6.5 6.5 0 1 0 4.16 11.5l2.42 2.42a1 1 0 0 0 1.42-1.42l-2.32-2.32A6.5 6.5 0 0 0 12 5.5zm0 3a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7z" fill="#003125"/></svg> Servicios y Monetización QvaPay</span></div>
     <div class="sub-tabs" style="margin-bottom:12px;">
       <div class="sub-tab activo" data-montab="verificacion">Verificación</div>
       <div class="sub-tab" data-montab="username">Usernames Cortos</div>
@@ -1449,6 +1449,24 @@
           <div style="font-weight:800; color:var(--morado-700); margin-bottom:4px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--morado-700)" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> Clima, Divisas y Misiones Inteligentes</div>
           <p style="margin:0 0 8px; color:var(--texto-700);">Consulta el tiempo local, cotizaciones o ejecuta tareas completas.</p>
           <button class="mini-btn primario" onclick="window.probarSugerenciaAI('¿Cómo está el clima hoy en La Habana y convierte 50 USD a EUR?')">Probar: "Clima y Conversión de USD a EUR"</button>
+        </div>
+
+        <div style="background:var(--morado-50); border:1px solid var(--morado-200); border-radius:12px; padding:12px;">
+          <div style="font-weight:800; color:var(--morado-700); margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="6 2 18 2 18 6 6 6"/><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><circle cx="15" cy="11" r="1"/><circle cx="18" cy="13" r="1"/></svg>
+            Catálogo Oficial de Minijuegos Link Games
+          </div>
+          <p style="margin:0 0 8px; color:var(--texto-700);">Accede a la biblioteca completa de juegos con iconos SVG personalizados.</p>
+          <button class="mini-btn primario" onclick="window.probarSugerenciaAI('Muéstrame el catálogo de juegos')">Probar: "Catálogo de Juegos"</button>
+        </div>
+
+        <div style="background:var(--morado-50); border:1px solid var(--morado-200); border-radius:12px; padding:12px;">
+          <div style="font-weight:800; color:var(--morado-700); margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect width="18" height="18" rx="4" fill="#00D09C"/><path d="M9 4.1a5 5 0 1 0 3.2 8.8l1.8 1.8a.77.77 0 0 0 1.1-1.1l-1.8-1.8A5 5 0 0 0 9 4.1zm0 2.3a2.7 2.7 0 1 1 0 5.4 2.7 2.7 0 0 1 0-5.4z" fill="#003125"/></svg>
+            Pagos y Facturación Oficial QvaPay API
+          </div>
+          <p style="margin:0 0 8px; color:var(--texto-700);">Genera enlaces de pago y facturas instantáneas vía QvaPay.</p>
+          <button class="mini-btn primario" onclick="window.probarSugerenciaAI('Genera un enlace de pago con QvaPay')">Probar: "Generar pago QvaPay"</button>
         </div>
       </div>
     </div>
