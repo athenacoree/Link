@@ -3,8 +3,21 @@
  * Repositorio Oficial: https://athenacoree.github.io/link-games-/
  */
 
-const LINK_GAMES_BASE_URL = 'https://athenacoree.github.io/link-games-/';
-const GAMES_CATALOG_URL = 'https://athenacoree.github.io/link-games-/games.json';
+const DEFAULT_LINK_GAMES_BASE_URL = 'https://athenacoree.github.io/link-games-/';
+
+function getLinkGamesBaseUrl() {
+  const envUrl = process.env.LINK_GAMER_URL || process.env.LINK_GAMES_URL || process.env.LINK_GAMES_BASE_URL || DEFAULT_LINK_GAMES_BASE_URL;
+  let cleanUrl = envUrl.trim();
+  if (!cleanUrl.endsWith('/')) {
+    cleanUrl += '/';
+  }
+  return cleanUrl;
+}
+
+function getGamesCatalogUrl() {
+  const baseUrl = getLinkGamesBaseUrl();
+  return `${baseUrl}games.json`;
+}
 
 // Diccionario con metadata rica por omisión
 const RICH_METADATA_MAP = {
@@ -76,10 +89,11 @@ const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutos
  * Convierte una ruta relativa de minijuego (ej. "./snake/") a la URL absoluta oficial de Link Games
  */
 function resolveGameUrl(relUrl, gameId) {
-  if (!relUrl) return `${LINK_GAMES_BASE_URL}${gameId}/`;
+  const baseUrl = getLinkGamesBaseUrl();
+  if (!relUrl) return `${baseUrl}${gameId}/`;
   if (relUrl.startsWith('http://') || relUrl.startsWith('https://')) return relUrl;
   const clean = relUrl.replace(/^\.\//, '').replace(/^\//, '');
-  return `${LINK_GAMES_BASE_URL}${clean}`;
+  return `${baseUrl}${clean}`;
 }
 
 function enrichGameMetadata(item) {
@@ -105,9 +119,9 @@ function enrichGameMetadata(item) {
 /**
  * Consulta el catálogo oficial de Link Games desde la web o caché
  */
-async function getGameCatalog() {
+async function getGameCatalog(forceRefresh = false) {
   const now = Date.now();
-  if (cachedCatalog && (now - lastFetchTime) < CACHE_TTL_MS) {
+  if (!forceRefresh && cachedCatalog && (now - lastFetchTime) < CACHE_TTL_MS) {
     return cachedCatalog;
   }
 
@@ -115,7 +129,8 @@ async function getGameCatalog() {
   const timer = setTimeout(() => controller.abort(), 8000);
 
   try {
-    const res = await fetch(GAMES_CATALOG_URL, { signal: controller.signal });
+    const catalogUrl = getGamesCatalogUrl();
+    const res = await fetch(catalogUrl, { signal: controller.signal });
     clearTimeout(timer);
 
     if (res.ok) {
@@ -140,7 +155,7 @@ async function getGameCatalog() {
  * game.list: Lista o busca minijuegos en el catálogo con metadata completa
  */
 async function listGames(params = {}) {
-  const catalog = await getGameCatalog();
+  const catalog = await getGameCatalog(params.refresh || false);
   const catFilter = (params.category || params.cat || '').trim().toLowerCase();
   const qFilter = (params.query || params.q || params.search || '').trim().toLowerCase();
 
@@ -189,7 +204,7 @@ async function listGames(params = {}) {
 async function launchGame(params = {}) {
   const rawId = (params.gameId || params.game_id || params.id || params.query || params.game || '').trim().toLowerCase();
 
-  const catalog = await getGameCatalog();
+  const catalog = await getGameCatalog(params.refresh || false);
 
   if (!rawId) {
     return {
@@ -264,9 +279,18 @@ async function launchGame(params = {}) {
   };
 }
 
+function clearGameCache() {
+  cachedCatalog = null;
+  lastFetchTime = 0;
+}
+
 module.exports = {
   getGameCatalog,
   listGames,
   launchGame,
-  LINK_GAMES_BASE_URL,
+  getLinkGamesBaseUrl,
+  clearGameCache,
+  get LINK_GAMES_BASE_URL() {
+    return getLinkGamesBaseUrl();
+  }
 };
