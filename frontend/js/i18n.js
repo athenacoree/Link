@@ -36,7 +36,7 @@ const DICCIONARIO_I18N = {
     tab_inicio: 'Inicio',
     tab_contactos: 'Contactos',
     tab_mensajes: 'Mensajes',
-    tab_ailab: 'IA Lab',
+    tab_ailab: 'Link Video',
     tab_ajustes: 'Ajustes',
 
     // Descubrir personas
@@ -157,7 +157,7 @@ const DICCIONARIO_I18N = {
     tab_inicio: 'Home',
     tab_contactos: 'Contacts',
     tab_mensajes: 'Messages',
-    tab_ailab: 'AI Lab',
+    tab_ailab: 'Link Video',
     tab_ajustes: 'Settings',
 
     // Discover People

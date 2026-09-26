@@ -3629,6 +3629,12 @@ window.addEventListener('touchstart', () => {
 /* ================= LINK GAMES — INTERFACE & POSTMESSAGE BRIDGE ================= */
 let vistaPreviaJuego = null;
 
+function abrirVideoStream(streamUrl, streamTitle) {
+  if (!streamUrl) return;
+  abrirJuego(streamUrl, streamTitle || 'Link Video', 'linkvideo');
+}
+window.abrirVideoStream = abrirVideoStream;
+
 function abrirJuego(gameUrl, gameName, gameId) {
   if (!gameUrl) return;
   const vistaJuego = $('vistaJuego');
