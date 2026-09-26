@@ -108,7 +108,7 @@ enlace/
    ```
    mongodb+srv://usuario:password@cluster0.xxxxx.mongodb.net/?retryWrites=true&w=majority
    ```
-6. Agrégale el nombre de la base al final, antes de los parámetros:
+6. Agráguele el nombre de la base al final, antes de los parámetros:
    ```
    mongodb+srv://usuario:password@cluster0.xxxxx.mongodb.net/enlace?retryWrites=true&w=majority
    ```
@@ -151,7 +151,50 @@ El frontend se sirve automáticamente desde el mismo servidor Express
 
 ---
 
-## 6. Cómo funcionan las llamadas (audio/video)
+## 6. Integración de QvaPay API V2 (Monetización)
+
+### Diagnóstico de la integración anterior
+
+La integración anterior presentaba problemas de compatibilidad con el esquema actual de **QvaPay API Playground V2**:
+
+1. **Esquema de Autenticación Incorrecto**:
+   - Anteriormente, la aplicación realizaba llamadas a QvaPay pasando credenciales mediante query parameters (`?app_id=...&app_secret=...`) o incluyéndolas en el payload JSON.
+   - La API V2 de QvaPay requiere estrictamente que `QVAPAY_APP_ID` y `QVAPAY_APP_SECRET` se transmitan mediante HTTP Headers (`app-id` y `app-secret`), y que el payload JSON contenga únicamente la información operativa.
+
+2. **Endpoints Desactualizados y Faltantes**:
+   - Varios endpoints estaban ausentes o utilizaban la URL base desactualizada (`https://qvapay.com/api/v2` en lugar de `https://api.qvapay.com/v2`).
+
+3. **Inseguridad y URL de Pago Inventadas**:
+   - Existían riesgos de exponer o registrar accidentalmente `QVAPAY_APP_SECRET`.
+   - Se contaba con fallbacks que generaban URLs sintéticas de pago (ej. `https://qvapay.com/pay/${remoteId}`) en lugar de requerir la URL real entregada por QvaPay API.
+
+---
+
+### Cambios Implementados y Endpoints Corregidos
+
+Se reestructuró `backend/services/qvapayService.js` creando un cliente HTTP centralizado (`qvapayRequest`) que garantiza:
+
+1. **Autenticación V2 por Headers**:
+   - Peticiones con `Content-Type: application/json`, `Accept: application/json`, `app-id`, y `app-secret`.
+   - Ninguna llamada envía `app_secret` en query strings, URLs o JSON bodies.
+   - Se sanitizan los mensajes de error para prevenir fugas de `QVAPAY_APP_SECRET`.
+
+2. **Endpoints Corregidos e Implementados**:
+   - `GET /v2/info` (`getInfo()`): Consulta la información de la aplicación/cuenta QvaPay.
+   - `GET /v2/balance` (`getBalance()`): Consulta el saldo disponible.
+   - `GET /v2/transactions` (`getTransactions(params)`): Consulta el historial de transacciones.
+   - `POST /v2/create_invoice` (`createInvoice(params)`): Crea facturas con `remote_id` único y valida la URL de pago real devuelta por QvaPay.
+   - `POST /v2/modify_invoice` (`modifyInvoice(params)`): Modifica facturas existentes.
+   - `POST /v2/charge` (`charge(params)`): Ejecuta cobros directos / autorizaciones de pago.
+   - `GET /v2/get_transaction/:id` (`getTransactionStatus(transactionId)`): Consulta y verifica el estado de una transacción.
+
+3. **Manejo Robusto de Errores e Idempotencia**:
+   - Procesa adecuadamente respuestas 400, 401, 403, 404, 409, 429, 5xx, timeouts (15s) y respuestas no-JSON.
+   - Webhooks en `/api/monetizacion/webhook/qvapay` verifican siempre la transacción directamente con el servidor de QvaPay V2 y aplican lógica idempotente (evita duplicidad de acreditaciones/beneficios).
+
+---
+
+## 7. Cómo funcionan las llamadas (audio/video)
 
 - Es **WebRTC real**: el audio/video viaja directo entre los dos
   navegadores (peer-to-peer), el servidor solo transporta la
@@ -173,7 +216,7 @@ El frontend se sirve automáticamente desde el mismo servidor Express
 
 ---
 
-## 7. Qué vive en cada base de datos (y por qué)
+## 8. Qué vive en cada base de datos (y por qué)
 
 - **PostgreSQL (Render)**: perfiles de usuario, imágenes en base64
   (avatar/portada/publicaciones/estados), amistades, notificaciones
@@ -184,7 +227,7 @@ El frontend se sirve automáticamente desde el mismo servidor Express
   a propósito para que la mensajería escale independiente de la base
   estructural.
 
-## 8. Migraciones no destructivas: cómo agregar una nueva
+## 9. Migraciones no destructivas: cómo agregar una nueva
 
 1. Crea un archivo nuevo en `backend/db/migrations/`, numerado después del
    último (ej. `003_algo_nuevo.sql`).
@@ -198,14 +241,14 @@ El frontend se sirve automáticamente desde el mismo servidor Express
 
 ---
 
-## 9. Limitaciones honestas del plan gratuito
+## 10. Limitaciones honestas del plan gratuito
 
 - Postgres free de Render tiene límite de almacenamiento (ideal para
   texto + imágenes livianas en base64, no para video ni archivos grandes).
 - El servicio web gratis "duerme" sin tráfico y tarda unos segundos en
   despertar.
 - MongoDB Atlas M0 tiene 512 MB — de sobra para empezar con mensajería.
-- WebRTC sin TURN puede fallar en redes muy restrictivas (ver sección 6).
+- WebRTC sin TURN puede fallar en redes muy restrictivas (ver sección 7).
 
 Con esto, la app que tenías en dos archivos HTML sueltos ahora es un
 servicio real: cuentas de verdad, gente real que puedes encontrar y
