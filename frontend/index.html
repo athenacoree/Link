@@ -185,119 +185,28 @@
     <div class="lista-conversaciones" id="listaConversaciones"></div>
   </main>
 
-  <!-- ---------- LABORATORIO IA ---------- -->
-  <main class="vista-app" id="vistaAilab" data-vista="ailab" style="display:none !important;">
-    <!-- SALA MULTIMEDIA COMPARTIDA Y EXPERIENCIA INTERACTIVA -->
-    <div class="ailab-experience-container" id="ailabExperienceContainer">
-      <div class="ailab-experience-header">
-        <div style="display:flex; align-items:center; gap:8px;">
-          <span class="ailab-experience-badge idle" id="ailabEventBadge">🧪 SALA PÚBLICA</span>
-          <span id="ailabEventTitle" style="font-weight:800; font-size:13px; color:#fff;">Experiencia Multimedia Sincronizada</span>
+  <!-- ---------- LINK VIDEO ---------- -->
+  <main class="vista-app" id="vistaAilab" data-vista="ailab">
+    <div style="padding:16px; max-width:1100px; margin:0 auto; width:100%;">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div style="width:40px; height:40px; border-radius:12px; background:linear-gradient(135deg, #8b5cf6, #6366f1); display:flex; align-items:center; justify-content:center; color:#fff;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+          </div>
+          <div>
+            <h2 style="font-size:20px; font-weight:800; color:var(--texto-900); margin:0;">Link Video</h2>
+            <div style="font-size:12px; color:var(--texto-500);">Streaming de Películas, Video y Audio en Directo</div>
+          </div>
         </div>
-        <div style="display:flex; gap:6px;">
-          <button class="btn btn-secundario mini-btn" onclick="AILab.abrirModalEventosDisponibles()" style="padding:4px 10px; font-size:11px; font-weight:700;">
-            📅 Eventos
-          </button>
-        </div>
+        <button class="btn btn-secundario mini-btn" onclick="LinkVideo.cargarCatalogo()" style="padding:6px 12px; font-size:12px; font-weight:700;">
+          🔄 Actualizar
+        </button>
       </div>
 
-      <!-- ESCENARIO DEL REPRODUCTOR SINCRONIZADO -->
-      <div class="ailab-experience-stage" id="ailabExperienceStage">
-        <!-- Reproductor de Video -->
-        <video id="ailabMediaVideo" class="ailab-media-player" playsinline style="display:none;"></video>
-
-        <!-- Reproductor de Audio -->
-        <audio id="ailabMediaAudio" style="display:none;"></audio>
-
-        <!-- Lector Progresivo de Libros y Textos -->
-        <div id="ailabBookReader" class="ailab-book-reader" style="display:none;">
-          <div id="ailabBookTextDisplay">Selecciona una experiencia multimedia para comenzar.</div>
-        </div>
-
-        <!-- Capas del Motor de Efectos Overlay (Client-Side Rendering) -->
-        <div class="ailab-fx-layer" id="ailabFxLayer"></div>
-        <div class="ailab-overlay-text" id="ailabOverlayText" style="display:none;"></div>
-        <div class="ailab-overlay-poll" id="ailabOverlayPoll" style="display:none;"></div>
-      </div>
-
-      <!-- Barra de Botones de Control Claras -->
-      <div class="ailab-experience-controls">
-        <button class="btn btn-primario mini-btn" id="btnEntrarExperiencia" onclick="AILab.entrarExperienciaActiva()" style="padding:6px 14px; font-size:12px; font-weight:800; border-radius:12px;">
-          🎬 Entrar a la Experiencia
-        </button>
-        <button class="btn btn-secundario mini-btn" id="btnSalirExperiencia" onclick="AILab.salirExperiencia()" style="padding:6px 14px; font-size:12px; font-weight:700; border-radius:12px; display:none;">
-          🚪 Salir
-        </button>
-        <button class="btn btn-secundario mini-btn" onclick="AILab.volverALabAI()" style="padding:6px 14px; font-size:12px; font-weight:700; border-radius:12px;">
-          🧪 Volver a Lab AI
-        </button>
+      <div id="linkVideoGrid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:16px;">
+        <!-- Catálogo renderizado dinámicamente -->
       </div>
     </div>
-
-    <div class="ailab-messenger-container">
-
-      <!-- Barra de Estado Dinámico de la IA -->
-      <div class="ailab-status-bar" id="ailabStatusBar" style="display:none;">
-        <div style="display:flex; align-items:center;">
-          <span class="ailab-status-pulse"></span>
-          <span id="ailabStatusText">Pensando...</span>
-        </div>
-        <button class="btn btn-secundario" id="ailabBtnStop" onclick="AILab.cancelGeneration()" style="padding:3px 10px; font-size:0.75rem; border-radius:12px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:middle; margin-right:4px;"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>Detener</button>
-      </div>
-
-      <!-- Feed principal de la Conversación -->
-      <div class="ailab-messages-feed" id="ailabChatMessages">
-        <!-- Mensajes renderizados dinámicamente -->
-      </div>
-
-      <!-- Botón flotante para bajar al último mensaje -->
-      <button id="ailabScrollBottomBtn" class="ailab-scroll-bottom-btn oculto" onclick="AILab.scrollToBottom()" title="Bajar al último mensaje" aria-label="Bajar al último mensaje">
-        ↓
-      </button>
-
-      <!-- Botón Flotante Discreto para abrir Compositor -->
-      <div class="ailab-fab-container">
-        <button class="ailab-fab-btn" id="ailabFabOpenComposer" onclick="AILab.openComposer()" title="Escribir a la IA" aria-label="Escribir a la IA">
-          <span class="ailab-fab-btn-icon">+</span>
-        </button>
-      </div>
-
-      <!-- Drawer / Bottom Sheet Compositor Desplegable -->
-      <div class="ailab-composer-overlay" id="ailabComposerOverlay" onclick="if(event.target===this) AILab.closeComposer()">
-        <div class="ailab-composer-sheet">
-          <div class="ailab-composer-header">
-            <span class="ailab-composer-title">Escribir mensaje</span>
-            <button class="ailab-composer-close" onclick="AILab.closeComposer()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-          </div>
-
-          <!-- Previsualización de archivos adjuntos -->
-          <div class="ailab-composer-attachments" id="ailabComposerAttachmentsList" style="display:none;">
-            <!-- Chips de adjuntos renderizados dinámicamente -->
-          </div>
-
-          <!-- Área de Texto del Mensaje -->
-          <textarea class="ailab-composer-textarea" id="ailabComposerInput" placeholder="Escribe tu mensaje..."></textarea>
-
-          <!-- Acciones e Insumos del Compositor -->
-          <div class="ailab-composer-actions">
-            <div style="display:flex; gap:6px;">
-              <button class="ailab-composer-tools-btn" onclick="document.getElementById('ailabFileInputImage').click()" title="Adjuntar Imagen">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-              </button>
-              <input type="file" id="ailabFileInputImage" accept="image/*" style="display:none">
-
-              <button class="ailab-composer-tools-btn" onclick="document.getElementById('ailabFileInputDoc').click()" title="Adjuntar Documento">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-              </button>
-              <input type="file" id="ailabFileInputDoc" accept=".pdf,.txt,.csv,.json,text/plain,application/pdf,application/json,text/csv" multiple style="display:none">
-            </div>
-
-            <div style="display:flex; gap:6px; align-items:center;">
-              <button class="btn btn-primario" id="ailabComposerBtnSend" onclick="AILab.sendMessageFromComposer()" style="border-radius:20px; padding:8px 16px; font-weight:800; display:inline-flex; align-items:center; justify-content:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   </main>
 
@@ -406,9 +315,9 @@
       <span>Mensajes</span>
       <div class="badge" id="badgeMensajes">0</div>
     </div>
-    <div class="tab" data-tab="ailab" style="display:none !important;">
-      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v7.58a2 2 0 0 1-.59 1.42L3.59 16.83A2 2 0 0 0 5 20.24h14a2 2 0 0 0 1.41-3.41l-5.82-5.83A2 2 0 0 1 14 9.58V2"/><path d="M8.5 2h7"/></svg>
-      <span>IA Lab</span>
+    <div class="tab" data-tab="ailab">
+      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+      <span>Link Video</span>
     </div>
     <div class="tab" data-tab="ajustes">
       <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
@@ -1818,6 +1727,7 @@
 <script src="/js/call.js"></script>
 <script src="/js/chat.js"></script>
 <script src="/js/features.js"></script>
+<script src="/js/linkvideo.js"></script>
 <script src="/js/ailab.js"></script>
 <script src="/js/monetization.js"></script>
 <script src="/js/app.js"></script>

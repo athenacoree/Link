@@ -34,6 +34,7 @@ const externalApis = require('./externalApis');
 const internalTools = require('./internalTools');
 const userActionTools = require('./userActionTools');
 const gameTool = require('./gameTool');
+const videoStreamTool = require('./videoStreamTool');
 
 async function getCapabilities(params = {}) {
   const gamesList = await gameTool.listGames({});
@@ -205,6 +206,8 @@ const tools = {
   'system.capabilities': (params) => getCapabilities(params),
   'game.list': (params) => gameTool.listGames(params),
   'game.launch': (params) => gameTool.launchGame(params),
+  'linkvideo.list': (params) => videoStreamTool.listStreams(params),
+  'linkvideo.launch': (params) => videoStreamTool.launchStream(params),
   'web.search': webSearch.search,
   'webcam.search': webcamSearch.search,
   'youtube.search': videoSearch.searchYouTube,
@@ -930,7 +933,7 @@ async function executeTool(name, params = {}, requesterId = null) {
   }
 
   try {
-    if (name === 'game.list' || name === 'game.launch') {
+    if (name === 'game.list' || name === 'game.launch' || name === 'linkvideo.list' || name === 'linkvideo.launch') {
       return await toolFn(params);
     }
     if (name === 'social.profile' || name === 'chat.preview' || name === 'user.edit_profile' || name === 'status.create' || name === 'status.delete' || name === 'friend.send_request' || name === 'system.payment_link') {

@@ -42,6 +42,7 @@ app.use('/api/admin', require('./routes/admin'));
 app.use('/api/anuncios', require('./routes/announcements'));
 app.use('/api/ai', require('./routes/ai'));
 app.use('/api/ailab', require('./routes/ailab'));
+app.use('/api/linkvideo', require('./routes/linkvideo'));
 app.use('/api/features', require('./routes/features'));
 app.use('/api/monetizacion', require('./routes/monetization'));
 app.use('/api/bridge', require('./routes/bridge'));
