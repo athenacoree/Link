@@ -302,20 +302,11 @@ const Chat = (() => {
     // 0a. Tarjeta de Lanzamiento de Minijuego (game_launch_card)
     if (t === 'game_launch_card') {
       const g = data;
-      const icons = {
-        tictactoe: '❌', connect4: '🟡', pong: '🏓', trivia: '🧠', memory: '🃏',
-        snake: '🐍', '2048': '🔢', flappy: '🐤', breakout: '🧱', wordle: '🔤',
-        minesweeper: '💣', simon: '🔴', sudoku: '🔢', spaceinvaders: '👾',
-        whackamole: '🔨', solitaire: '🎴', checkers: '⚪', hanoi: '🗼',
-        pacman: '👻', typing: '⌨️', towerstack: '🏗️', match3: '💎',
-        mathquiz: '➕', doodlejump: '🦘', lightsout: '💡', hangman: '🪢',
-        wordsearch: '🔠'
-      };
-      const icon = icons[g.game_id] || '🕹️';
+      const svgIcon = (g.icon && typeof g.icon === 'string' && g.icon.includes('<svg')) ? g.icon : obtenerIconoToolSVG('game_' + (g.game_id || g.id), 'juegos');
 
       return `<div style="margin-top:8px; padding:14px; background:var(--fondo-tarjeta, #1e293b); border:1.5px solid var(--morado-500, #8b5cf6); border-radius:16px; max-width:320px; color:#fff; box-shadow:0 4px 12px rgba(139,92,246,0.15);">
         <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
-          <div style="font-size:28px; background:rgba(139,92,246,0.2); width:46px; height:46px; border-radius:12px; display:flex; align-items:center; justify-content:center;">${icon}</div>
+          <div style="background:rgba(139,92,246,0.2); width:46px; height:46px; border-radius:12px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">${svgIcon}</div>
           <div style="flex:1; min-width:0;">
             <div style="font-weight:800; font-size:15px; color:#fff;">${meEscapar(g.name || 'Minijuego')}</div>
             <span style="font-size:10px; font-weight:700; background:var(--morado-600, #7c3aed); color:#fff; padding:2px 8px; border-radius:10px; text-transform:uppercase;">${meEscapar(g.category || 'Juego')}</span>
@@ -331,25 +322,21 @@ const Chat = (() => {
     // 0b. Tarjeta de Lista de Minijuegos (game_list_card)
     if (t === 'game_list_card') {
       const gamesList = toolResult.games || [];
-      const icons = {
-        tictactoe: '❌', connect4: '🟡', pong: '🏓', trivia: '🧠', memory: '🃏',
-        snake: '🐍', '2048': '🔢', flappy: '🐤', breakout: '🧱', wordle: '🔤',
-        minesweeper: '💣', simon: '🔴', sudoku: '🔢', spaceinvaders: '👾',
-        whackamole: '🔨', solitaire: '🎴', checkers: '⚪', hanoi: '🗼',
-        pacman: '👻', typing: '⌨️', towerstack: '🏗️', match3: '💎',
-        mathquiz: '➕', doodlejump: '🦘', lightsout: '💡', hangman: '🪢',
-        wordsearch: '🔠'
-      };
 
       return `<div style="margin-top:8px; padding:12px; background:var(--fondo-tarjeta, #1e293b); border:1.5px solid rgba(139,92,246,0.3); border-radius:16px; max-width:340px; color:#fff;">
         <div style="font-weight:800; font-size:14px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
-          <span>🎮 Minijuegos de Link Games (${gamesList.length})</span>
+          <span style="display:inline-flex; align-items:center; gap:6px;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2"><polygon points="6 2 18 2 18 6 6 6"/><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><circle cx="15" cy="11" r="1" fill="#a78bfa"/><circle cx="18" cy="13" r="1" fill="#a78bfa"/></svg>
+            Minijuegos de Link Games (${gamesList.length})
+          </span>
         </div>
         <div style="display:flex; flex-direction:column; gap:8px; max-height:220px; overflow-y:auto; padding-right:4px;">
-          ${gamesList.slice(0, 8).map(g => `
+          ${gamesList.slice(0, 10).map(g => {
+            const svgIcon = (g.icon && typeof g.icon === 'string' && g.icon.includes('<svg')) ? g.icon : obtenerIconoToolSVG('game_' + g.id, 'juegos');
+            return `
             <div style="display:flex; align-items:center; justify-content:space-between; padding:8px; background:rgba(255,255,255,0.05); border-radius:10px;">
               <div style="display:flex; align-items:center; gap:8px; min-width:0; flex:1;">
-                <span style="font-size:18px;">${icons[g.id] || '🕹️'}</span>
+                <div style="width:28px; height:28px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">${svgIcon}</div>
                 <div style="min-width:0;">
                   <div style="font-weight:700; font-size:12.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${meEscapar(g.name)}</div>
                   <div style="font-size:10px; opacity:0.7;">${meEscapar(g.category)}</div>
@@ -359,7 +346,8 @@ const Chat = (() => {
                 Jugar
               </button>
             </div>
-          `).join('')}
+            `;
+          }).join('')}
         </div>
       </div>`;
     }

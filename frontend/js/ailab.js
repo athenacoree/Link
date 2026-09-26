@@ -843,29 +843,26 @@ window.AILab = {
 
     if (type === 'game_list_card') {
       const gamesList = toolResult.games || [];
-      const icons = {
-        tictactoe: '❌', connect4: '🟡', pong: '🏓', trivia: '🧠', memory: '🃏',
-        snake: '🐍', '2048': '🔢', flappy: '🐤', breakout: '🧱', wordle: '🔤',
-        minesweeper: '💣', simon: '🔴', sudoku: '🔢', spaceinvaders: '👾',
-        whackamole: '🔨', solitaire: '🎴', checkers: '⚪', hanoi: '🗼',
-        pacman: '👻', typing: '⌨️', towerstack: '🏗️', match3: '💎',
-        mathquiz: '➕', doodlejump: '🦘', lightsout: '💡', hangman: '🪢',
-        wordsearch: '🔠'
-      };
 
       return `
         <div style="margin-top:8px; padding:12px; background:rgba(30,41,59,0.9); border:1.5px solid rgba(139,92,246,0.3); border-radius:14px; color:#fff;">
-          <div style="font-weight:800; font-size:13px; margin-bottom:8px;">🎮 Minijuegos de Link Games (${gamesList.length})</div>
+          <div style="font-weight:800; font-size:13px; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2"><polygon points="6 2 18 2 18 6 6 6"/><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><circle cx="15" cy="11" r="1" fill="#a78bfa"/><circle cx="18" cy="13" r="1" fill="#a78bfa"/></svg>
+            Minijuegos de Link Games (${gamesList.length})
+          </div>
           <div style="display:flex; flex-direction:column; gap:6px; max-height:200px; overflow-y:auto;">
-            ${gamesList.slice(0, 8).map(g => `
+            ${gamesList.slice(0, 10).map(g => {
+              const svgIcon = (g.icon && typeof g.icon === 'string' && g.icon.includes('<svg')) ? g.icon : `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2"><polygon points="6 2 18 2 18 6 6 6"/><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><circle cx="15" cy="11" r="1" fill="#a78bfa"/><circle cx="18" cy="13" r="1" fill="#a78bfa"/></svg>`;
+              return `
               <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 8px; background:rgba(255,255,255,0.05); border-radius:8px;">
-                <div style="display:flex; align-items:center; gap:6px; min-width:0; flex:1;">
-                  <span>${icons[g.id] || '🕹️'}</span>
+                <div style="display:flex; align-items:center; gap:8px; min-width:0; flex:1;">
+                  <div style="width:24px; height:24px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">${svgIcon}</div>
                   <span style="font-weight:700; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHTMLAILab(g.name)}</span>
                 </div>
                 <button class="btn btn-primario mini-btn" style="padding:3px 8px; font-size:11px;" onclick="if(window.abrirJuego) window.abrirJuego('${escapeHTMLAILab(g.url)}', '${escapeHTMLAILab(g.name)}', '${escapeHTMLAILab(g.id)}')">Jugar</button>
               </div>
-            `).join('')}
+              `;
+            }).join('')}
           </div>
         </div>
       `;
