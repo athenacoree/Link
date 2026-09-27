@@ -47,7 +47,7 @@ jobs:
           if [ -f "app/release.jks" ]; then
             echo "Keystore encontrada. Compilando APK Release firmada..."
             ./gradlew assembleRelease \
-              -Pandroid.injected.signing.store.file=app/release.jks \
+              -Pandroid.injected.signing.store.file="${{ github.workspace }}/android/enlace-bridge/app/release.jks" \
               -Pandroid.injected.signing.store.password="${KEYSTORE_PASSWORD}" \
               -Pandroid.injected.signing.key.alias="${KEY_ALIAS}" \
               -Pandroid.injected.signing.key.password="${KEY_PASSWORD}"
