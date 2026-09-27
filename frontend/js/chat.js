@@ -938,6 +938,94 @@ const Chat = (() => {
 
   function escapar(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
+  // ---- SISTEMA DE LECTURA DE MENSAJES EN VOZ ALTA (TTS NATIVO DE SISTEMA / ANDROID) ----
+  const TTS_STORAGE_KEY = 'enlace_tts_chats';
+
+  function obtenerEstadoVozAltaChat(chatId) {
+    if (!chatId) return false;
+    try {
+      const raw = localStorage.getItem(TTS_STORAGE_KEY);
+      const map = raw ? JSON.parse(raw) : {};
+      return !!map[chatId];
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function guardarEstadoVozAltaChat(chatId, activo) {
+    if (!chatId) return;
+    try {
+      const raw = localStorage.getItem(TTS_STORAGE_KEY);
+      const map = raw ? JSON.parse(raw) : {};
+      map[chatId] = !!activo;
+      localStorage.setItem(TTS_STORAGE_KEY, JSON.stringify(map));
+    } catch (e) {}
+  }
+
+  function hablarTexto(texto) {
+    if (!('speechSynthesis' in window)) return;
+    try {
+      window.speechSynthesis.cancel();
+      if (!texto) return;
+      // Limpiar texto de HTML y URLs para una pronunciación fluida
+      const textoLimpio = texto
+        .replace(/<[^>]*>?/gm, '')
+        .replace(/https?:\/\/\S+/gi, 'enlace web')
+        .trim();
+      if (!textoLimpio) return;
+
+      const utterance = new SpeechSynthesisUtterance(textoLimpio);
+      utterance.lang = 'es-ES';
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+      window.speechSynthesis.speak(utterance);
+    } catch (e) {
+      console.error('Error al reproducir texto en voz alta:', e);
+    }
+  }
+
+  function actualizarBotonVozAlta(activo) {
+    const btn = $('chatBtnVozAlta');
+    const icono = $('iconoVozAlta');
+    if (!btn || !icono) return;
+
+    if (activo) {
+      btn.classList.add('activo');
+      btn.title = 'Lectura en voz alta (Activada)';
+      icono.innerHTML = `
+        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+        <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+        <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+      `;
+    } else {
+      btn.classList.remove('activo');
+      btn.title = 'Lectura en voz alta (Desactivada)';
+      icono.innerHTML = `
+        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+        <line x1="23" y1="9" x2="17" y2="15"/>
+        <line x1="17" y1="9" x2="23" y2="15"/>
+      `;
+    }
+  }
+
+  function alternarVozAltaChat() {
+    if (!conversacionAbiertaCon) return;
+    const chatId = conversacionAbiertaCon.id;
+    const nuevoEstado = !obtenerEstadoVozAltaChat(chatId);
+    guardarEstadoVozAltaChat(chatId, nuevoEstado);
+    actualizarBotonVozAlta(nuevoEstado);
+
+    if (nuevoEstado) {
+      mostrarToast('🔊 Lectura en voz alta activada para este chat');
+      hablarTexto('Lectura en voz alta activada.');
+    } else {
+      mostrarToast('🔇 Lectura en voz alta desactivada');
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    }
+  }
+
   async function abrirConversacion(persona) {
     if (persona.id === 'link_ai' || persona.id === '00000000-0000-0000-0000-0000000000a1' || persona.is_ai) {
       persona = {
@@ -956,6 +1044,8 @@ const Chat = (() => {
     } else {
       $('chatEstadoLinea').textContent = persona.is_online ? 'En línea' : formatearUltimaVez(persona.last_seen);
     }
+
+    actualizarBotonVozAlta(obtenerEstadoVozAltaChat(persona.id));
 
     $('vistaChat').classList.add('activo');
 
@@ -1102,6 +1192,10 @@ const Chat = (() => {
           $('chatMensajes').appendChild(burbujaEl);
           $('chatMensajes').scrollTop = $('chatMensajes').scrollHeight;
           if (typeof cargarConversaciones === 'function') cargarConversaciones();
+
+          if (conversacionAbiertaCon && conversacionAbiertaCon.is_ai && obtenerEstadoVozAltaChat(conversacionAbiertaCon.id)) {
+            hablarTexto(aiReplyText);
+          }
         })
         .catch((err) => {
           const elWait = document.getElementById(loadingId);
@@ -1215,6 +1309,15 @@ const Chat = (() => {
         window.SonidosYVibracion.reproducirMensaje();
       }
       actualizarBadgeMensajes(true);
+    }
+
+    if (msg.senderId !== yo.id) {
+      const targetChatId = (conversacionAbiertaCon && conversationId(yo.id, conversacionAbiertaCon.id) === msg.conversationId)
+        ? conversacionAbiertaCon.id
+        : msg.senderId;
+      if (obtenerEstadoVozAltaChat(targetChatId)) {
+        hablarTexto(msg.text || 'Nuevo mensaje recibido');
+      }
     }
 
     if (msg.conversationId) {
@@ -1411,6 +1514,7 @@ const Chat = (() => {
       e.target.value = '';
     });
 
+    $('chatBtnVozAlta')?.addEventListener('click', alternarVozAltaChat);
     $('chatBtnGravaVoz')?.addEventListener('click', iniciarGrabacionVoz);
     $('chatBtnCancelarVoz')?.addEventListener('click', () => detenerGrabacionVoz(false));
     $('chatBtnEnviarVoz')?.addEventListener('click', () => detenerGrabacionVoz(true));
@@ -2044,7 +2148,7 @@ const Chat = (() => {
     abrirConversacion({ id: userId, name: userName });
   }
 
-  return { abrirConversacion, cerrarConversacion, enlazarUI, enlazarSocket, actualizarBadgeMensajes, alternarVelocidadAudio, alternarPanelUsuario, seleccionarEsteUsuario, abrirConversacionConId, cambiarCalidadVideo, enviarInvitacionCita, responderCita, enviarRespuestaDirectaEnChatCard, enviarSolicitudAmistadDirecta, abrirCategoriaCapabilities, volverACategoriasCapabilities, ejecutarHerramientaDesdeCard, renderCapabilitiesCard };
+  return { abrirConversacion, cerrarConversacion, enlazarUI, enlazarSocket, actualizarBadgeMensajes, alternarVelocidadAudio, alternarPanelUsuario, seleccionarEsteUsuario, abrirConversacionConId, cambiarCalidadVideo, enviarInvitacionCita, responderCita, enviarRespuestaDirectaEnChatCard, enviarSolicitudAmistadDirecta, abrirCategoriaCapabilities, volverACategoriasCapabilities, ejecutarHerramientaDesdeCard, renderCapabilitiesCard, hablarTexto, obtenerEstadoVozAltaChat, guardarEstadoVozAltaChat, alternarVozAltaChat };
 })();
 
 document.addEventListener('DOMContentLoaded', () => Chat.enlazarUI());
