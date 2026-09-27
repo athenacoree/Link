@@ -488,6 +488,169 @@ function inicializarCanvas3D(canvasId, shape = 'cube', hexColor = '#8b5cf6') {
   render();
 }
 
+let animFramePerfil3D = null;
+function inicializarPerfil3DWiggle(persona, canvasId = 'perfil3dWiggleCanvas') {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  if (animFramePerfil3D) {
+    cancelAnimationFrame(animFramePerfil3D);
+    animFramePerfil3D = null;
+  }
+
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width || 320;
+  canvas.height = rect.height || 160;
+
+  const views = parseInt(persona?.views_count || '5', 10);
+  const isHighRep = persona?.verified || views > 10;
+  const labelEl = document.getElementById('perfil3dFormaLabel');
+
+  let rotX = 0.4;
+  let rotY = 0.4;
+  let isDragging = false;
+  let lastMouseX = 0;
+  let lastMouseY = 0;
+  let time = 0;
+
+  // Generar geometría tridimensional con Wiggle
+  let baseVertices = [];
+  let shapeName = 'Malla Orgánica 3D Wiggle';
+
+  if (views % 3 === 0) {
+    shapeName = 'Torus Donut 3D Wiggle';
+    const R = 1.0; const r = 0.45;
+    const segmentsR = 12; const segmentsr = 8;
+    for (let i = 0; i < segmentsR; i++) {
+      const u = (i / segmentsR) * Math.PI * 2;
+      for (let j = 0; j < segmentsr; j++) {
+        const v = (j / segmentsr) * Math.PI * 2;
+        const x = (R + r * Math.cos(v)) * Math.cos(u);
+        const y = (R + r * Math.cos(v)) * Math.sin(u);
+        const z = r * Math.sin(v);
+        baseVertices.push({ x, y, z, origX: x, origY: y, origZ: z });
+      }
+    }
+  } else if (views % 2 === 0) {
+    shapeName = 'Geoda Esférica 3D';
+    const bands = 10;
+    for (let lat = 0; lat <= bands; lat++) {
+      const theta = (lat * Math.PI) / bands;
+      const sinT = Math.sin(theta); const cosT = Math.cos(theta);
+      for (let lon = 0; lon <= bands; lon++) {
+        const phi = (lon * 2 * Math.PI) / bands;
+        const x = sinT * Math.cos(phi);
+        const y = cosT;
+        const z = sinT * Math.sin(phi);
+        baseVertices.push({ x, y, z, origX: x, origY: y, origZ: z });
+      }
+    }
+  } else {
+    shapeName = 'Icosaedro Estelar 3D Wiggle';
+    const phi = (1 + Math.sqrt(5)) / 2;
+    baseVertices = [
+      { x: -1, y: phi, z: 0 }, { x: 1, y: phi, z: 0 }, { x: -1, y: -phi, z: 0 }, { x: 1, y: -phi, z: 0 },
+      { x: 0, y: -1, z: phi }, { x: 0, y: 1, z: phi }, { x: 0, y: -1, z: -phi }, { x: 0, y: 1, z: -phi },
+      { x: phi, y: 0, z: -1 }, { x: phi, y: 0, z: 1 }, { x: -phi, y: 0, z: -1 }, { x: -phi, y: 0, z: 1 }
+    ].map(v => ({ x: v.x * 0.7, y: v.y * 0.7, z: v.z * 0.7, origX: v.x * 0.7, origY: v.y * 0.7, origZ: v.z * 0.7 }));
+  }
+
+  if (labelEl) labelEl.textContent = shapeName;
+
+  const primaryColor = isHighRep ? '#10b981' : '#8b5cf6';
+
+  function render() {
+    time += 0.04;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+    const scale = Math.min(cx, cy) * 0.65;
+
+    if (!isDragging) {
+      rotY += 0.012;
+      rotX += 0.006;
+    }
+
+    // Aplicar deformación Wiggle 3D dinámica sobre vértices
+    const projected = baseVertices.map((v, i) => {
+      const wiggleWave = Math.sin(time * 2 + i * 0.5) * 0.15;
+      const wx = v.origX + v.origX * wiggleWave;
+      const wy = v.origY + v.origY * wiggleWave;
+      const wz = v.origZ + v.origZ * wiggleWave;
+
+      // Rotación X
+      let y1 = wy * Math.cos(rotX) - wz * Math.sin(rotX);
+      let z1 = wy * Math.sin(rotX) + wz * Math.cos(rotX);
+      // Rotación Y
+      let x2 = wx * Math.cos(rotY) + z1 * Math.sin(rotY);
+      let z2 = -wx * Math.sin(rotY) + z1 * Math.cos(rotY);
+
+      const fov = 3.5;
+      const pFactor = fov / (fov + z2 + 2);
+      return {
+        x: cx + x2 * scale * pFactor,
+        y: cy + y1 * scale * pFactor,
+        z: z2,
+        scale: pFactor
+      };
+    });
+
+    // Renderizar aristas/malla 3D Wiggle
+    ctx.lineWidth = 1.2;
+
+    for (let i = 0; i < projected.length; i++) {
+      const p1 = projected[i];
+      for (let j = i + 1; j < projected.length; j++) {
+        const p2 = projected[j];
+        const distSq = (p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2;
+        if (distSq < (scale * 0.75) ** 2) {
+          ctx.beginPath();
+          ctx.moveTo(p1.x, p1.y);
+          ctx.lineTo(p2.x, p2.y);
+          ctx.strokeStyle = `${primaryColor}${Math.floor((1 - distSq / ((scale * 0.75) ** 2)) * 85).toString(16).padStart(2, '0')}`;
+          ctx.stroke();
+        }
+      }
+    }
+
+    // Renderizar nodos 3D iluminados
+    projected.forEach(p => {
+      const r = Math.max(1.5, 3.5 * p.scale);
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+      ctx.fillStyle = primaryColor;
+      ctx.shadowBlur = 8;
+      ctx.shadowColor = primaryColor;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    });
+
+    animFramePerfil3D = requestAnimationFrame(render);
+  }
+
+  const startDrag = (x, y) => { isDragging = true; lastMouseX = x; lastMouseY = y; };
+  const moveDrag = (x, y) => {
+    if (!isDragging) return;
+    rotY += (x - lastMouseX) * 0.01;
+    rotX += (y - lastMouseY) * 0.01;
+    lastMouseX = x; lastMouseY = y;
+  };
+  const endDrag = () => { isDragging = false; };
+
+  canvas.onmousedown = (e) => startDrag(e.clientX, e.clientY);
+  window.onmouseup = endDrag;
+  canvas.onmousemove = (e) => moveDrag(e.clientX, e.clientY);
+
+  canvas.ontouchstart = (e) => { if (e.touches.length === 1) startDrag(e.touches[0].clientX, e.touches[0].clientY); };
+  canvas.ontouchmove = (e) => { if (e.touches.length === 1) moveDrag(e.touches[0].clientX, e.touches[0].clientY); };
+  canvas.ontouchend = endDrag;
+
+  render();
+}
+window.inicializarPerfil3DWiggle = inicializarPerfil3DWiggle;
 window.inicializarCanvas3D = inicializarCanvas3D;
 window.abrirVisorPDF = abrirVisorPDF;
 
@@ -2074,6 +2237,11 @@ async function abrirPerfil(personaId) {
     $('p-reputacion').innerHTML = chipReputacion(reputacion);
 
     if ($('p-stat-visitas')) $('p-stat-visitas').textContent = persona.views_count || 0;
+    setTimeout(() => {
+      if (typeof window.inicializarPerfil3DWiggle === 'function') {
+        window.inicializarPerfil3DWiggle(persona);
+      }
+    }, 100);
 
     const abrirEstadoDePerfil = async () => {
       try {

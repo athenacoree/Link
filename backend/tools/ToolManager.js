@@ -234,6 +234,72 @@ const tools = {
   'appointment.create': (params, requesterId) => userActionTools.createAppointment(params, requesterId),
   'reminder.create': (params, requesterId) => userActionTools.createReminder(params, requesterId),
 
+  // Buscar y ver perfil de usuario por Nombre Display
+  'user.view_profile': async (params, requesterId) => {
+    const rawQuery = (params.name || params.query || params.username || '').trim();
+    if (!rawQuery) {
+      return { error: 'Debes especificar el nombre de la persona que deseas buscar.' };
+    }
+
+    const { query } = require('../db/postgres');
+    const searchTerm = `%${rawQuery.toLowerCase()}%`;
+
+    try {
+      if (requesterId) {
+        const friendRes = await query(
+          `SELECT u.id, u.name, u.username, u.avatar_data, u.profession, u.city, u.country, u.verified
+           FROM friendships f
+           JOIN users u ON (f.friend_id = u.id OR f.user_id = u.id)
+           WHERE (f.user_id = $1 OR f.friend_id = $1)
+             AND f.status = 'accepted'
+             AND u.id != $1
+             AND LOWER(u.name) LIKE $2
+           LIMIT 1`,
+          [requesterId, searchTerm]
+        );
+
+        if (friendRes.rows.length > 0) {
+          const friend = friendRes.rows[0];
+          return {
+            type: 'user_profile_card',
+            source: 'amigos',
+            found_in_friends: true,
+            user: friend,
+            message: `Persona encontrada en tus amigos: ${friend.name}`
+          };
+        }
+      }
+
+      const globalRes = await query(
+        `SELECT id, name, username, avatar_data, profession, city, country, verified
+         FROM users
+         WHERE LOWER(name) LIKE $1 ${requesterId ? 'AND id != $2' : ''}
+         ORDER BY created_at DESC
+         LIMIT 1`,
+        requesterId ? [searchTerm, requesterId] : [searchTerm]
+      );
+
+      if (globalRes.rows.length > 0) {
+        const userFound = globalRes.rows[0];
+        return {
+          type: 'user_profile_card',
+          source: 'plataforma',
+          found_in_friends: false,
+          user: userFound,
+          message: `Persona encontrada en la plataforma: ${userFound.name}`
+        };
+      }
+
+      return {
+        type: 'user_profile_not_found',
+        query: rawQuery,
+        message: `No se encontró a ningún usuario llamado '${rawQuery}' en tus amigos ni en la plataforma.`
+      };
+    } catch (err) {
+      return { error: `Error al buscar el perfil: ${err.message}` };
+    }
+  },
+
   // Contenido Abierto, Videos, Fotos de Stock, Directos y Enlaces de Pago
   'youtube.live': (params) => externalApis.searchYouTubeLive(params.query || params.topic),
   'duckduckgo.search': (params) => externalApis.searchDuckDuckGo(params.query),
@@ -936,7 +1002,7 @@ async function executeTool(name, params = {}, requesterId = null) {
     if (name === 'game.list' || name === 'game.launch' || name === 'linkvideo.list' || name === 'linkvideo.launch') {
       return await toolFn(params);
     }
-    if (name === 'social.profile' || name === 'chat.preview' || name === 'user.edit_profile' || name === 'status.create' || name === 'status.delete' || name === 'friend.send_request' || name === 'system.payment_link') {
+    if (name === 'social.profile' || name === 'chat.preview' || name === 'user.edit_profile' || name === 'status.create' || name === 'status.delete' || name === 'friend.send_request' || name === 'system.payment_link' || name === 'user.view_profile') {
       return await toolFn(params, requesterId);
     }
     if (name === 'web.search' || name === 'webcam.search') {
@@ -975,11 +1041,27 @@ function detectToolIntent(text) {
   if (!text || typeof text !== 'string') return null;
   const lower = text.toLowerCase().trim();
 
+  // -3. Buscar y ver perfil de una persona por Nombre completo (Display Name)
+  if (
+    lower.includes('quiero ver el perfil de') || lower.includes('ver el perfil de') ||
+    lower.includes('ver perfil de') || lower.includes('muéstrame el perfil de') ||
+    lower.includes('muestrame el perfil de') || lower.includes('enseñame el perfil de') ||
+    lower.includes('abrir el perfil de') || lower.includes('necesito ver el perfil de') ||
+    lower.includes('puedo ver el perfil de') || lower.includes('ir al perfil de') ||
+    lower.includes('mostrar perfil de') || lower.includes('busca el perfil de') ||
+    lower.includes('abrir perfil de') || lower.includes('ver perfil de la persona')
+  ) {
+    const targetName = text.replace(/.*(?:perfil de la persona|perfil de|perfil del usuario|perfil)\s*/i, '').replace(/(\.|\?|!)+$/, '').trim();
+    return { tool: 'user.view_profile', params: { name: targetName } };
+  }
+
   // -2. Experiencias Multimedia e Eventos IA
   if (
     lower.includes('ver eventos multimedia') || lower.includes('eventos de lab ai') ||
     lower.includes('experiencias multimedia') || lower.includes('qué eventos hay') ||
-    lower.includes('que eventos hay') || lower.includes('lista de eventos')
+    lower.includes('que eventos hay') || lower.includes('lista de eventos') ||
+    lower.includes('ver experiencias') || lower.includes('eventos disponibles') ||
+    lower.includes('eventos en vivo') || lower.includes('ver los eventos')
   ) {
     return { tool: 'ailab.experience.list', params: {} };
   }
@@ -987,7 +1069,9 @@ function detectToolIntent(text) {
   if (
     lower.includes('abrir experiencia') || lower.includes('entrar al evento') ||
     lower.includes('unirse al evento') || lower.includes('ver la experiencia') ||
-    lower.includes('ver la película') || lower.includes('ver el video compartido')
+    lower.includes('ver la película') || lower.includes('ver el video compartido') ||
+    lower.includes('entrar a la experiencia') || lower.includes('abrir el evento') ||
+    lower.includes('unirse a la película') || lower.includes('ver transmisión de la experiencia')
   ) {
     return { tool: 'ailab.experience.open', params: {} };
   }
@@ -1003,7 +1087,8 @@ function detectToolIntent(text) {
     lower.includes('qué funciones tienes') || lower.includes('que funciones tienes') ||
     lower.includes('mis capacidades') || lower.includes('capacidades de link') ||
     lower.includes('tus capacidades') || lower.includes('qué capacidades tienes') ||
-    lower.includes('ver herramientas') || lower.includes('qué juegos tienes') || lower.includes('que juegos tienes')
+    lower.includes('ver herramientas') || lower.includes('qué juegos tienes') || lower.includes('que juegos tienes') ||
+    lower.includes('ayuda de herramientas') || lower.includes('opciones disponibles')
   ) {
     return { tool: 'system.capabilities', params: {} };
   }
@@ -1015,7 +1100,9 @@ function detectToolIntent(text) {
     lower.includes('ver juegos') || lower.includes('ver los juegos') ||
     lower.includes('catálogo de juegos') || lower.includes('catalogo de juegos') ||
     lower.includes('lista de juegos') || lower.includes('enseñame los juegos') ||
-    lower === 'juegos' || lower === 'minijuegos' || lower === 'juegos gratis'
+    lower === 'juegos' || lower === 'minijuegos' || lower === 'juegos gratis' ||
+    lower.includes('abrir minijuegos') || lower.includes('ver catálogo de minijuegos') ||
+    lower.includes('enseñame los minijuegos')
   ) {
     return { tool: 'game.list', params: {} };
   }

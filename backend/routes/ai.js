@@ -145,7 +145,7 @@ router.post('/chat', requireAuth, aiRateLimiter, async (req, res) => {
     let toolResult = docResult;
     let detectedIntent = null;
 
-    // Detectar intención explícita en lenguaje natural antes de invocar la IA
+    // Detectar intención explícita en lenguaje natural antes de invocar la IA y responder directamente sin pasar por Gemini
     if (!toolResult && userPrompt) {
       detectedIntent = ToolManager.detectToolIntent(userPrompt);
       if (detectedIntent && detectedIntent.tool) {
@@ -155,6 +155,60 @@ router.post('/chat', requireAuth, aiRateLimiter, async (req, res) => {
           console.error(`[AI Route] Error al ejecutar herramienta por intención '${detectedIntent.tool}':`, tErr);
           toolResult = { error: tErr.message };
         }
+
+        // Retorno directo sin invocar la API de Gemini (Bypass Gemini para intenciones locales)
+        let replyText = 'He procesado tu solicitud localmente en la plataforma.';
+        if (toolResult && toolResult.message) {
+          replyText = toolResult.message;
+        } else if (toolResult && toolResult.reply) {
+          replyText = toolResult.reply;
+        } else if (toolResult && toolResult.title) {
+          replyText = `Aquí tienes la opción solicitada: ${toolResult.title}`;
+        }
+
+        let aiMessageObj = null;
+        try {
+          const convId = conversationId(req.user.id, LINK_AI_UUID);
+          const rawUserPrompt = prompt || userPrompt || '';
+
+          await query(
+            `INSERT INTO messages (conversation_id, sender_id, receiver_id, text, delivered, read, created_at)
+             VALUES ($1, $2, $3, $4, true, true, now())`,
+            [convId, req.user.id, LINK_AI_UUID, rawUserPrompt]
+          );
+
+          const aiMsgRes = await query(
+            `INSERT INTO messages (conversation_id, sender_id, receiver_id, text, delivered, read, created_at)
+             VALUES ($1, $2, $3, $4, true, true, now())
+             RETURNING id, conversation_id AS "conversationId", sender_id AS "senderId", receiver_id AS "receiverId", text, delivered, read, created_at AS "createdAt"`,
+            [convId, LINK_AI_UUID, req.user.id, replyText]
+          );
+          aiMessageObj = aiMsgRes.rows[0];
+
+          const [userA, userB] = [req.user.id, LINK_AI_UUID].sort();
+          await query(
+            `INSERT INTO conversation_meta (id, user_a, user_b, last_message_at, last_message_preview)
+             VALUES ($1, $2, $3, now(), $4)
+             ON CONFLICT (id) DO UPDATE SET last_message_at = now(), last_message_preview = $4`,
+            [convId, userA, userB, replyText.slice(0, 150)]
+          );
+        } catch (e) {
+          console.warn('[AI Local Chat Save Error]', e.message);
+        }
+
+        return res.json({
+          available: true,
+          reply: replyText,
+          name: settings.ai_name || 'Link AI',
+          avatar: settings.ai_avatar || '',
+          model_used: 'local_intent_parser',
+          provider: 'local',
+          finish_reason: 'stop',
+          tool_result: toolResult,
+          executed_tools: [detectedIntent.tool],
+          continuations: 0,
+          ai_message: aiMessageObj,
+        });
       }
     }
 
@@ -172,8 +226,7 @@ router.post('/chat', requireAuth, aiRateLimiter, async (req, res) => {
     const rulesPrompt = `\n[Reglas del Asistente]:
 - Saludo según Horario: Activa actualmente la ${periodoDia.toUpperCase()} (${nowRealTime}). Si saludas, utiliza un saludo acorde ("¡Buenos días!", "¡Buenas tardes!" o "¡Buenas noches!").
 - PRIVACIDAD ESTRICTA: NUNCA revelas mensajes privados, conversaciones ni información confidencial.
-- Respuestas ajustadas: Mensajes normales y cortos por defecto para una conversación fluida.
-- REGLES OBLIGATORIA DE SENTIMIENTO/EMOCIÓN: En CADA respuesta que generes, DEBES incluir al inicio del mensaje una etiqueta de sentimiento con el formato exacto [EMOTION: tipo], donde tipo puede ser uno de: alegre, entusiasmado, curioso, pensativo, amigable, sorprendido, empatico o sereno (por ejemplo: "[EMOTION: alegre] ¡Hola! ¿En qué te puedo colaborar?").`;
+- Respuestas ajustadas: Mensajes normales y cortos por defecto para una conversación fluida.`;
 
     const fullSystemPrompt = `${settings.ai_personality}\n[Fecha y Hora en tiempo real]: ${nowRealTime}${userContextText}${rulesPrompt}`;
 
