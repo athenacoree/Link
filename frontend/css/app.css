@@ -171,7 +171,8 @@ img{max-width:100%;}
 .mini-btn.primario{background:linear-gradient(135deg,var(--morado-600),var(--morado-700)); color:#fff;}
 .mini-btn.secundario{background:var(--morado-100); color:var(--morado-700);}
 .acciones-tarjeta{display:flex; gap:6px; flex:0 0 auto;}
-.icono-btn{width:38px; height:38px; border-radius:50%; background:var(--morado-100); color:var(--morado-700); display:flex; align-items:center; justify-content:center; flex:0 0 auto;}
+.icono-btn{width:38px; height:38px; border-radius:50%; background:var(--morado-100); color:var(--morado-700); display:flex; align-items:center; justify-content:center; flex:0 0 auto; cursor:pointer; transition:all .15s ease;}
+.icono-btn.activo{background:var(--morado-600); color:#ffffff; box-shadow:0 2px 8px rgba(124,58,237,0.35);}
 .icono-btn.llamada-audio{background:#e6f8ef; color:var(--exito);}
 .icono-btn.llamada-video{background:#e9f1ff; color:#2563eb;}
 
