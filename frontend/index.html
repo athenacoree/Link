@@ -525,29 +525,18 @@
     <div class="stat-box"><div class="n" id="p-stat-amigos">—</div><div class="l">ESTADO DE AMISTAD</div></div>
   </div>
 
-  <!-- Tarjetas de métricas modernas con gráficos SVG -->
+  <!-- Tarjetas de métricas modernas con gráficos 3D Wiggle interactivo -->
   <div class="card-metricas-perfil" style="margin: 12px 20px; padding: 14px; background: var(--blanco); border: 1px solid var(--borde); border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
-    <div style="font-size: 12px; font-weight: 800; color: var(--morado-700); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
-      <span>📊 Métricas e Interacción de Perfil</span>
-      <span style="font-size: 10px; background: rgba(139, 92, 246, 0.1); color: var(--morado-600); padding: 2px 8px; border-radius: 10px;">En tiempo real</span>
+    <div style="font-size: 12px; font-weight: 800; color: var(--morado-700); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+      <span>🌀 Gráfico 3D Interactivo Wiggle (Perfil)</span>
+      <span style="font-size: 10px; background: rgba(139, 92, 246, 0.15); color: var(--morado-600); padding: 2px 8px; border-radius: 10px; font-weight:700;">3D Real - Arrastra para girar</span>
     </div>
-    <div style="display: flex; justify-content: space-between; align-items: flex-end; height: 50px; margin-top: 8px;">
-      <svg viewBox="0 0 300 60" style="width: 100%; height: 50px; overflow: visible;">
-        <defs>
-          <linearGradient id="gradMetrica" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stop-color="#8b5cf6" stop-opacity="0.4"/>
-            <stop offset="100%" stop-color="#8b5cf6" stop-opacity="0.0"/>
-          </linearGradient>
-        </defs>
-        <path d="M0,50 Q40,20 80,35 T160,15 T240,40 T300,10 L300,60 L0,60 Z" fill="url(#gradMetrica)"/>
-        <path d="M0,50 Q40,20 80,35 T160,15 T240,40 T300,10" fill="none" stroke="#8b5cf6" stroke-width="3"/>
-        <circle cx="80" cy="35" r="4" fill="#8b5cf6"/>
-        <circle cx="160" cy="15" r="4" fill="#8b5cf6"/>
-        <circle cx="300" cy="10" r="5" fill="#10b981"/>
-      </svg>
+    <div style="height: 160px; width: 100%; position: relative; border-radius: 12px; overflow: hidden; background: linear-gradient(135deg, #0f172a, #1e1b4b); box-shadow: inset 0 0 16px rgba(0,0,0,0.5);">
+      <canvas id="perfil3dWiggleCanvas" style="width: 100%; height: 100%; display: block; cursor: grab;"></canvas>
     </div>
-    <div style="display: flex; justify-content: space-between; font-size: 10.5px; opacity: 0.75; margin-top: 6px;">
-      <span>Lun</span><span>Mié</span><span>Vie</span><span>Dom</span><span>Hoy 🔥</span>
+    <div style="display: flex; justify-content: space-between; font-size: 10.5px; opacity: 0.85; margin-top: 8px; font-weight: 600;">
+      <span>💡 Arrastra con el dedo o cursor</span>
+      <span id="perfil3dFormaLabel" style="color: var(--morado-600); font-weight: 800;">Malla 3D Wiggle</span>
     </div>
   </div>
 

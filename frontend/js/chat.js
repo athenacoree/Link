@@ -595,6 +595,31 @@ const Chat = (() => {
       </div>`;
     }
 
+    // Tarjeta de Perfil Encontrado por Nombre (Amigos o Plataforma)
+    if ((t === 'user_profile_card' || data?.type === 'user_profile_card') && data?.user) {
+      const u = data.user;
+      const avatarUrl = u.avatar_data || avatarDe(u);
+      const isFriend = data.found_in_friends;
+      const sourceLabel = isFriend ? 'Amigo en Link ⭐' : 'Plataforma Link 🌐';
+      return `<div style="margin-top:8px; padding:12px; background:var(--fondo-tarjeta, #fff); border:1.5px solid var(--morado-500, #8b5cf6); border-radius:16px; max-width:300px; font-size:12px; box-shadow:0 4px 14px rgba(139,92,246,0.15);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <span style="font-weight:800; color:var(--morado-700); font-size:12px;">👤 Perfil Encontrado</span>
+          <span style="font-size:10px; background:${isFriend ? 'rgba(16,185,129,0.15)' : 'rgba(139,92,246,0.15)'}; color:${isFriend ? '#10b981' : '#8b5cf6'}; padding:2px 8px; border-radius:10px; font-weight:700;">${meEscapar(sourceLabel)}</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+          <img src="${meEscapar(avatarUrl)}" style="width:48px; height:48px; border-radius:50%; object-fit:cover; border:2px solid var(--morado-500, #8b5cf6);">
+          <div>
+            <div style="font-weight:800; font-size:14px; color:var(--texto-900);">${meEscapar(u.name)} ${u.verified ? '✓' : ''}</div>
+            <div style="font-size:11.5px; color:var(--texto-600);">@${meEscapar(u.username || 'usuario')}</div>
+            ${u.profession ? `<div style="font-size:11px; opacity:0.8; margin-top:2px;">${meEscapar(u.profession)}</div>` : ''}
+          </div>
+        </div>
+        <button class="mini-btn primario" style="width:100%; padding:8px; font-weight:800; font-size:12px; border-radius:10px; background:var(--morado-600); color:#fff; cursor:pointer;" onclick="window.abrirPerfil('${meEscapar(u.id)}')">
+          Ver perfil completo ↗
+        </button>
+      </div>`;
+    }
+
     // 8d. Gráficos 3D Interactivos, Wiggle y Figuras Tridimensionales
     if (t === '3d_graphics_card' || t === 'interactive_chart_3d') {
       const canvasId = 'canvas3d_' + Math.random().toString(36).substring(2, 9);
@@ -778,10 +803,15 @@ const Chat = (() => {
     return '';
   }
 
+  let outAnimIndex = 0;
+  let inAnimIndex = 0;
+
   function pintarBurbuja(msg, yoId) {
     const esMia = msg.senderId === yoId;
     const cont = document.createElement('div');
-    cont.className = `burbuja ${esMia ? 'mia' : 'suya'}`;
+    const animNum = esMia ? ((outAnimIndex++ % 20) + 1) : ((inAnimIndex++ % 20) + 1);
+    const animClass = esMia ? `msg-out-anim-${animNum}` : `msg-in-anim-${animNum}`;
+    cont.className = `burbuja ${esMia ? 'mia' : 'suya'} ${animClass}`;
     cont.dataset.id = msg.id;
 
     if (msg.deletedForAll) {
@@ -798,15 +828,7 @@ const Chat = (() => {
       </div>`;
     }
 
-    let textoAMostrar = msg.text || '';
-    if (textoAMostrar.includes('[EMOTION:')) {
-      const matchEmotion = textoAMostrar.match(/\[EMOTION:\s*([a-z_]+)\]/i);
-      if (matchEmotion) {
-        const emocionClase = matchEmotion[1].toLowerCase();
-        cont.classList.add(`msg-emocion-${emocionClase}`);
-        textoAMostrar = textoAMostrar.replace(/\[EMOTION:\s*[a-z_]+\]/gi, '').trim();
-      }
-    }
+    let textoAMostrar = (msg.text || '').replace(/\[EMOTION:\s*[a-z_]+\]/gi, '').trim();
 
     if (textoAMostrar && textoAMostrar.includes('[INVITACION_CITA:')) {
       const match = textoAMostrar.match(/\[INVITACION_CITA:([a-f0-9\-]+)\]/i);

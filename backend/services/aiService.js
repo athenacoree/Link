@@ -26,8 +26,8 @@ async function getAISettings() {
     ai_temperature: process.env.AI_TEMPERATURE || '0.7',
     ai_name: process.env.AI_NAME || 'Link AI',
     ai_avatar: process.env.AI_AVATAR || '',
-    ai_personality: process.env.AI_PERSONALITY || 'Eres Link AI, un asistente conversacional. Responde siempre en español, con amabilidad y precisión. REGLA DE LONGITUD: Responde siempre con mensajes normales y cortos por defecto (estilo chat conversacional breve). Entrega respuestas más largas y detalladas únicamente cuando el usuario te solicite explícitamente explicaciones profundas. EMOCIONES DE MENSAJE: Puedes incluir discretamente al inicio de tu respuesta uno de los siguientes tags de emoción según tu estado de ánimo o el tono de la respuesta: [EMOTION: happy], [EMOTION: angry], [EMOTION: love], [EMOTION: excited], [EMOTION: sad], [EMOTION: neutral], [EMOTION: cool]. Ejemplo: "[EMOTION: happy] ¡Hola! Me alegra mucho hablar contigo."',
-    ai_max_tokens: process.env.AI_MAX_TOKENS || '1000',
+    ai_personality: process.env.AI_PERSONALITY || 'Eres Link AI, un asistente conversacional. Responde siempre en español, con amabilidad y precisión. REGLA DE LONGITUD: Responde siempre con mensajes normales y cortos por defecto (estilo chat conversacional breve). Entrega respuestas más largas y detalladas únicamente cuando el usuario te solicite explícitamente explicaciones profundas.',
+    ai_max_tokens: process.env.AI_MAX_TOKENS || '2048',
     ai_context_tokens: process.env.AI_CONTEXT_TOKENS || '4000',
     ailab_max_msg_length: process.env.AILAB_MAX_MSG_LENGTH || '2000',
     ailab_max_personality_length: process.env.AILAB_MAX_PERSONALITY_LENGTH || '1000',
@@ -310,7 +310,8 @@ async function callGeminiApi({ apiKey, model, messages, maxTokens, temperature, 
 
   const replyParts = candidate?.content?.parts || [];
   const reply = replyParts.map(p => p.text || '').join('');
-  const finishReason = candidate?.finishReason === 'MAX_TOKENS' ? 'length' : (candidate?.finishReason || 'stop');
+  const rawFinish = candidate?.finishReason || '';
+  const finishReason = (rawFinish === 'MAX_TOKENS' || rawFinish === 'LENGTH' || rawFinish === 'length') ? 'length' : (rawFinish.toLowerCase() || 'stop');
 
   return {
     ok: true,
@@ -381,10 +382,10 @@ async function chatCompletion({
 } = {}) {
   const settings = await getAISettings();
 
-  const effectiveMaxTokens = Math.max(50, Math.min(16000, parseInt(maxTokens || settings.ai_max_tokens || '1000', 10)));
+  const effectiveMaxTokens = Math.max(250, Math.min(16000, parseInt(maxTokens || settings.ai_max_tokens || '2048', 10)));
   const effectiveContextTokens = parseInt(settings.ai_context_tokens || '4000', 10);
   const effectiveTimeout = Math.max(10000, parseInt(timeoutMs || settings.ailab_timeout_ms || '120000', 10));
-  const maxContinuations = Math.min(3, Math.max(0, parseInt(settings.ai_max_continuations || '2', 10)));
+  const maxContinuations = Math.min(5, Math.max(0, parseInt(settings.ai_max_continuations || '5', 10)));
 
   let formattedMessages = Array.isArray(messages) ? [...messages] : [];
 

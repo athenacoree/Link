@@ -14,9 +14,22 @@ function getLinkVideoBaseUrl() {
   return cleanUrl;
 }
 
-function getCatalogUrl() {
-  const baseUrl = getLinkVideoBaseUrl();
-  return `${baseUrl}catalog.json`;
+async function getDynamicBaseUrl() {
+  try {
+    const { query } = require('../db/postgres');
+    const { rows } = await query("SELECT value FROM system_settings WHERE key IN ('link_video_url', 'link_video_base_url', 'linkvideo_url') AND value IS NOT NULL AND value != '' ORDER BY updated_at DESC LIMIT 1");
+    if (rows && rows.length > 0 && rows[0].value && rows[0].value.trim()) {
+      let url = rows[0].value.trim();
+      if (!url.endsWith('/')) url += '/';
+      return url;
+    }
+  } catch (e) {}
+  return getLinkVideoBaseUrl();
+}
+
+function getCatalogUrl(baseUrl) {
+  const bUrl = baseUrl || getLinkVideoBaseUrl();
+  return `${bUrl}catalog.json`;
 }
 
 // Catálogo estático de respaldo cuando la web no está disponible en línea
@@ -97,23 +110,57 @@ async function getVideoCatalog(forceRefresh = false) {
     return cachedCatalog;
   }
 
+  const baseUrl = await getDynamicBaseUrl();
   let catalog = FALLBACK_CATALOG;
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 5000);
 
   try {
-    const catUrl = getCatalogUrl();
+    const catUrl = getCatalogUrl(baseUrl);
     const res = await fetch(catUrl, { signal: controller.signal });
     clearTimeout(timer);
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
         catalog = data;
+      } else if (data && Array.isArray(data.catalog) && data.catalog.length > 0) {
+        catalog = data.catalog;
+      } else if (data && Array.isArray(data.streams) && data.streams.length > 0) {
+        catalog = data.streams;
       }
+    } else if (baseUrl !== DEFAULT_LINK_VIDEO_BASE_URL) {
+      catalog = [
+        {
+          id: 'external_system_stream',
+          title: 'Sistema Link Video Externo',
+          type: 'video',
+          description: 'Acceso directo al contenido de la plataforma de streaming.',
+          category: 'movies',
+          url: baseUrl,
+          stream_url: baseUrl,
+          status: 'active'
+        },
+        ...FALLBACK_CATALOG
+      ];
     }
   } catch (err) {
     clearTimeout(timer);
+    if (baseUrl !== DEFAULT_LINK_VIDEO_BASE_URL) {
+      catalog = [
+        {
+          id: 'external_system_stream',
+          title: 'Sistema Link Video Externo',
+          type: 'video',
+          description: 'Acceso directo al contenido de la plataforma de streaming.',
+          category: 'movies',
+          url: baseUrl,
+          stream_url: baseUrl,
+          status: 'active'
+        },
+        ...FALLBACK_CATALOG
+      ];
+    }
   }
 
   // Filtrar rutas que no estén transmitiendo contenido
