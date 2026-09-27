@@ -130,15 +130,19 @@ async function api(path, { method = 'GET', body, sinAuth = false } = {}) {
 
   if (!res.ok) {
     if (res.status === 401 && !sinAuth) {
-      Sesion.cerrar();
-      const authScreen = document.getElementById('authScreen');
-      const appShell = document.getElementById('appShell');
-      if (authScreen && appShell) {
-        authScreen.classList.remove('oculto');
-        appShell.classList.add('oculto');
+      // Solo cerrar sesión si la ruta es de autenticación explícita del usuario
+      if (path.startsWith('/usuarios/me') || path.startsWith('/auth/check')) {
+        Sesion.cerrar();
+        const authScreen = document.getElementById('authScreen');
+        const appShell = document.getElementById('appShell');
+        if (authScreen && appShell) {
+          authScreen.classList.remove('oculto');
+          appShell.classList.add('oculto');
+        }
       }
     }
-    throw new Error(data.error || `Error ${res.status}`);
+    const msg = (typeof data.error === 'object' ? data.error?.message : data.error) || data.message || `Error ${res.status}`;
+    throw new Error(msg);
   }
   return data;
 }

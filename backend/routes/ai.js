@@ -230,29 +230,24 @@ router.post('/chat', requireAuth, aiRateLimiter, async (req, res) => {
 
     const fullSystemPrompt = `${settings.ai_personality}\n[Fecha y Hora en tiempo real]: ${nowRealTime}${userContextText}${rulesPrompt}`;
 
-    let inputMessages = [];
-    if (Array.isArray(messages) && messages.length > 0) {
-      inputMessages = [...messages];
-    } else {
-      inputMessages.push({ role: 'system', content: fullSystemPrompt });
-      // Cargar únicamente el último mensaje previo de la IA para un contexto mínimo y liviano
-      try {
-        const convId = conversationId(req.user.id, LINK_AI_UUID);
-        const { rows: historyRows } = await query(
-          `SELECT text FROM messages WHERE conversation_id = $1 AND sender_id = $2 ORDER BY created_at DESC LIMIT 1`,
-          [convId, LINK_AI_UUID]
-        );
-        if (historyRows.length > 0 && historyRows[0].text) {
-          inputMessages.push({
-            role: 'assistant',
-            content: historyRows[0].text
-          });
-        }
-      } catch (e) {
-        // Ignorar si falla lectura de historial
+    // Estricto contexto mínimo: solo enviar el mensaje del sistema, el único mensaje anterior de la IA si existe, y la pregunta actual del usuario
+    let inputMessages = [{ role: 'system', content: fullSystemPrompt }];
+    try {
+      const convId = conversationId(req.user.id, LINK_AI_UUID);
+      const { rows: historyRows } = await query(
+        `SELECT text FROM messages WHERE conversation_id = $1 AND sender_id = $2 ORDER BY created_at DESC LIMIT 1`,
+        [convId, LINK_AI_UUID]
+      );
+      if (historyRows.length > 0 && historyRows[0].text) {
+        inputMessages.push({
+          role: 'assistant',
+          content: historyRows[0].text
+        });
       }
-      inputMessages.push({ role: 'user', content: (userPrompt || 'Hola') + toolContextText });
+    } catch (e) {
+      // Ignorar si falla lectura de historial
     }
+    inputMessages.push({ role: 'user', content: (userPrompt || prompt || 'Hola') + toolContextText });
 
     if (messages && toolContextText && inputMessages.length > 0) {
       const lastMsg = { ...inputMessages[inputMessages.length - 1] };

@@ -27,7 +27,7 @@ async function getAISettings() {
     ai_name: process.env.AI_NAME || 'Link AI',
     ai_avatar: process.env.AI_AVATAR || '',
     ai_personality: process.env.AI_PERSONALITY || 'Eres Link AI, un asistente conversacional. Responde siempre en español, con amabilidad y precisión. REGLA DE LONGITUD: Responde siempre con mensajes normales y cortos por defecto (estilo chat conversacional breve). Entrega respuestas más largas y detalladas únicamente cuando el usuario te solicite explícitamente explicaciones profundas.',
-    ai_max_tokens: process.env.AI_MAX_TOKENS || '2048',
+    ai_max_tokens: process.env.AI_MAX_TOKENS || '1000',
     ai_context_tokens: process.env.AI_CONTEXT_TOKENS || '4000',
     ailab_max_msg_length: process.env.AILAB_MAX_MSG_LENGTH || '2000',
     ailab_max_personality_length: process.env.AILAB_MAX_PERSONALITY_LENGTH || '1000',
@@ -35,7 +35,7 @@ async function getAISettings() {
     ailab_max_history: process.env.AILAB_MAX_HISTORY || '10',
     ailab_timeout_ms: process.env.AI_TIMEOUT_MS || process.env.AILAB_TIMEOUT_MS || '120000',
     ailab_auto_interval_min: process.env.AILAB_AUTO_INTERVAL_MIN || '20',
-    ai_max_continuations: process.env.AI_MAX_CONTINUATIONS || '2',
+    ai_max_continuations: process.env.AI_MAX_CONTINUATIONS || '0',
   };
 
   try {
@@ -382,10 +382,10 @@ async function chatCompletion({
 } = {}) {
   const settings = await getAISettings();
 
-  const effectiveMaxTokens = Math.max(250, Math.min(16000, parseInt(maxTokens || settings.ai_max_tokens || '2048', 10)));
+  const effectiveMaxTokens = Math.max(250, Math.min(16000, parseInt(maxTokens || settings.ai_max_tokens || '1000', 10)));
   const effectiveContextTokens = parseInt(settings.ai_context_tokens || '4000', 10);
   const effectiveTimeout = Math.max(10000, parseInt(timeoutMs || settings.ailab_timeout_ms || '120000', 10));
-  const maxContinuations = Math.min(5, Math.max(0, parseInt(settings.ai_max_continuations || '5', 10)));
+  const maxContinuations = Math.min(5, Math.max(0, parseInt(settings.ai_max_continuations || '0', 10)));
 
   let formattedMessages = Array.isArray(messages) ? [...messages] : [];
 

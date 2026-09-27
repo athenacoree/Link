@@ -15,7 +15,7 @@ async function runLinkVideoTests() {
   delete process.env.LINK_STREAM_URL;
   delete process.env.LINK_VIDEO_BASE_URL;
 
-  assert.strictEqual(videoStreamTool.getLinkVideoBaseUrl(), 'https://athenacoree.github.io/link-video/');
+  assert.strictEqual(videoStreamTool.getLinkVideoBaseUrl(), 'https://streamhub-3303.onrender.com/');
 
   process.env.LINK_VIDEO_URL = 'https://mi-servidor-video.com/app';
   videoStreamTool.clearVideoCache();
