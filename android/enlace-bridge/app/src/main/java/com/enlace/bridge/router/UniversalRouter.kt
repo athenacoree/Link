@@ -49,20 +49,10 @@ class UniversalRouter(private val context: Context, private val identityManager:
             return null
         }
 
-        // 3. Validate path prefix is /app/
+        // 3. Validate path prefix is /app/ or / (dynamic web app routes)
         val path = targetUri.path ?: ""
-        if (!path.startsWith("/app/")) {
+        if (!path.startsWith("/app/") && path != "/app" && path != "/") {
             Log.w(TAG, "Ruta no pertenece a /app/: $path")
-            return null
-        }
-
-        // 4. Validate allowed commands
-        val segments = targetUri.pathSegments
-        if (segments.size < 2) return null // Must be at least ["app", "command"]
-        val command = segments[1].lowercase()
-
-        if (!ALLOWED_COMMANDS.contains(command)) {
-            Log.w(TAG, "Comando no permitido en ruta: $command")
             return null
         }
 
