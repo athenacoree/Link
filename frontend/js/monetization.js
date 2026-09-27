@@ -149,8 +149,9 @@ const Monetizacion = (() => {
           btnSol.disabled = true;
           btnSol.textContent = 'Generando factura QvaPay...';
           const res = await api('/monetizacion/verificacion/solicitar', { method: 'POST' });
-          if (res.checkout_url) {
-            window.open(res.checkout_url, '_blank');
+          const payUrl = res.checkout_url || res.transaccion?.qvapay_url;
+          if (payUrl) {
+            window.open(payUrl, '_blank') || (window.location.href = payUrl);
           }
           await renderSubTab();
         } catch (e) {
@@ -259,8 +260,9 @@ const Monetizacion = (() => {
           body: { username: usernameValido },
         });
 
-        if (res.checkout_url) {
-          window.open(res.checkout_url, '_blank');
+        const payUrl = res.checkout_url || res.transaccion?.qvapay_url;
+        if (payUrl) {
+          window.open(payUrl, '_blank') || (window.location.href = payUrl);
         }
         alert(`Iniciaste la compra de @${usernameValido}. Cuando el pago se confirme en QvaPay, tu usuario se actualizará automáticamente.`);
         await renderSubTab();
@@ -393,8 +395,9 @@ const Monetizacion = (() => {
           body: { title, description, button_text, destination_url, image_url, budget, duration_days },
         });
 
-        if (res.checkout_url) {
-          window.open(res.checkout_url, '_blank');
+        const payUrl = res.checkout_url || res.transaccion?.qvapay_url;
+        if (payUrl) {
+          window.open(payUrl, '_blank') || (window.location.href = payUrl);
         }
         await renderSubTab();
       } catch (e) {

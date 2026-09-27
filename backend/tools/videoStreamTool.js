@@ -3,7 +3,7 @@
  * Configurable por variable de entorno: LINK_VIDEO_URL, LINK_STREAM_URL o LINK_VIDEO_BASE_URL
  */
 
-const DEFAULT_LINK_VIDEO_BASE_URL = 'https://athenacoree.github.io/link-video/';
+const DEFAULT_LINK_VIDEO_BASE_URL = 'https://streamhub-3303.onrender.com/';
 
 function getLinkVideoBaseUrl() {
   const envUrl = process.env.LINK_VIDEO_URL || process.env.LINK_STREAM_URL || process.env.LINK_VIDEO_BASE_URL || DEFAULT_LINK_VIDEO_BASE_URL;

@@ -806,12 +806,12 @@ const Chat = (() => {
   let outAnimIndex = 0;
   let inAnimIndex = 0;
 
-  function pintarBurbuja(msg, yoId) {
+  function pintarBurbuja(msg, yoId, esHistorico = false) {
     const esMia = msg.senderId === yoId;
     const cont = document.createElement('div');
     const animNum = esMia ? ((outAnimIndex++ % 20) + 1) : ((inAnimIndex++ % 20) + 1);
-    const animClass = esMia ? `msg-out-anim-${animNum}` : `msg-in-anim-${animNum}`;
-    cont.className = `burbuja ${esMia ? 'mia' : 'suya'} ${animClass}`;
+    const animClass = esHistorico ? '' : (esMia ? `msg-out-anim-${animNum}` : `msg-in-anim-${animNum}`);
+    cont.className = `burbuja ${esMia ? 'mia' : 'suya'} ${animClass}`.trim();
     cont.dataset.id = msg.id;
 
     if (msg.deletedForAll) {
@@ -822,8 +822,11 @@ const Chat = (() => {
     let html = '';
 
     if (msg.replyTo) {
-      html += `<div class="burbuja-reply-box" style="border-left:3px solid var(--morado-600); padding:3px 6px; margin-bottom:4px; font-size:11.5px; opacity:0.85; background:rgba(0,0,0,0.05); border-radius:4px;">
-        <div style="font-weight:700;">${msg.replyTo.senderId === yoId ? 'Tú' : (conversacionAbiertaCon?.name || 'Contacto')}</div>
+      const isGolden = msg.replyTo.isThread || msg.isThread;
+      const borderCol = isGolden ? '#ffd700' : 'var(--morado-600)';
+      const threadBadge = isGolden ? ' 🧵 <span style="color:#d97706; font-weight:800;">[Hilo dorado]</span>' : '';
+      html += `<div class="burbuja-reply-box" style="border-left:3.5px solid ${borderCol}; padding:4px 8px; margin-bottom:6px; font-size:11.5px; opacity:0.95; background:rgba(255,215,0,0.08); border-radius:6px; position:relative;">
+        <div style="font-weight:700;">${msg.replyTo.senderId === yoId ? 'Tú' : (conversacionAbiertaCon?.name || 'Contacto')}${threadBadge}</div>
         <div style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapar(msg.replyTo.text || (msg.replyTo.imageData ? 'Foto' : msg.replyTo.audioData ? 'Nota de voz' : ''))}</div>
       </div>`;
     }
@@ -964,7 +967,7 @@ const Chat = (() => {
     const cachedMsgs = await LocalStore.obtenerLista('mensajes', cacheKey);
     if (cachedMsgs && cachedMsgs.length) {
       $('chatMensajes').innerHTML = '';
-      cachedMsgs.forEach((m) => $('chatMensajes').appendChild(pintarBurbuja(m, yo.id)));
+      cachedMsgs.forEach((m) => $('chatMensajes').appendChild(pintarBurbuja(m, yo.id, true)));
       $('chatMensajes').scrollTop = $('chatMensajes').scrollHeight;
     } else {
       $('chatMensajes').innerHTML = '<div class="aviso-vacio">Cargando conversación…</div>';
@@ -985,7 +988,7 @@ const Chat = (() => {
           $('chatMensajes').innerHTML = '<div class="aviso-vacio">Todavía no tienen mensajes. ¡Saluda!</div>';
         }
       } else {
-        mensajes.forEach((m) => $('chatMensajes').appendChild(pintarBurbuja(m, yo.id)));
+        mensajes.forEach((m) => $('chatMensajes').appendChild(pintarBurbuja(m, yo.id, true)));
         $('chatMensajes').scrollTop = $('chatMensajes').scrollHeight;
 
         if (!persona.is_ai) {
@@ -1165,8 +1168,26 @@ const Chat = (() => {
     $('chatReplyPreview').classList.add('oculto');
   }
 
+  let esHiloDorado = false;
+
+  function iniciarHiloDorado(msg) {
+    const threadCount = (msg.threadCount || 0) + 1;
+    if (threadCount > 2) {
+      mostrarToast('Solo se permite seguir un mensaje con hasta dos hilos seguidos.');
+      return;
+    }
+    mensajeRespondiendo = { ...msg, isThread: true, threadCount };
+    esHiloDorado = true;
+    const yo = Sesion.usuario();
+    $('chatReplyNombre').textContent = `🧵 Hilo dorado desde mensaje de ${msg.senderId === yo.id ? 'ti mismo' : (conversacionAbiertaCon?.name || 'Contacto')}`;
+    $('chatReplyTexto').textContent = msg.text || (msg.imageData ? 'Foto' : msg.audioData ? 'Nota de voz' : '');
+    $('chatReplyPreview').classList.remove('oculto');
+    $('chatInputTexto').focus();
+  }
+
   function iniciarRespuesta(msg) {
     mensajeRespondiendo = msg;
+    esHiloDorado = false;
     const yo = Sesion.usuario();
     $('chatReplyNombre').textContent = `Respondiendo a ${msg.senderId === yo.id ? 'ti mismo' : conversacionAbiertaCon.name}`;
     $('chatReplyTexto').textContent = msg.text || (msg.imageData ? 'Foto' : msg.audioData ? 'Nota de voz' : '');
@@ -1423,6 +1444,10 @@ const Chat = (() => {
       }
     });
     $('veloMensajeOp')?.addEventListener('click', cerrarMenuMensaje);
+    $('opMsgCrearHilo')?.addEventListener('click', () => {
+      cerrarMenuMensaje();
+      if (mensajeSeleccionado) iniciarHiloDorado(mensajeSeleccionado);
+    });
     $('opMsgResponder')?.addEventListener('click', () => {
       cerrarMenuMensaje();
       if (mensajeSeleccionado) iniciarRespuesta(mensajeSeleccionado);
