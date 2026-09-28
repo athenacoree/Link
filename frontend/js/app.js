@@ -1275,8 +1275,9 @@ function cambiarVista(nombre) {
     cargarConversaciones();
   }
   if (nombre === 'ailab') {
-    // AI Lab esta deshabilitado
-    cambiarVista('inicio');
+    if (window.LinkVideo) {
+      window.LinkVideo.init();
+    }
   }
 }
 

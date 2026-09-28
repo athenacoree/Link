@@ -3,7 +3,7 @@ const videoStreamTool = require('../tools/videoStreamTool');
 const linkVideoService = require('../services/linkVideoService');
 
 async function runLinkVideoTests() {
-  console.log('=== INICIANDO PRUEBAS DE INTEGRACIÓN DE LINK VIDEO ===\n');
+  console.log('=== INICIANDO PRUEBAS DE INTEGRACIÓN DE LINK VIDEO Y LINK LIVE ===\n');
 
   // 1. Probando getLinkVideoBaseUrl() con variables de entorno
   console.log('1. Probando getLinkVideoBaseUrl() y precedencia de variables de entorno...');
@@ -90,8 +90,66 @@ async function runLinkVideoTests() {
   assert.ok(launchRes.data.url, 'Debe incluir la URL de la transmisión');
   console.log('   ✅ Herramienta linkvideo.launch ejecutada correctamente.');
 
+  // 5. Probando creación de Sesión Live Persistente
+  console.log('5. Probando creación de transmisión persistente Link Live...');
+  const testHostId = '00000000-0000-0000-0000-000000000001';
+  const liveSession = await linkVideoService.createLiveSession({
+    hostId: testHostId,
+    hostName: 'Streamer Test',
+    title: 'Live de Prueba Persistente',
+    description: 'Probando reconexión inteligente e intermisión',
+    category: 'general'
+  });
+
+  assert.ok(liveSession && liveSession.id, 'Debe retornar un objeto de sesión con ID único');
+  assert.strictEqual(liveSession.status, 'LIVE', 'El estado inicial debe ser LIVE');
+  console.log('   ✅ Sesión Live creada con ID único:', liveSession.id);
+
+  // 6. Probando estados de Reconexión e Intermisión
+  console.log('6. Probando ciclo de reconexión y transiciones de estado (LIVE -> RECONNECTING -> INTERMISSION -> RECONNECTED)...');
+  await linkVideoService.updateLiveStatus(liveSession.id, 'RECONNECTING');
+  let fetchedSession = await linkVideoService.getLiveSessionById(liveSession.id);
+  assert.strictEqual(fetchedSession.status, 'RECONNECTING', 'Estado debe actualizarse a RECONNECTING');
+
+  await linkVideoService.updateLiveStatus(liveSession.id, 'INTERMISSION');
+  fetchedSession = await linkVideoService.getLiveSessionById(liveSession.id);
+  assert.strictEqual(fetchedSession.status, 'INTERMISSION', 'Estado debe pasar a INTERMISSION');
+
+  const reconnectedSession = await linkVideoService.reconnectLiveSession(liveSession.id, testHostId);
+  assert.strictEqual(reconnectedSession.status, 'RECONNECTED', 'Reconexión del streamer debe restaurar a RECONNECTED');
+  console.log('   ✅ Flujo de reconexión inteligente e intermisión validado.');
+
+  // 7. Probando Heartbeat y Limpieza por Timeout
+  console.log('7. Probando Heartbeat y Limpieza automática de transmisiones abandonadas...');
+  const hbRes = await linkVideoService.updateLiveHeartbeat(liveSession.id, testHostId, 'LIVE');
+  assert.ok(hbRes, 'Heartbeat debe responder con sesión actualizada');
+
+  // Crear una sesión antigua y probar cleanup
+  const oldSession = await linkVideoService.createLiveSession({
+    hostId: testHostId,
+    title: 'Live Abandonado'
+  });
+  await linkVideoService.updateLiveStatus(oldSession.id, 'LIVE');
+
+  // Forzar last_heartbeat antiguo en memoria
+  const memorySession = await linkVideoService.getLiveSessionById(oldSession.id);
+  memorySession.lastHeartbeat = new Date(Date.now() - 1000000).toISOString();
+
+  await linkVideoService.cleanupAbandonedSessions(180);
+  const checkedOldSession = await linkVideoService.getLiveSessionById(oldSession.id);
+  assert.strictEqual(checkedOldSession.status, 'ENDED', 'Sesión abandonada sin heartbeat debe pasar a ENDED');
+  console.log('   ✅ Heartbeat y limpieza por timeout comprobados.');
+
+  // 8. Probando Finalización Voluntaria
+  console.log('8. Probando finalización explícita de transmisión...');
+  const endRes = await linkVideoService.endLiveSession(liveSession.id, testHostId);
+  assert.strictEqual(endRes.status, 'ENDED');
+  const checkedEndedSession = await linkVideoService.getLiveSessionById(liveSession.id);
+  assert.strictEqual(checkedEndedSession.status, 'ENDED');
+  console.log('   ✅ Finalización explícita validada.');
+
   global.fetch = origFetch;
-  console.log('\n=== TODAS LAS PRUEBAS DE LINK VIDEO PASARON EXITOSAMENTE ===\n');
+  console.log('\n=== TODAS LAS PRUEBAS DE LINK VIDEO Y LINK LIVE PASARON EXITOSAMENTE ===\n');
 }
 
 runLinkVideoTests().catch(err => {
