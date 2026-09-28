@@ -3,6 +3,7 @@ const { query } = require('../db/postgres');
 const { setIO, registerSocket, unregisterSocket, isOnline, emitToUser } = require('../utils/realtime');
 const { registrarSenal } = require('../utils/recomendaciones');
 const { initAILabBackgroundJobs } = require('../services/aiLabService');
+const linkVideoService = require('../services/linkVideoService');
 
 function conversationId(a, b) {
   return [a, b].sort().join('_');
@@ -16,9 +17,17 @@ async function hayBloqueoEntre(a, b) {
   return rows[0].hay;
 }
 
+// Registro de temporizadores de desconexión por sesión activa de streamer
+const liveHostDisconnectTimers = new Map();
+
 function initSockets(io) {
   setIO(io);
   initAILabBackgroundJobs(io);
+
+  // Intervalo de limpieza periódica de transmisiones abandonadas
+  setInterval(() => {
+    linkVideoService.cleanupAbandonedSessions(180).catch(() => {});
+  }, 30000);
 
   io.use((socket, next) => {
     try {
@@ -39,6 +48,155 @@ function initSockets(io) {
 
     await query('UPDATE users SET is_online=true WHERE id=$1', [userId]).catch(() => {});
     broadcastPresencia(io, userId, true);
+
+    // ---------------- LINK LIVE / LINK VIDEO PERSISTENTE ----------------
+    socket.on('live:join', async ({ sessionId }) => {
+      if (!sessionId) return;
+      socket.join(`room:live:${sessionId}`);
+      socket.activeLiveSessionId = sessionId;
+      await linkVideoService.updateViewerCount(sessionId, 1);
+      const session = await linkVideoService.getLiveSessionById(sessionId);
+      if (session) {
+        io.to(`room:live:${sessionId}`).emit('live:viewer_count', {
+          sessionId,
+          viewerCount: session.viewerCount || 0
+        });
+        socket.emit('live:status_changed', {
+          sessionId,
+          status: session.status,
+          session
+        });
+      }
+    });
+
+    socket.on('live:leave', async ({ sessionId }) => {
+      if (!sessionId) return;
+      socket.leave(`room:live:${sessionId}`);
+      delete socket.activeLiveSessionId;
+      await linkVideoService.updateViewerCount(sessionId, -1);
+      const session = await linkVideoService.getLiveSessionById(sessionId);
+      if (session) {
+        io.to(`room:live:${sessionId}`).emit('live:viewer_count', {
+          sessionId,
+          viewerCount: session.viewerCount || 0
+        });
+      }
+    });
+
+    socket.on('live:heartbeat', async ({ sessionId, isHost }) => {
+      if (!sessionId) return;
+      try {
+        if (isHost) {
+          socket.isLiveHost = true;
+          socket.liveHostSessionId = sessionId;
+
+          // Si había temporizadores de desconexión pendientes para este streamer, cancelarlos
+          if (liveHostDisconnectTimers.has(sessionId)) {
+            const timers = liveHostDisconnectTimers.get(sessionId);
+            clearTimeout(timers.reconnectingTimer);
+            clearTimeout(timers.intermissionTimer);
+            liveHostDisconnectTimers.delete(sessionId);
+          }
+        }
+        const updated = await linkVideoService.updateLiveHeartbeat(sessionId, userId);
+        if (updated) {
+          io.to(`room:live:${sessionId}`).emit('live:heartbeat_ack', {
+            sessionId,
+            status: updated.status,
+            lastHeartbeat: updated.lastHeartbeat
+          });
+        }
+      } catch (err) {
+        console.error('[live:heartbeat] error:', err.message);
+      }
+    });
+
+    socket.on('live:reconnect', async ({ sessionId }) => {
+      if (!sessionId) return;
+      try {
+        socket.isLiveHost = true;
+        socket.liveHostSessionId = sessionId;
+        socket.join(`room:live:${sessionId}`);
+
+        // Cancelar temporizadores de desconexión
+        if (liveHostDisconnectTimers.has(sessionId)) {
+          const timers = liveHostDisconnectTimers.get(sessionId);
+          clearTimeout(timers.reconnectingTimer);
+          clearTimeout(timers.intermissionTimer);
+          liveHostDisconnectTimers.delete(sessionId);
+        }
+
+        const session = await linkVideoService.reconnectLiveSession(sessionId, userId);
+        io.to(`room:live:${sessionId}`).emit('live:status_changed', {
+          sessionId,
+          status: 'RECONNECTED',
+          session
+        });
+
+        // Transición a LIVE de nuevo
+        setTimeout(async () => {
+          await linkVideoService.updateLiveStatus(sessionId, 'LIVE');
+          io.to(`room:live:${sessionId}`).emit('live:status_changed', {
+            sessionId,
+            status: 'LIVE',
+            session: await linkVideoService.getLiveSessionById(sessionId)
+          });
+        }, 1200);
+      } catch (err) {
+        socket.emit('live:error', { sessionId, message: err.message });
+      }
+    });
+
+    socket.on('live:status_changed', async ({ sessionId, status }) => {
+      if (!sessionId || !status) return;
+      await linkVideoService.updateLiveStatus(sessionId, status);
+      const session = await linkVideoService.getLiveSessionById(sessionId);
+      io.to(`room:live:${sessionId}`).emit('live:status_changed', {
+        sessionId,
+        status,
+        session
+      });
+    });
+
+    socket.on('live:end', async ({ sessionId }) => {
+      if (!sessionId) return;
+      if (liveHostDisconnectTimers.has(sessionId)) {
+        const timers = liveHostDisconnectTimers.get(sessionId);
+        clearTimeout(timers.reconnectingTimer);
+        clearTimeout(timers.intermissionTimer);
+        liveHostDisconnectTimers.delete(sessionId);
+      }
+      await linkVideoService.endLiveSession(sessionId, userId);
+      io.to(`room:live:${sessionId}`).emit('live:status_changed', {
+        sessionId,
+        status: 'ENDED'
+      });
+    });
+
+    // Señalización WebRTC para transmisiones en vivo (Live Transport decoupled from session ID)
+    socket.on('live:offer', ({ sessionId, sdp, targetSocketId }) => {
+      if (targetSocketId) {
+        io.to(targetSocketId).emit('live:offer', { sessionId, sdp, senderSocketId: socket.id });
+      } else {
+        socket.to(`room:live:${sessionId}`).emit('live:offer', { sessionId, sdp, senderSocketId: socket.id });
+      }
+    });
+
+    socket.on('live:answer', ({ sessionId, sdp, targetSocketId }) => {
+      if (targetSocketId) {
+        io.to(targetSocketId).emit('live:answer', { sessionId, sdp, senderSocketId: socket.id });
+      } else {
+        socket.to(`room:live:${sessionId}`).emit('live:answer', { sessionId, sdp, senderSocketId: socket.id });
+      }
+    });
+
+    socket.on('live:ice_candidate', ({ sessionId, candidate, targetSocketId }) => {
+      if (targetSocketId) {
+        io.to(targetSocketId).emit('live:ice_candidate', { sessionId, candidate, senderSocketId: socket.id });
+      } else {
+        socket.to(`room:live:${sessionId}`).emit('live:ice_candidate', { sessionId, candidate, senderSocketId: socket.id });
+      }
+    });
 
     // ---------------- SALA GLOBAL DE LABORATORIO IA ----------------
     socket.on('ailab:unirse', () => {
@@ -113,7 +271,6 @@ function initSockets(io) {
         if (text && (text.includes('@ai') || text.includes('@LinkAI') || text.includes('@linkai'))) {
           const LINK_AI_UUID = '00000000-0000-0000-0000-0000000000a1';
           const { chatCompletion } = require('../services/aiService');
-          const ToolManager = require('../tools/ToolManager');
 
           setTimeout(async () => {
             try {
@@ -139,7 +296,6 @@ function initSockets(io) {
               );
               const aiDoc = aiRows[0];
               aiDoc.isAiMentionCard = true;
-              aiDoc.tool_result = toolRes;
 
               emitToUser(userId, 'mensaje:nuevo', aiDoc);
               emitToUser(receiverId, 'mensaje:nuevo', aiDoc);
@@ -297,6 +453,35 @@ function initSockets(io) {
 
     // ---------------- DESCONEXIÓN ----------------
     socket.on('disconnect', async () => {
+      // Manejo de desconexión del host de una transmisión en vivo con período de gracia
+      if (socket.isLiveHost && socket.liveHostSessionId) {
+        const sessionId = socket.liveHostSessionId;
+        const liveSession = await linkVideoService.getLiveSessionById(sessionId);
+
+        if (liveSession && ['LIVE', 'RECONNECTING', 'INTERMISSION', 'RECONNECTED'].includes(liveSession.status)) {
+          // Iniciar temporizador de reconexión
+          const reconnectingTimer = setTimeout(async () => {
+            await linkVideoService.updateLiveStatus(sessionId, 'RECONNECTING');
+            io.to(`room:live:${sessionId}`).emit('live:status_changed', {
+              sessionId,
+              status: 'RECONNECTING',
+              session: await linkVideoService.getLiveSessionById(sessionId)
+            });
+          }, 3000); // 3 segundos para RECONNECTING
+
+          const intermissionTimer = setTimeout(async () => {
+            await linkVideoService.updateLiveStatus(sessionId, 'INTERMISSION');
+            io.to(`room:live:${sessionId}`).emit('live:status_changed', {
+              sessionId,
+              status: 'INTERMISSION',
+              session: await linkVideoService.getLiveSessionById(sessionId)
+            });
+          }, 8000); // 8 segundos para pasar a INTERMISSION con la mascota/avatar de Link
+
+          liveHostDisconnectTimers.set(sessionId, { reconnectingTimer, intermissionTimer });
+        }
+      }
+
       unregisterSocket(userId, socket.id);
       if (!isOnline(userId)) {
         await query('UPDATE users SET is_online=false, last_seen=now() WHERE id=$1', [userId]).catch(() => {});
