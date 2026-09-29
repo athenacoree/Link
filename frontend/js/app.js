@@ -1822,31 +1822,418 @@ const EMOJI_POR_TIPO_REACCION = Object.fromEntries(
   [{ tipo: 'me_interesa', emoji: '💗' }, ...OPCIONES_REACCION].map((o) => [o.tipo, o.emoji])
 );
 
+window._timersCuadradosFeed = window._timersCuadradosFeed || {};
+window._pausasCuadradosFeed = window._pausasCuadradosFeed || {};
+window._chatStateCuadrados = window._chatStateCuadrados || {};
+
+function limpiarTimersFeedCuadrados() {
+  if (window._timersCuadradosFeed) {
+    Object.values(window._timersCuadradosFeed).forEach((t) => clearInterval(t));
+    window._timersCuadradosFeed = {};
+  }
+  if (window._pausasCuadradosFeed) {
+    Object.values(window._pausasCuadradosFeed).forEach((p) => clearTimeout(p));
+    window._pausasCuadradosFeed = {};
+  }
+}
+
+function cambiarEtapaCuadrado(cuadradoElem, subvistaNum, animar = true) {
+  if (!cuadradoElem) return;
+
+  const esIzq = cuadradoElem.classList.contains('cuadrado-izq');
+  const maxSubvistas = esIzq ? 2 : 3;
+  const numTarget = Math.min(Math.max(1, subvistaNum), maxSubvistas);
+
+  if (animar) {
+    cuadradoElem.classList.remove('anim-latido-choque');
+    void cuadradoElem.offsetWidth; // Reflow para reiniciar animación CSS
+    cuadradoElem.classList.add('anim-latido-choque');
+    setTimeout(() => {
+      cuadradoElem.classList.remove('anim-latido-choque');
+    }, 550);
+  }
+
+  cuadradoElem.querySelectorAll('.cuadrado-subvista').forEach((s) => (s.style.display = 'none'));
+  const subtarget = cuadradoElem.querySelector(esIzq ? `.subvista-izq-${numTarget}` : `.subvista-der-${numTarget}`);
+  if (subtarget) subtarget.style.display = 'flex';
+
+  cuadradoElem.querySelectorAll('.cuadrado-dot').forEach((dot, idx) => {
+    dot.classList.toggle('activo', idx + 1 === numTarget);
+  });
+
+  cuadradoElem.dataset.subvista = numTarget;
+}
+
+async function cargarPreviewChatParaCuadrado(persona, parElem) {
+  const container = parElem.querySelector(`#chat-preview-${persona.id}`);
+  const pagLabel = parElem.querySelector(`#chat-pag-${persona.id}`);
+  if (!container) return;
+
+  if (!window._chatStateCuadrados[persona.id]) {
+    window._chatStateCuadrados[persona.id] = { mensajes: [], index: 0, cargado: false };
+    try {
+      const { mensajes } = await api(`/mensajes/${persona.id}`);
+      window._chatStateCuadrados[persona.id].mensajes = mensajes || [];
+      window._chatStateCuadrados[persona.id].cargado = true;
+    } catch (e) {
+      window._chatStateCuadrados[persona.id].cargado = true;
+    }
+  }
+
+  const state = window._chatStateCuadrados[persona.id];
+  const msgs = state.mensajes || [];
+
+  if (!msgs.length) {
+    container.innerHTML = `<div class="cuadrado-chat-vacio">Sin mensajes escritos aún.<br>¡Toca para hablarle!</div>`;
+    if (pagLabel) pagLabel.textContent = '0/0';
+    return;
+  }
+
+  if (state.index >= msgs.length) state.index = msgs.length - 1;
+  if (state.index < 0) state.index = 0;
+
+  const msgActual = msgs[state.index];
+  const yo = Sesion.usuario();
+  const esMio = msgActual.senderId === yo.id;
+
+  const textoMsg = msgActual.text || (msgActual.audioData ? '🎤 [Nota de voz]' : msgActual.imageData ? '📷 [Imagen]' : '[Mensaje]');
+
+  container.innerHTML = `
+    <div class="cuadrado-chat-burbuja" title="${esMio ? 'Tú' : persona.name}">
+      <b>${esMio ? 'Tú' : (persona.name || 'Usuario').split(' ')[0]}:</b> ${meEscapar(textoMsg)}
+    </div>
+  `;
+
+  if (pagLabel) pagLabel.textContent = `${state.index + 1}/${msgs.length}`;
+}
+
+function adjuntarInteraccionParCuadrados(parElem, persona) {
+  const cuadradoIzq = parElem.querySelector('.cuadrado-izq');
+  const cuadradoDer = parElem.querySelector('.cuadrado-der');
+
+  // ---- 5 segundos auto-timer ----
+  function iniciarTimerAuto() {
+    clearInterval(window._timersCuadradosFeed[persona.id]);
+    window._timersCuadradosFeed[persona.id] = setInterval(() => {
+      const subActualDer = parseInt(cuadradoDer.dataset.subvista || '1', 10);
+      const nuevaSubDer = (subActualDer % 3) + 1;
+      cambiarEtapaCuadrado(cuadradoDer, nuevaSubDer, true);
+      if (nuevaSubDer === 2) {
+        cargarPreviewChatParaCuadrado(persona, parElem);
+      }
+    }, 5000);
+  }
+
+  function pausarYReiniciarTimerInteraccion() {
+    clearInterval(window._timersCuadradosFeed[persona.id]);
+    clearTimeout(window._pausasCuadradosFeed[persona.id]);
+    window._pausasCuadradosFeed[persona.id] = setTimeout(() => {
+      iniciarTimerAuto();
+    }, 5000);
+  }
+
+  iniciarTimerAuto();
+
+  // Escuchar interacciones para congelar/reiniciar el contador
+  ['pointerdown', 'touchstart', 'mousedown', 'scroll'].forEach((ev) => {
+    parElem.addEventListener(ev, () => pausarYReiniciarTimerInteraccion(), { passive: true });
+  });
+
+  // ---- Manejo de deslizamiento / swipe (izquierda / derecha) ----
+  [cuadradoIzq, cuadradoDer].forEach((cuadrado) => {
+    if (!cuadrado) return;
+
+    let startX = 0, startY = 0, endX = 0, endY = 0;
+
+    cuadrado.addEventListener('touchstart', (e) => {
+      if (!e.touches.length) return;
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      pausarYReiniciarTimerInteraccion();
+    }, { passive: true });
+
+    cuadrado.addEventListener('touchend', (e) => {
+      if (!e.changedTouches.length) return;
+      endX = e.changedTouches[0].clientX;
+      endY = e.changedTouches[0].clientY;
+
+      const diffX = endX - startX;
+      const diffY = endY - startY;
+
+      if (Math.abs(diffX) > 30 && Math.abs(diffX) > Math.abs(diffY)) {
+        const esIzq = cuadrado.classList.contains('cuadrado-izq');
+        const maxSubs = esIzq ? 2 : 3;
+        const actualSub = parseInt(cuadrado.dataset.subvista || '1', 10);
+
+        let nuevaSub = actualSub;
+        if (diffX < 0) {
+          // Deslizar hacia la izquierda -> avanzar subvista
+          nuevaSub = (actualSub % maxSubs) + 1;
+        } else {
+          // Deslizar hacia la derecha -> retroceder subvista
+          nuevaSub = actualSub - 1 < 1 ? maxSubs : actualSub - 1;
+        }
+
+        cambiarEtapaCuadrado(cuadrado, nuevaSub, true);
+        if (!esIzq && nuevaSub === 2) {
+          cargarPreviewChatParaCuadrado(persona, parElem);
+        }
+        pausarYReiniciarTimerInteraccion();
+      }
+    });
+
+    // Clics en los puntos indicadores (dots) para alternar vista directamente
+    cuadrado.querySelectorAll('.cuadrado-dot').forEach((dot, idx) => {
+      dot.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const targetSub = idx + 1;
+        cambiarEtapaCuadrado(cuadrado, targetSub, true);
+        if (!cuadrado.classList.contains('cuadrado-izq') && targetSub === 2) {
+          cargarPreviewChatParaCuadrado(persona, parElem);
+        }
+        pausarYReiniciarTimerInteraccion();
+      });
+    });
+  });
+
+  // ---- Botones de acción ----
+  parElem.querySelectorAll('.btn-abrir-perfil, .btn-ver-perfil').forEach((b) => {
+    b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      abrirPerfil(persona.id);
+    });
+  });
+
+  parElem.querySelectorAll('.btn-reaccionar').forEach((b) => {
+    b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      abrirMiniEncuestaReaccion(persona);
+    });
+  });
+
+  parElem.querySelectorAll('.btn-solicitud-amigo').forEach((b) => {
+    b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      abrirMiniEncuestaReaccion(persona);
+    });
+  });
+
+  parElem.querySelectorAll('.btn-mas-opciones').forEach((b) => {
+    b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      abrirHojaPersona(persona);
+    });
+  });
+
+  parElem.querySelectorAll('.btn-llamar-audio').forEach((b) => {
+    b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (window.Llamada) window.Llamada.iniciar(persona, 'audio');
+    });
+  });
+
+  parElem.querySelectorAll('.btn-llamar-video').forEach((b) => {
+    b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (window.Llamada) window.Llamada.iniciar(persona, 'video');
+    });
+  });
+
+  parElem.querySelectorAll('.btn-ver-redes').forEach((b) => {
+    b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      abrirSocialLinksModal(persona);
+    });
+  });
+
+  // Abrir chat al tocar la burbuja de chat
+  parElem.querySelectorAll('.cuadrado-chat-box').forEach((box) => {
+    box.addEventListener('click', (e) => {
+      if (e.target.closest('.cuadrado-chat-nav-btn')) return;
+      e.stopPropagation();
+      if (window.Chat) window.Chat.abrirConversacion(persona);
+    });
+  });
+
+  // Controles de navegación de chat en el cuadrado de la derecha
+  const btnPrev = parElem.querySelector('.btn-chat-prev');
+  const btnNext = parElem.querySelector('.btn-chat-next');
+
+  if (btnPrev) {
+    btnPrev.addEventListener('click', (e) => {
+      e.stopPropagation();
+      pausarYReiniciarTimerInteraccion();
+      const state = window._chatStateCuadrados[persona.id];
+      if (state && state.mensajes.length) {
+        state.index = (state.index - 1 + state.mensajes.length) % state.mensajes.length;
+        cargarPreviewChatParaCuadrado(persona, parElem);
+      }
+    });
+  }
+
+  if (btnNext) {
+    btnNext.addEventListener('click', (e) => {
+      e.stopPropagation();
+      pausarYReiniciarTimerInteraccion();
+      const state = window._chatStateCuadrados[persona.id];
+      if (state && state.mensajes.length) {
+        state.index = (state.index + 1) % state.mensajes.length;
+        cargarPreviewChatParaCuadrado(persona, parElem);
+      }
+    });
+  }
+}
+
 function pintarListaPersonas(personas, contenedorId) {
   const cont = $(contenedorId);
   if (!personas.length) { cont.innerHTML = '<div class="aviso-vacio">No hay nadie que mostrar por ahora.</div>'; return; }
-  cont.innerHTML = personas.map((p) => `
-    <div class="tarjeta" data-persona='${encodeURIComponent(JSON.stringify(p))}'>
-      ${p.mi_reaccion ? `<div class="tarjeta-reaccionada" title="Ya reaccionaste (privado)">${EMOJI_POR_TIPO_REACCION[p.mi_reaccion] || '💗'}</div>` : ''}
-      <div class="avatar-wrap">
-        <img class="avatar-circulo" src="${avatarDe(p)}" alt="">
-        <div class="punto-online ${p.is_online ? 'en-linea' : ''}"></div>
-        <div class="check-amigo ${p.estado_amistad === 'amigos' ? 'activo' : ''}">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg>
+
+  // Si es el feed principal de descubrimiento, renderizar en tarjetas tipo parejas de cuadrados
+  if (contenedorId === 'listaBuscar') {
+    limpiarTimersFeedCuadrados();
+
+    cont.innerHTML = personas.map((p) => {
+      const avatarSrc = avatarDe(p);
+      const nombreHtml = nombreConBadge(p);
+      const flag = p.flag_emoji || '🇨🇺';
+      const ciudad = p.city || 'Cuba';
+      const profesion = p.profession || '';
+      const gustosArr = [...(p.interests || []), ...(p.hobbies || [])];
+      if (!gustosArr.length && p.profession) gustosArr.push(p.profession);
+      if (!gustosArr.length) gustosArr.push('Explorar', 'Nuevos amigos');
+
+      const pJson = encodeURIComponent(JSON.stringify(p));
+
+      return `
+      <div class="tarjeta-par-cuadrados" id="par-${p.id}" data-persona='${pJson}' data-persona-id="${p.id}">
+        <!-- CUADRADO IZQUIERDA -->
+        <div class="cuadrado-persona cuadrado-izq" id="cuadrado-izq-${p.id}" data-subvista="1">
+          <div class="cuadrado-dots">
+            <div class="cuadrado-dot dot-izq-1 activo"></div>
+            <div class="cuadrado-dot dot-izq-2"></div>
+          </div>
+
+          <!-- Subvista 1 (Izq): Avatar, Nombre, Ubicación -->
+          <div class="cuadrado-subvista subvista-izq-1">
+            <div class="cuadrado-perfil-top">
+              <div class="cuadrado-avatar-wrap">
+                <img class="cuadrado-avatar" src="${avatarSrc}" alt="${p.name || ''}">
+                <div class="cuadrado-punto-online ${p.is_online ? 'en-linea' : ''}"></div>
+              </div>
+              <div class="cuadrado-info-basica">
+                <div class="cuadrado-nombre">${nombreHtml}</div>
+                <div class="cuadrado-ubicacion"><span>${flag}</span> ${ciudad}</div>
+              </div>
+            </div>
+            ${p.origen ? `<div class="tarjeta-origen ${p.origen}" style="margin-top:4px; font-size:10px;">${ETIQUETAS_ORIGEN_FEED[p.origen] || ''}</div>` : ''}
+            <button class="cuadrado-btn-accion primario btn-abrir-perfil" style="margin-top:auto; width:100%;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="10" r="3"/><path d="M7 20.662V19a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v1.662"/></svg>
+              Ver Perfil
+            </button>
+          </div>
+
+          <!-- Subvista 2 (Izq): Acciones rápidas -->
+          <div class="cuadrado-subvista subvista-izq-2" style="display:none;">
+            <div class="cuadrado-titulo-sec">Acciones</div>
+            <div class="cuadrado-acciones-grid">
+              <button class="cuadrado-btn-accion primario btn-ver-perfil">Perfil</button>
+              <button class="cuadrado-btn-accion btn-reaccionar">${p.mi_reaccion ? (EMOJI_POR_TIPO_REACCION[p.mi_reaccion] || '💗') : '💗'}</button>
+              <button class="cuadrado-btn-accion btn-solicitud-amigo">${p.estado_amistad === 'amigos' ? 'Amigos' : 'Conectar'}</button>
+              <button class="cuadrado-btn-accion btn-mas-opciones">Más</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- CUADRADO DERECHA -->
+        <div class="cuadrado-persona cuadrado-der" id="cuadrado-der-${p.id}" data-subvista="1">
+          <div class="cuadrado-dots">
+            <div class="cuadrado-dot dot-der-1 activo"></div>
+            <div class="cuadrado-dot dot-der-2"></div>
+            <div class="cuadrado-dot dot-der-3"></div>
+          </div>
+
+          <!-- Subvista 1 (Der): Gustos y Detalles -->
+          <div class="cuadrado-subvista subvista-der-1">
+            <div class="cuadrado-detalles-box">
+              <div>
+                <div class="cuadrado-titulo-sec">Gustos & Info</div>
+                <div class="cuadrado-tags-gustos" style="margin-top:5px;">
+                  ${gustosArr.map((g) => `<span class="cuadrado-tag-chip">${g}</span>`).join('')}
+                </div>
+              </div>
+              <div style="font-size:10.5px; color:var(--texto-500); margin-top:auto;">
+                <b>Origen:</b> ${flag} ${ciudad}<br>
+                ${profesion ? `<b>Ocupación:</b> ${profesion}` : ''}
+              </div>
+            </div>
+          </div>
+
+          <!-- Subvista 2 (Der): Chat con la persona -->
+          <div class="cuadrado-subvista subvista-der-2" style="display:none;">
+            <div class="cuadrado-chat-box">
+              <div class="cuadrado-titulo-sec">Chat reciente</div>
+              <div class="cuadrado-chat-burbuja-wrap" id="chat-preview-${p.id}">
+                <div class="cuadrado-chat-vacio">Cargando chat…</div>
+              </div>
+              <div class="cuadrado-chat-nav">
+                <button class="cuadrado-chat-nav-btn btn-chat-prev" title="Anterior">‹</button>
+                <span class="cuadrado-chat-pag" id="chat-pag-${p.id}">1/1</span>
+                <button class="cuadrado-chat-nav-btn btn-chat-next" title="Siguiente">›</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Subvista 3 (Der): Llamadas y Redes Sociales -->
+          <div class="cuadrado-subvista subvista-der-3" style="display:none;">
+            <div class="cuadrado-titulo-sec">Contacto & Redes</div>
+            <div class="cuadrado-contacto-grid">
+              <div class="cuadrado-contacto-row">
+                <button class="cuadrado-btn-contacto audio btn-llamar-audio">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg> Audio
+                </button>
+                <button class="cuadrado-btn-contacto video btn-llamar-video">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m22 8-6 4 6 4V8z"/><rect width="14" height="12" x="2" y="6" rx="2" ry="2"/></svg> Video
+                </button>
+              </div>
+              <button class="cuadrado-btn-contacto social btn-ver-redes">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> Ver Redes y Juegos
+              </button>
+            </div>
+          </div>
         </div>
       </div>
-      <div class="id-persona">
-        <div class="nombre">${nombreConBadge(p)}</div>
-        <div class="detalle"><span>${p.flag_emoji || '🇨🇺'}</span> ${p.city || 'Cuba'}${p.profession ? ` <span class="sep"></span> ${p.profession}` : ''}</div>
-        ${p.origen ? `<div class="tarjeta-origen ${p.origen}">${ETIQUETAS_ORIGEN_FEED[p.origen] || ''}</div>` : ''}
-      </div>
-      <div class="chevron"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m9 6 6 6-6 6"/></svg></div>
-    </div>`).join('');
+      `;
+    }).join('');
 
-  cont.querySelectorAll('.tarjeta').forEach((tarjeta) => {
-    const persona = JSON.parse(decodeURIComponent(tarjeta.dataset.persona));
-    adjuntarInteraccionTarjeta(tarjeta, persona);
-  });
+    cont.querySelectorAll('.tarjeta-par-cuadrados').forEach((parElem) => {
+      const persona = JSON.parse(decodeURIComponent(parElem.dataset.persona));
+      adjuntarInteraccionParCuadrados(parElem, persona);
+    });
+  } else {
+    // Formato clásico para otras listas (contactos, etc.)
+    cont.innerHTML = personas.map((p) => `
+      <div class="tarjeta" data-persona='${encodeURIComponent(JSON.stringify(p))}'>
+        ${p.mi_reaccion ? `<div class="tarjeta-reaccionada" title="Ya reaccionaste (privado)">${EMOJI_POR_TIPO_REACCION[p.mi_reaccion] || '💗'}</div>` : ''}
+        <div class="avatar-wrap">
+          <img class="avatar-circulo" src="${avatarDe(p)}" alt="">
+          <div class="punto-online ${p.is_online ? 'en-linea' : ''}"></div>
+          <div class="check-amigo ${p.estado_amistad === 'amigos' ? 'activo' : ''}">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg>
+          </div>
+        </div>
+        <div class="id-persona">
+          <div class="nombre">${nombreConBadge(p)}</div>
+          <div class="detalle"><span>${p.flag_emoji || '🇨🇺'}</span> ${p.city || 'Cuba'}${p.profession ? ` <span class="sep"></span> ${p.profession}` : ''}</div>
+          ${p.origen ? `<div class="tarjeta-origen ${p.origen}">${ETIQUETAS_ORIGEN_FEED[p.origen] || ''}</div>` : ''}
+        </div>
+        <div class="chevron"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m9 6 6 6-6 6"/></svg></div>
+      </div>`).join('');
+
+    cont.querySelectorAll('.tarjeta').forEach((tarjeta) => {
+      const persona = JSON.parse(decodeURIComponent(tarjeta.dataset.persona));
+      adjuntarInteraccionTarjeta(tarjeta, persona);
+    });
+  }
 }
 
 const VENTANA_DOBLE_TOQUE_MS = 320;
