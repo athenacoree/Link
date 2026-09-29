@@ -1178,3 +1178,352 @@ body.animaciones-pausadas * {
 .hoja-detalle-tool.activo {
   transform: translateY(0);
 }
+
+/* =========================================================
+   ESTRUCTURA DE TARJETAS EN PAREJA DE CUADRADOS (DESCUBRIR)
+   ========================================================= */
+.tarjeta-par-cuadrados {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+  width: 100%;
+  position: relative;
+  box-sizing: border-box;
+}
+
+.cuadrado-persona {
+  aspect-ratio: 1 / 1;
+  min-height: 165px;
+  background: var(--blanco, #ffffff);
+  border-radius: 20px;
+  box-shadow: 0 4px 18px rgba(91, 33, 182, 0.08);
+  border: 1.5px solid rgba(139, 92, 246, 0.12);
+  padding: 11px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
+  overflow: hidden;
+  box-sizing: border-box;
+  user-select: none;
+  touch-action: pan-y;
+  cursor: pointer;
+  transition: box-shadow 0.2s ease;
+}
+
+html[data-tema="oscuro"] .cuadrado-persona {
+  background: var(--fondo-tarjeta, #181824);
+  border-color: rgba(139, 92, 246, 0.22);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+}
+
+.cuadrado-persona:active {
+  transform: scale(0.97);
+}
+
+/* Animación de latido y choque contra el fondo */
+@keyframes latidoChoqueFondo {
+  0% { transform: scale(1); box-shadow: 0 4px 18px rgba(91, 33, 182, 0.08); }
+  22% { transform: scale(1.08) translateY(-2px); box-shadow: 0 12px 28px rgba(124, 58, 237, 0.35); filter: brightness(1.08); }
+  45% { transform: scale(0.91) translateY(2px); box-shadow: 0 2px 5px rgba(0,0,0,0.18); }
+  70% { transform: scale(1.03) translateY(-1px); box-shadow: 0 6px 18px rgba(124, 58, 237, 0.22); }
+  85% { transform: scale(0.98); }
+  100% { transform: scale(1) translateY(0); box-shadow: 0 4px 18px rgba(91, 33, 182, 0.08); }
+}
+
+.anim-latido-choque {
+  animation: latidoChoqueFondo 0.55s cubic-bezier(0.25, 1, 0.5, 1) forwards !important;
+}
+
+/* Puntos indicadores de etapa en las tarjetas */
+.cuadrado-dots {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+  position: absolute;
+  top: 7px;
+  right: 8px;
+  z-index: 5;
+}
+
+.cuadrado-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--linea, #e2e8f0);
+  transition: all 0.2s ease;
+}
+
+.cuadrado-dot.activo {
+  width: 14px;
+  border-radius: 4px;
+  background: var(--morado-600, #7c3aed);
+}
+
+/* Subvistas contenidas dentro de un cuadrado */
+.cuadrado-subvista {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Subvista 1 (Izq): Foto de perfil, Nombre, Estado */
+.cuadrado-perfil-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cuadrado-avatar-wrap {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  flex: 0 0 auto;
+}
+
+.cuadrado-avatar {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--morado-200, #ddd6fe);
+  background: var(--morado-100, #f3e8ff);
+}
+
+.cuadrado-punto-online {
+  position: absolute;
+  bottom: 0px;
+  right: 0px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: #94a3b8;
+  border: 2px solid var(--blanco, #fff);
+}
+
+.cuadrado-punto-online.en-linea {
+  background: #10b981;
+}
+
+.cuadrado-info-basica {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.cuadrado-nombre {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--texto-900, #0f172a);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+
+.cuadrado-ubicacion {
+  font-size: 11px;
+  color: var(--texto-500, #64748b);
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Subvista 2 (Izq): Acciones de perfil */
+.cuadrado-acciones-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  width: 100%;
+  margin-top: auto;
+}
+
+.cuadrado-btn-accion {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  background: var(--morado-100, #f3e8ff);
+  color: var(--morado-700, #6d28d9);
+  transition: all 0.15s ease;
+}
+
+.cuadrado-btn-accion.primario {
+  background: linear-gradient(135deg, var(--morado-600, #7c3aed), var(--morado-700, #6d28d9));
+  color: #ffffff;
+}
+
+/* Subvista 1 (Der): Gustos, Nacionalidad, Detalles */
+.cuadrado-detalles-box {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  height: 100%;
+  justify-content: space-between;
+}
+
+.cuadrado-titulo-sec {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--morado-600, #7c3aed);
+}
+
+.cuadrado-tags-gustos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-height: 75px;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.cuadrado-tags-gustos::-webkit-scrollbar {
+  display: none;
+}
+
+.cuadrado-tag-chip {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 7px;
+  border-radius: 8px;
+  background: var(--hueso, #f8fafc);
+  color: var(--texto-700, #334155);
+  border: 1px solid var(--linea, #e2e8f0);
+}
+
+html[data-tema="oscuro"] .cuadrado-tag-chip {
+  background: rgba(255,255,255,0.06);
+  border-color: rgba(255,255,255,0.1);
+  color: #cbd5e1;
+}
+
+/* Subvista 2 (Der): Chat con la persona */
+.cuadrado-chat-box {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+}
+
+.cuadrado-chat-burbuja {
+  background: var(--morado-100, #f3e8ff);
+  border-radius: 12px;
+  padding: 8px 10px;
+  font-size: 11px;
+  color: var(--texto-800, #1e293b);
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  position: relative;
+}
+
+html[data-tema="oscuro"] .cuadrado-chat-burbuja {
+  background: rgba(124, 58, 237, 0.18);
+  color: #e2e8f0;
+}
+
+.cuadrado-chat-vacio {
+  font-size: 10.5px;
+  color: var(--texto-500, #64748b);
+  font-style: italic;
+  text-align: center;
+  padding: 10px 4px;
+}
+
+.cuadrado-chat-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid var(--linea, #e2e8f0);
+}
+
+.cuadrado-chat-nav-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  background: var(--morado-200, #ddd6fe);
+  color: var(--morado-800, #5b21b6);
+  font-weight: 800;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.cuadrado-chat-nav-btn:active {
+  transform: scale(0.9);
+}
+
+.cuadrado-chat-pag {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: var(--texto-500, #64748b);
+}
+
+/* Subvista 3 (Der): Llamada, Videollamada y Redes */
+.cuadrado-contacto-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  justify-content: center;
+  height: 100%;
+}
+
+.cuadrado-contacto-row {
+  display: flex;
+  gap: 6px;
+}
+
+.cuadrado-btn-contacto {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 7px 6px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+}
+
+.cuadrado-btn-contacto.audio {
+  background: #e6f8ef;
+  color: #15803d;
+}
+
+.cuadrado-btn-contacto.video {
+  background: #e9f1ff;
+  color: #1d4ed8;
+}
+
+.cuadrado-btn-contacto.social {
+  background: var(--morado-100, #f3e8ff);
+  color: var(--morado-700, #6d28d9);
+}
