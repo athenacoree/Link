@@ -5,7 +5,7 @@
    con fallback a cache cuando no hay conexión.
    "Network-Only" para llamadas API y WebSockets.
    ========================================================= */
-const CACHE_NAME = 'enlace-shell-v4';
+const CACHE_NAME = 'enlace-shell-v5';
 const ARCHIVOS_SHELL = [
   '/',
   '/index.html',
