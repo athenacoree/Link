@@ -1,10 +1,11 @@
 /* =========================================================
    Service Worker de Enlace.
-   Estrategia: "cache-first" para el shell de la app (HTML/CSS/JS/íconos),
-   y "network-first" para todo lo que empiece con /api, porque esos datos
-   deben ser siempre reales y frescos (perfiles, mensajes, feed...).
+   Estrategia: "Network-First" para el shell de la app (HTML/CSS/JS)
+   para garantizar que los usuarios siempre obtengan la última versión,
+   con fallback a cache cuando no hay conexión.
+   "Network-Only" para llamadas API y WebSockets.
    ========================================================= */
-const CACHE_NAME = 'enlace-shell-v3';
+const CACHE_NAME = 'enlace-shell-v4';
 const ARCHIVOS_SHELL = [
   '/',
   '/index.html',
@@ -14,6 +15,12 @@ const ARCHIVOS_SHELL = [
   '/js/app.js',
   '/js/chat.js',
   '/js/call.js',
+  '/js/features.js',
+  '/js/i18n.js',
+  '/js/linkvideo.js',
+  '/js/ailab.js',
+  '/js/monetization.js',
+  '/js/paises.js',
   '/manifest.json',
   '/favicon.ico',
   '/icons/icon-192.png',
@@ -37,26 +44,34 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.action === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Nunca cachear el API ni las conexiones de socket.io: siempre red real.
+  // Nunca cachear la API ni WebSockets: siempre red real.
   if (url.pathname.startsWith('/api') || url.pathname.startsWith('/socket.io')) {
-    event.respondWith(fetch(event.request).catch(() => new Response(JSON.stringify({ error: 'Sin conexión.' }), { headers: { 'Content-Type': 'application/json' } })));
+    event.respondWith(
+      fetch(event.request).catch(() => new Response(JSON.stringify({ error: 'Sin conexión.' }), { headers: { 'Content-Type': 'application/json' } }))
+    );
     return;
   }
 
+  // Estrategia Network-First con fallback a cache para HTML, CSS, JS e imágenes
   event.respondWith(
-    caches.match(event.request).then((cacheado) => {
-      const red = fetch(event.request).then((respuesta) => {
+    fetch(event.request)
+      .then((respuesta) => {
         if (respuesta && respuesta.status === 200 && event.request.method === 'GET') {
           const copia = respuesta.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copia));
         }
         return respuesta;
-      }).catch(() => cacheado);
-      return cacheado || red;
-    })
+      })
+      .catch(() => caches.match(event.request))
   );
 });
 

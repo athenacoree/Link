@@ -1224,16 +1224,27 @@ html[data-tema="oscuro"] .cuadrado-persona {
 
 /* Animación de latido y choque contra el fondo */
 @keyframes latidoChoqueFondo {
-  0% { transform: scale(1); box-shadow: 0 4px 18px rgba(91, 33, 182, 0.08); }
-  22% { transform: scale(1.08) translateY(-2px); box-shadow: 0 12px 28px rgba(124, 58, 237, 0.35); filter: brightness(1.08); }
-  45% { transform: scale(0.91) translateY(2px); box-shadow: 0 2px 5px rgba(0,0,0,0.18); }
-  70% { transform: scale(1.03) translateY(-1px); box-shadow: 0 6px 18px rgba(124, 58, 237, 0.22); }
-  85% { transform: scale(0.98); }
-  100% { transform: scale(1) translateY(0); box-shadow: 0 4px 18px rgba(91, 33, 182, 0.08); }
+  0% { transform: scale(1) translateZ(0); box-shadow: 0 4px 18px rgba(91, 33, 182, 0.08); }
+  22% { transform: scale(1.06) translateY(-3px) translateZ(0); box-shadow: 0 12px 28px rgba(124, 58, 237, 0.35); filter: brightness(1.08); }
+  45% { transform: scale(0.94) translateY(2px) translateZ(0); box-shadow: 0 2px 5px rgba(0,0,0,0.18); }
+  70% { transform: scale(1.02) translateY(-1px) translateZ(0); box-shadow: 0 6px 18px rgba(124, 58, 237, 0.22); }
+  85% { transform: scale(0.98) translateZ(0); }
+  100% { transform: scale(1) translateY(0) translateZ(0); box-shadow: 0 4px 18px rgba(91, 33, 182, 0.08); }
 }
 
 .anim-latido-choque {
   animation: latidoChoqueFondo 0.55s cubic-bezier(0.25, 1, 0.5, 1) forwards !important;
+  will-change: transform, box-shadow;
+}
+
+/* Transición suave para las subvistas */
+@keyframes subvistaEntradaSuave {
+  0% { opacity: 0.2; transform: scale(0.96); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.cuadrado-subvista {
+  animation: subvistaEntradaSuave 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
 }
 
 /* Puntos indicadores de etapa en las tarjetas */
@@ -1270,6 +1281,44 @@ html[data-tema="oscuro"] .cuadrado-persona {
   height: 100%;
   width: 100%;
   box-sizing: border-box;
+}
+
+/* Subvista Foto Completa */
+.subvista-foto-full {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  z-index: 1;
+  overflow: hidden;
+  border-radius: 18px;
+  cursor: pointer;
+}
+
+.cuadrado-foto-full {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.cuadrado-foto-badge-online {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #94a3b8;
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+
+.cuadrado-foto-badge-online.en-linea {
+  background: #10b981;
 }
 
 /* Subvista 1 (Izq): Foto de perfil, Nombre, Estado */

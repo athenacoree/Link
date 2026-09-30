@@ -1847,7 +1847,36 @@
 <script src="/js/app.js"></script>
 <script>
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(()=>{}));
+  window.addEventListener('load', () => {
+    let recargando = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!recargando) {
+        recargando = true;
+        window.location.reload();
+      }
+    });
+
+    navigator.serviceWorker.register('/sw.js').then((reg) => {
+      // Revisar actualizaciones periódicamente y cuando la página vuelve a estar visible
+      reg.update().catch(() => {});
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          reg.update().catch(() => {});
+        }
+      });
+
+      reg.addEventListener('updatefound', () => {
+        const nuevoSW = reg.installing;
+        if (nuevoSW) {
+          nuevoSW.addEventListener('statechange', () => {
+            if (nuevoSW.state === 'installed' && navigator.serviceWorker.controller) {
+              nuevoSW.postMessage({ action: 'SKIP_WAITING' });
+            }
+          });
+        }
+      });
+    }).catch(() => {});
+  });
 }
 </script>
 </body>

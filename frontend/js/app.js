@@ -1855,7 +1855,9 @@ function cambiarEtapaCuadrado(cuadradoElem, subvistaNum, animar = true) {
 
   cuadradoElem.querySelectorAll('.cuadrado-subvista').forEach((s) => (s.style.display = 'none'));
   const subtarget = cuadradoElem.querySelector(esIzq ? `.subvista-izq-${numTarget}` : `.subvista-der-${numTarget}`);
-  if (subtarget) subtarget.style.display = 'flex';
+  if (subtarget) {
+    subtarget.style.display = subtarget.classList.contains('subvista-foto-full') ? 'block' : 'flex';
+  }
 
   cuadradoElem.querySelectorAll('.cuadrado-dot').forEach((dot, idx) => {
     dot.classList.toggle('activo', idx + 1 === numTarget);
@@ -2152,20 +2154,10 @@ function pintarListaPersonas(personas, contenedorId) {
             <div class="cuadrado-dot dot-der-3"></div>
           </div>
 
-          <!-- Subvista 1 (Der): Gustos y Detalles -->
-          <div class="cuadrado-subvista subvista-der-1">
-            <div class="cuadrado-detalles-box">
-              <div>
-                <div class="cuadrado-titulo-sec">Gustos & Info</div>
-                <div class="cuadrado-tags-gustos" style="margin-top:5px;">
-                  ${gustosArr.map((g) => `<span class="cuadrado-tag-chip">${g}</span>`).join('')}
-                </div>
-              </div>
-              <div style="font-size:10.5px; color:var(--texto-500); margin-top:auto;">
-                <b>Origen:</b> ${flag} ${ciudad}<br>
-                ${profesion ? `<b>Ocupación:</b> ${profesion}` : ''}
-              </div>
-            </div>
+          <!-- Subvista 1 (Der): Foto Completa -->
+          <div class="cuadrado-subvista subvista-der-1 subvista-foto-full btn-abrir-perfil">
+            <img class="cuadrado-foto-full" src="${avatarSrc}" alt="${p.name || ''}">
+            <div class="cuadrado-foto-badge-online ${p.is_online ? 'en-linea' : ''}"></div>
           </div>
 
           <!-- Subvista 2 (Der): Chat con la persona -->
