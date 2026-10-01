@@ -4164,15 +4164,18 @@ if (window.DeviceMotionEvent) {
   }, { passive: true });
 }
 
-// Control de pausa/reanudación de animaciones en interacción
+// Control de pausa/reanudación de animaciones en interacción (5 segundos)
 let temporizadorPausaAnim = null;
-window.addEventListener('touchstart', () => {
+function pausarAnimacionesPorInteraccion() {
   document.body.classList.add('animaciones-pausadas');
   clearTimeout(temporizadorPausaAnim);
   temporizadorPausaAnim = setTimeout(() => {
     document.body.classList.remove('animaciones-pausadas');
-  }, 1800);
-}, { passive: true });
+  }, 5000);
+}
+
+window.addEventListener('touchstart', pausarAnimacionesPorInteraccion, { passive: true });
+window.addEventListener('mousedown', pausarAnimacionesPorInteraccion, { passive: true });
 
 /* ================= LINK GAMES — INTERFACE & POSTMESSAGE BRIDGE ================= */
 let vistaPreviaJuego = null;
