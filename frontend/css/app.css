@@ -1185,8 +1185,8 @@ body.animaciones-pausadas * {
 .tarjeta-par-cuadrados {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-bottom: 12px;
+  gap: 8px;
+  margin-bottom: 10px;
   width: 100%;
   position: relative;
   box-sizing: border-box;
@@ -1194,12 +1194,12 @@ body.animaciones-pausadas * {
 
 .cuadrado-persona {
   aspect-ratio: 1 / 1;
-  min-height: 165px;
+  min-height: 150px;
   background: var(--blanco, #ffffff);
-  border-radius: 20px;
-  box-shadow: 0 4px 18px rgba(91, 33, 182, 0.08);
+  border-radius: 18px;
+  box-shadow: 0 3px 12px rgba(91, 33, 182, 0.06);
   border: 1.5px solid rgba(139, 92, 246, 0.12);
-  padding: 11px;
+  padding: 9px 10px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -1209,42 +1209,27 @@ body.animaciones-pausadas * {
   user-select: none;
   touch-action: pan-y;
   cursor: pointer;
-  transition: box-shadow 0.2s ease;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 html[data-tema="oscuro"] .cuadrado-persona {
   background: var(--fondo-tarjeta, #181824);
   border-color: rgba(139, 92, 246, 0.22);
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.3);
 }
 
 .cuadrado-persona:active {
-  transform: scale(0.97);
+  transform: scale(0.98);
 }
 
-/* Animación de latido y choque contra el fondo */
-@keyframes latidoChoqueFondo {
-  0% { transform: scale(1) translateZ(0); box-shadow: 0 4px 18px rgba(91, 33, 182, 0.08); }
-  22% { transform: scale(1.06) translateY(-3px) translateZ(0); box-shadow: 0 12px 28px rgba(124, 58, 237, 0.35); filter: brightness(1.08); }
-  45% { transform: scale(0.94) translateY(2px) translateZ(0); box-shadow: 0 2px 5px rgba(0,0,0,0.18); }
-  70% { transform: scale(1.02) translateY(-1px) translateZ(0); box-shadow: 0 6px 18px rgba(124, 58, 237, 0.22); }
-  85% { transform: scale(0.98) translateZ(0); }
-  100% { transform: scale(1) translateY(0) translateZ(0); box-shadow: 0 4px 18px rgba(91, 33, 182, 0.08); }
-}
-
-.anim-latido-choque {
-  animation: latidoChoqueFondo 0.55s cubic-bezier(0.25, 1, 0.5, 1) forwards !important;
-  will-change: transform, box-shadow;
-}
-
-/* Transición suave para las subvistas */
+/* Transición fluida y rápida sin parpadeos ni congelamientos */
 @keyframes subvistaEntradaSuave {
-  0% { opacity: 0.2; transform: scale(0.96); }
-  100% { opacity: 1; transform: scale(1); }
+  0% { opacity: 0.4; }
+  100% { opacity: 1; }
 }
 
 .cuadrado-subvista {
-  animation: subvistaEntradaSuave 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  animation: subvistaEntradaSuave 0.18s ease-out forwards;
 }
 
 /* Puntos indicadores de etapa en las tarjetas */
@@ -1321,42 +1306,32 @@ html[data-tema="oscuro"] .cuadrado-persona {
   background: #10b981;
 }
 
-/* Subvista 1 (Izq): Foto de perfil, Nombre, Estado */
+/* Encabezado e Info básica en tarjeta derecha */
 .cuadrado-perfil-top {
   display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.cuadrado-avatar-wrap {
-  position: relative;
-  width: 48px;
-  height: 48px;
-  flex: 0 0 auto;
-}
-
-.cuadrado-avatar {
+  flex-direction: column;
+  gap: 4px;
   width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 2px solid var(--morado-200, #ddd6fe);
-  background: var(--morado-100, #f3e8ff);
 }
 
-.cuadrado-punto-online {
-  position: absolute;
-  bottom: 0px;
-  right: 0px;
-  width: 11px;
-  height: 11px;
-  border-radius: 50%;
-  background: #94a3b8;
-  border: 2px solid var(--blanco, #fff);
+.cuadrado-similitud-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.12), rgba(236, 72, 153, 0.15));
+  border: 1px solid rgba(124, 58, 237, 0.25);
+  color: var(--morado-700, #6d28d9);
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 800;
+  width: fit-content;
 }
 
-.cuadrado-punto-online.en-linea {
-  background: #10b981;
+html[data-tema="oscuro"] .cuadrado-similitud-badge {
+  background: linear-gradient(135deg, rgba(167, 139, 250, 0.2), rgba(244, 114, 182, 0.2));
+  color: #ddd6fe;
+  border-color: rgba(167, 139, 250, 0.35);
 }
 
 .cuadrado-info-basica {
@@ -1365,6 +1340,42 @@ html[data-tema="oscuro"] .cuadrado-persona {
   gap: 2px;
   min-width: 0;
   flex: 1;
+}
+
+.cuadrado-redes-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+  margin-bottom: 4px;
+  max-height: 52px;
+  overflow: hidden;
+}
+
+.badge-red-chip {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--hueso, #f1f5f9);
+  color: var(--texto-800, #1e293b);
+  border: 1px solid var(--borde, #cbd5e1);
+  white-space: nowrap;
+}
+
+html[data-tema="oscuro"] .badge-red-chip {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f1f5f9;
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.cuadrado-redes-vacio {
+  font-size: 10.5px;
+  color: var(--texto-500, #64748b);
+  font-style: italic;
+  margin: 4px 0;
 }
 
 .cuadrado-nombre {

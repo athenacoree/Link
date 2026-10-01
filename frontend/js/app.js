@@ -1837,21 +1837,45 @@ function limpiarTimersFeedCuadrados() {
   }
 }
 
-function cambiarEtapaCuadrado(cuadradoElem, subvistaNum, animar = true) {
+function calcularSimilitudGustos(persona) {
+  const yo = (window.Sesion && window.Sesion.usuario()) || {};
+  const misGustos = new Set([...(yo.interests || []), ...(yo.hobbies || [])].map(g => String(g).toLowerCase().trim()));
+  const susGustos = [...(persona.interests || []), ...(persona.hobbies || [])].map(g => String(g).toLowerCase().trim());
+
+  if (misGustos.size > 0 && susGustos.length > 0) {
+    let coincidencias = 0;
+    susGustos.forEach(g => { if (misGustos.has(g)) coincidencias++; });
+    if (coincidencias > 0) {
+      const pct = Math.round((coincidencias / Math.max(misGustos.size, 3)) * 100);
+      return Math.min(98, Math.max(65, 60 + pct));
+    }
+  }
+  let hash = 0;
+  const str = String(persona.id || '') + String(yo.id || '');
+  for (let i = 0; i < str.length; i++) hash = (hash << 5) - hash + str.charCodeAt(i);
+  return 60 + (Math.abs(hash) % 36);
+}
+
+function extraerBadgesRedes(p) {
+  const sl = p.social_links || {};
+  const badges = [];
+  if (p.phone) badges.push({ red: 'WhatsApp', icono: '💬' });
+  if (sl.telegram || p.telegram) badges.push({ red: 'Telegram', icono: '✈️' });
+  if (p.instagram || sl.instagram) badges.push({ red: 'Instagram', icono: '📸' });
+  if (sl.discord) badges.push({ red: 'Discord', icono: '🎮' });
+  if (sl.freefire) badges.push({ red: 'Free Fire', icono: '🔥' });
+  if (sl.clashofclans) badges.push({ red: 'Clash of Clans', icono: '⚔️' });
+  if (sl.callofduty) badges.push({ red: 'Call of Duty', icono: '🎯' });
+  if (sl.otros) badges.push({ red: 'Web', icono: '🌐' });
+  return badges;
+}
+
+function cambiarEtapaCuadrado(cuadradoElem, subvistaNum) {
   if (!cuadradoElem) return;
 
   const esIzq = cuadradoElem.classList.contains('cuadrado-izq');
-  const maxSubvistas = esIzq ? 2 : 3;
+  const maxSubvistas = esIzq ? 3 : 2;
   const numTarget = Math.min(Math.max(1, subvistaNum), maxSubvistas);
-
-  if (animar) {
-    cuadradoElem.classList.remove('anim-latido-choque');
-    void cuadradoElem.offsetWidth; // Reflow para reiniciar animación CSS
-    cuadradoElem.classList.add('anim-latido-choque');
-    setTimeout(() => {
-      cuadradoElem.classList.remove('anim-latido-choque');
-    }, 550);
-  }
 
   cuadradoElem.querySelectorAll('.cuadrado-subvista').forEach((s) => (s.style.display = 'none'));
   const subtarget = cuadradoElem.querySelector(esIzq ? `.subvista-izq-${numTarget}` : `.subvista-der-${numTarget}`);
@@ -1913,34 +1937,6 @@ function adjuntarInteraccionParCuadrados(parElem, persona) {
   const cuadradoIzq = parElem.querySelector('.cuadrado-izq');
   const cuadradoDer = parElem.querySelector('.cuadrado-der');
 
-  // ---- 5 segundos auto-timer ----
-  function iniciarTimerAuto() {
-    clearInterval(window._timersCuadradosFeed[persona.id]);
-    window._timersCuadradosFeed[persona.id] = setInterval(() => {
-      const subActualDer = parseInt(cuadradoDer.dataset.subvista || '1', 10);
-      const nuevaSubDer = (subActualDer % 3) + 1;
-      cambiarEtapaCuadrado(cuadradoDer, nuevaSubDer, true);
-      if (nuevaSubDer === 2) {
-        cargarPreviewChatParaCuadrado(persona, parElem);
-      }
-    }, 5000);
-  }
-
-  function pausarYReiniciarTimerInteraccion() {
-    clearInterval(window._timersCuadradosFeed[persona.id]);
-    clearTimeout(window._pausasCuadradosFeed[persona.id]);
-    window._pausasCuadradosFeed[persona.id] = setTimeout(() => {
-      iniciarTimerAuto();
-    }, 5000);
-  }
-
-  iniciarTimerAuto();
-
-  // Escuchar interacciones para congelar/reiniciar el contador
-  ['pointerdown', 'touchstart', 'mousedown', 'scroll'].forEach((ev) => {
-    parElem.addEventListener(ev, () => pausarYReiniciarTimerInteraccion(), { passive: true });
-  });
-
   // ---- Manejo de deslizamiento / swipe (izquierda / derecha) ----
   [cuadradoIzq, cuadradoDer].forEach((cuadrado) => {
     if (!cuadrado) return;
@@ -1951,7 +1947,6 @@ function adjuntarInteraccionParCuadrados(parElem, persona) {
       if (!e.touches.length) return;
       startX = e.touches[0].clientX;
       startY = e.touches[0].clientY;
-      pausarYReiniciarTimerInteraccion();
     }, { passive: true });
 
     cuadrado.addEventListener('touchend', (e) => {
@@ -1964,7 +1959,7 @@ function adjuntarInteraccionParCuadrados(parElem, persona) {
 
       if (Math.abs(diffX) > 30 && Math.abs(diffX) > Math.abs(diffY)) {
         const esIzq = cuadrado.classList.contains('cuadrado-izq');
-        const maxSubs = esIzq ? 2 : 3;
+        const maxSubs = esIzq ? 3 : 2;
         const actualSub = parseInt(cuadrado.dataset.subvista || '1', 10);
 
         let nuevaSub = actualSub;
@@ -1976,11 +1971,10 @@ function adjuntarInteraccionParCuadrados(parElem, persona) {
           nuevaSub = actualSub - 1 < 1 ? maxSubs : actualSub - 1;
         }
 
-        cambiarEtapaCuadrado(cuadrado, nuevaSub, true);
+        cambiarEtapaCuadrado(cuadrado, nuevaSub);
         if (!esIzq && nuevaSub === 2) {
           cargarPreviewChatParaCuadrado(persona, parElem);
         }
-        pausarYReiniciarTimerInteraccion();
       }
     });
 
@@ -1989,11 +1983,10 @@ function adjuntarInteraccionParCuadrados(parElem, persona) {
       dot.addEventListener('click', (e) => {
         e.stopPropagation();
         const targetSub = idx + 1;
-        cambiarEtapaCuadrado(cuadrado, targetSub, true);
+        cambiarEtapaCuadrado(cuadrado, targetSub);
         if (!cuadrado.classList.contains('cuadrado-izq') && targetSub === 2) {
           cargarPreviewChatParaCuadrado(persona, parElem);
         }
-        pausarYReiniciarTimerInteraccion();
       });
     });
   });
@@ -2064,7 +2057,6 @@ function adjuntarInteraccionParCuadrados(parElem, persona) {
   if (btnPrev) {
     btnPrev.addEventListener('click', (e) => {
       e.stopPropagation();
-      pausarYReiniciarTimerInteraccion();
       const state = window._chatStateCuadrados[persona.id];
       if (state && state.mensajes.length) {
         state.index = (state.index - 1 + state.mensajes.length) % state.mensajes.length;
@@ -2076,7 +2068,6 @@ function adjuntarInteraccionParCuadrados(parElem, persona) {
   if (btnNext) {
     btnNext.addEventListener('click', (e) => {
       e.stopPropagation();
-      pausarYReiniciarTimerInteraccion();
       const state = window._chatStateCuadrados[persona.id];
       if (state && state.mensajes.length) {
         state.index = (state.index + 1) % state.mensajes.length;
@@ -2106,32 +2097,23 @@ function pintarListaPersonas(personas, contenedorId) {
 
       const pJson = encodeURIComponent(JSON.stringify(p)).replace(/'/g, '%27');
 
+      const similitud = calcularSimilitudGustos(p);
+      const redesBadges = extraerBadgesRedes(p);
+
       return `
       <div class="tarjeta-par-cuadrados" id="par-${p.id}" data-persona='${pJson}' data-persona-id="${p.id}">
-        <!-- CUADRADO IZQUIERDA -->
+        <!-- CUADRADO IZQUIERDA: Foto full y Redes -->
         <div class="cuadrado-persona cuadrado-izq" id="cuadrado-izq-${p.id}" data-subvista="1">
           <div class="cuadrado-dots">
             <div class="cuadrado-dot dot-izq-1 activo"></div>
             <div class="cuadrado-dot dot-izq-2"></div>
+            <div class="cuadrado-dot dot-izq-3"></div>
           </div>
 
-          <!-- Subvista 1 (Izq): Avatar, Nombre, Ubicación -->
-          <div class="cuadrado-subvista subvista-izq-1">
-            <div class="cuadrado-perfil-top">
-              <div class="cuadrado-avatar-wrap">
-                <img class="cuadrado-avatar" src="${avatarSrc}" alt="${p.name || ''}">
-                <div class="cuadrado-punto-online ${p.is_online ? 'en-linea' : ''}"></div>
-              </div>
-              <div class="cuadrado-info-basica">
-                <div class="cuadrado-nombre">${nombreHtml}</div>
-                <div class="cuadrado-ubicacion"><span>${flag}</span> ${ciudad}</div>
-              </div>
-            </div>
-            ${p.origen ? `<div class="tarjeta-origen ${p.origen}" style="margin-top:4px; font-size:10px;">${ETIQUETAS_ORIGEN_FEED[p.origen] || ''}</div>` : ''}
-            <button class="cuadrado-btn-accion primario btn-abrir-perfil" style="margin-top:auto; width:100%;">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="10" r="3"/><path d="M7 20.662V19a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v1.662"/></svg>
-              Ver Perfil
-            </button>
+          <!-- Subvista 1 (Izq): Foto Completa -->
+          <div class="cuadrado-subvista subvista-izq-1 subvista-foto-full btn-abrir-perfil">
+            <img class="cuadrado-foto-full" src="${avatarSrc}" alt="${p.name || ''}">
+            <div class="cuadrado-foto-badge-online ${p.is_online ? 'en-linea' : ''}"></div>
           </div>
 
           <!-- Subvista 2 (Izq): Acciones rápidas -->
@@ -2144,20 +2126,56 @@ function pintarListaPersonas(personas, contenedorId) {
               <button class="cuadrado-btn-accion btn-mas-opciones">Más</button>
             </div>
           </div>
+
+          <!-- Subvista 3 (Izq): Redes Sociales y Juegos reales -->
+          <div class="cuadrado-subvista subvista-izq-3" style="display:none;">
+            <div class="cuadrado-titulo-sec">Redes & Juegos</div>
+            ${redesBadges.length ? `
+              <div class="cuadrado-redes-list btn-ver-redes">
+                ${redesBadges.map(b => `<span class="badge-red-chip" title="${b.red}">${b.icono} ${b.red}</span>`).join('')}
+              </div>
+            ` : `
+              <div class="cuadrado-redes-vacio btn-ver-redes">Sin redes configuradas aún</div>
+            `}
+            <div class="cuadrado-contacto-grid" style="margin-top:auto;">
+              <div class="cuadrado-contacto-row">
+                <button class="cuadrado-btn-contacto audio btn-llamar-audio">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg> Audio
+                </button>
+                <button class="cuadrado-btn-contacto video btn-llamar-video">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m22 8-6 4 6 4V8z"/><rect width="14" height="12" x="2" y="6" rx="2" ry="2"/></svg> Video
+                </button>
+              </div>
+              <button class="cuadrado-btn-contacto social btn-ver-redes">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> Ver Redes
+              </button>
+            </div>
+          </div>
         </div>
 
-        <!-- CUADRADO DERECHA -->
+        <!-- CUADRADO DERECHA: Info del usuario, Similitud, Chat -->
         <div class="cuadrado-persona cuadrado-der" id="cuadrado-der-${p.id}" data-subvista="1">
           <div class="cuadrado-dots">
             <div class="cuadrado-dot dot-der-1 activo"></div>
             <div class="cuadrado-dot dot-der-2"></div>
-            <div class="cuadrado-dot dot-der-3"></div>
           </div>
 
-          <!-- Subvista 1 (Der): Foto Completa -->
-          <div class="cuadrado-subvista subvista-der-1 subvista-foto-full btn-abrir-perfil">
-            <img class="cuadrado-foto-full" src="${avatarSrc}" alt="${p.name || ''}">
-            <div class="cuadrado-foto-badge-online ${p.is_online ? 'en-linea' : ''}"></div>
+          <!-- Subvista 1 (Der): Nombre, Similitud, Ubicación, Botón Perfil -->
+          <div class="cuadrado-subvista subvista-der-1">
+            <div class="cuadrado-perfil-top">
+              <div class="cuadrado-similitud-badge">
+                🎯 ${similitud}% similitud de gustos
+              </div>
+              <div class="cuadrado-info-basica">
+                <div class="cuadrado-nombre">${nombreHtml}</div>
+                <div class="cuadrado-ubicacion"><span>${flag}</span> ${ciudad}</div>
+              </div>
+            </div>
+            ${p.origen ? `<div class="tarjeta-origen ${p.origen}" style="margin-top:2px; font-size:10px;">${ETIQUETAS_ORIGEN_FEED[p.origen] || ''}</div>` : ''}
+            <button class="cuadrado-btn-accion primario btn-abrir-perfil" style="margin-top:auto; width:100%;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="10" r="3"/><path d="M7 20.662V19a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v1.662"/></svg>
+              Ver Perfil
+            </button>
           </div>
 
           <!-- Subvista 2 (Der): Chat con la persona -->
@@ -2172,24 +2190,6 @@ function pintarListaPersonas(personas, contenedorId) {
                 <span class="cuadrado-chat-pag" id="chat-pag-${p.id}">1/1</span>
                 <button class="cuadrado-chat-nav-btn btn-chat-next" title="Siguiente">›</button>
               </div>
-            </div>
-          </div>
-
-          <!-- Subvista 3 (Der): Llamadas y Redes Sociales -->
-          <div class="cuadrado-subvista subvista-der-3" style="display:none;">
-            <div class="cuadrado-titulo-sec">Contacto & Redes</div>
-            <div class="cuadrado-contacto-grid">
-              <div class="cuadrado-contacto-row">
-                <button class="cuadrado-btn-contacto audio btn-llamar-audio">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg> Audio
-                </button>
-                <button class="cuadrado-btn-contacto video btn-llamar-video">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m22 8-6 4 6 4V8z"/><rect width="14" height="12" x="2" y="6" rx="2" ry="2"/></svg> Video
-                </button>
-              </div>
-              <button class="cuadrado-btn-contacto social btn-ver-redes">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> Ver Redes y Juegos
-              </button>
             </div>
           </div>
         </div>
