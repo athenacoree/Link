@@ -1796,7 +1796,7 @@ async function cargarDescubrir() {
 async function buscarPersonas(q) {
   try {
     const { personas } = await api(`/usuarios/buscar?q=${encodeURIComponent(q)}`);
-    pintarListaPersonas(personas, 'listaBuscar', true);
+    pintarListaPersonas(personas, 'listaBuscar');
   } catch (e) { $('listaBuscar').innerHTML = `<div class="aviso-vacio">${e.message}</div>`; }
 }
 
@@ -2104,7 +2104,7 @@ function pintarListaPersonas(personas, contenedorId) {
       if (!gustosArr.length && p.profession) gustosArr.push(p.profession);
       if (!gustosArr.length) gustosArr.push('Explorar', 'Nuevos amigos');
 
-      const pJson = encodeURIComponent(JSON.stringify(p));
+      const pJson = encodeURIComponent(JSON.stringify(p)).replace(/'/g, '%27');
 
       return `
       <div class="tarjeta-par-cuadrados" id="par-${p.id}" data-persona='${pJson}' data-persona-id="${p.id}">

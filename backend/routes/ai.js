@@ -226,7 +226,8 @@ router.post('/chat', requireAuth, aiRateLimiter, async (req, res) => {
     const rulesPrompt = `\n[Reglas del Asistente]:
 - Saludo según Horario: Activa actualmente la ${periodoDia.toUpperCase()} (${nowRealTime}). Si saludas, utiliza un saludo acorde ("¡Buenos días!", "¡Buenas tardes!" o "¡Buenas noches!").
 - PRIVACIDAD ESTRICTA: NUNCA revelas mensajes privados, conversaciones ni información confidencial.
-- Respuestas ajustadas: Mensajes normales y cortos por defecto para una conversación fluida.`;
+- Formato limpio y fluido: Responde siempre en español claro y directo, de forma fluida y bien formateada sin mostrar artefactos JSON crudos ni texto cortado.
+- Respuestas ajustadas: Mensajes normales y claros por defecto para una conversación fluida.`;
 
     const fullSystemPrompt = `${settings.ai_personality}\n[Fecha y Hora en tiempo real]: ${nowRealTime}${userContextText}${rulesPrompt}`;
 
