@@ -5,22 +5,24 @@
    con fallback a cache cuando no hay conexión.
    "Network-Only" para llamadas API y WebSockets.
    ========================================================= */
-const CACHE_NAME = 'enlace-shell-v5';
+const CACHE_NAME = 'enlace-shell-v6';
 const ARCHIVOS_SHELL = [
   '/',
-  '/index.html',
-  '/css/app.css',
-  '/css/call.css',
-  '/js/api.js',
-  '/js/app.js',
-  '/js/chat.js',
-  '/js/call.js',
-  '/js/features.js',
-  '/js/i18n.js',
-  '/js/linkvideo.js',
-  '/js/ailab.js',
-  '/js/monetization.js',
-  '/js/paises.js',
+  '/index.html?v=6',
+  '/css/app.css?v=6',
+  '/css/call.css?v=6',
+  '/css/features.css?v=6',
+  '/css/ailab.css?v=6',
+  '/js/api.js?v=6',
+  '/js/app.js?v=6',
+  '/js/chat.js?v=6',
+  '/js/call.js?v=6',
+  '/js/features.js?v=6',
+  '/js/i18n.js?v=6',
+  '/js/linkvideo.js?v=6',
+  '/js/ailab.js?v=6',
+  '/js/monetization.js?v=6',
+  '/js/paises.js?v=6',
   '/manifest.json',
   '/favicon.ico',
   '/icons/icon-192.png',
@@ -38,7 +40,14 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((claves) =>
-      Promise.all(claves.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+      Promise.all(
+        claves.map((k) => {
+          if (k !== CACHE_NAME) {
+            return caches.delete(k);
+          }
+          return Promise.resolve();
+        })
+      )
     )
   );
   self.clients.claim();
@@ -71,7 +80,16 @@ self.addEventListener('fetch', (event) => {
         }
         return respuesta;
       })
-      .catch(() => caches.match(event.request))
+      .catch(() => {
+        return caches.match(event.request).then((cachedResponse) => {
+          if (cachedResponse) return cachedResponse;
+          // Fallback para navegación de SPA si está sin conexión
+          if (event.request.mode === 'navigate') {
+            return caches.match('/index.html') || caches.match('/index.html?v=6') || caches.match('/');
+          }
+          return null;
+        });
+      })
   );
 });
 
