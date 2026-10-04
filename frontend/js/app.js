@@ -713,7 +713,7 @@ function inicializarGlobo3D(canvasId = 'globoConexiones3D') {
   let screenNodes = [];
 
   function animate() {
-    if (!ctx || !canvas) return;
+    if (!ctx || !canvas || !document.getElementById(canvasId)) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     const cx = canvas.width / 2;
@@ -861,7 +861,9 @@ function inicializarGlobo3D(canvasId = 'globoConexiones3D') {
       }
     });
 
-    requestAnimationFrame(animate);
+    if (document.getElementById(canvasId) && canvas.offsetParent !== null) {
+      requestAnimationFrame(animate);
+    }
   }
 
   // Interacción táctil y mouse para rotación
@@ -983,6 +985,7 @@ function inicializarConstelacionLogin(canvasId = 'constelacionLoginCanvas') {
     if (!ctx || !canvas) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    if (!document.getElementById(canvasId) || canvas.offsetParent === null) return;
     for (let i = 0; i < nodes.length; i++) {
       const n = nodes[i];
       n.x += n.vx;
@@ -2397,42 +2400,51 @@ async function cargarDescubrir() {
   const currentReq = ++reqIdDescubrir;
   const genero = $('filtroGenero') ? $('filtroGenero').value : '';
   const soloOnline = $('filtroOnline') ? ($('filtroOnline').value === 'online') : false;
+  const targetElem = $('listaBuscar');
 
-  const cachedFeed = await LocalStore.obtenerLista('feed', 'descubrir_feed');
+  if (!targetElem) return;
+
+  // Mostrar un indicador visual sutil si la lista está completamente vacía
+  if (targetElem.children.length === 0) {
+    targetElem.innerHTML = `<div class="aviso-vacio" style="padding: 24px; text-align: center;">Cargando personas en Descubrir...</div>`;
+  }
+
+  const cachedFeed = await LocalStore.obtenerLista('feed', 'descubrir_feed').catch(() => null);
   let renderizadoCache = false;
 
-  if (cachedFeed && cachedFeed.length && currentReq === reqIdDescubrir) {
+  if (cachedFeed && Array.isArray(cachedFeed) && cachedFeed.length && currentReq === reqIdDescubrir) {
     let filtradas = cachedFeed;
-    if (genero) filtradas = filtradas.filter(p => p.gender === genero);
-    if (soloOnline) filtradas = filtradas.filter(p => p.is_online);
-    if ($('listaBuscar').children.length === 0 || $('listaBuscar').querySelector('.aviso-vacio')) {
+    if (genero) filtradas = filtradas.filter(p => p && p.gender === genero);
+    if (soloOnline) filtradas = filtradas.filter(p => p && p.is_online);
+    if (targetElem.children.length === 0 || targetElem.querySelector('.aviso-vacio')) {
       pintarListaPersonas(filtradas, 'listaBuscar');
       renderizadoCache = true;
     }
   }
 
   try {
-    const { personas } = await api('/usuarios');
+    const res = await api('/usuarios');
     if (currentReq !== reqIdDescubrir) return;
 
-    LocalStore.guardarLista('feed', 'descubrir_feed', personas);
+    const personas = (res && Array.isArray(res.personas)) ? res.personas : [];
+    LocalStore.guardarLista('feed', 'descubrir_feed', personas).catch(() => {});
     let filtradas = personas;
-    if (genero) filtradas = filtradas.filter(p => p.gender === genero);
-    if (soloOnline) filtradas = filtradas.filter(p => p.is_online);
+    if (genero) filtradas = filtradas.filter(p => p && p.gender === genero);
+    if (soloOnline) filtradas = filtradas.filter(p => p && p.is_online);
 
     const nuevoJson = JSON.stringify(filtradas.map(p => ({ id: p.id, v: p.verified, o: p.is_online, n: p.name, a: p.avatar_data })));
-    const actualJson = $('listaBuscar').dataset.cacheState;
+    const actualJson = targetElem.dataset.cacheState;
     if (!renderizadoCache || actualJson !== nuevoJson) {
       pintarListaPersonas(filtradas, 'listaBuscar');
-      $('listaBuscar').dataset.cacheState = nuevoJson;
+      targetElem.dataset.cacheState = nuevoJson;
     }
-    if (window.Monetizacion) {
-      window.Monetizacion.renderizarAnuncioPatrocinado($('listaBuscar'));
+    if (window.Monetizacion && typeof window.Monetizacion.renderizarAnuncioPatrocinado === 'function') {
+      window.Monetizacion.renderizarAnuncioPatrocinado(targetElem);
     }
   } catch (e) {
     if (currentReq !== reqIdDescubrir) return;
     if (!cachedFeed || !cachedFeed.length) {
-      $('listaBuscar').innerHTML = `<div class="aviso-vacio">${e.message} (Modo sin conexión)</div>`;
+      targetElem.innerHTML = `<div class="aviso-vacio">${e.message || 'Error al cargar las publicaciones de descubrir.'}</div>`;
     }
   }
 }
