@@ -12,8 +12,12 @@
 html,body{height:100%;}
 body{
   margin:0; font-family:var(--fuente);
-  background:radial-gradient(120% 60% at 50% -10%, var(--morado-100) 0%, var(--hueso) 55%);
+  background: linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 35%, #e0c3fc 70%, #fbc2eb 100%);
+  background-attachment: fixed;
   color:var(--texto-900); overscroll-behavior-y:none;
+}
+html[data-tema="oscuro"] body {
+  background: radial-gradient(120% 60% at 50% -10%, #241a3d 0%, #120d18 55%);
 }
 button, input, textarea{font-family:inherit;}
 a{color:inherit; text-decoration:none;}
@@ -354,6 +358,142 @@ img{max-width:100%;}
   30% { transform: scale(1.05) rotate(0.8deg); filter: brightness(1.12); }
   60% { transform: scale(1.02) rotate(-0.8deg); filter: brightness(1.06); }
   100% { transform: scale(1); filter: brightness(1); }
+}
+
+/* ---- Grids de Tarjetas Cuadradas (Chats, Contactos y Ajustes) ---- */
+.grid-cuadrados-chats,
+.grid-cuadrados-contactos {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  width: 100%;
+}
+
+.tarjeta-chat-cuadrada,
+.tarjeta-contacto-cuadrada {
+  aspect-ratio: 1 / 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 12px 10px;
+  border-radius: 20px;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.tarjeta-chat-cuadrada .chat-cuadrado-avatar-wrap,
+.tarjeta-contacto-cuadrada .avatar-wrap {
+  position: relative;
+  width: 58px;
+  height: 58px;
+  margin-bottom: 6px;
+}
+
+.tarjeta-chat-cuadrada img,
+.tarjeta-contacto-cuadrada img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.tarjeta-contacto-cuadrada .id-persona .nombre,
+.tarjeta-chat-cuadrada .conversacion-info .nombre {
+  font-size: 13.5px;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 130px;
+  margin: 0 auto;
+}
+
+.tarjeta-contacto-cuadrada .id-persona .detalle,
+.tarjeta-chat-cuadrada .conversacion-info .preview {
+  font-size: 11px;
+  color: var(--texto-500);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 130px;
+  margin: 2px auto 0;
+}
+
+.profesion-tag {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--morado-700);
+  background: var(--morado-100);
+  padding: 2px 6px;
+  border-radius: 6px;
+  margin-top: 4px;
+  display: inline-block;
+}
+
+#vistaAjustes {
+  display: flex;
+  flex-direction: column;
+}
+
+#vistaAjustes .tarjeta-ajustes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  margin-bottom: 12px;
+}
+
+#vistaAjustes .fila-ajustes {
+  aspect-ratio: 1 / 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 14px 10px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.65) !important;
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.6) !important;
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.08) !important;
+  cursor: pointer;
+  user-select: none;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+html[data-tema="oscuro"] #vistaAjustes .fila-ajustes {
+  background: rgba(18, 18, 23, 0.75) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37) !important;
+}
+
+#vistaAjustes .fila-ajustes:active {
+  transform: scale(0.96);
+}
+
+#vistaAjustes .fila-ajustes svg {
+  width: 28px;
+  height: 28px;
+  margin-bottom: 8px;
+  color: var(--morado-700);
+}
+
+#vistaAjustes .fila-ajustes .txt {
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--texto-900);
+}
+
+#vistaAjustes .fila-ajustes .chevron {
+  display: none;
 }
 
 /* ---- Ajustes estilo iOS 17 ---- */
@@ -1180,6 +1320,37 @@ body[data-theme="dark"] .auth-caja,
   background: rgba(15, 23, 42, 0.85);
   border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: 0 16px 40px rgba(0,0,0,0.5);
+}
+
+/* Glassmorphism estilo iOS / iPhone para contenedores y tarjetas */
+.auth-caja,
+.compositor,
+.publicacion,
+.tarjeta,
+.caja-busqueda,
+.conversacion-item,
+.tarjeta-ajustes,
+.cuadrado-persona {
+  background: rgba(255, 255, 255, 0.65) !important;
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.6) !important;
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.08) !important;
+}
+
+html[data-tema="oscuro"] .auth-caja,
+html[data-tema="oscuro"] .compositor,
+html[data-tema="oscuro"] .publicacion,
+html[data-tema="oscuro"] .tarjeta,
+html[data-tema="oscuro"] .caja-busqueda,
+html[data-tema="oscuro"] .conversacion-item,
+html[data-tema="oscuro"] .tarjeta-ajustes,
+html[data-tema="oscuro"] .cuadrado-persona {
+  background: rgba(18, 18, 23, 0.75) !important;
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37) !important;
 }
 
 /* Tarjetas Holográficas 3D con Tilt, Reflejo Especular e Iridiscencia */

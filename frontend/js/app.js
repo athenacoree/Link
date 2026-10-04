@@ -2877,9 +2877,9 @@ function pintarListaPersonas(personas, contenedorId) {
       adjuntarInteraccionParCuadrados(parElem, persona);
     });
   } else {
-    // Formato clásico para otras listas (contactos, etc.)
-    cont.innerHTML = personas.map((p) => `
-      <div class="tarjeta" data-persona='${encodeURIComponent(JSON.stringify(p))}'>
+    // Formato en tarjeta cuadrada tipo grid para contactos y amigos
+    cont.innerHTML = `<div class="grid-cuadrados-contactos">` + personas.map((p) => `
+      <div class="tarjeta tarjeta-contacto-cuadrada" data-persona='${encodeURIComponent(JSON.stringify(p))}'>
         ${p.mi_reaccion ? `<div class="tarjeta-reaccionada" title="Ya reaccionaste (privado)">${EMOJI_POR_TIPO_REACCION[p.mi_reaccion] || '💗'}</div>` : ''}
         <div class="avatar-wrap">
           <img class="avatar-circulo" src="${avatarDe(p)}" alt="">
@@ -2890,11 +2890,10 @@ function pintarListaPersonas(personas, contenedorId) {
         </div>
         <div class="id-persona">
           <div class="nombre">${nombreConBadge(p)}</div>
-          <div class="detalle"><span>${p.flag_emoji || '🇨🇺'}</span> ${p.city || 'Cuba'}${p.profession ? ` <span class="sep"></span> ${p.profession}` : ''}</div>
-          ${p.origen ? `<div class="tarjeta-origen ${p.origen}">${ETIQUETAS_ORIGEN_FEED[p.origen] || ''}</div>` : ''}
+          <div class="detalle"><span>${p.flag_emoji || '🇨🇺'}</span> ${p.city || 'Cuba'}</div>
+          ${p.profession ? `<div class="profesion-tag">${p.profession}</div>` : ''}
         </div>
-        <div class="chevron"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m9 6 6 6-6 6"/></svg></div>
-      </div>`).join('');
+      </div>`).join('') + `</div>`;
 
     cont.querySelectorAll('.tarjeta').forEach((tarjeta) => {
       const persona = JSON.parse(decodeURIComponent(tarjeta.dataset.persona));
@@ -3526,15 +3525,18 @@ function renderizarConversacionesHTML(conversaciones) {
   if (!conversaciones || !conversaciones.length) {
     return (itemAi || '') + '<div class="aviso-vacio">Aún no tienes conversaciones con amigos. Escríbele a un amigo desde su perfil.</div>';
   }
-  return (itemAi || '') + conversaciones.map((c) => `
-    <div class="conversacion-item" data-persona='${encodeURIComponent(JSON.stringify({ id: c.otro_id, name: c.otro_nombre, avatar_data: c.otro_avatar, is_online: c.is_online }))}'>
-      <img src="${avatarDe({ avatar_data: c.otro_avatar, name: c.otro_nombre })}" alt="">
+  return (itemAi || '') + `<div class="grid-cuadrados-chats">` + conversaciones.map((c) => `
+    <div class="conversacion-item tarjeta-chat-cuadrada" data-persona='${encodeURIComponent(JSON.stringify({ id: c.otro_id, name: c.otro_nombre, avatar_data: c.otro_avatar, is_online: c.is_online }))}'>
+      <div class="chat-cuadrado-avatar-wrap">
+        <img src="${avatarDe({ avatar_data: c.otro_avatar, name: c.otro_nombre })}" alt="">
+        <div class="punto-online ${c.is_online ? 'en-linea' : ''}"></div>
+      </div>
       <div class="conversacion-info">
         <div class="nombre">${c.otro_nombre}</div>
-        <div class="preview">${c.last_message_preview || ''}</div>
+        <div class="preview">${c.last_message_preview || 'Iniciar chat...'}</div>
       </div>
-      <div class="conversacion-hora">${c.last_message_at ? tiempoRelativo(c.last_message_at) : ''}</div>
-    </div>`).join('');
+      <div class="conversacion-hora">${c.last_message_at ? tiempoRelativo(c.last_message_at) : 'Nuevo'}</div>
+    </div>`).join('') + `</div>`;
 }
 
 function adjuntarListenersConversaciones() {
