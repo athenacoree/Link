@@ -650,6 +650,562 @@ function inicializarPerfil3DWiggle(persona, canvasId = 'perfil3dWiggleCanvas') {
 
   render();
 }
+// =========================================================
+// 🌐 GLOBO TERRÁQUEO 3D ("CONEXIONES EN VIVO") Y CONSTELACIÓN LOGIN
+// =========================================================
+let globoState = { rotX: 0.2, rotY: 0, isDragging: false, lastX: 0, lastY: 0, selectedNode: null };
+
+function inicializarGlobo3D(canvasId = 'globoConexiones3D') {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const parent = canvas.parentElement;
+  if (!parent) return;
+
+  function resize() {
+    const rect = parent.getBoundingClientRect();
+    canvas.width = rect.width || 300;
+    canvas.height = rect.height || 210;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  const R = Math.min(canvas.width, canvas.height) * 0.38;
+  const nodes = [
+    { lat: 23.11, lon: -82.36, name: 'La Habana', country: 'Cuba' },
+    { lat: 25.76, lon: -80.19, name: 'Miami', country: 'Miami' },
+    { lat: 40.41, lon: -3.70, name: 'Madrid', country: 'España' },
+    { lat: 19.43, lon: -99.13, name: 'Ciudad de México', country: 'México' },
+    { lat: 4.71, lon: -74.07, name: 'Bogotá', country: 'Colombia' },
+    { lat: -34.60, lon: -58.38, name: 'Buenos Aires', country: 'Argentina' }
+  ];
+
+  const arcs = [
+    { from: 0, to: 1 }, // Habana -> Miami
+    { from: 0, to: 2 }, // Habana -> Madrid
+    { from: 1, to: 3 }, // Miami -> CDMX
+    { from: 0, to: 4 }, // Habana -> Bogotá
+    { from: 2, to: 1 }  // Madrid -> Miami
+  ];
+
+  let pulseTime = 0;
+
+  function latLonTo3D(lat, lon, radius) {
+    const phi = (90 - lat) * (Math.PI / 180);
+    const theta = (lon + 180) * (Math.PI / 180);
+    return {
+      x: -(radius * Math.sin(phi) * Math.cos(theta)),
+      z: radius * Math.sin(phi) * Math.sin(theta),
+      y: radius * Math.cos(phi)
+    };
+  }
+
+  function rotateX(p, angle) {
+    const cos = Math.cos(angle), sin = Math.sin(angle);
+    return { x: p.x, y: p.y * cos - p.z * sin, z: p.y * sin + p.z * cos };
+  }
+
+  function rotateY(p, angle) {
+    const cos = Math.cos(angle), sin = Math.sin(angle);
+    return { x: p.x * cos + p.z * sin, y: p.y, z: -p.x * sin + p.z * cos };
+  }
+
+  let screenNodes = [];
+
+  function animate() {
+    if (!ctx || !canvas) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+    const curR = globoState.selectedNode ? R * 1.15 : R;
+
+    if (!globoState.isDragging) {
+      globoState.rotY += 0.005;
+    }
+    pulseTime += 0.03;
+
+    // Dibujar atmósfera brillante
+    const glowGrad = ctx.createRadialGradient(cx, cy, curR * 0.85, cx, cy, curR * 1.25);
+    glowGrad.addColorStop(0, 'rgba(139, 92, 246, 0.12)');
+    glowGrad.addColorStop(0.8, 'rgba(168, 85, 247, 0.04)');
+    glowGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = glowGrad;
+    ctx.beginPath();
+    ctx.arc(cx, cy, curR * 1.25, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Fondo del planeta (esfera 3D)
+    const planetGrad = ctx.createRadialGradient(cx - curR * 0.3, cy - curR * 0.3, curR * 0.1, cx, cy, curR);
+    planetGrad.addColorStop(0, '#1f1b4e');
+    planetGrad.addColorStop(0.7, '#0f0c29');
+    planetGrad.addColorStop(1, '#050414');
+    ctx.fillStyle = planetGrad;
+    ctx.beginPath();
+    ctx.arc(cx, cy, curR, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(168, 85, 247, 0.25)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Líneas de Latitud
+    for (let lat = -60; lat <= 60; lat += 30) {
+      ctx.beginPath();
+      let first = true;
+      for (let lon = 0; lon <= 360; lon += 10) {
+        let p = latLonTo3D(lat, lon, curR);
+        p = rotateX(p, globoState.rotX);
+        p = rotateY(p, globoState.rotY);
+        if (p.z > 0) {
+          if (first) { ctx.moveTo(cx + p.x, cy + p.y); first = false; }
+          else { ctx.lineTo(cx + p.x, cy + p.y); }
+        } else {
+          first = true;
+        }
+      }
+      ctx.strokeStyle = 'rgba(139, 92, 246, 0.18)';
+      ctx.lineWidth = 0.8;
+      ctx.stroke();
+    }
+
+    // Líneas de Longitud
+    for (let lon = 0; lon < 360; lon += 45) {
+      ctx.beginPath();
+      let first = true;
+      for (let lat = -90; lat <= 90; lat += 10) {
+        let p = latLonTo3D(lat, lon, curR);
+        p = rotateX(p, globoState.rotX);
+        p = rotateY(p, globoState.rotY);
+        if (p.z > 0) {
+          if (first) { ctx.moveTo(cx + p.x, cy + p.y); first = false; }
+          else { ctx.lineTo(cx + p.x, cy + p.y); }
+        } else {
+          first = true;
+        }
+      }
+      ctx.strokeStyle = 'rgba(139, 92, 246, 0.15)';
+      ctx.lineWidth = 0.8;
+      ctx.stroke();
+    }
+
+    // Arcos de luz en 3D
+    arcs.forEach(arc => {
+      const n1 = nodes[arc.from];
+      const n2 = nodes[arc.to];
+      let p1 = latLonTo3D(n1.lat, n1.lon, curR);
+      let p2 = latLonTo3D(n2.lat, n2.lon, curR);
+      p1 = rotateY(rotateX(p1, globoState.rotX), globoState.rotY);
+      p2 = rotateY(rotateX(p2, globoState.rotX), globoState.rotY);
+
+      if (p1.z > -curR * 0.2 || p2.z > -curR * 0.2) {
+        const midX = (p1.x + p2.x) * 0.5 * 1.35;
+        const midY = (p1.y + p2.y) * 0.5 * 1.35;
+
+        ctx.beginPath();
+        ctx.moveTo(cx + p1.x, cy + p1.y);
+        ctx.quadraticCurveTo(cx + midX, cy + midY, cx + p2.x, cy + p2.y);
+        ctx.strokeStyle = 'rgba(192, 132, 252, 0.4)';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+
+        // Pulso brillante que recorre el arco
+        const t = (pulseTime + arc.from) % 1;
+        const pulseX = (1 - t) * (1 - t) * p1.x + 2 * (1 - t) * t * midX + t * t * p2.x;
+        const pulseY = (1 - t) * (1 - t) * p1.y + 2 * (1 - t) * t * midY + t * t * p2.y;
+        ctx.beginPath();
+        ctx.arc(cx + pulseX, cy + pulseY, 3, 0, Math.PI * 2);
+        ctx.fillStyle = '#f472b6';
+        ctx.shadowColor = '#f472b6';
+        ctx.shadowBlur = 8;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+    });
+
+    // Proyectar y renderizar Nodos (Ciudades)
+    screenNodes = [];
+    nodes.forEach((node, idx) => {
+      let p = latLonTo3D(node.lat, node.lon, curR);
+      p = rotateX(p, globoState.rotX);
+      p = rotateY(p, globoState.rotY);
+
+      if (p.z > 0) {
+        const sx = cx + p.x;
+        const sy = cy + p.y;
+        screenNodes.push({ x: sx, y: sy, node, idx });
+
+        const isSel = globoState.selectedNode && globoState.selectedNode.country === node.country;
+        const nodeRadius = isSel ? 7 : 4.5;
+
+        // Anillo de pulso exterior
+        const pulseR = nodeRadius + Math.sin(pulseTime * 4 + idx) * 3 + 2;
+        ctx.beginPath();
+        ctx.arc(sx, sy, Math.max(1, pulseR), 0, Math.PI * 2);
+        ctx.strokeStyle = isSel ? 'rgba(236, 72, 153, 0.8)' : 'rgba(168, 85, 247, 0.6)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        // Punto central
+        ctx.beginPath();
+        ctx.arc(sx, sy, nodeRadius, 0, Math.PI * 2);
+        ctx.fillStyle = isSel ? '#f43f5e' : '#c084fc';
+        ctx.shadowColor = isSel ? '#f43f5e' : '#a855f7';
+        ctx.shadowBlur = 10;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        // Texto de la ciudad
+        ctx.fillStyle = isSel ? '#fb7185' : '#e9d5ff';
+        ctx.font = isSel ? 'bold 11px sans-serif' : '10px sans-serif';
+        ctx.fillText(node.name, sx + 8, sy + 3);
+      }
+    });
+
+    requestAnimationFrame(animate);
+  }
+
+  // Interacción táctil y mouse para rotación
+  function startDrag(x, y) {
+    globoState.isDragging = true;
+    globoState.lastX = x;
+    globoState.lastY = y;
+  }
+
+  function moveDrag(x, y) {
+    if (!globoState.isDragging) return;
+    const dx = x - globoState.lastX;
+    const dy = y - globoState.lastY;
+    globoState.rotY += dx * 0.008;
+    globoState.rotX += dy * 0.008;
+    globoState.rotX = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, globoState.rotX));
+    globoState.lastX = x;
+    globoState.lastY = y;
+  }
+
+  function stopDrag() {
+    globoState.isDragging = false;
+  }
+
+  canvas.addEventListener('mousedown', e => startDrag(e.clientX, e.clientY));
+  window.addEventListener('mousemove', e => moveDrag(e.clientX, e.clientY));
+  window.addEventListener('mouseup', stopDrag);
+
+  canvas.addEventListener('touchstart', e => {
+    if (e.touches.length === 1) startDrag(e.touches[0].clientX, e.touches[0].clientY);
+  });
+  canvas.addEventListener('touchmove', e => {
+    if (e.touches.length === 1) moveDrag(e.touches[0].clientX, e.touches[0].clientY);
+  });
+  canvas.addEventListener('touchend', stopDrag);
+
+  // Click en un nodo de ciudad
+  canvas.addEventListener('click', e => {
+    const rect = canvas.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const clickY = e.clientY - rect.top;
+
+    let hit = screenNodes.find(sn => Math.hypot(sn.x - clickX, sn.y - clickY) < 18);
+    if (hit) {
+      globoState.selectedNode = hit.node;
+      const tag = document.getElementById('globoRegionLabel');
+      const resetBtn = document.getElementById('btnResetFiltroGlobo');
+      if (tag) tag.textContent = `📍 ${hit.node.name} (${hit.node.country})`;
+      if (resetBtn) resetBtn.classList.remove('oculto');
+
+      // Filtrar feed por municipio / país
+      if (typeof window.filtrarPersonasPorRegion === 'function') {
+        window.filtrarPersonasPorRegion(hit.node.country);
+      }
+    }
+  });
+
+  animate();
+}
+
+window.resetearFiltroGlobo = function() {
+  globoState.selectedNode = null;
+  const tag = document.getElementById('globoRegionLabel');
+  const resetBtn = document.getElementById('btnResetFiltroGlobo');
+  if (tag) tag.textContent = 'Global (Toca un nodo)';
+  if (resetBtn) resetBtn.classList.add('oculto');
+  if (typeof window.filtrarPersonasPorRegion === 'function') {
+    window.filtrarPersonasPorRegion('');
+  }
+};
+
+function inicializarConstelacionLogin(canvasId = 'constelacionLoginCanvas') {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const parent = canvas.parentElement || document.body;
+
+  function resize() {
+    canvas.width = parent.clientWidth || window.innerWidth;
+    canvas.height = parent.clientHeight || window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  const numNodes = 40;
+  const nodes = [];
+  let mouse = { x: canvas.width / 2, y: canvas.height / 2, active: false };
+
+  for (let i = 0; i < numNodes; i++) {
+    nodes.push({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      z: Math.random() * 200 - 100,
+      vx: (Math.random() - 0.5) * 0.8,
+      vy: (Math.random() - 0.5) * 0.8,
+      radius: Math.random() * 2.5 + 1.5
+    });
+  }
+
+  parent.addEventListener('mousemove', e => {
+    const rect = canvas.getBoundingClientRect();
+    mouse.x = e.clientX - rect.left;
+    mouse.y = e.clientY - rect.top;
+    mouse.active = true;
+  });
+
+  parent.addEventListener('mouseleave', () => { mouse.active = false; });
+
+  parent.addEventListener('touchmove', e => {
+    if (e.touches.length > 0) {
+      const rect = canvas.getBoundingClientRect();
+      mouse.x = e.touches[0].clientX - rect.left;
+      mouse.y = e.touches[0].clientY - rect.top;
+      mouse.active = true;
+    }
+  });
+
+  function animateConstellation() {
+    if (!ctx || !canvas) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    for (let i = 0; i < nodes.length; i++) {
+      const n = nodes[i];
+      n.x += n.vx;
+      n.y += n.vy;
+
+      if (n.x < 0 || n.x > canvas.width) n.vx *= -1;
+      if (n.y < 0 || n.y > canvas.height) n.vy *= -1;
+
+      // Atracción hacia el cursor / dedo
+      if (mouse.active) {
+        const dx = mouse.x - n.x;
+        const dy = mouse.y - n.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist < 180 && dist > 1) {
+          n.x += (dx / dist) * 0.6;
+          n.y += (dy / dist) * 0.6;
+        }
+      }
+
+      // Dibujar nodo
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, n.radius, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(139, 92, 246, 0.7)';
+      ctx.shadowColor = 'rgba(168, 85, 247, 0.5)';
+      ctx.shadowBlur = 6;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // Unir nodos cercanos con hilos
+      for (let j = i + 1; j < nodes.length; j++) {
+        const n2 = nodes[j];
+        const dist = Math.hypot(n.x - n2.x, n.y - n2.y);
+        if (dist < 110) {
+          ctx.beginPath();
+          ctx.moveTo(n.x, n.y);
+          ctx.lineTo(n2.x, n2.y);
+          ctx.strokeStyle = `rgba(168, 85, 247, ${0.35 * (1 - dist / 110)})`;
+          ctx.lineWidth = 0.8;
+          ctx.stroke();
+        }
+      }
+    }
+
+    requestAnimationFrame(animateConstellation);
+  }
+
+  animateConstellation();
+}
+
+// =========================================================
+// 🔮 EFECTO TILT HOLOGRÁFICO EN TARJETAS DE PERFIL
+// =========================================================
+function inicializarTarjetasHolograficas3D() {
+  document.addEventListener('mousemove', (e) => {
+    const cards = document.querySelectorAll('.tarjeta-par-cuadrados, .tarjeta, .tarjeta-ajustes');
+    cards.forEach(card => {
+      const rect = card.getBoundingClientRect();
+      if (
+        e.clientX >= rect.left && e.clientX <= rect.right &&
+        e.clientY >= rect.top && e.clientY <= rect.bottom
+      ) {
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        const centerX = rect.width / 2;
+        const centerY = rect.height / 2;
+
+        const rotateX = ((y - centerY) / centerY) * -12; // tilt vertical
+        const rotateY = ((x - centerX) / centerX) * 12;  // tilt horizontal
+
+        card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(1.02)`;
+        card.style.setProperty('--glow-x', `${(x / rect.width) * 100}%`);
+        card.style.setProperty('--glow-y', `${(y / rect.height) * 100}%`);
+      } else {
+        card.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale(1)';
+      }
+    });
+  });
+
+  // Soporte para inclinación por Giroscopio en móviles
+  if (window.DeviceOrientationEvent) {
+    window.addEventListener('deviceorientation', (e) => {
+      if (e.beta === null || e.gamma === null) return;
+      const rotX = Math.max(-15, Math.min(15, e.beta - 45)) * -0.5;
+      const rotY = Math.max(-15, Math.min(15, e.gamma)) * 0.5;
+
+      const visibleCards = document.querySelectorAll('.tarjeta-par-cuadrados, .tarjeta');
+      visibleCards.forEach(card => {
+        const rect = card.getBoundingClientRect();
+        if (rect.top < window.innerHeight && rect.bottom > 0) {
+          card.style.transform = `perspective(1000px) rotateX(${rotX}deg) rotateY(${rotY}deg)`;
+        }
+      });
+    }, true);
+  }
+}
+
+// =========================================================
+// 🎆 MOTOR DE PARTÍCULAS 3D CON GRAVEDAD (REACCIONES)
+// =========================================================
+let canvasParticulas = null;
+let ctxParticulas = null;
+let particulas = [];
+
+function setupCanvasParticulas() {
+  if (document.getElementById('canvasParticulasReacciones')) return;
+  canvasParticulas = document.createElement('canvas');
+  canvasParticulas.id = 'canvasParticulasReacciones';
+  document.body.appendChild(canvasParticulas);
+  ctxParticulas = canvasParticulas.getContext('2d');
+
+  function resize() {
+    if (!canvasParticulas) return;
+    canvasParticulas.width = window.innerWidth;
+    canvasParticulas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+  requestAnimationFrame(animarParticulas);
+}
+
+function lanzarParticulasReaccion(startX, startY, emoji = '❤️', cantidad = 20) {
+  setupCanvasParticulas();
+  const x = startX || window.innerWidth / 2;
+  const y = startY || window.innerHeight / 2;
+
+  for (let i = 0; i < cantidad; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = Math.random() * 8 + 4;
+    particulas.push({
+      x,
+      y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed - 6, // Impulso hacia arriba
+      gravity: 0.28,
+      size: Math.random() * 16 + 18,
+      emoji: emoji,
+      opacity: 1,
+      rotation: Math.random() * 360,
+      vRot: (Math.random() - 0.5) * 10
+    });
+  }
+
+  if ('vibrate' in navigator) {
+    try { navigator.vibrate(35); } catch(err){}
+  }
+}
+
+function animarParticulas() {
+  if (ctxParticulas && canvasParticulas) {
+    ctxParticulas.clearRect(0, 0, canvasParticulas.width, canvasParticulas.height);
+
+    for (let i = particulas.length - 1; i >= 0; i--) {
+      const p = particulas[i];
+      p.x += p.vx;
+      p.vy += p.gravity;
+      p.y += p.vy;
+      p.rotation += p.vRot;
+      p.opacity -= 0.018;
+
+      // Rebote leve en el suelo visual
+      if (p.y > canvasParticulas.height - 20) {
+        p.y = canvasParticulas.height - 20;
+        p.vy *= -0.5;
+      }
+
+      ctxParticulas.save();
+      ctxParticulas.globalAlpha = Math.max(0, p.opacity);
+      ctxParticulas.translate(p.x, p.y);
+      ctxParticulas.rotate((p.rotation * Math.PI) / 180);
+      ctxParticulas.font = `${p.size}px sans-serif`;
+      ctxParticulas.textAlign = 'center';
+      ctxParticulas.textBaseline = 'middle';
+      ctxParticulas.fillText(p.emoji, 0, 0);
+      ctxParticulas.restore();
+
+      if (p.opacity <= 0) {
+        particulas.splice(i, 1);
+      }
+    }
+  }
+  requestAnimationFrame(animarParticulas);
+}
+
+// =========================================================
+// 📺 REPRODUCTOR PIP FLOTANTE (PICTURE-IN-PICTURE)
+// =========================================================
+function activarPiPVideo(streamOrSrc) {
+  const pipContainer = document.getElementById('pipFloatingPlayer');
+  const pipVideo = document.getElementById('pipVideoElement');
+  if (!pipContainer || !pipVideo) return;
+
+  if (typeof streamOrSrc === 'string') {
+    pipVideo.src = streamOrSrc;
+  } else if (streamOrSrc instanceof MediaStream) {
+    pipVideo.srcObject = streamOrSrc;
+  }
+  pipContainer.style.display = 'flex';
+  pipVideo.play().catch(() => {});
+}
+
+function cerrarPiPVideo() {
+  const pipContainer = document.getElementById('pipFloatingPlayer');
+  const pipVideo = document.getElementById('pipVideoElement');
+  if (pipVideo) {
+    pipVideo.pause();
+    pipVideo.src = '';
+    pipVideo.srcObject = null;
+  }
+  if (pipContainer) pipContainer.style.display = 'none';
+}
+
+function maximizarPiPVideo() {
+  cerrarPiPVideo();
+  const modalViewer = document.getElementById('modalViewerLive');
+  if (modalViewer) modalViewer.style.display = 'flex';
+}
+
+window.activarPiPVideo = activarPiPVideo;
+window.cerrarPiPVideo = cerrarPiPVideo;
+window.maximizarPiPVideo = maximizarPiPVideo;
+window.lanzarParticulasReaccion = lanzarParticulasReaccion;
+window.inicializarGlobo3D = inicializarGlobo3D;
+window.inicializarConstelacionLogin = inicializarConstelacionLogin;
 window.inicializarPerfil3DWiggle = inicializarPerfil3DWiggle;
 window.inicializarCanvas3D = inicializarCanvas3D;
 window.abrirVisorPDF = abrirVisorPDF;
@@ -673,6 +1229,9 @@ function cerrarTodosLosModales() {
 window.cerrarTodosLosModales = cerrarTodosLosModales;
 
 document.addEventListener('DOMContentLoaded', () => {
+  inicializarConstelacionLogin();
+  inicializarGlobo3D();
+  inicializarTarjetasHolograficas3D();
   $('cerrarVisorImagen')?.addEventListener('click', cerrarVisorImagen);
   $('veloVisorImagen')?.addEventListener('click', cerrarVisorImagen);
   $('modalVisorImagen')?.addEventListener('click', (e) => {
@@ -1682,30 +2241,114 @@ async function cargarEstados() {
   } catch (e) { console.error(e); }
 }
 
-function verEstado(data) {
-  const yo = Sesion.usuario();
-  $('ve-avatar').src = avatarDe({ avatar_data: data.autor_avatar, name: data.autor_nombre });
-  $('ve-nombre').textContent = data.autor_nombre;
-  $('ve-texto').textContent = data.text || '';
-  if (data.image_data) { $('ve-imagen').src = data.image_data; $('ve-imagen').style.display = 'block'; }
-  else { $('ve-imagen').style.display = 'none'; }
+// Array y estado para la experiencia de historias en Cubo 3D
+let listaHistorias3D = [];
+let indiceHistoriaActual = 0;
+let timerHistoria3D = null;
 
-  const esDuenoOAdmin = (data.user_id === yo?.id) || MI_ES_ADMIN;
-  $('ve-acciones').style.display = esDuenoOAdmin ? 'block' : 'none';
-  if (esDuenoOAdmin) {
-    $('btnBorrarEstado').onclick = async () => {
-      if (!confirm('¿Quieres borrar este estado?')) return;
-      try {
-        await api(`/estados/${data.id}`, { method: 'DELETE' });
-        mostrarToast('Estado borrado');
-        $('veloVerEstado').classList.remove('activo'); $('hojaVerEstado').classList.remove('activo');
-        cargarEstados();
-        if (perfilActualId) abrirPerfil(perfilActualId);
-      } catch (e) { mostrarToast(e.message); }
-    };
+function abrirVisorHistorias3D(lista, index = 0) {
+  listaHistorias3D = lista || [];
+  indiceHistoriaActual = index;
+  const modal = $('modalVisorHistorias3D');
+  if (!modal || !listaHistorias3D.length) return;
+
+  modal.style.display = 'flex';
+  renderizarHistoria3D(indiceHistoriaActual);
+
+  const btnCerrar = $('cerrarVisorHistorias3D');
+  if (btnCerrar) {
+    btnCerrar.onclick = cerrarVisorHistorias3D;
+  }
+}
+
+function renderizarHistoria3D(index) {
+  if (index < 0 || index >= listaHistorias3D.length) {
+    cerrarVisorHistorias3D();
+    return;
+  }
+  indiceHistoriaActual = index;
+  const item = listaHistorias3D[index];
+
+  // Renderizar segmentos de barra de progreso
+  const bar = $('historiasProgressBar');
+  if (bar) {
+    bar.innerHTML = listaHistorias3D.map((_, i) => `
+      <div class="story-progress-segment">
+        <div class="story-progress-fill" id="storyProgress_${i}" style="width:${i < index ? '100%' : '0%'}"></div>
+      </div>
+    `).join('');
   }
 
-  api(`/estados/${data.id}/visto`, { method: 'POST' }).catch(() => {});
+  // Header data
+  $('storyHeaderAvatar').src = avatarDe({ avatar_data: item.autor_avatar, name: item.autor_nombre });
+  $('storyHeaderNombre').textContent = item.autor_nombre || 'Usuario';
+  $('storyHeaderTiempo').textContent = 'Historia';
+
+  // Cube face current
+  const imgCurr = $('storyImageCurrent');
+  const txtCurr = $('storyTextCurrent');
+
+  if (item.image_data) {
+    imgCurr.src = item.image_data;
+    imgCurr.style.display = 'block';
+  } else {
+    imgCurr.style.display = 'none';
+  }
+  txtCurr.textContent = item.text || '';
+
+  // Animación de llenado de la barra actual
+  if (timerHistoria3D) clearInterval(timerHistoria3D);
+  let progress = 0;
+  const fillElem = $(`storyProgress_${index}`);
+
+  timerHistoria3D = setInterval(() => {
+    progress += 2;
+    if (fillElem) fillElem.style.width = `${progress}%`;
+    if (progress >= 100) {
+      clearInterval(timerHistoria3D);
+      navegarHistoria3D('next');
+    }
+  }, 100);
+
+  api(`/estados/${item.id}/visto`, { method: 'POST' }).catch(() => {});
+}
+
+function navegarHistoria3D(direccion) {
+  if (direccion === 'next') {
+    if (indiceHistoriaActual + 1 < listaHistorias3D.length) {
+      const stage = $('historiasCubeStage');
+      if (stage) {
+        stage.style.transform = 'rotateY(-90deg)';
+        setTimeout(() => {
+          stage.style.transition = 'none';
+          stage.style.transform = 'rotateY(0deg)';
+          renderizarHistoria3D(indiceHistoriaActual + 1);
+          setTimeout(() => { stage.style.transition = 'transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)'; }, 50);
+        }, 450);
+      } else {
+        renderizarHistoria3D(indiceHistoriaActual + 1);
+      }
+    } else {
+      cerrarVisorHistorias3D();
+    }
+  } else if (direccion === 'prev') {
+    if (indiceHistoriaActual - 1 >= 0) {
+      renderizarHistoria3D(indiceHistoriaActual - 1);
+    }
+  }
+}
+
+function cerrarVisorHistorias3D() {
+  if (timerHistoria3D) clearInterval(timerHistoria3D);
+  const modal = $('modalVisorHistorias3D');
+  if (modal) modal.style.display = 'none';
+}
+
+window.navegarHistoria3D = navegarHistoria3D;
+window.abrirVisorHistorias3D = abrirVisorHistorias3D;
+
+function verEstado(data) {
+  abrirVisorHistorias3D([data], 0);
   $('veloVerEstado').classList.add('activo'); $('hojaVerEstado').classList.add('activo');
 }
 $('cerrarVerEstado').addEventListener('click', () => { $('veloVerEstado').classList.remove('activo'); $('hojaVerEstado').classList.remove('activo'); });
@@ -1999,6 +2642,25 @@ function adjuntarInteraccionParCuadrados(parElem, persona) {
     });
   });
 
+  parElem.querySelectorAll('.subvista-foto-full').forEach((fotoElem) => {
+    let lastTap = 0;
+    fotoElem.addEventListener('touchend', (e) => {
+      const currentTime = new Date().getTime();
+      const tapLength = currentTime - lastTap;
+      if (tapLength < 300 && tapLength > 0) {
+        e.preventDefault();
+        const rect = fotoElem.getBoundingClientRect();
+        const touch = e.changedTouches[0];
+        window.lanzarParticulasReaccion(touch.clientX || rect.left + rect.width / 2, touch.clientY || rect.top + rect.height / 2, '❤️', 25);
+      }
+      lastTap = currentTime;
+    });
+
+    fotoElem.addEventListener('dblclick', (e) => {
+      window.lanzarParticulasReaccion(e.clientX, e.clientY, '❤️', 25);
+    });
+  });
+
   parElem.querySelectorAll('.btn-reaccionar').forEach((b) => {
     b.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -2110,8 +2772,9 @@ function pintarListaPersonas(personas, contenedorId) {
             <div class="cuadrado-dot dot-izq-3"></div>
           </div>
 
-          <!-- Subvista 1 (Izq): Foto Completa -->
+          <!-- Subvista 1 (Izq): Foto Completa con Burbuja de Pensamiento / Estado -->
           <div class="cuadrado-subvista subvista-izq-1 subvista-foto-full btn-abrir-perfil">
+            ${p.status_text || p.bio ? `<div class="burbuja-pensamiento">${p.status_text || p.bio.substring(0, 20) + '...'}</div>` : ''}
             <img class="cuadrado-foto-full" src="${avatarSrc}" alt="${p.name || ''}">
             <div class="cuadrado-foto-badge-online ${p.is_online ? 'en-linea' : ''}"></div>
           </div>

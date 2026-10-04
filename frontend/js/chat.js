@@ -880,9 +880,15 @@ const Chat = (() => {
     }
 
     if (msg.audioData) {
-      html += `<div style="display:flex; align-items:center; gap:8px; margin-top:4px;">
-        <audio controls src="${msg.audioData}" style="max-width:180px; height:36px;"></audio>
-        <div class="mini-btn secundario" style="padding:4px 7px; font-size:11px; cursor:pointer;" onclick="Chat.alternarVelocidadAudio(this)">1x</div>
+      const visualizerCanvasId = 'vis3d_' + Math.random().toString(36).substring(2, 9);
+      html += `<div style="display:flex; flex-direction:column; gap:4px; margin-top:4px; width:100%; max-width:220px;">
+        <div class="audio-visualizer-3d-wrap">
+          <canvas id="${visualizerCanvasId}"></canvas>
+        </div>
+        <div style="display:flex; align-items:center; gap:6px;">
+          <audio controls src="${msg.audioData}" style="flex:1; height:36px;" onplay="window.animarVisualizador3DAudio('${visualizerCanvasId}', this)"></audio>
+          <div class="mini-btn secundario" style="padding:4px 7px; font-size:11px; cursor:pointer;" onclick="Chat.alternarVelocidadAudio(this)">1x</div>
+        </div>
       </div>`;
     }
 
@@ -2150,5 +2156,56 @@ const Chat = (() => {
 
   return { abrirConversacion, cerrarConversacion, enlazarUI, enlazarSocket, actualizarBadgeMensajes, alternarVelocidadAudio, alternarPanelUsuario, seleccionarEsteUsuario, abrirConversacionConId, cambiarCalidadVideo, enviarInvitacionCita, responderCita, enviarRespuestaDirectaEnChatCard, enviarSolicitudAmistadDirecta, abrirCategoriaCapabilities, volverACategoriasCapabilities, ejecutarHerramientaDesdeCard, renderCapabilitiesCard, hablarTexto, obtenerEstadoVozAltaChat, guardarEstadoVozAltaChat, alternarVozAltaChat };
 })();
+
+// =========================================================
+// 🌊 VISUALIZADOR 3D DE ONDAS DE AUDIO PARA NOTAS DE VOZ
+// =========================================================
+window.animarVisualizador3DAudio = function(canvasId, audioElement) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas || !audioElement) return;
+  const ctx = canvas.getContext('2d');
+
+  const parent = canvas.parentElement;
+  canvas.width = parent ? parent.clientWidth : 200;
+  canvas.height = parent ? parent.clientHeight : 48;
+
+  let animId = null;
+  let phase = 0;
+
+  function renderWave() {
+    if (audioElement.paused || audioElement.ended) {
+      if (animId) cancelAnimationFrame(animId);
+      return;
+    }
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+    phase += 0.12;
+
+    const bars = 28;
+    const barWidth = canvas.width / bars;
+
+    for (let i = 0; i < bars; i++) {
+      const x = i * barWidth;
+      const distFromCenter = Math.abs(i - bars / 2) / (bars / 2);
+      const amp = Math.sin(phase + i * 0.4) * (1 - distFromCenter * 0.5) * (canvas.height * 0.38) + 4;
+
+      const grad = ctx.createLinearGradient(0, cy - amp, 0, cy + amp);
+      grad.addColorStop(0, '#c084fc');
+      grad.addColorStop(0.5, '#8b5cf6');
+      grad.addColorStop(1, '#ec4899');
+
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.roundRect(x + 2, cy - amp, barWidth - 4, amp * 2, 4);
+      ctx.fill();
+    }
+
+    animId = requestAnimationFrame(renderWave);
+  }
+
+  renderWave();
+};
 
 document.addEventListener('DOMContentLoaded', () => Chat.enlazarUI());

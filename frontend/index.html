@@ -30,6 +30,7 @@
      PANTALLA DE AUTENTICACIÓN
      ========================================================= -->
 <div id="authScreen">
+  <canvas id="constelacionLoginCanvas" class="constelacion-login-bg"></canvas>
   <div class="auth-caja">
     <div style="display:flex; justify-space-between; align-items:center; margin-bottom:6px;">
       <div class="auth-titulo" style="margin:0;">Link</div>
@@ -104,6 +105,25 @@
   <!-- ---------- INICIO: descubrir personas ---------- -->
   <main class="vista-app activo" id="vistaFeed" data-vista="feed">
     <div class="barra-estados" id="barraEstados"></div>
+
+    <!-- Globo Terráqueo 3D de "Conexiones en Vivo" -->
+    <div id="globoConexiones3DContainer" class="globo-conexiones-card">
+      <div class="globo-header">
+        <div class="globo-titulo">
+          <span class="punto-live-pulse"></span>
+          <span>Conexiones en Vivo (Planeta Link 3D)</span>
+        </div>
+        <div id="globoRegionLabel" class="globo-region-tag">Global (Toca un nodo)</div>
+      </div>
+      <div class="globo-canvas-wrap">
+        <canvas id="globoConexiones3D"></canvas>
+      </div>
+      <div class="globo-footer">
+        <span>🌐 Arrastra para girar el planeta y ver usuarios activos</span>
+        <button id="btnResetFiltroGlobo" class="mini-btn-reset-globo oculto" onclick="window.resetearFiltroGlobo()">Ver Todos</button>
+      </div>
+    </div>
+
     <div class="titulo-vista">Descubrir personas</div>
 
     <div class="caja-busqueda">
@@ -1405,6 +1425,35 @@
   <div class="hoja-cancelar" id="cerrarQR">Cerrar</div>
 </div>
 
+<!-- ---------- Visor Fullscreen de Historias (Cubo 3D) ---------- -->
+<div id="modalVisorHistorias3D" class="modal-historias-3d" style="display:none;">
+  <div class="historias-progress-bar" id="historiasProgressBar"></div>
+  <div class="historias-header">
+    <div style="display:flex; align-items:center; gap:10px;">
+      <img id="storyHeaderAvatar" src="" alt="">
+      <div>
+        <div id="storyHeaderNombre" style="font-weight:800; font-size:14px; color:#fff;">Nombre</div>
+        <div id="storyHeaderTiempo" style="font-size:11px; color:rgba(255,255,255,0.7);">Hace unos momentos</div>
+      </div>
+    </div>
+    <div id="cerrarVisorHistorias3D" style="cursor:pointer; font-size:26px; font-weight:700; color:#fff;">&times;</div>
+  </div>
+
+  <div class="historias-cube-stage" id="historiasCubeStage">
+    <div class="cube-face face-current" id="cubeFaceCurrent">
+      <img id="storyImageCurrent" src="" alt="" style="display:none;">
+      <p id="storyTextCurrent"></p>
+    </div>
+    <div class="cube-face face-next" id="cubeFaceNext">
+      <img id="storyImageNext" src="" alt="" style="display:none;">
+      <p id="storyTextNext"></p>
+    </div>
+  </div>
+
+  <div class="historias-nav-left" onclick="window.navegarHistoria3D('prev')"></div>
+  <div class="historias-nav-right" onclick="window.navegarHistoria3D('next')"></div>
+</div>
+
 <!-- ---------- Ver estado de un usuario ---------- -->
 <div class="velo" id="veloVerEstado"></div>
 <div class="hoja" id="hojaVerEstado" style="bottom:20px;">
@@ -1798,6 +1847,16 @@
   <div style="flex:1; position:relative; width:100%; height:100%; display:flex; align-items:center; justify-content:center; overflow:hidden; background:#050508;">
     <!-- Streamer Live WebRTC Video -->
     <video id="liveViewerVideo" autoplay playsinline style="width:100%; height:100%; object-fit:contain; transition: opacity 0.5s ease;"></video>
+  </div>
+</div>
+
+<!-- Burbuja Flotante PiP (Picture-in-Picture) para Link Live / Video -->
+<div id="pipFloatingPlayer" class="pip-floating-bubble" style="display:none;">
+  <video id="pipVideoElement" autoplay muted playsinline></video>
+  <div class="pip-controls">
+    <div onclick="window.maximizarPiPVideo()" title="Expandir" style="cursor:pointer; font-size:14px;">↗️</div>
+    <div onclick="window.cerrarPiPVideo()" title="Cerrar" style="cursor:pointer; font-size:16px; font-weight:bold;">&times;</div>
+  </div>
 
     <!-- Overlay "Reconectando..." (Primeros segundos: conserva último frame) -->
     <div id="viewerReconnectingOverlay" style="display:none; position:absolute; inset:0; background:rgba(0,0,0,0.55); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); z-index:10; flex-direction:column; align-items:center; justify-content:center; color:#fff; text-align:center; padding:20px;">

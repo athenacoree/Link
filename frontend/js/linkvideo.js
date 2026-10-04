@@ -558,19 +558,26 @@ window.LinkVideo = {
     }
   },
 
-  salirLiveViewer() {
-    if (this.viewerSessionId && window.socket) {
+  salirLiveViewer(usarPiP = true) {
+    const videoElem = document.getElementById('liveViewerVideo');
+    if (usarPiP && videoElem && videoElem.srcObject && !videoElem.paused) {
+      window.activarPiPVideo(videoElem.srcObject);
+    }
+
+    if (this.viewerSessionId && window.socket && !usarPiP) {
       window.socket.emit('live:leave', { sessionId: this.viewerSessionId });
     }
 
-    if (this.viewerPeerConnection) {
+    if (this.viewerPeerConnection && !usarPiP) {
       this.viewerPeerConnection.close();
       this.viewerPeerConnection = null;
     }
 
     this.detenerMascotaIntermission();
-    this.isViewer = false;
-    this.viewerSessionId = null;
+    if (!usarPiP) {
+      this.isViewer = false;
+      this.viewerSessionId = null;
+    }
 
     const modal = document.getElementById('modalViewerLive');
     if (modal) modal.style.display = 'none';
