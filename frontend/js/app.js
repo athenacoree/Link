@@ -4855,9 +4855,31 @@ window.addEventListener('mousedown', pausarAnimacionesPorInteraccion, { passive:
 /* ================= LINK GAMES — INTERFACE & POSTMESSAGE BRIDGE ================= */
 let vistaPreviaJuego = null;
 
-function abrirVideoStream(streamUrl, streamTitle) {
+function abrirVideoStream(streamUrl, streamTitle, type, itemData) {
   if (!streamUrl) return;
-  abrirJuego(streamUrl, streamTitle || 'Link Video', 'linkvideo');
+  const audioVis = $('audioVisualizerContainer');
+  const audioEl = $('playerAudioElement');
+  const audioTitle = $('audioVisualizerTitle');
+  const iframeJuego = $('iframeJuego');
+
+  if (type === 'audio' || streamUrl.endsWith('.mp3') || streamUrl.includes('icecast')) {
+    if (iframeJuego) iframeJuego.src = 'about:blank';
+    if (audioVis) audioVis.style.display = 'flex';
+    if (audioTitle) audioTitle.textContent = streamTitle || 'Radio Stream';
+    if (audioEl) {
+      audioEl.src = streamUrl;
+      audioEl.play().catch(() => {});
+    }
+    const vistaJuego = $('vistaJuego');
+    if (vistaJuego) {
+      vistaJuego.classList.add('activo');
+      vistaJuego.style.display = 'flex';
+    }
+  } else {
+    if (audioVis) audioVis.style.display = 'none';
+    if (audioEl) { audioEl.pause(); audioEl.src = ''; }
+    abrirJuego(streamUrl, streamTitle, 'linkvideo');
+  }
 }
 window.abrirVideoStream = abrirVideoStream;
 
@@ -4865,10 +4887,13 @@ function abrirJuego(gameUrl, gameName, gameId) {
   if (!gameUrl) return;
   const vistaJuego = $('vistaJuego');
   const iframeJuego = $('iframeJuego');
-  const tituloHeader = $('juegoTituloHeader');
-  const subtituloHeader = $('juegoSubtituloHeader');
+  const audioVis = $('audioVisualizerContainer');
+  const audioEl = $('playerAudioElement');
 
   if (!vistaJuego || !iframeJuego) return;
+
+  if (audioVis) audioVis.style.display = 'none';
+  if (audioEl) { audioEl.pause(); audioEl.src = ''; }
 
   const vistas = document.querySelectorAll('.vista-app');
   vistas.forEach(v => {
@@ -4876,9 +4901,6 @@ function abrirJuego(gameUrl, gameName, gameId) {
       vistaPreviaJuego = v.id;
     }
   });
-
-  if (tituloHeader) tituloHeader.textContent = gameName || 'Link Games';
-  if (subtituloHeader) subtituloHeader.textContent = gameId ? `Minijuego: @${gameId} • Link Platform` : 'Biblioteca Oficial de Minijuegos';
 
   iframeJuego.src = gameUrl;
   vistaJuego.classList.add('activo');
@@ -4888,15 +4910,20 @@ function abrirJuego(gameUrl, gameName, gameId) {
 function cerrarJuego() {
   const vistaJuego = $('vistaJuego');
   const iframeJuego = $('iframeJuego');
+  const audioVis = $('audioVisualizerContainer');
+  const audioEl = $('playerAudioElement');
 
+  if (audioEl) { audioEl.pause(); audioEl.src = ''; }
+  if (audioVis) audioVis.style.display = 'none';
   if (iframeJuego) iframeJuego.src = 'about:blank';
+
   if (vistaJuego) {
     vistaJuego.classList.remove('activo');
     vistaJuego.style.display = 'none';
   }
 
   if (typeof mostrarToast === 'function') {
-    mostrarToast('Has salido del juego. De vuelta a Link.');
+    mostrarToast('De vuelta a Link.');
   }
 }
 

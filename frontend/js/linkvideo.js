@@ -271,7 +271,7 @@ window.LinkVideo = {
           <div class="linkvideo-card-body">
             <div class="linkvideo-card-title">${escapeHTMLLinkVideo(item.title || item.name || 'Transmisión')}</div>
             <div class="linkvideo-card-desc">${escapeHTMLLinkVideo(item.description || 'Transmisión en vivo y streaming continuo en Link Video.')}</div>
-            <button class="btn btn-primario linkvideo-card-btn" onclick="LinkVideo.reproducir('${escapeHTMLLinkVideo(playUrl)}', '${escapeHTMLLinkVideo(item.title || item.name)}')">
+            <button class="btn btn-primario linkvideo-card-btn" onclick="LinkVideo.reproducir('${escapeHTMLLinkVideo(playUrl)}', '${escapeHTMLLinkVideo(item.title || item.name)}', ${JSON.stringify(item).replace(/"/g, '&quot;')})">
               ▶ Reproducir Stream
             </button>
           </div>
@@ -280,9 +280,10 @@ window.LinkVideo = {
     }).join('');
   },
 
-  reproducir(url, titulo) {
+  reproducir(url, titulo, itemData) {
+    const isAudio = (itemData && itemData.type === 'audio') || (url && (url.endsWith('.mp3') || url.includes('icecast')));
     if (window.abrirVideoStream) {
-      window.abrirVideoStream(url, titulo);
+      window.abrirVideoStream(url, titulo, isAudio ? 'audio' : 'video', itemData);
     } else if (window.abrirJuego) {
       window.abrirJuego(url, titulo, 'linkvideo');
     } else {
