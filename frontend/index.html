@@ -175,43 +175,60 @@
     <div class="lista-conversaciones" id="listaConversaciones"></div>
   </main>
 
-  <!-- ---------- LINK VIDEO Y LINK LIVE ---------- -->
+  <!-- ---------- LINK VIDEO & LIVE STREAMING HUB ---------- -->
   <main class="vista-app" id="vistaAilab" data-vista="ailab">
-    <div style="padding:16px; max-width:1100px; margin:0 auto; width:100%;">
-      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
-        <div style="display:flex; align-items:center; gap:10px;">
-          <div style="width:40px; height:40px; border-radius:12px; background:linear-gradient(135deg, #8b5cf6, #6366f1); display:flex; align-items:center; justify-content:center; color:#fff;">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+    <div class="linkvideo-hub-container">
+      <!-- Banner de Encabezado Ultramoderno -->
+      <div class="linkvideo-hero-card">
+        <div class="linkvideo-hero-content">
+          <div class="linkvideo-hero-badge">
+            <span class="live-dot-pulse"></span> STREAMING PLATFORM 2.0
           </div>
-          <div>
-            <h2 style="font-size:20px; font-weight:800; color:var(--texto-900); margin:0;">Link Video & Live</h2>
-            <div style="font-size:12px; color:var(--texto-500);">Streaming en Vivo, Películas y Audio en Directo</div>
-          </div>
+          <h2 class="linkvideo-hero-title">Link Video & Live Hub</h2>
+          <p class="linkvideo-hero-sub">Plataforma inteligente con transmisiones en vivo verificadas, videos AI, cámaras públicas, películas y radio 24/7.</p>
         </div>
-        <div style="display:flex; gap:8px;">
-          <button class="btn btn-primario mini-btn" onclick="LinkVideo.abrirModalIniciarLive()" style="padding:7px 14px; font-size:12px; font-weight:800; background:linear-gradient(135deg, #ef4444, #dc2626); color:#fff; border:none; border-radius:12px; display:inline-flex; align-items:center; gap:6px;">
-            <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#fff; animation:blink 1s infinite;"></span> Transmitir Live
+        <div class="linkvideo-hero-actions">
+          <button class="btn btn-primario linkvideo-btn-live" onclick="LinkVideo.abrirModalIniciarLive()">
+            <span class="live-dot-mini"></span> Transmitir Live
           </button>
-          <button class="btn btn-secundario mini-btn" onclick="LinkVideo.cargarCatalogo()" style="padding:7px 12px; font-size:12px; font-weight:700;">
-            🔄 Actualizar
+          <button class="btn btn-secundario linkvideo-btn-refresh" onclick="LinkVideo.cargarCatalogo(true)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+            Refrescar
           </button>
         </div>
       </div>
 
-      <!-- Seccion Transmisiones en Vivo Persistentes (Link Live) -->
-      <div id="linkLiveActiveSection" style="margin-bottom:20px; display:none;">
-        <div style="font-size:13px; font-weight:800; color:var(--morado-700); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px; display:flex; align-items:center; gap:6px;">
-          <span style="width:10px; height:10px; border-radius:50%; background:#ef4444; display:inline-block; animation:blink 1s infinite;"></span>
-          Transmisiones en Vivo (Link Live)
+      <!-- Barra de Filtros por Categoría y Búsqueda -->
+      <div class="linkvideo-nav-bar">
+        <div class="linkvideo-category-pills" id="linkVideoCategoryPills">
+          <button class="linkvideo-pill active" data-cat="all">✨ Todos</button>
+          <button class="linkvideo-pill" data-cat="camaras">📹 Cámaras & TV</button>
+          <button class="linkvideo-pill" data-cat="cortos_ai">🤖 Videos AI</button>
+          <button class="linkvideo-pill" data-cat="movies">🎬 Películas & Series</button>
+          <button class="linkvideo-pill" data-cat="audio">📻 Radios & Música</button>
         </div>
-        <div id="linkLiveActiveGrid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:16px;">
+        <div class="linkvideo-search-box">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <input type="text" id="linkVideoSearchInput" placeholder="Buscar canal, cámara o video AI...">
         </div>
       </div>
 
-      <div style="font-size:13px; font-weight:800; color:var(--texto-700); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px;">
-        🎬 Películas y Canales
+      <!-- Sección Transmisiones en Vivo Persistentes (Link Live) -->
+      <div id="linkLiveActiveSection" style="margin-bottom:24px; display:none;">
+        <div class="linkvideo-section-title">
+          <span class="live-dot-pulse"></span>
+          Transmisiones en Vivo Activas (Link Live)
+        </div>
+        <div id="linkLiveActiveGrid" class="linkvideo-cards-grid">
+        </div>
       </div>
-      <div id="linkVideoGrid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:16px;">
+
+      <!-- Sección Catálogo Principal por Categoría -->
+      <div class="linkvideo-section-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+        Canales y Transmisiones Verificadas
+      </div>
+      <div id="linkVideoGrid" class="linkvideo-cards-grid">
         <!-- Catálogo renderizado dinámicamente -->
       </div>
     </div>

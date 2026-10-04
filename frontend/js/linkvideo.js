@@ -123,20 +123,26 @@ window.LinkVideo = {
     });
   },
 
-  async cargarCatalogo() {
+  selectedCategory: 'all',
+  searchQuery: '',
+
+  async cargarCatalogo(forceRefresh = false) {
     const contenedor = document.getElementById('linkVideoGrid');
     if (!contenedor) return;
 
-    contenedor.innerHTML = `<div style="text-align:center; padding:30px; color:var(--texto-500); font-weight:700;">Cargando transmisiones de Link Video & Live...</div>`;
+    contenedor.innerHTML = `<div style="text-align:center; padding:30px; color:var(--texto-500); font-weight:700;">Verificando transmisiones en directo...</div>`;
 
     try {
-      const res = await api('/linkvideo/catalog');
+      const url = forceRefresh ? '/linkvideo/catalog?refresh=true' : '/linkvideo/catalog';
+      const res = await api(url);
       if (res) {
         this.catalog = res.catalog || [];
         this.activeLives = res.lives || [];
         this.baseUrl = res.base_url || '';
         this.renderizarLivesActivos(this.activeLives);
-        this.renderizarCatalogo(this.catalog);
+        this.setupUIControls();
+        this.actualizarDisponibilidadPills();
+        this.aplicarFiltrosYRenderizar();
       } else {
         contenedor.innerHTML = `<div class="aviso-vacio">No hay transmisiones disponibles en este momento.</div>`;
       }
@@ -144,6 +150,59 @@ window.LinkVideo = {
       console.error('Error al cargar catálogo de Link Video:', err);
       contenedor.innerHTML = `<div class="aviso-vacio">No se pudo conectar con el servidor de streaming de Link Video.</div>`;
     }
+  },
+
+  setupUIControls() {
+    const pills = document.querySelectorAll('#linkVideoCategoryPills .linkvideo-pill');
+    pills.forEach(pill => {
+      pill.onclick = () => {
+        pills.forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        this.selectedCategory = pill.dataset.cat || 'all';
+        this.aplicarFiltrosYRenderizar();
+      };
+    });
+
+    const searchInput = document.getElementById('linkVideoSearchInput');
+    if (searchInput) {
+      searchInput.oninput = (e) => {
+        this.searchQuery = (e.target.value || '').trim().toLowerCase();
+        this.aplicarFiltrosYRenderizar();
+      };
+    }
+  },
+
+  actualizarDisponibilidadPills() {
+    const categoriesPresent = new Set((this.catalog || []).map(item => item.category || item.type));
+    const pills = document.querySelectorAll('#linkVideoCategoryPills .linkvideo-pill');
+
+    pills.forEach(pill => {
+      const cat = pill.dataset.cat;
+      if (cat === 'all') return;
+      if (categoriesPresent.has(cat)) {
+        pill.style.display = 'inline-block';
+      } else {
+        // Si no hay transmisiones activas para esta categoría, ocultarla automáticamente
+        pill.style.display = 'none';
+      }
+    });
+  },
+
+  aplicarFiltrosYRenderizar() {
+    let list = this.catalog || [];
+
+    if (this.selectedCategory && this.selectedCategory !== 'all') {
+      list = list.filter(item => item.category === this.selectedCategory || item.type === this.selectedCategory);
+    }
+
+    if (this.searchQuery) {
+      list = list.filter(item =>
+        (item.title || item.name || '').toLowerCase().includes(this.searchQuery) ||
+        (item.description || '').toLowerCase().includes(this.searchQuery)
+      );
+    }
+
+    this.renderizarCatalogo(list);
   },
 
   renderizarLivesActivos(lives) {
@@ -187,29 +246,35 @@ window.LinkVideo = {
     if (!contenedor) return;
 
     if (!lista || lista.length === 0) {
-      contenedor.innerHTML = `<div class="aviso-vacio">No se encontraron películas ni canales transmitiendo.</div>`;
+      contenedor.innerHTML = `<div class="aviso-vacio" style="grid-column: 1 / -1; padding:30px;">No se encontraron transmisiones activas en esta categoría.</div>`;
       return;
     }
 
+    const categoryMap = {
+      camaras: { label: '📹 Cámara / TV', bg: '#0284c7' },
+      cortos_ai: { label: '🤖 Video AI', bg: '#7c3aed' },
+      movies: { label: '🎬 Película', bg: '#e11d48' },
+      audio: { label: '📻 Radio / Música', bg: '#059669' }
+    };
+
     contenedor.innerHTML = lista.map(item => {
-      const isVideo = item.type === 'video' || item.category === 'movies';
-      const icon = isVideo ? '🎬' : '🎧';
-      const typeLabel = isVideo ? 'Video / Película' : 'Audio / Radio';
       const playUrl = item.full_url || item.url || (this.baseUrl + (item.id ? item.id + '/' : ''));
+      const catInfo = categoryMap[item.category] || { label: item.type === 'video' ? '🎬 Video' : '📻 Audio', bg: '#7c3aed' };
+      const thumb = item.thumbnail || 'https://images.pexels.com/photos/2506923/pexels-photo-2506923.jpeg?auto=compress&cs=tinysrgb&w=600';
 
       return `
-        <div class="card" style="padding:14px; border-radius:16px; background:var(--blanco); border:1px solid var(--borde); display:flex; flex-direction:column; justify-space-between;">
-          <div>
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-              <span style="font-size:24px;">${icon}</span>
-              <span style="font-size:10px; font-weight:800; background:rgba(139,92,246,0.15); color:var(--morado-600); padding:3px 8px; border-radius:12px; text-transform:uppercase;">${typeLabel}</span>
-            </div>
-            <div style="font-weight:800; font-size:15px; color:var(--texto-900); margin-bottom:4px;">${escapeHTMLLinkVideo(item.title || item.name || 'Transmisión')}</div>
-            <div style="font-size:12px; color:var(--texto-600); line-height:1.4; margin-bottom:12px;">${escapeHTMLLinkVideo(item.description || 'Transmisión en vivo y streaming continuo.')}</div>
+        <div class="linkvideo-card">
+          <div class="linkvideo-card-thumb-wrap">
+            <img class="linkvideo-card-thumb" src="${thumb}" alt="${escapeHTMLLinkVideo(item.title || item.name)}" onerror="this.src='https://images.pexels.com/photos/3861969/pexels-photo-3861969.jpeg?auto=compress&cs=tinysrgb&w=600'">
+            <div class="linkvideo-card-badge" style="background:${catInfo.bg}">${catInfo.label}</div>
           </div>
-          <button class="btn btn-primario" style="width:100%; border-radius:10px; font-weight:800; padding:10px; display:inline-flex; align-items:center; justify-content:center; gap:6px;" onclick="LinkVideo.reproducir('${escapeHTMLLinkVideo(playUrl)}', '${escapeHTMLLinkVideo(item.title || item.name)}')">
-            <span>▶ Reproducir</span>
-          </button>
+          <div class="linkvideo-card-body">
+            <div class="linkvideo-card-title">${escapeHTMLLinkVideo(item.title || item.name || 'Transmisión')}</div>
+            <div class="linkvideo-card-desc">${escapeHTMLLinkVideo(item.description || 'Transmisión en vivo y streaming continuo en Link Video.')}</div>
+            <button class="btn btn-primario linkvideo-card-btn" onclick="LinkVideo.reproducir('${escapeHTMLLinkVideo(playUrl)}', '${escapeHTMLLinkVideo(item.title || item.name)}')">
+              ▶ Reproducir Stream
+            </button>
+          </div>
         </div>
       `;
     }).join('');
