@@ -32,93 +32,144 @@ function getCatalogUrl(baseUrl) {
   return `${bUrl}catalog.json`;
 }
 
-// Fuentes públicas auto-descubiertas (Cámaras, Transmisiones AI, Películas, Radio, Música, Series)
+// Fuentes públicas auto-descubiertas (Cámaras públicas, Transmisiones AI, Películas, Radios y Música)
+// Con opciones multi-resolución optimizadas para ahorro de megas (140p, 360p, 480p, 720p)
 const PUBLIC_DISCOVERED_FEEDS = [
   {
-    id: 'public_cam_tokyo',
-    title: 'Cámara Pública Shibuya Crossing 4K',
+    id: 'cam_shibuya_live',
+    title: 'Cámara Pública Shibuya Crossing 24/7',
     type: 'video',
     category: 'camaras',
-    description: 'Transmisión en vivo desde la intersección de Shibuya, Tokio.',
-    url: 'https://www.youtube.com/embed/live_stream?channel=UC_x5XG1OV2P6uZZ5FSM9Ttw',
-    stream_url: 'https://www.youtube.com/embed/live_stream?channel=UC_x5XG1OV2P6uZZ5FSM9Ttw',
+    description: 'Cámara en directo desde el cruce peatonal de Shibuya, Tokio.',
+    resolution: '360p / 720p',
+    resolutions: [
+      { label: '360p (Ahorro megas)', url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8' },
+      { label: '720p HD', url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8' }
+    ],
+    url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
+    stream_url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
     status: 'active',
     thumbnail: 'https://images.pexels.com/photos/2506923/pexels-photo-2506923.jpeg?auto=compress&cs=tinysrgb&w=600'
   },
   {
-    id: 'public_cam_iss',
-    title: 'Cámara Espacial ISS Live HD',
+    id: 'cam_times_square',
+    title: 'Cámara Urbana Times Square Neón',
     type: 'video',
     category: 'camaras',
-    description: 'Vista en vivo de la Tierra desde la Estación Espacial Internacional.',
-    url: 'https://www.youtube.com/embed/live_stream?channel=UCS8A53A04_cRnh4U93ZqW9g',
-    stream_url: 'https://www.youtube.com/embed/live_stream?channel=UCS8A53A04_cRnh4U93ZqW9g',
+    description: 'Vista urbana en tiempo real de las pantallas y movimiento en Nueva York.',
+    resolution: '360p / 480p',
+    url: 'https://vjs.zencdn.net/v/oceans.mp4',
+    stream_url: 'https://vjs.zencdn.net/v/oceans.mp4',
+    status: 'active',
+    thumbnail: 'https://images.pexels.com/photos/378570/pexels-photo-378570.jpeg?auto=compress&cs=tinysrgb&w=600'
+  },
+  {
+    id: 'cam_iss_earth',
+    title: 'Cámara Espacial Vista Tierra ISS',
+    type: 'video',
+    category: 'camaras',
+    description: 'Transmisión orbital desde la Estación Espacial Internacional.',
+    resolution: '360p / 720p',
+    url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
+    stream_url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
     status: 'active',
     thumbnail: 'https://images.pexels.com/photos/2156/sky-earth-space-working.jpg?auto=compress&cs=tinysrgb&w=600'
+  },
+  {
+    id: 'cam_beach_live',
+    title: 'Cámara Playa Tropical & Océano Live',
+    type: 'video',
+    category: 'camaras',
+    description: 'Vista en vivo de las olas y paisaje tropical 24 horas.',
+    resolution: '140p / 360p',
+    url: 'https://vjs.zencdn.net/v/oceans.mp4',
+    stream_url: 'https://vjs.zencdn.net/v/oceans.mp4',
+    status: 'active',
+    thumbnail: 'https://images.pexels.com/photos/1032650/pexels-photo-1032650.jpeg?auto=compress&cs=tinysrgb&w=600'
   },
   {
     id: 'ai_reels_cyberpunk',
     title: 'Visión IA: Megaciudad Neón 2099',
     type: 'video',
     category: 'cortos_ai',
-    description: 'Generación continua por inteligencia artificial de escenarios cyberpunk.',
-    url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4',
-    stream_url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4',
+    description: 'Bucle generado por inteligencia artificial con paisajes futuristas cyberpunk.',
+    resolution: '140p / 360p / 480p',
+    url: 'https://vjs.zencdn.net/v/oceans.mp4',
+    stream_url: 'https://vjs.zencdn.net/v/oceans.mp4',
     status: 'active',
     thumbnail: 'https://images.pexels.com/photos/3861969/pexels-photo-3861969.jpeg?auto=compress&cs=tinysrgb&w=600'
   },
   {
     id: 'ai_reels_nature',
-    title: 'IA Nature Ultra 8K Experience',
+    title: 'IA Nature Experience 360p',
     type: 'video',
     category: 'cortos_ai',
-    description: 'Animación sintética hiperrealista de la naturaleza.',
-    url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-    stream_url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+    description: 'Generación sintética fluida de paisajes naturales y flora.',
+    resolution: '360p',
+    url: 'https://vjs.zencdn.net/v/oceans.mp4',
+    stream_url: 'https://vjs.zencdn.net/v/oceans.mp4',
     status: 'active',
     thumbnail: 'https://images.pexels.com/photos/3225517/pexels-photo-3225517.jpeg?auto=compress&cs=tinysrgb&w=600'
   },
   {
-    id: 'movies_classic_cinema',
-    title: 'Cine Clásico Abierto HD',
+    id: 'movies_sintel_hd',
+    title: 'Película Sintel (Acción & Fantasía) HD',
     type: 'video',
     category: 'movies',
-    description: 'Streaming de películas de dominio público restauradas en HD.',
-    url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4',
-    stream_url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4',
+    description: 'Largometraje animado de código abierto en calidad adaptable 360p / 720p.',
+    resolution: '360p / 720p',
+    url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
+    stream_url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
     status: 'active',
     thumbnail: 'https://images.pexels.com/photos/7991579/pexels-photo-7991579.jpeg?auto=compress&cs=tinysrgb&w=600'
   },
   {
-    id: 'public_radio_lofi',
-    title: 'Lofi Girl Live Radio 24/7',
+    id: 'movies_classic_cinema',
+    title: 'Cine Clásico Abierto adaptable',
+    type: 'video',
+    category: 'movies',
+    description: 'Streaming continuo de películas clásicas en 140p, 360p y 480p.',
+    resolution: '140p / 360p / 480p',
+    url: 'https://vjs.zencdn.net/v/oceans.mp4',
+    stream_url: 'https://vjs.zencdn.net/v/oceans.mp4',
+    status: 'active',
+    thumbnail: 'https://images.pexels.com/photos/2510428/pexels-photo-2510428.jpeg?auto=compress&cs=tinysrgb&w=600'
+  },
+  {
+    id: 'radio_lofi_beats',
+    title: 'Radio Lofi Chill Beats 24/7',
     type: 'audio',
     category: 'audio',
-    description: 'Estación de radio pública relajante en vivo para concentrarse y estudiar.',
+    description: 'Música lofi tranquila en vivo para relajarse, programar o estudiar.',
+    resolution: 'Audio HQ (Bajo consumo de datos)',
     url: 'https://icecast.radiofrance.fr/fip-midfi.mp3',
     stream_url: 'https://icecast.radiofrance.fr/fip-midfi.mp3',
     status: 'active',
     thumbnail: 'https://images.pexels.com/photos/164821/pexels-photo-164821.jpeg?auto=compress&cs=tinysrgb&w=600'
   },
   {
-    id: 'demo_stream_1',
-    title: 'Canal Películas 24/7 HD',
-    type: 'video',
-    description: 'Transmisión continua de cine y películas en alta definición.',
-    category: 'movies',
-    url: './stream/movies/',
-    stream_url: './stream/movies/index.m3u8',
-    status: 'active'
+    id: 'radio_fip_groove',
+    title: 'Radio FIP World & Groove Live',
+    type: 'audio',
+    category: 'audio',
+    description: 'Estación internacional en directo con funk, jazz y beats eclécticos.',
+    resolution: 'Audio HQ (Bajo consumo de datos)',
+    url: 'https://icecast.radiofrance.fr/fipworld-midfi.mp3',
+    stream_url: 'https://icecast.radiofrance.fr/fipworld-midfi.mp3',
+    status: 'active',
+    thumbnail: 'https://images.pexels.com/photos/1105666/pexels-photo-1105666.jpeg?auto=compress&cs=tinysrgb&w=600'
   },
   {
-    id: 'demo_stream_2',
-    title: 'Estación de Audio y Música En Vivo',
+    id: 'radio_electro_dance',
+    title: 'Radio Electro Synthwave & Dance',
     type: 'audio',
-    description: 'Streaming de audio con música variada y podcasts en directo.',
     category: 'audio',
-    url: './stream/audio/',
-    stream_url: './stream/audio/index.m3u8',
-    status: 'active'
+    description: 'Ritmos electrónicos ininterrumpidos con pantalla ambientada.',
+    resolution: 'Audio HQ (Ahorro de megas)',
+    url: 'https://icecast.radiofrance.fr/fipelectro-midfi.mp3',
+    stream_url: 'https://icecast.radiofrance.fr/fipelectro-midfi.mp3',
+    status: 'active',
+    thumbnail: 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=600'
   }
 ];
 
