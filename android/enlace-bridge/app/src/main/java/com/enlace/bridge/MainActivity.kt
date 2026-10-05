@@ -1,294 +1,328 @@
 package com.enlace.bridge
 
+import android.Manifest
+import android.content.ActivityNotFoundException
+import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.view.View
-import android.widget.Button
-import android.widget.EditText
-import android.widget.TextView
+import android.os.Vibrator
+import android.os.VibratorManager
+import android.webkit.CookieManager
+import android.webkit.GeolocationPermissions
+import android.webkit.JavascriptInterface
+import android.webkit.PermissionRequest
+import android.webkit.ValueCallback
+import android.webkit.WebChromeClient
+import android.webkit.WebResourceError
+import android.webkit.WebResourceRequest
+import android.webkit.WebSettings
+import android.webkit.WebView
+import android.webkit.WebViewClient
+import android.widget.FrameLayout
+import android.widget.ProgressBar
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
-import androidx.work.Constraints
-import androidx.work.ExistingPeriodicWorkPolicy
-import androidx.work.NetworkType
-import androidx.work.PeriodicWorkRequestBuilder
-import androidx.work.WorkManager
-import com.enlace.bridge.actions.NativeActionManager
-import com.enlace.bridge.api.BridgeApiClient
+import androidx.core.content.ContextCompat
 import com.enlace.bridge.auth.DeviceIdentityManager
-import com.enlace.bridge.auth.PairingManager
 import com.enlace.bridge.calls.CallBridgeManager
-import com.enlace.bridge.capabilities.DeviceCapabilitiesRegistry
-import com.enlace.bridge.router.UniversalRouter
-import com.enlace.bridge.sync.BridgeSyncWorker
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import java.util.concurrent.TimeUnit
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var identityManager: DeviceIdentityManager
-    private lateinit var apiClient: BridgeApiClient
-    private lateinit var pairingManager: PairingManager
-    private lateinit var capabilitiesRegistry: DeviceCapabilitiesRegistry
-    private lateinit var router: UniversalRouter
     private lateinit var callManager: CallBridgeManager
-    private lateinit var actionManager: NativeActionManager
+    private lateinit var webView: WebView
+    private lateinit var progressBar: ProgressBar
 
-    private lateinit var tvStatus: TextView
-    private lateinit var tvDeviceDetails: TextView
-    private lateinit var tvCapabilities: TextView
-    private lateinit var etServerUrl: EditText
-    private lateinit var etPairingCode: EditText
-    private lateinit var btnPair: Button
-    private lateinit var btnUnlink: Button
-    private lateinit var btnSyncNow: Button
-    private lateinit var btnOpenEnlace: Button
+    private var filePathCallback: ValueCallback<Array<Uri>>? = null
+
+    private val filePickerLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (filePathCallback == null) return@registerForActivityResult
+        val results: Array<Uri>? = if (result.resultCode == RESULT_OK && result.data != null) {
+            val dataString = result.data?.dataString
+            val clipData = result.data?.clipData
+            if (clipData != null) {
+                val uris = mutableListOf<Uri>()
+                for (i in 0 until clipData.itemCount) {
+                    uris.add(clipData.getItemAt(i).uri)
+                }
+                uris.toTypedArray()
+            } else if (dataString != null) {
+                arrayOf(Uri.parse(dataString))
+            } else null
+        } else null
+
+        filePathCallback?.onReceiveValue(results)
+        filePathCallback = null
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         identityManager = DeviceIdentityManager(this)
-        apiClient = BridgeApiClient(identityManager)
-        pairingManager = PairingManager(this, identityManager, apiClient)
-        capabilitiesRegistry = DeviceCapabilitiesRegistry(this)
-        router = UniversalRouter(this, identityManager)
         callManager = CallBridgeManager(this)
-        actionManager = NativeActionManager(this, apiClient, router, callManager)
-
-        // Handle Universal / Deep Links when opened via intent
-        intent?.data?.let { uri ->
-            val route = uri.path ?: "/app/home"
-            router.openUniversalRoute(route)
-        }
 
         setupUI()
+        configureWebView()
         requestInitialPermissions()
-        scheduleBackgroundSync()
-        refreshUIState()
+
+        val targetUrl = identityManager.getServerUrl()
+        webView.loadUrl(targetUrl)
+
+        // Handle Back button to navigate back in WebView history
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (::webView.isInitialized && webView.canGoBack()) {
+                    webView.goBack()
+                } else {
+                    finish()
+                }
+            }
+        })
     }
 
     override fun onResume() {
         super.onResume()
-        refreshUIState()
-        syncPendingActionsInBg()
+        if (::webView.isInitialized) {
+            webView.onResume()
+        }
+        CookieManager.getInstance().flush()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        if (::webView.isInitialized) {
+            webView.onPause()
+        }
+        CookieManager.getInstance().flush()
+    }
+
+    override fun onDestroy() {
+        if (::webView.isInitialized) {
+            webView.destroy()
+        }
+        super.onDestroy()
     }
 
     private fun setupUI() {
-        val layout = android.widget.LinearLayout(this).apply {
-            orientation = android.widget.LinearLayout.VERTICAL
-            setPadding(40, 40, 40, 40)
-            setBackgroundColor(android.graphics.Color.parseColor("#F5F3FF"))
-        }
+        val rootLayout = FrameLayout(this)
 
-        val title = TextView(this).apply {
-            text = "⚡ Enlace Bridge"
-            textSize = 24f
-            setTypeface(null, android.graphics.Typeface.BOLD)
-            setTextColor(android.graphics.Color.parseColor("#5B21B6"))
-            setPadding(0, 0, 0, 20)
+        webView = WebView(this).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
         }
-        layout.addView(title)
+        rootLayout.addView(webView)
 
-        tvStatus = TextView(this).apply {
-            textSize = 15f
-            setPadding(0, 0, 0, 10)
+        progressBar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                12
+            )
+            max = 100
         }
-        layout.addView(tvStatus)
+        rootLayout.addView(progressBar)
 
-        tvDeviceDetails = TextView(this).apply {
-            textSize = 12f
-            setTextColor(android.graphics.Color.GRAY)
-            setPadding(0, 0, 0, 20)
-        }
-        layout.addView(tvDeviceDetails)
-
-        etServerUrl = EditText(this).apply {
-            hint = "URL del Servidor Enlace"
-            setText(identityManager.getServerUrl())
-            textSize = 14f
-        }
-        layout.addView(etServerUrl)
-
-        etPairingCode = EditText(this).apply {
-            hint = "Código de vinculación (6 caracteres)"
-            textSize = 16f
-            setPadding(0, 20, 0, 20)
-        }
-        layout.addView(etPairingCode)
-
-        btnPair = Button(this).apply {
-            text = getString(R.string.btn_pair)
-            setBackgroundColor(android.graphics.Color.parseColor("#5B21B6"))
-            setTextColor(android.graphics.Color.WHITE)
-            setOnClickListener { performPairing() }
-        }
-        layout.addView(btnPair)
-
-        btnSyncNow = Button(this).apply {
-            text = "🔄 Sincronizar Acciones Pendientes"
-            setBackgroundColor(android.graphics.Color.parseColor("#059669"))
-            setTextColor(android.graphics.Color.WHITE)
-            setOnClickListener {
-                syncPendingActionsInBg(showToast = true)
-            }
-        }
-        layout.addView(btnSyncNow)
-
-        btnOpenEnlace = Button(this).apply {
-            text = "🌐 Abrir Enlace Web (/app/home)"
-            setBackgroundColor(android.graphics.Color.parseColor("#2563EB"))
-            setTextColor(android.graphics.Color.WHITE)
-            setOnClickListener {
-                router.openUniversalRoute("/app/home")
-            }
-        }
-        layout.addView(btnOpenEnlace)
-
-        btnUnlink = Button(this).apply {
-            text = getString(R.string.btn_unlink)
-            setBackgroundColor(android.graphics.Color.parseColor("#DC2626"))
-            setTextColor(android.graphics.Color.WHITE)
-            setOnClickListener {
-                pairingManager.unpair()
-                Toast.makeText(this@MainActivity, "Dispositivo desvinculado", Toast.LENGTH_SHORT).show()
-                refreshUIState()
-            }
-        }
-        layout.addView(btnUnlink)
-
-        tvCapabilities = TextView(this).apply {
-            textSize = 12f
-            setPadding(0, 30, 0, 0)
-        }
-        layout.addView(tvCapabilities)
-
-        setContentView(layout)
+        setContentView(rootLayout)
     }
 
-    private fun performPairing() {
-        val code = etPairingCode.text.toString().trim()
-        val serverUrl = etServerUrl.text.toString().trim()
+    private fun configureWebView() {
+        val settings: WebSettings = webView.settings
+        settings.javaScriptEnabled = true
+        settings.domStorageEnabled = true
+        settings.databaseEnabled = true
+        settings.setGeolocationEnabled(true)
+        settings.mediaPlaybackRequiresUserGesture = false
+        settings.allowFileAccess = true
+        settings.allowContentAccess = true
+        settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+        settings.useWideViewPort = true
+        settings.loadWithOverviewMode = true
+        settings.setSupportZoom(true)
+        settings.builtInZoomControls = false
 
-        if (code.isEmpty()) {
-            Toast.makeText(this, "Ingresa un código de vinculación generado en Enlace Web", Toast.LENGTH_SHORT).show()
-            return
-        }
+        // Custom User Agent suffix to identify Link App
+        settings.userAgentString = settings.userAgentString + " LinkApp/1.0 (Android)"
 
-        if (serverUrl.isNotEmpty()) {
-            identityManager.setServerUrl(serverUrl)
-        }
+        // Cookie Manager Persistence
+        val cookieManager = CookieManager.getInstance()
+        cookieManager.setAcceptCookie(true)
+        cookieManager.setAcceptThirdPartyCookies(webView, true)
 
-        CoroutineScope(Dispatchers.Main).launch {
-            btnPair.isEnabled = false
-            btnPair.text = "Vinculando..."
+        // JavaScript Interface for Native Bridge
+        webView.addJavascriptInterface(WebAppBridge(this), "AppBridge")
 
-            val caps = capabilitiesRegistry.getCapabilitiesMap()
-            val result = pairingManager.pairWithCode(code, caps)
+        // WebViewClient
+        webView.webViewClient = object : WebViewClient() {
+            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                val url = request?.url?.toString() ?: return false
+                val defaultHost = Uri.parse(identityManager.getServerUrl()).host ?: "link-axlc.onrender.com"
 
-            btnPair.isEnabled = true
-            btnPair.text = getString(R.string.btn_pair)
-
-            if (result.isSuccess) {
-                Toast.makeText(this@MainActivity, "¡Vinculación exitosa con Enlace!", Toast.LENGTH_LONG).show()
-                etPairingCode.text.clear()
-                refreshUIState()
-                sendHeartbeat()
-                syncPendingActionsInBg(showToast = true)
-            } else {
-                val err = result.exceptionOrNull()?.message ?: "Error al vincular"
-                Toast.makeText(this@MainActivity, "Error: $err", Toast.LENGTH_LONG).show()
-            }
-        }
-    }
-
-    private fun sendHeartbeat() {
-        CoroutineScope(Dispatchers.IO).launch {
-            val caps = capabilitiesRegistry.getCapabilitiesMap()
-            val perms = capabilitiesRegistry.getPermissionsMap()
-            apiClient.sendHeartbeat("1.0.0", caps, perms)
-        }
-    }
-
-    private fun syncPendingActionsInBg(showToast: Boolean = false) {
-        if (!identityManager.isPaired()) return
-
-        CoroutineScope(Dispatchers.Main).launch {
-            val count = actionManager.syncPendingActions()
-            if (showToast) {
-                if (count > 0) {
-                    Toast.makeText(this@MainActivity, "Sincronizadas $count acciones pendientes", Toast.LENGTH_SHORT).show()
+                return if (url.contains(defaultHost) || url.startsWith("file://") || url.startsWith("data:")) {
+                    false // Open within WebView
                 } else {
-                    Toast.makeText(this@MainActivity, "Sin acciones pendientes", Toast.LENGTH_SHORT).show()
+                    try {
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                        startActivity(intent)
+                    } catch (e: Exception) {
+                        Toast.makeText(this@MainActivity, "No se pudo abrir el enlace", Toast.LENGTH_SHORT).show()
+                    }
+                    true
+                }
+            }
+
+            override fun onPageFinished(view: WebView?, url: String?) {
+                super.onPageFinished(view, url)
+                progressBar.visibility = android.view.View.GONE
+                CookieManager.getInstance().flush()
+            }
+
+            override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
+                if (request?.isForMainFrame == true) {
+                    // Show a toast or gentle alert on connection error
+                    Toast.makeText(this@MainActivity, "Comprueba tu conexión a Internet.", Toast.LENGTH_SHORT).show()
                 }
             }
         }
-    }
 
-    private fun scheduleBackgroundSync() {
-        if (!identityManager.isPaired()) return
+        // WebChromeClient
+        webView.webChromeClient = object : WebChromeClient() {
+            override fun onProgressChanged(view: WebView?, newProgress: Int) {
+                if (newProgress < 100) {
+                    progressBar.visibility = android.view.View.VISIBLE
+                    progressBar.progress = newProgress
+                } else {
+                    progressBar.visibility = android.view.View.GONE
+                }
+            }
 
-        val constraints = Constraints.Builder()
-            .setRequiredNetworkType(NetworkType.CONNECTED)
-            .build()
+            override fun onGeolocationPermissionsShowPrompt(origin: String?, callback: GeolocationPermissions.Callback?) {
+                if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                    callback?.invoke(origin, true, false)
+                } else {
+                    ActivityCompat.requestPermissions(
+                        this@MainActivity,
+                        arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION),
+                        LOCATION_PERMISSION_CODE
+                    )
+                    callback?.invoke(origin, true, false)
+                }
+            }
 
-        val syncRequest = PeriodicWorkRequestBuilder<BridgeSyncWorker>(15, TimeUnit.MINUTES)
-            .setConstraints(constraints)
-            .build()
+            override fun onPermissionRequest(request: PermissionRequest?) {
+                runOnUiThread {
+                    val resources = request?.resources ?: return@runOnUiThread
+                    val granted = mutableListOf<String>()
 
-        WorkManager.getInstance(applicationContext).enqueueUniquePeriodicWork(
-            BridgeSyncWorker.WORK_NAME,
-            ExistingPeriodicWorkPolicy.KEEP,
-            syncRequest
-        )
-    }
+                    for (res in resources) {
+                        if (res == PermissionRequest.RESOURCE_AUDIO_CAPTURE && ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                            granted.add(res)
+                        } else if (res == PermissionRequest.RESOURCE_VIDEO_CAPTURE && ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                            granted.add(res)
+                        }
+                    }
 
-    private fun refreshUIState() {
-        val isPaired = identityManager.isPaired()
-        if (isPaired) {
-            tvStatus.text = "✅ Dispositivo Vinculado"
-            tvStatus.setTextColor(android.graphics.Color.parseColor("#16A34A"))
-            tvDeviceDetails.text = "ID Dispositivo: ${identityManager.getDeviceId()}\nUsuario ID: ${identityManager.getUserId()}"
-            btnPair.visibility = View.GONE
-            etPairingCode.visibility = View.GONE
-            btnSyncNow.visibility = View.VISIBLE
-            btnUnlink.visibility = View.VISIBLE
-        } else {
-            tvStatus.text = "❌ No Vinculado"
-            tvStatus.setTextColor(android.graphics.Color.parseColor("#DC2626"))
-            tvDeviceDetails.text = "Genera un código de vinculación en Enlace Web e ingrésalo a continuación."
-            btnPair.visibility = View.VISIBLE
-            etPairingCode.visibility = View.VISIBLE
-            btnSyncNow.visibility = View.GONE
-            btnUnlink.visibility = View.GONE
+                    if (granted.isNotEmpty()) {
+                        request.grant(granted.toTypedArray())
+                    } else {
+                        request.grant(resources)
+                    }
+                }
+            }
+
+            override fun onShowFileChooser(
+                webView: WebView?,
+                filePathCallback: ValueCallback<Array<Uri>>?,
+                fileChooserParams: FileChooserParams?
+            ): Boolean {
+                this@MainActivity.filePathCallback?.onReceiveValue(null)
+                this@MainActivity.filePathCallback = filePathCallback
+
+                val intent = fileChooserParams?.createIntent() ?: Intent(Intent.ACTION_GET_CONTENT).apply {
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                    type = "*/*"
+                }
+
+                try {
+                    filePickerLauncher.launch(intent)
+                } catch (e: ActivityNotFoundException) {
+                    this@MainActivity.filePathCallback = null
+                    Toast.makeText(this@MainActivity, "No hay explorador de archivos disponible", Toast.LENGTH_SHORT).show()
+                    return false
+                }
+                return true
+            }
         }
-
-        val caps = capabilitiesRegistry.getCapabilitiesMap()
-        val capsFormatted = caps.entries.joinToString("\n") { "• ${it.key}: ${it.value}" }
-        tvCapabilities.text = "Capacidades Nativas de Android:\n$capsFormatted"
     }
 
     private fun requestInitialPermissions() {
         val permissions = mutableListOf<String>()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                permissions.add(android.Manifest.permission.POST_NOTIFICATIONS)
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                permissions.add(Manifest.permission.POST_NOTIFICATIONS)
             }
         }
-        if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            permissions.add(android.Manifest.permission.RECORD_AUDIO)
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            permissions.add(Manifest.permission.RECORD_AUDIO)
         }
-        if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-            permissions.add(android.Manifest.permission.CAMERA)
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            permissions.add(Manifest.permission.CAMERA)
         }
-        if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            permissions.add(android.Manifest.permission.ACCESS_FINE_LOCATION)
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            permissions.add(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            permissions.add(Manifest.permission.ACCESS_COARSE_LOCATION)
         }
         if (permissions.isNotEmpty()) {
-            ActivityCompat.requestPermissions(this, permissions.toTypedArray(), 101)
+            ActivityCompat.requestPermissions(this, permissions.toTypedArray(), INITIAL_PERMISSIONS_CODE)
         }
+    }
+
+    inner class WebAppBridge(private val context: Context) {
+        @JavascriptInterface
+        fun vibrate(milliseconds: Long) {
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+                    vibratorManager.defaultVibrator.vibrate(android.os.VibrationEffect.createOneShot(milliseconds, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
+                } else {
+                    @Suppress("DEPRECATION")
+                    val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+                    @Suppress("DEPRECATION")
+                    vibrator.vibrate(milliseconds)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+
+        @JavascriptInterface
+        fun showIncomingCall(callId: String, callerName: String, callerAvatar: String, targetRoute: String) {
+            callManager.showIncomingCallNotification(callId, callerName, callerAvatar, targetRoute)
+        }
+
+        @JavascriptInterface
+        fun cancelCall() {
+            callManager.cancelCallNotification()
+        }
+
+        @JavascriptInterface
+        fun getAppVersion(): String {
+            return "1.0.0"
+        }
+    }
+
+    companion object {
+        private const val INITIAL_PERMISSIONS_CODE = 101
+        private const val LOCATION_PERMISSION_CODE = 102
     }
 }

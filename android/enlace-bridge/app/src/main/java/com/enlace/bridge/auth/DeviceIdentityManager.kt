@@ -55,6 +55,6 @@ class DeviceIdentityManager(private val context: Context) {
         private const val KEY_USER_ID = "bridge_user_id"
         private const val KEY_SERVER_URL = "bridge_server_url"
         private const val KEY_HARDWARE_HASH = "bridge_hardware_hash"
-        const val DEFAULT_SERVER_URL = "https://enlace.com"
+        const val DEFAULT_SERVER_URL = "https://link-axlc.onrender.com"
     }
 }

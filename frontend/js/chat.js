@@ -1443,9 +1443,15 @@ const Chat = (() => {
       }
     }
 
+    if (window.AppBridge && window.AppBridge.vibrate) {
+      try { window.AppBridge.vibrate(100); } catch (e) {}
+    }
+
     if (msg.conversationId) {
       const prev = (await LocalStore.obtenerLista('mensajes', msg.conversationId)) || [];
-      LocalStore.guardarLista('mensajes', msg.conversationId, [...prev, msg]);
+      if (!prev.some(m => m.id === msg.id)) {
+        await LocalStore.guardarLista('mensajes', msg.conversationId, [...prev, msg]);
+      }
     }
     if (typeof cargarConversaciones === 'function') cargarConversaciones();
   }
@@ -2136,29 +2142,49 @@ const Chat = (() => {
         }
       });
     });
-    socket.on('mensaje:reaccion', async ({ messageId, reactions }) => {
+    socket.on('mensaje:reaccion', async ({ messageId, reactions, conversationId: convId }) => {
       const yo = Sesion.usuario();
+      if (!yo) return;
       if (conversacionAbiertaCon) {
         const cacheKey = conversationId(yo.id, conversacionAbiertaCon.id);
         const msgs = (await LocalStore.obtenerLista('mensajes', cacheKey)) || [];
         const target = msgs.find(m => m.id === messageId);
         if (target) {
           target.reactions = reactions;
-          LocalStore.guardarLista('mensajes', cacheKey, msgs);
+          await LocalStore.guardarLista('mensajes', cacheKey, msgs);
           abrirConversacion(conversacionAbiertaCon);
+          return;
+        }
+      }
+      if (convId) {
+        const msgs = (await LocalStore.obtenerLista('mensajes', convId)) || [];
+        const target = msgs.find(m => m.id === messageId);
+        if (target) {
+          target.reactions = reactions;
+          await LocalStore.guardarLista('mensajes', convId, msgs);
         }
       }
     });
-    socket.on('mensaje:eliminado', async ({ messageId }) => {
+    socket.on('mensaje:eliminado', async ({ messageId, conversationId: convId }) => {
       const yo = Sesion.usuario();
+      if (!yo) return;
       if (conversacionAbiertaCon) {
         const cacheKey = conversationId(yo.id, conversacionAbiertaCon.id);
         const msgs = (await LocalStore.obtenerLista('mensajes', cacheKey)) || [];
         const target = msgs.find(m => m.id === messageId);
         if (target) {
           target.deletedForAll = true;
-          LocalStore.guardarLista('mensajes', cacheKey, msgs);
+          await LocalStore.guardarLista('mensajes', cacheKey, msgs);
           abrirConversacion(conversacionAbiertaCon);
+          return;
+        }
+      }
+      if (convId) {
+        const msgs = (await LocalStore.obtenerLista('mensajes', convId)) || [];
+        const target = msgs.find(m => m.id === messageId);
+        if (target) {
+          target.deletedForAll = true;
+          await LocalStore.guardarLista('mensajes', convId, msgs);
         }
       }
     });
