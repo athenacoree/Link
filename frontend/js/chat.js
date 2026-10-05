@@ -809,8 +809,7 @@ const Chat = (() => {
   function pintarBurbuja(msg, yoId, esHistorico = false) {
     const esMia = msg.senderId === yoId;
     const cont = document.createElement('div');
-    const animNum = esMia ? ((outAnimIndex++ % 20) + 1) : ((inAnimIndex++ % 20) + 1);
-    const animClass = esHistorico ? '' : (esMia ? `msg-out-anim-${animNum}` : `msg-in-anim-${animNum}`);
+    const animClass = esHistorico ? '' : (esMia ? 'msg-out-slide' : 'msg-in-slide');
     cont.className = `burbuja ${esMia ? 'mia' : 'suya'} ${animClass}`.trim();
     cont.dataset.id = msg.id;
 
@@ -1054,6 +1053,7 @@ const Chat = (() => {
     actualizarBotonVozAlta(obtenerEstadoVozAltaChat(persona.id));
 
     $('vistaChat').classList.add('activo');
+    if ($('vistaChat')) $('vistaChat').scrollTop = 0;
 
     const yo = Sesion.usuario();
     const cacheKey = conversationId(yo.id, persona.id);

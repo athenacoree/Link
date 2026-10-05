@@ -11,21 +11,21 @@ console.log('1. Verificando versión y archivos shell en frontend/sw.js...');
 const swPath = path.join(__dirname, '..', '..', 'frontend', 'sw.js');
 const swContent = fs.readFileSync(swPath, 'utf8');
 
-assert.strictEqual(swContent.includes("const CACHE_NAME = 'enlace-shell-v8';"), true, 'sw.js debe definir CACHE_NAME como enlace-shell-v8');
-assert.strictEqual(swContent.includes("'/css/app.css?v=8'"), true, 'sw.js debe incluir /css/app.css?v=8');
-assert.strictEqual(swContent.includes("'/js/app.js?v=8'"), true, 'sw.js debe incluir /js/app.js?v=8');
-assert.strictEqual(swContent.includes("'/css/features.css?v=8'"), true, 'sw.js debe incluir /css/features.css?v=8');
-assert.strictEqual(swContent.includes("'/css/ailab.css?v=8'"), true, 'sw.js debe incluir /css/ailab.css?v=8');
-console.log('   ✅ frontend/sw.js contiene enlace-shell-v8 y todos los recursos con ?v=8');
+assert.strictEqual(swContent.includes("const CACHE_NAME = 'enlace-shell-v9';"), true, 'sw.js debe definir CACHE_NAME como enlace-shell-v9');
+assert.strictEqual(swContent.includes("'/css/app.css?v=9'"), true, 'sw.js debe incluir /css/app.css?v=9');
+assert.strictEqual(swContent.includes("'/js/app.js?v=9'"), true, 'sw.js debe incluir /js/app.js?v=9');
+assert.strictEqual(swContent.includes("'/css/features.css?v=9'"), true, 'sw.js debe incluir /css/features.css?v=9');
+assert.strictEqual(swContent.includes("'/css/ailab.css?v=9'"), true, 'sw.js debe incluir /css/ailab.css?v=9');
+console.log('   ✅ frontend/sw.js contiene enlace-shell-v9 y todos los recursos con ?v=9');
 
 // 2. Verificar versionado de assets en frontend/index.html
 console.log('2. Verificando links y scripts en frontend/index.html...');
 const htmlPath = path.join(__dirname, '..', '..', 'frontend', 'index.html');
 const htmlContent = fs.readFileSync(htmlPath, 'utf8');
 
-assert.strictEqual(htmlContent.includes('/css/app.css?v=8'), true, 'index.html debe cargar /css/app.css?v=8');
-assert.strictEqual(htmlContent.includes('/js/app.js?v=8'), true, 'index.html debe cargar /js/app.js?v=8');
-console.log('   ✅ frontend/index.html incluye parámetros ?v=8 en hojas de estilo y scripts JS');
+assert.strictEqual(htmlContent.includes('/css/app.css?v=9'), true, 'index.html debe cargar /css/app.css?v=9');
+assert.strictEqual(htmlContent.includes('/js/app.js?v=9'), true, 'index.html debe cargar /js/app.js?v=9');
+console.log('   ✅ frontend/index.html incluye parámetros ?v=9 en hojas de estilo y scripts JS');
 
 // 3. Verificar estructura de pintarListaPersonas en frontend/js/app.js
 console.log('3. Verificando que pintarListaPersonas en app.js renderice .tarjeta-par-cuadrados para listaBuscar...');
