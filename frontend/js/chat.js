@@ -14,6 +14,13 @@ const Chat = (() => {
 
   function conversationId(a, b) { return [a, b].sort().join('_'); }
 
+  function scrollearAlFinal(elem) {
+    if (!elem) return;
+    requestAnimationFrame(() => {
+      elem.scrollTop = elem.scrollHeight;
+    });
+  }
+
   // Helper auxiliar de escape HTML global para el chat y capacidades
   function meEscapar(str) {
     if (!str) return '';
@@ -928,8 +935,8 @@ const Chat = (() => {
         <div style="font-size:12.5px; line-height:1.4;">${formatearUrlsTexto(escapar(textoAMostrar))}</div>
       </div>`;
     } else if (textoAMostrar) {
-      // Detección de palabra disparador al inicio de la oración
-      const matchTrigger = textoAMostrar.match(/^(hola|jugar|musica|música|video)\b/i);
+      // Detección de palabra disparador al inicio de la oración (solo para acciones interactivas reales: jugar, musica, video)
+      const matchTrigger = textoAMostrar.match(/^(jugar|musica|música|video)\b/i);
       if (matchTrigger) {
         const palabraTrigger = matchTrigger[1].toLowerCase();
         const restoTexto = textoAMostrar.substring(matchTrigger[0].length).trim();
@@ -938,11 +945,7 @@ const Chat = (() => {
         let subTrigger = 'Toca para interactuar en vivo';
         let iconoTrigger = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>`;
 
-        if (palabraTrigger === 'hola') {
-          tituloTrigger = '¡Hola! Saludo Interactivo';
-          subTrigger = 'Conectar en vivo o jugar minijuego';
-          iconoTrigger = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>`;
-        } else if (palabraTrigger === 'jugar') {
+        if (palabraTrigger === 'jugar') {
           tituloTrigger = '¡Partida Minijuegos!';
           subTrigger = 'Lanzar minijuegos multijugador';
           iconoTrigger = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><circle cx="15" cy="11" r="1"/><circle cx="18" cy="13" r="1"/><rect x="2" y="6" width="20" height="12" rx="2"/></svg>`;
@@ -1176,7 +1179,7 @@ const Chat = (() => {
     if (cachedMsgs && cachedMsgs.length) {
       $('chatMensajes').innerHTML = '';
       cachedMsgs.forEach((m) => $('chatMensajes').appendChild(pintarBurbuja(m, yo.id, true)));
-      $('chatMensajes').scrollTop = $('chatMensajes').scrollHeight;
+      scrollearAlFinal($('chatMensajes'));
     } else {
       $('chatMensajes').innerHTML = '<div class="aviso-vacio">Cargando conversación…</div>';
     }
@@ -1197,7 +1200,7 @@ const Chat = (() => {
         }
       } else {
         mensajes.forEach((m) => $('chatMensajes').appendChild(pintarBurbuja(m, yo.id, true)));
-        $('chatMensajes').scrollTop = $('chatMensajes').scrollHeight;
+        scrollearAlFinal($('chatMensajes'));
 
         if (!persona.is_ai) {
           const unreadIds = mensajes.filter(m => m.receiverId === yo.id && !m.read).map(m => m.id);
