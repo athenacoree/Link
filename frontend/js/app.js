@@ -1463,6 +1463,105 @@ $('interruptorTema')?.addEventListener('click', () => {
   aplicarTema(actual);
 });
 
+/* ================= MODO 3D BURBUJAS FLOTANTES (ESTILO IPHONE 17 & GIROSCOPIO) ================= */
+const CLAVE_MODO_3D = 'enlace_modo_3d';
+
+function toggleModo3D(activar) {
+  const body = document.body;
+  const shell = $('appShell');
+  const actual = body.classList.contains('modo-3d-iphone');
+  const nuevoEstado = activar !== undefined ? !!activar : !actual;
+
+  body.classList.toggle('modo-3d-iphone', nuevoEstado);
+  if (shell) shell.classList.toggle('modo-3d-iphone', nuevoEstado);
+
+  const interruptor = $('interruptorModo3D');
+  if (interruptor) interruptor.classList.toggle('activo', nuevoEstado);
+
+  const btnTop = $('btnBotonModo3D');
+  if (btnTop) btnTop.classList.toggle('activo', nuevoEstado);
+
+  localStorage.setItem(CLAVE_MODO_3D, nuevoEstado ? 'true' : 'false');
+
+  if (window.SonidosYVibracion && typeof SonidosYVibracion.vibrar === 'function') {
+    SonidosYVibracion.vibrar([40, 30, 60]);
+  }
+
+  mostrarToast(nuevoEstado ? 'Modo 3D iPhone 17 Activado 🚀' : 'Modo 3D Desactivado');
+}
+window.toggleModo3D = toggleModo3D;
+
+function iniciarModo3D() {
+  const guardado = localStorage.getItem(CLAVE_MODO_3D);
+  const activo = guardado === 'true';
+  if (activo) {
+    document.body.classList.add('modo-3d-iphone');
+    const shell = $('appShell');
+    if (shell) shell.classList.add('modo-3d-iphone');
+    const interruptor = $('interruptorModo3D');
+    if (interruptor) interruptor.classList.add('activo');
+    const btnTop = $('btnBotonModo3D');
+    if (btnTop) btnTop.classList.add('activo');
+  }
+}
+iniciarModo3D();
+
+// Control de inclinación con Giroscopio (deviceorientation)
+let gyroTargetX = 0;
+let gyroTargetY = 0;
+let gyroCurrentX = 0;
+let gyroCurrentY = 0;
+let gyroAnimFrame = null;
+
+function actualizarInclinacion3DGiroscopio() {
+  gyroCurrentX += (gyroTargetX - gyroCurrentX) * 0.12;
+  gyroCurrentY += (gyroTargetY - gyroCurrentY) * 0.12;
+
+  document.documentElement.style.setProperty('--gyro-x', `${gyroCurrentX.toFixed(2)}deg`);
+  document.documentElement.style.setProperty('--gyro-y', `${gyroCurrentY.toFixed(2)}deg`);
+
+  if (document.body.classList.contains('modo-3d-iphone')) {
+    gyroAnimFrame = requestAnimationFrame(actualizarInclinacion3DGiroscopio);
+  } else {
+    gyroAnimFrame = null;
+  }
+}
+
+if (window.DeviceOrientationEvent) {
+  window.addEventListener('deviceorientation', (e) => {
+    if (!document.body.classList.contains('modo-3d-iphone')) return;
+    if (e.beta === null || e.gamma === null) return;
+
+    // beta: pitch (-180 a 180, normal holding ~40-45deg)
+    // gamma: roll (-90 a 90)
+    const betaClamped = Math.max(-25, Math.min(25, (e.beta - 40)));
+    const gammaClamped = Math.max(-25, Math.min(25, e.gamma));
+
+    gyroTargetX = betaClamped * -0.55;
+    gyroTargetY = gammaClamped * 0.55;
+
+    if (!gyroAnimFrame) {
+      gyroAnimFrame = requestAnimationFrame(actualizarInclinacion3DGiroscopio);
+    }
+  }, true);
+}
+
+// Fallback de inclinación 3D para cursor mouse en escritorio
+window.addEventListener('mousemove', (e) => {
+  if (!document.body.classList.contains('modo-3d-iphone')) return;
+  const cx = window.innerWidth / 2;
+  const cy = window.innerHeight / 2;
+  const dx = (e.clientX - cx) / cx;
+  const dy = (e.clientY - cy) / cy;
+
+  gyroTargetX = dy * -14;
+  gyroTargetY = dx * 14;
+
+  if (!gyroAnimFrame) {
+    gyroAnimFrame = requestAnimationFrame(actualizarInclinacion3DGiroscopio);
+  }
+});
+
 /* ================= BADGES: verificado y reputación ================= */
 const SVG_CHECK_VERIFICADO = '<svg viewBox="0 0 24 24" fill="#3897f0" style="width:16px; height:16px; vertical-align:middle; margin-left:3px;"><circle cx="12" cy="12" r="11"/><path d="M8.2 12.3l2.6 2.6 5.4-5.6" stroke="#fff" stroke-width="2.1" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 function badgeVerificado(persona) {
