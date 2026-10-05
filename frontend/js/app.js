@@ -42,11 +42,15 @@ window.descargarImagenActualVisor = descargarImagenActualVisor;
 let timerPollingEditorFotos = null;
 let fotoEnEdicionBase64 = null;
 
-async function requerirAppEdicionFotos(imageSrc) {
-  let src = imageSrc;
+async function requerirAppEdicionFotos(eOrSrc) {
+  let src = typeof eOrSrc === 'string' ? eOrSrc : null;
   if (!src) {
     const visorImg = $('imgVisorAgrandada');
     if (visorImg && visorImg.src) src = visorImg.src;
+  }
+  if (!src) {
+    mostrarToast('Selecciona o abre una imagen para editar.');
+    return;
   }
   abrirEditorFotosModal(src);
 }
@@ -1465,6 +1469,7 @@ $('interruptorTema')?.addEventListener('click', () => {
 
 /* ================= MODO 3D BURBUJAS FLOTANTES (ESTILO IPHONE 17 & GIROSCOPIO) ================= */
 const CLAVE_MODO_3D = 'enlace_modo_3d';
+let gyroAnimFrame = null;
 
 function toggleModo3D(activar) {
   const body = document.body;
@@ -1482,6 +1487,13 @@ function toggleModo3D(activar) {
   if (btnTop) btnTop.classList.toggle('activo', nuevoEstado);
 
   localStorage.setItem(CLAVE_MODO_3D, nuevoEstado ? 'true' : 'false');
+
+  if (!nuevoEstado && gyroAnimFrame) {
+    cancelAnimationFrame(gyroAnimFrame);
+    gyroAnimFrame = null;
+    document.documentElement.style.setProperty('--gyro-x', '0deg');
+    document.documentElement.style.setProperty('--gyro-y', '0deg');
+  }
 
   if (window.SonidosYVibracion && typeof SonidosYVibracion.vibrar === 'function') {
     SonidosYVibracion.vibrar([40, 30, 60]);
@@ -1511,7 +1523,6 @@ let gyroTargetX = 0;
 let gyroTargetY = 0;
 let gyroCurrentX = 0;
 let gyroCurrentY = 0;
-let gyroAnimFrame = null;
 
 function actualizarInclinacion3DGiroscopio() {
   // Límite estricto de inclinación para evitar que las tarjetas se joroben o deformen
@@ -5075,44 +5086,7 @@ const EmojisFlotantes = (() => {
   return { lanzarIconoFlotante, iniciarRafaga };
 })();
 
-// Detección de Sacudida del Teléfono (Shake Event) con Pantalla Mareada / Borrosa
-let ultimoTiempoShake = 0;
-let xPrevio = null, yPrevio = null, zPrevio = null;
-
-if (window.DeviceMotionEvent) {
-  window.addEventListener('devicemotion', (e) => {
-    const acc = e.accelerationIncludingGravity;
-    if (!acc) return;
-    const ahora = Date.now();
-    if ((ahora - ultimoTiempoShake) > 300) {
-      const diffTiempo = ahora - ultimoTiempoShake;
-      ultimoTiempoShake = ahora;
-
-      if (xPrevio !== null) {
-        const deltaX = Math.abs(acc.x - xPrevio);
-        const deltaY = Math.abs(acc.y - yPrevio);
-        const deltaZ = Math.abs(acc.z - zPrevio);
-        const velocidad = (deltaX + deltaY + deltaZ) / diffTiempo * 10000;
-
-        if (velocidad > 1200) {
-          document.body.classList.add('pantalla-mareada');
-          if (typeof mostrarToast === 'function') {
-            mostrarToast('¡Me mareas! Sostén firme el teléfono');
-          }
-          if ('vibrate' in navigator) {
-            try { navigator.vibrate([100, 50, 100, 50, 150]); } catch (err) {}
-          }
-          setTimeout(() => {
-            document.body.classList.remove('pantalla-mareada');
-          }, 3000);
-        }
-      }
-      xPrevio = acc.x;
-      yPrevio = acc.y;
-      zPrevio = acc.z;
-    }
-  }, { passive: true });
-}
+// Detección de Sacudida del Teléfono deshabilitada para evitar bloqueos/interrupciones visuales
 
 // Control de pausa/reanudación de animaciones en interacción (5 segundos)
 let temporizadorPausaAnim = null;
