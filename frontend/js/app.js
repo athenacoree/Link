@@ -1485,11 +1485,16 @@ function chipReputacion(rep) {
 
 /* ================= AUTENTICACIÓN ================= */
 $('tabLogin').addEventListener('click', () => cambiarTabAuth('login'));
+if ($('tabRegistroRapido')) $('tabRegistroRapido').addEventListener('click', () => cambiarTabAuth('registro_rapido'));
 $('tabRegistro').addEventListener('click', () => cambiarTabAuth('registro'));
+
 function cambiarTabAuth(cual) {
   $('tabLogin').classList.toggle('activo', cual === 'login');
+  if ($('tabRegistroRapido')) $('tabRegistroRapido').classList.toggle('activo', cual === 'registro_rapido');
   $('tabRegistro').classList.toggle('activo', cual === 'registro');
+
   $('vistaLogin').classList.toggle('activo', cual === 'login');
+  if ($('vistaRegistroRapido')) $('vistaRegistroRapido').classList.toggle('activo', cual === 'registro_rapido');
   $('vistaRegistro').classList.toggle('activo', cual === 'registro');
 }
 
@@ -1497,13 +1502,81 @@ $('btnLogin').addEventListener('click', async () => {
   $('loginError').textContent = '';
   const email = $('loginEmail').value.trim();
   const password = $('loginPassword').value;
-  if (!email || !password) { $('loginError').textContent = 'Completa correo y contraseña.'; return; }
+  if (!email || !password) { $('loginError').textContent = 'Completa correo, usuario o teléfono y contraseña.'; return; }
   try {
     const { token, user } = await api('/auth/login', { method: 'POST', body: { email, password }, sinAuth: true });
     Sesion.guardar(token, user);
     iniciarApp();
   } catch (e) { $('loginError').textContent = e.message; }
 });
+
+if ($('btnRegistroRapido')) {
+  $('btnRegistroRapido').addEventListener('click', async () => {
+    $('regRapidoError').textContent = '';
+    const phone = $('regRapidoTelefono').value.trim();
+    const name = $('regRapidoNombre').value.trim();
+    const password = $('regRapidoPassword').value;
+    if (!phone || !name || !password) {
+      $('regRapidoError').textContent = 'Completa teléfono/usuario, nombre y contraseña.';
+      return;
+    }
+    try {
+      const { token, user } = await api('/auth/registro-rapido', {
+        method: 'POST',
+        body: { phone, name, password },
+        sinAuth: true
+      });
+      Sesion.guardar(token, user);
+      iniciarApp();
+    } catch (e) {
+      $('regRapidoError').textContent = e.message;
+    }
+  });
+}
+
+/* ================= ONBOARDING OBLIGATORIO ================= */
+window.mostrarOnboardingObligatorio = function(user) {
+  const modal = $('modalOnboardingObligatorio');
+  if (!modal) return;
+  if (user) {
+    if ($('onboardUsername')) $('onboardUsername').value = (user.username && !user.username.startsWith('u_')) ? user.username : '';
+    if ($('onboardNacimiento')) $('onboardNacimiento').value = user.birthdate ? user.birthdate.split('T')[0] : '';
+    if ($('onboardGenero')) $('onboardGenero').value = user.gender || 'Mujer';
+    if ($('onboardCiudad')) $('onboardCiudad').value = user.city || 'La Habana';
+  }
+  modal.style.display = 'flex';
+};
+
+window.guardarOnboardingObligatorio = async function() {
+  const errEl = $('onboardError');
+  if (errEl) errEl.textContent = '';
+
+  const username = $('onboardUsername').value.trim();
+  const birthdate = $('onboardNacimiento').value;
+  const gender = $('onboardGenero').value;
+  const city = $('onboardCiudad').value.trim();
+  const interests = Array.from(document.querySelectorAll('#onboardContenedorIntereses .chip-interes.activo')).map(el => el.dataset.tag);
+
+  if (!username || !gender || !city) {
+    if (errEl) errEl.textContent = 'Completa el nombre de usuario, género y municipio/ciudad.';
+    return;
+  }
+
+  try {
+    const res = await api('/auth/completar-onboarding', {
+      method: 'POST',
+      body: { username, birthdate, gender, city, interests }
+    });
+    if (res.ok) {
+      Sesion.actualizarUsuario(res.user);
+      const modal = $('modalOnboardingObligatorio');
+      if (modal) modal.style.display = 'none';
+      if (window.toast) toast('¡Perfil completado con éxito!');
+    }
+  } catch (e) {
+    if (errEl) errEl.textContent = e.message || 'Error al guardar. Intenta de nuevo.';
+  }
+};
 
 function inicializarSelectsUbicacion() {
   if (typeof poblarSelectPaises !== 'function') return;
@@ -1646,23 +1719,23 @@ class SonidosYVibracion {
       const gain = SonidosYVibracion.ctx.createGain();
 
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(587.33, now); // D5
-      osc.frequency.exponentialRampToValueAtTime(880, now + 0.15); // A5
+      osc.frequency.setValueAtTime(659.25, now); // E5
+      osc.frequency.exponentialRampToValueAtTime(880, now + 0.12); // A5
 
       gain.gain.setValueAtTime(0.15, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.32);
 
       osc.connect(gain);
       gain.connect(SonidosYVibracion.ctx.destination);
 
       osc.start(now);
-      osc.stop(now + 0.35);
+      osc.stop(now + 0.32);
     } catch (e) { /* silencioso */ }
   }
 
   static reproducirMensaje() {
     SonidosYVibracion.initContext();
-    SonidosYVibracion.vibrar([100]);
+    SonidosYVibracion.vibrar([80]);
     if (!SonidosYVibracion.ctx) return;
 
     try {
@@ -1672,16 +1745,94 @@ class SonidosYVibracion {
 
       osc.type = 'sine';
       osc.frequency.setValueAtTime(800, now);
-      osc.frequency.exponentialRampToValueAtTime(1200, now + 0.1);
+      osc.frequency.exponentialRampToValueAtTime(1200, now + 0.08);
 
-      gain.gain.setValueAtTime(0.12, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+      gain.gain.setValueAtTime(0.14, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
 
       osc.connect(gain);
       gain.connect(SonidosYVibracion.ctx.destination);
 
       osc.start(now);
-      osc.stop(now + 0.2);
+      osc.stop(now + 0.18);
+    } catch (e) { /* silencioso */ }
+  }
+
+  static reproducirSolicitudAmigos() {
+    SonidosYVibracion.initContext();
+    SonidosYVibracion.vibrar([100, 50, 100, 50, 150]);
+    if (!SonidosYVibracion.ctx) return;
+
+    try {
+      const now = SonidosYVibracion.ctx.currentTime;
+      const osc = SonidosYVibracion.ctx.createOscillator();
+      const gain = SonidosYVibracion.ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(523.25, now); // C5
+      osc.frequency.setValueAtTime(659.25, now + 0.1); // E5
+      osc.frequency.setValueAtTime(783.99, now + 0.2); // G5
+
+      gain.gain.setValueAtTime(0.15, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+
+      osc.connect(gain);
+      gain.connect(SonidosYVibracion.ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.4);
+    } catch (e) { /* silencioso */ }
+  }
+
+  static reproducirMisionCompletada() {
+    SonidosYVibracion.initContext();
+    SonidosYVibracion.vibrar([150, 100, 200]);
+    if (!SonidosYVibracion.ctx) return;
+
+    try {
+      const now = SonidosYVibracion.ctx.currentTime;
+      const osc = SonidosYVibracion.ctx.createOscillator();
+      const gain = SonidosYVibracion.ctx.createGain();
+
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(523.25, now); // C5
+      osc.frequency.setValueAtTime(659.25, now + 0.12); // E5
+      osc.frequency.setValueAtTime(783.99, now + 0.24); // G5
+      osc.frequency.setValueAtTime(1046.50, now + 0.36); // C6
+
+      gain.gain.setValueAtTime(0.2, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+
+      osc.connect(gain);
+      gain.connect(SonidosYVibracion.ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.6);
+    } catch (e) { /* silencioso */ }
+  }
+
+  static reproducirClick() {
+    SonidosYVibracion.initContext();
+    SonidosYVibracion.vibrar([20]);
+    if (!SonidosYVibracion.ctx) return;
+
+    try {
+      const now = SonidosYVibracion.ctx.currentTime;
+      const osc = SonidosYVibracion.ctx.createOscillator();
+      const gain = SonidosYVibracion.ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(1200, now);
+      osc.frequency.exponentialRampToValueAtTime(600, now + 0.03);
+
+      gain.gain.setValueAtTime(0.08, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+
+      osc.connect(gain);
+      gain.connect(SonidosYVibracion.ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.04);
     } catch (e) { /* silencioso */ }
   }
 
@@ -1773,7 +1924,11 @@ function conectarSocket() {
 
   window.socket.on('notificacion:nueva', (n) => {
     mostrarToast(n.text);
-    SonidosYVibracion.reproducirNotificacion();
+    if (n.type === 'solicitud_amistad' || n.type === 'solicitud') {
+      SonidosYVibracion.reproducirSolicitudAmigos();
+    } else {
+      SonidosYVibracion.reproducirNotificacion();
+    }
     pintarBadgeCampana(true);
     if ($('vistaContactos').classList.contains('activo')) cargarAmigosYSolicitudes();
 
@@ -1802,6 +1957,9 @@ async function refrescarMiPerfil() {
       if (typeof cambiarIdioma === 'function' && user.settings.language !== window.IDIOMA_ACTUAL) {
         cambiarIdioma(user.settings.language);
       }
+    }
+    if (user && user.onboarding_complete === false && typeof window.mostrarOnboardingObligatorio === 'function') {
+      window.mostrarOnboardingObligatorio(user);
     }
   } catch (e) { /* token vencido ya redirige */ }
 }
@@ -4968,6 +5126,108 @@ window.addEventListener('message', (event) => {
     }
   }
 });
+
+/* ================= MISIONES Y RETOS ================= */
+window.abrirModalMisiones = async function() {
+  const modal = $('modalMisiones');
+  if (!modal) return;
+  modal.style.display = 'flex';
+  await window.cargarMisionesModal();
+};
+
+window.cargarMisionesModal = async function() {
+  const contenedor = $('contenedorListaMisiones');
+  if (!contenedor) return;
+
+  contenedor.innerHTML = `<div style="text-align:center; padding:20px; color:var(--texto-500); font-size:13px;">Cargando misiones...</div>`;
+
+  try {
+    const data = await api('/misiones');
+    if (!data.missions_enabled) {
+      contenedor.innerHTML = `<div style="text-align:center; padding:20px; background:rgba(239,68,68,0.08); border-radius:14px; color:#ef4444; font-size:12.5px; font-weight:600;">
+        ⚠️ El Administrador ha desactivado temporalmente las Misiones en la plataforma.
+      </div>`;
+      return;
+    }
+
+    if ($('chkParticiparMisiones')) {
+      $('chkParticiparMisiones').checked = !!data.missions_participant;
+    }
+
+    if (!data.missions_participant) {
+      contenedor.innerHTML = `<div style="text-align:center; padding:20px; background:var(--fondo-tarjeta); border-radius:14px; color:var(--texto-600); font-size:12.5px;">
+        Has desactivado tu participación en misiones. Activa la casilla de arriba para desbloquear retos y ganar insignias.
+      </div>`;
+      return;
+    }
+
+    if (!data.missions || data.missions.length === 0) {
+      contenedor.innerHTML = `<div style="text-align:center; padding:20px; color:var(--texto-500); font-size:13px;">No hay misiones disponibles en este momento.</div>`;
+      return;
+    }
+
+    let html = '';
+    data.missions.forEach(m => {
+      const pct = Math.min(100, Math.round((m.progress / m.target) * 100));
+      let estadoBtn = '';
+
+      if (m.claimed) {
+        estadoBtn = `<span style="font-size:11px; font-weight:800; background:#e6f8ef; color:#15803d; padding:4px 10px; border-radius:8px;">Completada ✅</span>`;
+      } else if (m.completed) {
+        estadoBtn = `<button onclick="window.reclamarMision('${m.key}')" class="btn btn-primario mini-btn" style="padding:6px 12px; font-size:11.5px; font-weight:800; border-radius:10px; background:linear-gradient(135deg, #10b981, #059669);">Reclamar 🏆</button>`;
+      } else {
+        estadoBtn = `<span style="font-size:11px; font-weight:700; color:var(--texto-500);">${m.progress}/${m.target}</span>`;
+      }
+
+      html += `
+      <div style="background:var(--fondo-tarjeta, #f8fafc); border:1px solid var(--borde); border-radius:16px; padding:12px 14px; display:flex; flex-direction:column; gap:8px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:20px;">${m.icon || '🎯'}</span>
+            <div>
+              <div style="font-weight:800; font-size:13px; color:var(--texto-900);">${m.title}</div>
+              <div style="font-size:11px; color:var(--texto-600); line-height:1.3;">${m.description}</div>
+            </div>
+          </div>
+          <div>${estadoBtn}</div>
+        </div>
+
+        <div style="width:100%; background:var(--borde); height:6px; border-radius:6px; overflow:hidden;">
+          <div style="width:${pct}%; background:linear-gradient(90deg, #8b5cf6, #ec4899); height:100%; transition:width 0.3s ease;"></div>
+        </div>
+      </div>`;
+    });
+
+    contenedor.innerHTML = html;
+  } catch (e) {
+    contenedor.innerHTML = `<div style="text-align:center; padding:16px; color:#ef4444; font-size:12px;">Error al cargar misiones: ${e.message}</div>`;
+  }
+};
+
+window.toggleParticiparMisiones = async function(participate) {
+  try {
+    await api('/misiones/toggle-participation', { method: 'POST', body: { participate } });
+    await window.cargarMisionesModal();
+  } catch (e) {
+    if (window.toast) toast(e.message || 'Error al actualizar preferencia');
+  }
+};
+
+window.reclamarMision = async function(key) {
+  try {
+    const res = await api(`/misiones/${key}/claim`, { method: 'POST' });
+    if (res.ok) {
+      if (window.SonidosYVibracion && typeof window.SonidosYVibracion.reproducirMisionCompletada === 'function') {
+        window.SonidosYVibracion.reproducirMisionCompletada();
+      }
+      if (window.toast) toast(res.message || '¡Recompensa reclamada!');
+      await window.cargarMisionesModal();
+      if (typeof refrescarMiPerfil === 'function') refrescarMiPerfil();
+    }
+  } catch (e) {
+    if (window.toast) toast(e.message || 'Error al reclamar la misión');
+  }
+};
 
 /* ================= GESTIÓN DINÁMICA DE MANIFEST ================= */
 function actualizarManifestPorGenero() {

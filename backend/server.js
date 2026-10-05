@@ -48,6 +48,8 @@ app.use('/api/monetizacion', require('./routes/monetization'));
 app.use('/api/bridge', require('./routes/bridge'));
 app.use('/api/citas', require('./routes/appointments'));
 app.use('/api/appointments', require('./routes/appointments'));
+app.use('/api/misiones', require('./routes/missions'));
+app.use('/api/missions', require('./routes/missions'));
 app.use('/api/image-editor', require('./routes/imageEditor'));
 app.use('/api/videos', require('./routes/videoRoutes'));
 app.use('/api/tools', require('./routes/tools'));

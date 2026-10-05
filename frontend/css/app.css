@@ -888,6 +888,25 @@ html[data-tema="oscuro"] .factor-fila{background:#1d1626;}
 html[data-tema="oscuro"] .factor-punto.positivo{background:rgba(34,197,94,0.15); color:#4ade80;}
 html[data-tema="oscuro"] .factor-punto.negativo{background:rgba(239,68,68,0.15); color:#f87171;}
 
+/* ---- Chips de Intereses Onboarding ---- */
+.chip-interes {
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--borde, #e2e8f0);
+  background: var(--fondo-tarjeta, #f8fafc);
+  color: var(--texto-800, #1e293b);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.chip-interes:hover, .chip-interes.activo {
+  background: linear-gradient(135deg, #8b5cf6, #ec4899);
+  color: #ffffff;
+  border-color: transparent;
+  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.25);
+}
+
 /* ---- Selector de chips (encuesta de intereses/hobbies) ---- */
 .chips-selector{display:flex; flex-wrap:wrap; gap:8px;}
 .chip-toggle{
@@ -2261,4 +2280,29 @@ html[data-tema="oscuro"] .cuadrado-chat-burbuja {
 
 .weather-rain-drop {
   animation: rainFall 1.2s linear infinite;
+}
+
+/* ================= PERFIL DE RENDIMIENTO Y FLUIDEZ (HARDWARE ACCELERATION) ================= */
+.vista-app,
+.lista-mensajes,
+.grid-cuadrados-chats,
+.grid-cuadrados-contactos,
+.tarjeta-par-cuadrados,
+.tarjeta,
+.burbuja {
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  perspective: 1000px;
+  contain: content;
+}
+
+.tarjeta-par-cuadrados, .tarjeta, .conversacion-item {
+  will-change: transform;
+}
+
+.vista-app {
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
 }
