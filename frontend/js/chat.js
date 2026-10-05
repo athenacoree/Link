@@ -339,6 +339,11 @@ const Chat = (() => {
     }
   }
 
+  function renderToolCard(toolResult) {
+    return renderizarTarjetaResultadoHerramienta(toolResult);
+  }
+  window.renderToolCard = renderToolCard;
+
   function renderizarTarjetaResultadoHerramienta(toolResult) {
     if (!toolResult || !toolResult.type) return '';
     const t = toolResult.type;
@@ -2309,7 +2314,7 @@ const Chat = (() => {
     abrirConversacion({ id: userId, name: userName });
   }
 
-  return { abrirConversacion, cerrarConversacion, enlazarUI, enlazarSocket, actualizarBadgeMensajes, alternarVelocidadAudio, alternarPanelUsuario, seleccionarEsteUsuario, abrirConversacionConId, cambiarCalidadVideo, enviarInvitacionCita, responderCita, enviarRespuestaDirectaEnChatCard, enviarSolicitudAmistadDirecta, abrirCategoriaCapabilities, volverACategoriasCapabilities, ejecutarHerramientaDesdeCard, renderCapabilitiesCard, hablarTexto, obtenerEstadoVozAltaChat, guardarEstadoVozAltaChat, alternarVozAltaChat };
+  return { abrirConversacion, cerrarConversacion, enlazarUI, enlazarSocket, actualizarBadgeMensajes, alternarVelocidadAudio, alternarPanelUsuario, seleccionarEsteUsuario, abrirConversacionConId, cambiarCalidadVideo, enviarInvitacionCita, responderCita, enviarRespuestaDirectaEnChatCard, enviarSolicitudAmistadDirecta, abrirCategoriaCapabilities, volverACategoriasCapabilities, ejecutarHerramientaDesdeCard, renderCapabilitiesCard, renderToolCard, hablarTexto, obtenerEstadoVozAltaChat, guardarEstadoVozAltaChat, alternarVozAltaChat };
 })();
 
 // =========================================================

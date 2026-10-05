@@ -229,6 +229,23 @@
       }
     };
 
+    window.probarVideoYT = function(videoUrl, title) {
+      if (typeof Chat !== 'undefined' && Chat.abrirConversacion) {
+        Chat.abrirConversacion({
+          id: '00000000-0000-0000-0000-0000000000a1',
+          name: 'Link AI',
+          is_ai: true
+        });
+        setTimeout(() => {
+          const input = document.getElementById('chatInputTexto');
+          if (input) {
+            input.value = `Muéstrame el video ${title || ''} ${videoUrl}`;
+            document.getElementById('chatBtnEnviar')?.click();
+          }
+        }, 400);
+      }
+    };
+
     document.addEventListener('DOMContentLoaded', () => {
         window.EnlaceFeatures.init();
         document.getElementById('btnDescubreQuePuedoHacer')?.addEventListener('click', () => {
