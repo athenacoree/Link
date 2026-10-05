@@ -1821,8 +1821,12 @@ document.querySelectorAll('nav.tabbar .tab').forEach((tab) => {
 function cambiarVista(nombre) {
   cerrarTodosLosModales();
   if (typeof finalizarConteoPerfil === 'function') finalizarConteoPerfil();
+  window.scrollTo(0, 0);
+  document.querySelectorAll('.vista-app').forEach((v) => {
+    v.scrollTop = 0;
+    v.classList.toggle('activo', v.dataset.vista === nombre);
+  });
   document.querySelectorAll('nav.tabbar .tab').forEach((t) => t.classList.toggle('activo', t.dataset.tab === nombre));
-  document.querySelectorAll('.vista-app').forEach((v) => v.classList.toggle('activo', v.dataset.vista === nombre));
 
   // Refrescar siempre desde la API al cambiar de pestaña
   if (nombre === 'feed') {
