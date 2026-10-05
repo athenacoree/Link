@@ -9,10 +9,10 @@
 <link rel="manifest" id="manifestLink" href="/manifest.json">
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <link rel="icon" href="/icons/icon-192.png">
-<link rel="stylesheet" href="/css/app.css?v=10">
-<link rel="stylesheet" href="/css/call.css?v=10">
-<link rel="stylesheet" href="/css/features.css?v=10">
-<link rel="stylesheet" href="/css/ailab.css?v=10">
+<link rel="stylesheet" href="/css/app.css?v=11">
+<link rel="stylesheet" href="/css/call.css?v=11">
+<link rel="stylesheet" href="/css/features.css?v=11">
+<link rel="stylesheet" href="/css/ailab.css?v=11">
 </head>
 <body>
 
@@ -164,7 +164,6 @@
           <div class="linkvideo-hero-badge">
             <span class="live-dot-pulse"></span> STREAMING PLATFORM 2.0
           </div>
-          <h2 class="linkvideo-hero-title">Link Video & Live Hub</h2>
           <p class="linkvideo-hero-sub">Plataforma inteligente con transmisiones en vivo verificadas, videos AI, cámaras públicas, películas y radio 24/7.</p>
         </div>
         <div class="linkvideo-hero-actions">
@@ -531,20 +530,6 @@
     <div class="stat-box"><div class="n" id="p-stat-amigos">—</div><div class="l">ESTADO DE AMISTAD</div></div>
   </div>
 
-  <!-- Tarjetas de métricas modernas con gráficos 3D Wiggle interactivo -->
-  <div class="card-metricas-perfil" style="margin: 12px 20px; padding: 14px; background: var(--blanco); border: 1px solid var(--borde); border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
-    <div style="font-size: 12px; font-weight: 800; color: var(--morado-700); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
-      <span>🌀 Gráfico 3D Interactivo Wiggle (Perfil)</span>
-      <span style="font-size: 10px; background: rgba(139, 92, 246, 0.15); color: var(--morado-600); padding: 2px 8px; border-radius: 10px; font-weight:700;">3D Real - Arrastra para girar</span>
-    </div>
-    <div style="height: 160px; width: 100%; position: relative; border-radius: 12px; overflow: hidden; background: linear-gradient(135deg, #0f172a, #1e1b4b); box-shadow: inset 0 0 16px rgba(0,0,0,0.5);">
-      <canvas id="perfil3dWiggleCanvas" style="width: 100%; height: 100%; display: block; cursor: grab;"></canvas>
-    </div>
-    <div style="display: flex; justify-content: space-between; font-size: 10.5px; opacity: 0.85; margin-top: 8px; font-weight: 600;">
-      <span>💡 Arrastra con el dedo o cursor</span>
-      <span id="perfil3dFormaLabel" style="color: var(--morado-600); font-weight: 800;">Malla 3D Wiggle</span>
-    </div>
-  </div>
 
   <div class="boton-porque-wrap oculto" id="p-porque-wrap">
     <div class="boton-porque" id="p-porque-btn">
@@ -1696,23 +1681,6 @@
     <div class="cerrar" id="cerrarPanelHerramientas">&times;</div>
   </div>
 
-  <!-- Globo Terráqueo 3D de "Conexiones en Vivo" (Migrado a Herramientas) -->
-  <div id="globoConexiones3DContainer" class="globo-conexiones-card" style="margin:12px 16px;">
-    <div class="globo-header">
-      <div class="globo-titulo">
-        <span class="punto-live-pulse"></span>
-        <span>Conexiones en Vivo (Planeta Link 3D)</span>
-      </div>
-      <div id="globoRegionLabel" class="globo-region-tag">Global (Toca un nodo)</div>
-    </div>
-    <div class="globo-canvas-wrap">
-      <canvas id="globoConexiones3D"></canvas>
-    </div>
-    <div class="globo-footer">
-      <span>🌐 Arrastra para girar el planeta y explorar conexiones</span>
-      <button id="btnResetFiltroGlobo" class="mini-btn-reset-globo oculto" onclick="window.resetearFiltroGlobo()">Ver Todos</button>
-    </div>
-  </div>
   <div class="panel-herramientas-categorias" id="panelCategoriasHerramientas">
     <div class="cat-chip activo" data-cat="todas">✨ Todas</div>
   </div>
@@ -1895,16 +1863,16 @@
 </div>
 
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-<script src="/js/api.js?v=10"></script>
-<script src="/js/paises.js?v=10"></script>
-<script src="/js/i18n.js?v=10"></script>
-<script src="/js/call.js?v=10"></script>
-<script src="/js/chat.js?v=10"></script>
-<script src="/js/features.js?v=10"></script>
-<script src="/js/linkvideo.js?v=10"></script>
-<script src="/js/ailab.js?v=10"></script>
-<script src="/js/monetization.js?v=10"></script>
-<script src="/js/app.js?v=10"></script>
+<script src="/js/api.js?v=11"></script>
+<script src="/js/paises.js?v=11"></script>
+<script src="/js/i18n.js?v=11"></script>
+<script src="/js/call.js?v=11"></script>
+<script src="/js/chat.js?v=11"></script>
+<script src="/js/features.js?v=11"></script>
+<script src="/js/linkvideo.js?v=11"></script>
+<script src="/js/ailab.js?v=11"></script>
+<script src="/js/monetization.js?v=11"></script>
+<script src="/js/app.js?v=11"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {

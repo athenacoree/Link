@@ -1228,12 +1228,23 @@ window.cerrarVisorPDF = cerrarVisorPDF;
 function cerrarTodosLosModales() {
   document.querySelectorAll('.velo.activo').forEach((el) => el.classList.remove('activo'));
   document.querySelectorAll('.hoja.activo').forEach((el) => el.classList.remove('activo'));
+  document.querySelectorAll('.panel-herramientas-overlay.activo').forEach((el) => el.classList.remove('activo'));
+  document.querySelectorAll('.panel-herramientas.activo').forEach((el) => el.classList.remove('activo'));
+  const visorImg = document.getElementById('modalVisorImagen');
+  if (visorImg) visorImg.style.display = 'none';
+  const visorPdf = document.getElementById('modalVisorPDF');
+  if (visorPdf) visorPdf.style.display = 'none';
+  const visorHist = document.getElementById('modalVisorHistorias3D');
+  if (visorHist) visorHist.style.display = 'none';
+  const splash = document.getElementById('splashScreen');
+  if (splash && splash.style.display !== 'none' && Sesion.existe()) {
+    splash.style.display = 'none';
+  }
 }
 window.cerrarTodosLosModales = cerrarTodosLosModales;
 
 document.addEventListener('DOMContentLoaded', () => {
   inicializarConstelacionLogin();
-  inicializarGlobo3D();
   inicializarTarjetasHolograficas3D();
   $('cerrarVisorImagen')?.addEventListener('click', cerrarVisorImagen);
   $('veloVisorImagen')?.addEventListener('click', cerrarVisorImagen);
@@ -3295,11 +3306,6 @@ async function abrirPerfil(personaId) {
     $('p-reputacion').innerHTML = chipReputacion(reputacion);
 
     if ($('p-stat-visitas')) $('p-stat-visitas').textContent = persona.views_count || 0;
-    setTimeout(() => {
-      if (typeof window.inicializarPerfil3DWiggle === 'function') {
-        window.inicializarPerfil3DWiggle(persona);
-      }
-    }, 100);
 
     const abrirEstadoDePerfil = async () => {
       try {

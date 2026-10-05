@@ -5,24 +5,24 @@
    con fallback a cache cuando no hay conexión.
    "Network-Only" para llamadas API y WebSockets.
    ========================================================= */
-const CACHE_NAME = 'enlace-shell-v10';
+const CACHE_NAME = 'enlace-shell-v11';
 const ARCHIVOS_SHELL = [
   '/',
-  '/index.html?v=10',
-  '/css/app.css?v=10',
-  '/css/call.css?v=10',
-  '/css/features.css?v=10',
-  '/css/ailab.css?v=10',
-  '/js/api.js?v=10',
-  '/js/app.js?v=10',
-  '/js/chat.js?v=10',
-  '/js/call.js?v=10',
-  '/js/features.js?v=10',
-  '/js/i18n.js?v=10',
-  '/js/linkvideo.js?v=10',
-  '/js/ailab.js?v=10',
-  '/js/monetization.js?v=10',
-  '/js/paises.js?v=10',
+  '/index.html?v=11',
+  '/css/app.css?v=11',
+  '/css/call.css?v=11',
+  '/css/features.css?v=11',
+  '/css/ailab.css?v=11',
+  '/js/api.js?v=11',
+  '/js/app.js?v=11',
+  '/js/chat.js?v=11',
+  '/js/call.js?v=11',
+  '/js/features.js?v=11',
+  '/js/i18n.js?v=11',
+  '/js/linkvideo.js?v=11',
+  '/js/ailab.js?v=11',
+  '/js/monetization.js?v=11',
+  '/js/paises.js?v=11',
   '/manifest.json',
   '/favicon.ico',
   '/icons/icon-192.png',
@@ -85,7 +85,7 @@ self.addEventListener('fetch', (event) => {
           if (cachedResponse) return cachedResponse;
           // Fallback para navegación de SPA si está sin conexión
           if (event.request.mode === 'navigate') {
-            return caches.match('/index.html') || caches.match('/index.html?v=10') || caches.match('/');
+            return caches.match('/index.html') || caches.match('/index.html?v=11') || caches.match('/');
           }
           return null;
         });

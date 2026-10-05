@@ -21,6 +21,50 @@ const Chat = (() => {
   }
   window.meEscapar = meEscapar;
 
+  let audioCtxChat = null;
+  function reproducirSonidoChat(tipo = 'enviar') {
+    try {
+      if (!audioCtxChat) {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx) audioCtxChat = new AudioCtx();
+      }
+      if (!audioCtxChat) return;
+      if (audioCtxChat.state === 'suspended') audioCtxChat.resume();
+
+      const osc = audioCtxChat.createOscillator();
+      const gain = audioCtxChat.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtxChat.destination);
+
+      const now = audioCtxChat.currentTime;
+      if (tipo === 'enviar') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(520, now);
+        osc.frequency.exponentialRampToValueAtTime(880, now + 0.08);
+        gain.gain.setValueAtTime(0.12, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+        osc.start(now);
+        osc.stop(now + 0.12);
+      } else if (tipo === 'recibir') {
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(784, now);
+        osc.frequency.exponentialRampToValueAtTime(587, now + 0.15);
+        gain.gain.setValueAtTime(0.15, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+        osc.start(now);
+        osc.stop(now + 0.18);
+      } else {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(600, now);
+        gain.gain.setValueAtTime(0.08, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+        osc.start(now);
+        osc.stop(now + 0.05);
+      }
+    } catch (e) {}
+  }
+  window.reproducirSonidoChat = reproducirSonidoChat;
+
   function horaCorta(fecha) {
     if (!fecha) return '';
     const d = new Date(fecha);
@@ -379,7 +423,7 @@ const Chat = (() => {
       </div>`;
     }
 
-    // 2. Weather Widget con Sol/Nube/Sombrilla, números grandes y gráfica táctil SVG
+    // 2. Weather Widget Dinámico e Interactivo con Animación de Nubes y Lluvia
     if (t === 'weather_card' || t === 'open_meteo') {
       const city = data.city || toolResult.city || 'Ubicación';
       const temp = data.temp_c || (data.current_weather ? `${data.current_weather.temperature}°C` : 'N/A');
@@ -387,12 +431,23 @@ const Chat = (() => {
       const hum = data.humidity || 'N/A';
       const wind = data.wind || 'N/A';
 
-      let weatherIconSvg = `<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`;
+      const currentHour = new Date().getHours();
+      const esNoche = currentHour < 6 || currentHour >= 19;
       const condLower = condition.toLowerCase();
-      if (condLower.includes('lluv') || condLower.includes('tormenta') || condLower.includes('agua') || condLower.includes('rain')) {
-        weatherIconSvg = `<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><path d="M23 12a11 11 0 0 1-22 0z"/><line x1="12" y1="12" x2="12" y2="22"/></svg>`;
-      } else if (condLower.includes('nub') || condLower.includes('cubierto') || condLower.includes('cloud')) {
-        weatherIconSvg = `<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>`;
+      const esLluvia = condLower.includes('lluv') || condLower.includes('tormenta') || condLower.includes('agua') || condLower.includes('rain');
+      const esNublado = condLower.includes('nub') || condLower.includes('cubierto') || condLower.includes('cloud') || esLluvia;
+
+      const bgAtmosphere = esNoche
+        ? 'linear-gradient(135deg, #0f172a, #1e1b4b)'
+        : (esLluvia ? 'linear-gradient(135deg, #1e293b, #334155)' : 'linear-gradient(135deg, #0284c7, #38bdf8)');
+
+      let weatherIconSvg = `<svg width="36" height="32" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`;
+      if (esLluvia) {
+        weatherIconSvg = `<svg width="36" height="32" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M20 16.58A5 5 0 0 0 18 7h-1.26A8 8 0 1 0 4 15.25"/><line x1="8" y1="19" x2="8" y2="22" class="weather-rain-drop"/><line x1="12" y1="19" x2="12" y2="22" class="weather-rain-drop" style="animation-delay:0.3s;"/><line x1="16" y1="19" x2="16" y2="22" class="weather-rain-drop" style="animation-delay:0.6s;"/></svg>`;
+      } else if (esNublado) {
+        weatherIconSvg = `<svg width="36" height="32" viewBox="0 0 24 24" fill="none" stroke="#e2e8f0" stroke-width="2" class="weather-cloud-anim"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>`;
+      } else if (esNoche) {
+        weatherIconSvg = `<svg width="36" height="32" viewBox="0 0 24 24" fill="none" stroke="#fef08a" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/></svg>`;
       }
 
       const numTemp = parseInt(temp) || 25;
@@ -404,30 +459,43 @@ const Chat = (() => {
         { hr: '21:00', t: numTemp - 2 }
       ];
 
-      return `<div style="margin-top:8px; padding:14px; background:var(--fondo-tarjeta, #fff); border:1.5px solid var(--morado-500, #8b5cf6); border-radius:16px; max-width:310px; font-size:12px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      return `<div style="margin-top:8px; padding:16px; background:${bgAtmosphere}; color:#fff; border-radius:18px; max-width:320px; font-size:12px; position:relative; overflow:hidden; box-shadow:0 8px 24px rgba(0,0,0,0.25);">
+        <!-- Nubes móviles en segundo plano -->
+        <div class="weather-cloud-anim" style="position:absolute; top:8px; right:-10px; opacity:0.25; pointer-events:none;">
+          <svg width="100" height="40" viewBox="0 0 24 24" fill="#fff"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px; position:relative; z-index:2;">
           <div>
-            <div style="font-weight:800; font-size:15px; color:var(--texto-900);">${meEscapar(city)}</div>
-            <div style="font-size:11.5px; opacity:0.8; color:var(--morado-600); font-weight:600;">${meEscapar(condition)}</div>
+            <div style="font-weight:900; font-size:17px; text-shadow:0 2px 4px rgba(0,0,0,0.3);">${meEscapar(city)}</div>
+            <div style="font-size:12px; opacity:0.9; font-weight:700; display:flex; align-items:center; gap:4px; margin-top:2px;">
+              <span>${esNoche ? '🌙' : '☀️'}</span>
+              <span>${meEscapar(condition)}</span>
+            </div>
           </div>
           <div>${weatherIconSvg}</div>
         </div>
-        <div style="display:flex; align-items:baseline; gap:8px; margin-bottom:12px;">
-          <span style="font-size:36px; font-weight:900; color:var(--morado-700, #6000e6); line-height:1;">${meEscapar(temp)}</span>
-          <span style="font-size:11.5px; opacity:0.75;">Humedad: ${meEscapar(hum)} • Viento: ${meEscapar(wind)}</span>
+        <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:14px; position:relative; z-index:2;">
+          <span style="font-size:42px; font-weight:900; line-height:1; letter-spacing:-1px; text-shadow:0 2px 6px rgba(0,0,0,0.3);">${meEscapar(temp)}</span>
+          <div style="text-align:right; font-size:11px; opacity:0.88; font-weight:600;">
+            <div>💧 Humedad: ${meEscapar(hum)}</div>
+            <div>💨 Viento: ${meEscapar(wind)}</div>
+          </div>
         </div>
-        <div style="background:rgba(139,92,246,0.06); border-radius:12px; padding:8px; border:1px solid rgba(139,92,246,0.15);">
-          <div style="font-size:10.5px; font-weight:700; opacity:0.75; margin-bottom:4px;">Pronóstico Térmico Táctil (°C)</div>
+        <div style="background:rgba(255,255,255,0.15); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); border-radius:12px; padding:10px; border:1px solid rgba(255,255,255,0.2); position:relative; z-index:2;">
+          <div style="font-size:10.5px; font-weight:800; opacity:0.9; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
+            <span>Pronóstico interactivo (°C)</span>
+            <span style="font-size:9.5px; background:rgba(255,255,255,0.2); padding:2px 6px; border-radius:6px;">En vivo</span>
+          </div>
           <svg viewBox="0 0 200 65" style="width:100%; height:65px; overflow:visible;">
-            <polyline fill="none" stroke="#8b5cf6" stroke-width="2.5" points="10,40 50,20 100,10 150,28 190,40"/>
+            <polyline fill="none" stroke="rgba(255,255,255,0.85)" stroke-width="2.5" points="10,40 50,20 100,10 150,28 190,40"/>
             ${points.map((p, i) => {
               const x = 10 + i * 45;
               const y = 50 - (p.t - 20) * 3;
               return `
-                <g style="cursor:pointer;" onclick="mostrarToast('Temperatura a las ${p.hr}: ${p.t}°C')">
-                  <circle cx="${x}" cy="${y}" r="5" fill="#8b5cf6" stroke="#ffffff" stroke-width="1.5"/>
-                  <text x="${x}" y="${y - 8}" font-size="8" font-weight="bold" fill="var(--morado-700)" text-anchor="middle">${p.t}°</text>
-                  <text x="${x}" y="62" font-size="7" fill="var(--texto-500)" text-anchor="middle">${p.hr}</text>
+                <g style="cursor:pointer;" onclick="mostrarToast('Pronóstico a las ${p.hr}: ${p.t}°C')">
+                  <circle cx="${x}" cy="${y}" r="5" fill="#fff" stroke="#38bdf8" stroke-width="2"/>
+                  <text x="${x}" y="${y - 8}" font-size="8.5" font-weight="900" fill="#fff" text-anchor="middle">${p.t}°</text>
+                  <text x="${x}" y="62" font-size="7.5" fill="rgba(255,255,255,0.8)" text-anchor="middle">${p.hr}</text>
                 </g>
               `;
             }).join('')}
@@ -860,7 +928,51 @@ const Chat = (() => {
         <div style="font-size:12.5px; line-height:1.4;">${formatearUrlsTexto(escapar(textoAMostrar))}</div>
       </div>`;
     } else if (textoAMostrar) {
-      html += `<div>${formatearUrlsTexto(escapar(textoAMostrar))}</div>`;
+      // Detección de palabra disparador al inicio de la oración
+      const matchTrigger = textoAMostrar.match(/^(hola|jugar|musica|música|video)\b/i);
+      if (matchTrigger) {
+        const palabraTrigger = matchTrigger[1].toLowerCase();
+        const restoTexto = textoAMostrar.substring(matchTrigger[0].length).trim();
+
+        let tituloTrigger = 'Acción Interactiva';
+        let subTrigger = 'Toca para interactuar en vivo';
+        let iconoTrigger = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>`;
+
+        if (palabraTrigger === 'hola') {
+          tituloTrigger = '¡Hola! Saludo Interactivo';
+          subTrigger = 'Conectar en vivo o jugar minijuego';
+          iconoTrigger = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>`;
+        } else if (palabraTrigger === 'jugar') {
+          tituloTrigger = '¡Partida Minijuegos!';
+          subTrigger = 'Lanzar minijuegos multijugador';
+          iconoTrigger = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><circle cx="15" cy="11" r="1"/><circle cx="18" cy="13" r="1"/><rect x="2" y="6" width="20" height="12" rx="2"/></svg>`;
+        } else if (palabraTrigger === 'musica' || palabraTrigger === 'música') {
+          tituloTrigger = 'Música & Sintonía';
+          subTrigger = 'Escuchar música o radio en vivo';
+          iconoTrigger = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>`;
+        } else if (palabraTrigger === 'video') {
+          tituloTrigger = 'Streaming Link Video';
+          subTrigger = 'Ver videos y canales juntos';
+          iconoTrigger = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>`;
+        }
+
+        html += `<div class="tarjeta-accion-trigger" onclick="if(window.reproducirSonidoChat) window.reproducirSonidoChat('click'); if(navigator.vibrate) navigator.vibrate(25); if(window.abrirPanelHerramientas) window.abrirPanelHerramientas('${palabraTrigger}');" style="margin-bottom:6px; padding:10px 12px; background:linear-gradient(135deg, rgba(139,92,246,0.15), rgba(168,85,247,0.08)); border:1.5px solid var(--morado-600, #8b5cf6); border-radius:14px; cursor:pointer; display:flex; align-items:center; gap:10px; box-shadow:0 4px 12px rgba(139,92,246,0.12); transition:transform 0.15s ease;">
+          <div style="width:38px; height:38px; border-radius:10px; background:var(--morado-600, #8b5cf6); color:#fff; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+            ${iconoTrigger}
+          </div>
+          <div style="flex:1; min-width:0;">
+            <div style="font-weight:800; font-size:12.5px; color:var(--morado-700, #7c3aed); text-transform:uppercase; letter-spacing:0.5px;">${tituloTrigger}</div>
+            <div style="font-size:11px; opacity:0.85; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${subTrigger}</div>
+          </div>
+          <div style="font-size:10px; font-weight:800; background:var(--morado-600); color:#fff; padding:3px 8px; border-radius:8px;">Elegir</div>
+        </div>`;
+
+        if (restoTexto) {
+          html += `<div>${formatearUrlsTexto(escapar(restoTexto))}</div>`;
+        }
+      } else {
+        html += `<div>${formatearUrlsTexto(escapar(textoAMostrar))}</div>`;
+      }
     }
 
     if (msg.tool_result) {
@@ -1141,6 +1253,9 @@ const Chat = (() => {
     if (!conversacionAbiertaCon) return;
     if (!texto && !imagenBase64 && !audioBase64) return;
 
+    reproducirSonidoChat('enviar');
+    if (navigator.vibrate) navigator.vibrate(15);
+
     if (conversacionAbiertaCon.is_ai) {
       const msgUser = {
         id: 'ai_user_' + Date.now(),
@@ -1297,6 +1412,8 @@ const Chat = (() => {
 
   async function onMensajeEntrante(msg) {
     const yo = Sesion.usuario();
+    reproducirSonidoChat('recibir');
+    if (navigator.vibrate) navigator.vibrate([20, 30, 20]);
     if (conversacionAbiertaCon && conversationId(yo.id, conversacionAbiertaCon.id) === msg.conversationId) {
       $('chatMensajes').appendChild(pintarBurbuja(msg, yo.id));
       $('chatMensajes').scrollTop = $('chatMensajes').scrollHeight;

@@ -200,7 +200,8 @@ img{max-width:100%;}
 .conversacion-hora{font-size:11px; color:var(--texto-400); flex:0 0 auto;}
 
 /* ---- Vista de chat individual ---- */
-.vista-chat{position:fixed; inset:0; z-index:75; background:var(--hueso); backdrop-filter:blur(20px) saturate(180%); -webkit-backdrop-filter:blur(20px) saturate(180%); display:flex; flex-direction:column; transform:translateX(100%); transition:transform .38s cubic-bezier(.2,.85,.2,1); overscroll-behavior:none; overscroll-behavior-y:contain;}
+.vista-chat{position:fixed; inset:0; z-index:75; background:linear-gradient(160deg, #f5f3ff 0%, #faf8ff 50%, #f3e8ff 100%); backdrop-filter:blur(20px) saturate(180%); -webkit-backdrop-filter:blur(20px) saturate(180%); display:flex; flex-direction:column; transform:translateX(100%); transition:transform .38s cubic-bezier(.2,.85,.2,1); overscroll-behavior:none; overscroll-behavior-y:contain;}
+html[data-tema="oscuro"] .vista-chat{background:linear-gradient(160deg, #09070f 0%, #120e1a 50%, #1a1028 100%);}
 .vista-chat.activo{transform:translateX(0);}
 .chat-header{display:flex; align-items:center; gap:10px; padding:calc(env(safe-area-inset-top) + 12px) 14px 12px; background:rgba(255,255,255,0.78); backdrop-filter:blur(18px) saturate(180%); -webkit-backdrop-filter:blur(180%); border-bottom:1px solid rgba(139,92,246,0.15); flex:0 0 auto; box-shadow:0 4px 20px rgba(0,0,0,0.03);}
 html[data-tema="oscuro"] .chat-header{background:rgba(24,24,36,0.82); border-bottom-color:rgba(139,92,246,0.25);}
@@ -458,14 +459,16 @@ html[data-tema="oscuro"] .chat-input-barra{background:rgba(24,24,36,0.82); borde
 
 #vistaAjustes .tarjeta-ajustes {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
   background: transparent !important;
   border: none !important;
   box-shadow: none !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   margin-bottom: 12px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 #vistaAjustes .fila-ajustes {
@@ -475,7 +478,7 @@ html[data-tema="oscuro"] .chat-input-barra{background:rgba(24,24,36,0.82); borde
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 14px 10px;
+  padding: 12px 8px;
   border-radius: 20px;
   background: rgba(255, 255, 255, 0.65) !important;
   backdrop-filter: blur(20px) saturate(180%);
@@ -485,6 +488,10 @@ html[data-tema="oscuro"] .chat-input-barra{background:rgba(24,24,36,0.82); borde
   cursor: pointer;
   user-select: none;
   transition: transform 0.15s ease, background 0.15s ease;
+  overflow: hidden;
+  box-sizing: border-box;
+  min-width: 0;
+  width: 100%;
 }
 
 html[data-tema="oscuro"] #vistaAjustes .fila-ajustes {
@@ -498,17 +505,27 @@ html[data-tema="oscuro"] #vistaAjustes .fila-ajustes {
 }
 
 #vistaAjustes .fila-ajustes svg {
-  width: 28px;
-  height: 28px;
-  margin-bottom: 8px;
+  width: 26px;
+  height: 26px;
+  margin-bottom: 6px;
   color: var(--morado-700);
+  flex-shrink: 0;
 }
 
 #vistaAjustes .fila-ajustes .txt {
-  font-size: 12.5px;
+  font-size: 11.5px;
   font-weight: 700;
-  line-height: 1.25;
+  line-height: 1.2;
   color: var(--texto-900);
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  hyphens: auto;
+  max-width: 100%;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
 }
 
 #vistaAjustes .fila-ajustes .chevron {
@@ -2223,4 +2240,25 @@ html[data-tema="oscuro"] .cuadrado-chat-burbuja {
 .cuadrado-btn-contacto.social {
   background: var(--morado-100, #f3e8ff);
   color: var(--morado-700, #6d28d9);
+}
+
+/* ---- Animaciones dinámicas para Clima ---- */
+@keyframes cloudMove {
+  0% { transform: translateX(-15%); }
+  50% { transform: translateX(15%); }
+  100% { transform: translateX(-15%); }
+}
+
+@keyframes rainFall {
+  0% { transform: translateY(-10px); opacity: 0; }
+  50% { opacity: 1; }
+  100% { transform: translateY(24px); opacity: 0; }
+}
+
+.weather-cloud-anim {
+  animation: cloudMove 8s ease-in-out infinite;
+}
+
+.weather-rain-drop {
+  animation: rainFall 1.2s linear infinite;
 }
