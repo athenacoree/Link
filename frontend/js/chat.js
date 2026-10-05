@@ -1107,6 +1107,10 @@ const Chat = (() => {
   function actualizarBotonVozAlta(activo) {
     const btn = $('chatBtnVozAlta');
     const icono = $('iconoVozAlta');
+    const txtOp = $('txtOpChatVozAlta');
+    if (txtOp) {
+      txtOp.textContent = activo ? 'Lectura en voz alta (Activada)' : 'Lectura en voz alta (Desactivada)';
+    }
     if (!btn || !icono) return;
 
     if (activo) {
@@ -1729,9 +1733,14 @@ const Chat = (() => {
       $('chatImagenInput')?.click();
     });
     $('chatBtnMasOpciones')?.addEventListener('click', abrirMenuAdjuntos);
+    $('chatBtnMenuOpciones')?.addEventListener('click', abrirMenuAdjuntos);
     $('cerrarChatAdjuntos')?.addEventListener('click', cerrarMenuAdjuntos);
     $('veloChatAdjuntos')?.addEventListener('click', cerrarMenuAdjuntos);
 
+    $('opChatVozAlta')?.addEventListener('click', () => {
+      cerrarMenuAdjuntos();
+      alternarVozAltaChat();
+    });
     $('opChatFoto')?.addEventListener('click', () => {
       cerrarMenuAdjuntos();
       $('chatImagenInput')?.click();

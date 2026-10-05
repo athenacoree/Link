@@ -1237,7 +1237,7 @@ function cerrarTodosLosModales() {
   const visorHist = document.getElementById('modalVisorHistorias3D');
   if (visorHist) visorHist.style.display = 'none';
   const splash = document.getElementById('splashScreen');
-  if (splash && splash.style.display !== 'none' && Sesion.existe()) {
+  if (splash && splash.style.display !== 'none' && Sesion.activa()) {
     splash.style.display = 'none';
   }
 }
@@ -1514,11 +1514,17 @@ let gyroCurrentY = 0;
 let gyroAnimFrame = null;
 
 function actualizarInclinacion3DGiroscopio() {
-  gyroCurrentX += (gyroTargetX - gyroCurrentX) * 0.12;
-  gyroCurrentY += (gyroTargetY - gyroCurrentY) * 0.12;
+  // Límite estricto de inclinación para evitar que las tarjetas se joroben o deformen
+  const MAX_INCLINACION = 3.5;
 
-  document.documentElement.style.setProperty('--gyro-x', `${gyroCurrentX.toFixed(2)}deg`);
-  document.documentElement.style.setProperty('--gyro-y', `${gyroCurrentY.toFixed(2)}deg`);
+  gyroCurrentX += (gyroTargetX - gyroCurrentX) * 0.08;
+  gyroCurrentY += (gyroTargetY - gyroCurrentY) * 0.08;
+
+  const finalX = Math.max(-MAX_INCLINACION, Math.min(MAX_INCLINACION, gyroCurrentX));
+  const finalY = Math.max(-MAX_INCLINACION, Math.min(MAX_INCLINACION, gyroCurrentY));
+
+  document.documentElement.style.setProperty('--gyro-x', `${finalX.toFixed(2)}deg`);
+  document.documentElement.style.setProperty('--gyro-y', `${finalY.toFixed(2)}deg`);
 
   if (document.body.classList.contains('modo-3d-iphone')) {
     gyroAnimFrame = requestAnimationFrame(actualizarInclinacion3DGiroscopio);
@@ -1534,11 +1540,11 @@ if (window.DeviceOrientationEvent) {
 
     // beta: pitch (-180 a 180, normal holding ~40-45deg)
     // gamma: roll (-90 a 90)
-    const betaClamped = Math.max(-25, Math.min(25, (e.beta - 40)));
-    const gammaClamped = Math.max(-25, Math.min(25, e.gamma));
+    const betaClamped = Math.max(-20, Math.min(20, (e.beta - 40)));
+    const gammaClamped = Math.max(-20, Math.min(20, e.gamma));
 
-    gyroTargetX = betaClamped * -0.55;
-    gyroTargetY = gammaClamped * 0.55;
+    gyroTargetX = betaClamped * -0.15;
+    gyroTargetY = gammaClamped * 0.15;
 
     if (!gyroAnimFrame) {
       gyroAnimFrame = requestAnimationFrame(actualizarInclinacion3DGiroscopio);
@@ -1546,7 +1552,7 @@ if (window.DeviceOrientationEvent) {
   }, true);
 }
 
-// Fallback de inclinación 3D para cursor mouse en escritorio
+// Fallback de inclinación 3D para cursor mouse en escritorio con inclinación sutil y equilibrada
 window.addEventListener('mousemove', (e) => {
   if (!document.body.classList.contains('modo-3d-iphone')) return;
   const cx = window.innerWidth / 2;
@@ -1554,8 +1560,8 @@ window.addEventListener('mousemove', (e) => {
   const dx = (e.clientX - cx) / cx;
   const dy = (e.clientY - cy) / cy;
 
-  gyroTargetX = dy * -14;
-  gyroTargetY = dx * 14;
+  gyroTargetX = dy * -3.2;
+  gyroTargetY = dx * 3.2;
 
   if (!gyroAnimFrame) {
     gyroAnimFrame = requestAnimationFrame(actualizarInclinacion3DGiroscopio);
