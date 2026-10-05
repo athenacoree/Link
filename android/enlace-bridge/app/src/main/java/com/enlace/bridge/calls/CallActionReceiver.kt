@@ -3,8 +3,8 @@ package com.enlace.bridge.calls
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import com.enlace.bridge.MainActivity
 import com.enlace.bridge.auth.DeviceIdentityManager
-import com.enlace.bridge.router.UniversalRouter
 
 class CallActionReceiver : BroadcastReceiver() {
 
@@ -13,12 +13,14 @@ class CallActionReceiver : BroadcastReceiver() {
         callManager.cancelCallNotification()
 
         val action = intent.action
-        val targetRoute = intent.getStringExtra("target_route") ?: "/app/home"
+        val targetRoute = intent.getStringExtra("target_route") ?: "/"
 
         if (action == CallBridgeManager.ACTION_ANSWER_CALL) {
-            val identityManager = DeviceIdentityManager(context)
-            val router = UniversalRouter(context, identityManager)
-            router.openUniversalRoute(targetRoute)
+            val launchIntent = Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                putExtra("target_route", targetRoute)
+            }
+            context.startActivity(launchIntent)
         }
     }
 }
