@@ -2932,151 +2932,28 @@ function pintarListaPersonas(personas, contenedorId) {
   const cont = $(contenedorId);
   if (!personas.length) { cont.innerHTML = '<div class="aviso-vacio">No hay nadie que mostrar por ahora.</div>'; return; }
 
-  // Si es el feed principal de descubrimiento, renderizar en tarjetas tipo parejas de cuadrados
-  if (contenedorId === 'listaBuscar') {
-    limpiarTimersFeedCuadrados();
-
-    cont.innerHTML = personas.map((p) => {
-      const avatarSrc = avatarDe(p);
-      const nombreHtml = nombreConBadge(p);
-      const flag = p.flag_emoji || '🇨🇺';
-      const ciudad = p.city || 'Cuba';
-      const profesion = p.profession || '';
-      const gustosArr = [...(p.interests || []), ...(p.hobbies || [])];
-      if (!gustosArr.length && p.profession) gustosArr.push(p.profession);
-      if (!gustosArr.length) gustosArr.push('Explorar', 'Nuevos amigos');
-
-      const pJson = encodeURIComponent(JSON.stringify(p)).replace(/'/g, '%27');
-
-      const similitud = calcularSimilitudGustos(p);
-      const redesBadges = extraerBadgesRedes(p);
-
-      return `
-      <div class="tarjeta-par-cuadrados" id="par-${p.id}" data-persona='${pJson}' data-persona-id="${p.id}">
-        <!-- CUADRADO IZQUIERDA: Foto full y Redes -->
-        <div class="cuadrado-persona cuadrado-izq" id="cuadrado-izq-${p.id}" data-subvista="1">
-          <div class="cuadrado-dots">
-            <div class="cuadrado-dot dot-izq-1 activo"></div>
-            <div class="cuadrado-dot dot-izq-2"></div>
-            <div class="cuadrado-dot dot-izq-3"></div>
-          </div>
-
-          <!-- Subvista 1 (Izq): Foto Completa con Burbuja de Pensamiento / Estado -->
-          <div class="cuadrado-subvista subvista-izq-1 subvista-foto-full btn-abrir-perfil">
-            ${p.status_text || p.bio ? `<div class="burbuja-pensamiento">${p.status_text || p.bio.substring(0, 20) + '...'}</div>` : ''}
-            <img class="cuadrado-foto-full" src="${avatarSrc}" alt="${p.name || ''}">
-            <div class="cuadrado-foto-badge-online ${p.is_online ? 'en-linea' : ''}"></div>
-          </div>
-
-          <!-- Subvista 2 (Izq): Acciones rápidas -->
-          <div class="cuadrado-subvista subvista-izq-2" style="display:none;">
-            <div class="cuadrado-titulo-sec">Acciones</div>
-            <div class="cuadrado-acciones-grid">
-              <button class="cuadrado-btn-accion primario btn-ver-perfil">Perfil</button>
-              <button class="cuadrado-btn-accion btn-reaccionar">${p.mi_reaccion ? (EMOJI_POR_TIPO_REACCION[p.mi_reaccion] || '💗') : '💗'}</button>
-              <button class="cuadrado-btn-accion btn-solicitud-amigo">${p.estado_amistad === 'amigos' ? 'Amigos' : 'Conectar'}</button>
-              <button class="cuadrado-btn-accion btn-mas-opciones">Más</button>
-            </div>
-          </div>
-
-          <!-- Subvista 3 (Izq): Redes Sociales y Juegos reales -->
-          <div class="cuadrado-subvista subvista-izq-3" style="display:none;">
-            <div class="cuadrado-titulo-sec">Redes & Juegos</div>
-            ${redesBadges.length ? `
-              <div class="cuadrado-redes-list btn-ver-redes">
-                ${redesBadges.map(b => `<span class="badge-red-chip" title="${b.red}">${b.icono} ${b.red}</span>`).join('')}
-              </div>
-            ` : `
-              <div class="cuadrado-redes-vacio btn-ver-redes">Sin redes configuradas aún</div>
-            `}
-            <div class="cuadrado-contacto-grid" style="margin-top:auto;">
-              <div class="cuadrado-contacto-row">
-                <button class="cuadrado-btn-contacto audio btn-llamar-audio">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg> Audio
-                </button>
-                <button class="cuadrado-btn-contacto video btn-llamar-video">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m22 8-6 4 6 4V8z"/><rect width="14" height="12" x="2" y="6" rx="2" ry="2"/></svg> Video
-                </button>
-              </div>
-              <button class="cuadrado-btn-contacto social btn-ver-redes">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> Ver Redes
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- CUADRADO DERECHA: Info del usuario, Similitud, Chat -->
-        <div class="cuadrado-persona cuadrado-der" id="cuadrado-der-${p.id}" data-subvista="1">
-          <div class="cuadrado-dots">
-            <div class="cuadrado-dot dot-der-1 activo"></div>
-            <div class="cuadrado-dot dot-der-2"></div>
-          </div>
-
-          <!-- Subvista 1 (Der): Nombre, Similitud, Ubicación, Botón Perfil -->
-          <div class="cuadrado-subvista subvista-der-1">
-            <div class="cuadrado-perfil-top">
-              <div class="cuadrado-similitud-badge">
-                🎯 ${similitud}% similitud de gustos
-              </div>
-              <div class="cuadrado-info-basica">
-                <div class="cuadrado-nombre">${nombreHtml}</div>
-                <div class="cuadrado-ubicacion"><span>${flag}</span> ${ciudad}</div>
-              </div>
-            </div>
-            ${p.origen ? `<div class="tarjeta-origen ${p.origen}" style="margin-top:2px; font-size:10px;">${ETIQUETAS_ORIGEN_FEED[p.origen] || ''}</div>` : ''}
-            <button class="cuadrado-btn-accion primario btn-abrir-perfil" style="margin-top:auto; width:100%;">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="10" r="3"/><path d="M7 20.662V19a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v1.662"/></svg>
-              Ver Perfil
-            </button>
-          </div>
-
-          <!-- Subvista 2 (Der): Chat con la persona -->
-          <div class="cuadrado-subvista subvista-der-2" style="display:none;">
-            <div class="cuadrado-chat-box">
-              <div class="cuadrado-titulo-sec">Chat reciente</div>
-              <div class="cuadrado-chat-burbuja-wrap" id="chat-preview-${p.id}">
-                <div class="cuadrado-chat-vacio">Cargando chat…</div>
-              </div>
-              <div class="cuadrado-chat-nav">
-                <button class="cuadrado-chat-nav-btn btn-chat-prev" title="Anterior">‹</button>
-                <span class="cuadrado-chat-pag" id="chat-pag-${p.id}">1/1</span>
-                <button class="cuadrado-chat-nav-btn btn-chat-next" title="Siguiente">›</button>
-              </div>
-            </div>
-          </div>
+  // Formato en tarjeta cuadrada tipo grid (igual que el apartado de chats/contactos)
+  cont.innerHTML = `<div class="grid-cuadrados-contactos">` + personas.map((p) => `
+    <div class="tarjeta tarjeta-contacto-cuadrada" data-persona='${encodeURIComponent(JSON.stringify(p))}'>
+      ${p.mi_reaccion ? `<div class="tarjeta-reaccionada" title="Ya reaccionaste (privado)">${EMOJI_POR_TIPO_REACCION[p.mi_reaccion] || '💗'}</div>` : ''}
+      <div class="avatar-wrap">
+        <img class="avatar-circulo" src="${avatarDe(p)}" alt="">
+        <div class="punto-online ${p.is_online ? 'en-linea' : ''}"></div>
+        <div class="check-amigo ${p.estado_amistad === 'amigos' ? 'activo' : ''}">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg>
         </div>
       </div>
-      `;
-    }).join('');
+      <div class="id-persona">
+        <div class="nombre">${nombreConBadge(p)}</div>
+        <div class="detalle"><span>${p.flag_emoji || '🇨🇺'}</span> ${p.city || 'Cuba'}</div>
+        ${p.profession ? `<div class="profesion-tag">${p.profession}</div>` : ''}
+      </div>
+    </div>`).join('') + `</div>`;
 
-    cont.querySelectorAll('.tarjeta-par-cuadrados').forEach((parElem) => {
-      const persona = JSON.parse(decodeURIComponent(parElem.dataset.persona));
-      adjuntarInteraccionParCuadrados(parElem, persona);
-    });
-  } else {
-    // Formato en tarjeta cuadrada tipo grid para contactos y amigos
-    cont.innerHTML = `<div class="grid-cuadrados-contactos">` + personas.map((p) => `
-      <div class="tarjeta tarjeta-contacto-cuadrada" data-persona='${encodeURIComponent(JSON.stringify(p))}'>
-        ${p.mi_reaccion ? `<div class="tarjeta-reaccionada" title="Ya reaccionaste (privado)">${EMOJI_POR_TIPO_REACCION[p.mi_reaccion] || '💗'}</div>` : ''}
-        <div class="avatar-wrap">
-          <img class="avatar-circulo" src="${avatarDe(p)}" alt="">
-          <div class="punto-online ${p.is_online ? 'en-linea' : ''}"></div>
-          <div class="check-amigo ${p.estado_amistad === 'amigos' ? 'activo' : ''}">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg>
-          </div>
-        </div>
-        <div class="id-persona">
-          <div class="nombre">${nombreConBadge(p)}</div>
-          <div class="detalle"><span>${p.flag_emoji || '🇨🇺'}</span> ${p.city || 'Cuba'}</div>
-          ${p.profession ? `<div class="profesion-tag">${p.profession}</div>` : ''}
-        </div>
-      </div>`).join('') + `</div>`;
-
-    cont.querySelectorAll('.tarjeta').forEach((tarjeta) => {
-      const persona = JSON.parse(decodeURIComponent(tarjeta.dataset.persona));
-      adjuntarInteraccionTarjeta(tarjeta, persona);
-    });
-  }
+  cont.querySelectorAll('.tarjeta').forEach((tarjeta) => {
+    const persona = JSON.parse(decodeURIComponent(tarjeta.dataset.persona));
+    adjuntarInteraccionTarjeta(tarjeta, persona);
+  });
 }
 
 const VENTANA_DOBLE_TOQUE_MS = 320;

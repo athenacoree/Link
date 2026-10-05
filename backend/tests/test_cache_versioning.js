@@ -28,34 +28,27 @@ assert.strictEqual(htmlContent.includes('/js/app.js?v=20'), true, 'index.html de
 console.log('   ✅ frontend/index.html incluye parámetros ?v=20 en hojas de estilo y scripts JS');
 
 // 3. Verificar estructura de pintarListaPersonas en frontend/js/app.js
-console.log('3. Verificando que pintarListaPersonas en app.js renderice .tarjeta-par-cuadrados para listaBuscar...');
+console.log('3. Verificando que pintarListaPersonas en app.js renderice grid-cuadrados-contactos para listaBuscar...');
 const appJsPath = path.join(__dirname, '..', '..', 'frontend', 'js', 'app.js');
 const appJsContent = fs.readFileSync(appJsPath, 'utf8');
 
-assert.strictEqual(appJsContent.includes("if (contenedorId === 'listaBuscar') {"), true, 'app.js debe verificar contenedorId === listaBuscar');
-assert.strictEqual(appJsContent.includes('class="tarjeta-par-cuadrados"'), true, 'app.js debe generar elementos con clase tarjeta-par-cuadrados');
-assert.strictEqual(appJsContent.includes('class="cuadrado-persona cuadrado-izq"'), true, 'app.js debe generar cuadrado-izq');
-assert.strictEqual(appJsContent.includes('class="cuadrado-persona cuadrado-der"'), true, 'app.js debe generar cuadrado-der');
+assert.strictEqual(appJsContent.includes('function pintarListaPersonas('), true, 'app.js debe definir pintarListaPersonas');
+assert.strictEqual(appJsContent.includes('class="grid-cuadrados-contactos"'), true, 'app.js debe generar grid-cuadrados-contactos');
+assert.strictEqual(appJsContent.includes('class="tarjeta tarjeta-contacto-cuadrada"'), true, 'app.js debe generar tarjeta-contacto-cuadrada');
 
 // Simulador JS de pintarListaPersonas para comprobar el output HTML renderizado
 function simularPintarListaPersonas(personas, contenedorId) {
-  if (contenedorId === 'listaBuscar') {
-    return personas.map((p) => {
-      return `
-      <div class="tarjeta-par-cuadrados" id="par-${p.id}">
-        <div class="cuadrado-persona cuadrado-izq" id="cuadrado-izq-${p.id}"></div>
-        <div class="cuadrado-persona cuadrado-der" id="cuadrado-der-${p.id}"></div>
-      </div>`;
-    }).join('');
-  } else {
-    return personas.map((p) => `<div class="tarjeta"></div>`).join('');
-  }
+  return `<div class="grid-cuadrados-contactos">` + personas.map((p) => `
+    <div class="tarjeta tarjeta-contacto-cuadrada" data-persona="${p.id}">
+      <div class="avatar-wrap"><img src="${p.avatar || ''}"></div>
+      <div class="id-persona"><div class="nombre">${p.name}</div></div>
+    </div>`).join('') + `</div>`;
 }
 
 const mockPersonas = [{ id: 'user1', name: 'Yaditza', city: 'La Habana' }, { id: 'user2', name: 'Carlos', city: 'Miami' }];
 const htmlListaBuscar = simularPintarListaPersonas(mockPersonas, 'listaBuscar');
-assert.strictEqual(htmlListaBuscar.includes('tarjeta-par-cuadrados'), true, '#listaBuscar debe contener .tarjeta-par-cuadrados');
-assert.strictEqual(htmlListaBuscar.includes('tarjeta"'), false, '#listaBuscar NO debe contener .tarjeta horizontal clasica');
+assert.strictEqual(htmlListaBuscar.includes('grid-cuadrados-contactos'), true, '#listaBuscar debe contener .grid-cuadrados-contactos');
+assert.strictEqual(htmlListaBuscar.includes('tarjeta-contacto-cuadrada'), true, '#listaBuscar debe contener tarjetas cuadradas');
 
 const htmlListaAmigos = simularPintarListaPersonas(mockPersonas, 'listaAmigos');
 assert.strictEqual(htmlListaAmigos.includes('tarjeta'), true, '#listaAmigos debe seguir usando .tarjeta');
