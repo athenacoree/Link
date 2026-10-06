@@ -1727,17 +1727,63 @@ async function comprobarAIConfig() {
 }
 
 /* ================= ARRANQUE DE LA APP Y VIDEO SPLASH ================= */
+let splashTimer = null;
+
 async function inicializarVideoCargaSplash() {
   const splashVid = $('splashVideo');
   if (!splashVid) return;
 
+  // 1. Obtener duración de carga guardada localmente o por defecto (5s)
+  let duracionSegundos = parseInt(localStorage.getItem('cfg_splash_duration') || '5', 10);
+  if (isNaN(duracionSegundos) || duracionSegundos < 1) duracionSegundos = 5;
+
+  if (splashTimer) clearTimeout(splashTimer);
+  splashTimer = setTimeout(() => {
+    ocultarSplashScreen();
+  }, duracionSegundos * 1000);
+
+  // 2. Cargar y reproducir INSTANTÁNEAMENTE el video de carga guardado en la caché local
+  if ('caches' in window) {
+    try {
+      const cache = await caches.open('link-platform-videos-v1');
+      const cachedRequests = await cache.keys();
+      const splashReq = cachedRequests.find(req => req.url.includes('/platform-videos/stream/splash'));
+      if (splashReq) {
+        const cachedRes = await cache.match(splashReq);
+        if (cachedRes) {
+          const blob = await cachedRes.blob();
+          const videoBlobUrl = URL.createObjectURL(blob);
+          splashVid.src = videoBlobUrl;
+          splashVid.classList.remove('oculto');
+          splashVid.play().catch(() => {});
+        }
+      }
+    } catch (e) {
+      console.warn('[PlatformVideo] Error al leer video splash de caché local:', e);
+    }
+  }
+
+  // 3. Sincronizar en segundo plano con el servidor para la duración y actualización de video
   try {
     const res = await api('/platform-videos/active');
-    if (!res || !res.slots) return;
+    if (res && res.splash_duration) {
+      const serverDur = parseInt(res.splash_duration, 10);
+      if (!isNaN(serverDur) && serverDur > 0) {
+        localStorage.setItem('cfg_splash_duration', serverDur.toString());
+        if (serverDur !== duracionSegundos) {
+          duracionSegundos = serverDur;
+          if (splashTimer) clearTimeout(splashTimer);
+          splashTimer = setTimeout(() => {
+            ocultarSplashScreen();
+          }, duracionSegundos * 1000);
+        }
+      }
+    }
 
+    if (!res || !res.slots) return;
     const splashData = res.slots.find(s => s.slot === 'splash')?.video;
     if (!splashData || !splashData.stream_url) {
-      splashVid.classList.add('oculto');
+      if (!splashVid.src) splashVid.classList.add('oculto');
       return;
     }
 
@@ -1763,12 +1809,12 @@ async function inicializarVideoCargaSplash() {
           }
         }
       } catch (cacheErr) {
-        console.warn('[PlatformVideo] Error leyendo caché local:', cacheErr);
+        console.warn('[PlatformVideo] Error actualizando caché local:', cacheErr);
       }
     }
 
     const finalSrc = videoBlobUrl || videoUrl;
-    if (finalSrc) {
+    if (finalSrc && splashVid.src !== finalSrc) {
       splashVid.src = finalSrc;
       splashVid.classList.remove('oculto');
       splashVid.play().catch(() => {});
@@ -1797,7 +1843,12 @@ async function iniciarApp() {
   conectarSocket();
   await refrescarMiPerfil();
   await comprobarAIConfig();
+
+  // Cargar de inmediato caché de vistas principales (Descubrir, Chats y Contactos)
   cargarDescubrir();
+  cargarConversaciones();
+  cargarAmigosYSolicitudes();
+
   cargarEstados();
   cargarNotificaciones();
   cargarSolicitudesBadge();
@@ -2699,12 +2750,6 @@ async function cargarDescubrir() {
 
   if (!targetElem) return;
 
-  mostrarCargandoNeon();
-
-  if (targetElem.children.length === 0) {
-    targetElem.innerHTML = `<div class="aviso-vacio" style="padding: 24px; text-align: center;">Cargando personas en Descubrir...</div>`;
-  }
-
   const cachedFeed = await LocalStore.obtenerLista('feed', 'descubrir_feed').catch(() => null);
   let renderizadoCache = false;
 
@@ -2712,11 +2757,13 @@ async function cargarDescubrir() {
     let filtradas = cachedFeed;
     if (genero) filtradas = filtradas.filter(p => p && p.gender === genero);
     if (soloOnline) filtradas = filtradas.filter(p => p && p.is_online);
-    if (targetElem.children.length === 0 || targetElem.querySelector('.aviso-vacio')) {
-      pintarListaPersonas(filtradas, 'listaBuscar');
-      renderizadoCache = true;
-    }
+    pintarListaPersonas(filtradas, 'listaBuscar');
+    renderizadoCache = true;
+  } else if (targetElem.children.length === 0) {
+    targetElem.innerHTML = `<div class="aviso-vacio" style="padding: 24px; text-align: center;">Cargando personas en Descubrir...</div>`;
   }
+
+  mostrarCargandoNeon();
 
   try {
     const res = await api('/usuarios');
@@ -3820,29 +3867,91 @@ async function alternarFavoritoAmigo(personaId) {
 }
 window.alternarFavoritoAmigo = alternarFavoritoAmigo;
 
+let reqIdAmigos = 0;
 async function cargarAmigosYSolicitudes() {
-  try {
-    const { amigos } = await api('/amigos');
-    listaAmigosGlobal = amigos || [];
-    if (!amigos.length) {
-      $('listaAmigos').innerHTML = '<div class="aviso-vacio">Todavía no tienes amigos agregados. Ve a "Buscar" para encontrar personas.</div>';
-      $('listaFavoritos').innerHTML = '<div class="aviso-vacio">No tienes amigos marcados como favoritos.</div>';
-    } else {
-      pintarListaPersonas(amigos.map((a) => ({ ...a, estado_amistad: 'amigos' })), 'listaAmigos');
-      const favs = amigos.filter(a => a.is_favorite);
+  const currentReq = ++reqIdAmigos;
+
+  // 1. Cargar y pintar de inmediato datos desde caché local (LocalStore)
+  const cachedAmigos = await LocalStore.obtenerLista('contactos', 'mis_amigos').catch(() => null);
+  const cachedSolicitudes = await LocalStore.obtenerLista('contactos', 'mis_solicitudes').catch(() => null);
+  let renderizadoCacheAmigos = false;
+
+  if (cachedAmigos && Array.isArray(cachedAmigos) && currentReq === reqIdAmigos) {
+    listaAmigosGlobal = cachedAmigos;
+    if (cachedAmigos.length) {
+      pintarListaPersonas(cachedAmigos.map((a) => ({ ...a, estado_amistad: 'amigos' })), 'listaAmigos');
+      const favs = cachedAmigos.filter(a => a.is_favorite);
       if (favs.length) {
         pintarListaPersonas(favs.map((a) => ({ ...a, estado_amistad: 'amigos' })), 'listaFavoritos');
       } else {
         $('listaFavoritos').innerHTML = '<div class="aviso-vacio">No tienes amigos marcados como favoritos ⭐</div>';
       }
+      renderizadoCacheAmigos = true;
     }
-  } catch (e) { $('listaAmigos').innerHTML = `<div class="aviso-vacio">${e.message}</div>`; }
+  }
+
+  if (cachedSolicitudes && Array.isArray(cachedSolicitudes) && currentReq === reqIdAmigos) {
+    if (cachedSolicitudes.length) {
+      $('listaSolicitudes').innerHTML = cachedSolicitudes.map((s) => `
+        <div class="tarjeta">
+          <div class="avatar-wrap"><img class="avatar-circulo" src="${avatarDe(s)}" alt=""></div>
+          <div class="id-persona"><div class="nombre">${nombreConBadge(s)}</div><div class="detalle">${s.city || 'Cuba'}</div></div>
+          <div class="acciones-tarjeta">
+            <div class="mini-btn primario" onclick="responderSolicitud('${s.id}', true)">Aceptar</div>
+            <div class="mini-btn secundario" onclick="responderSolicitud('${s.id}', false)">Rechazar</div>
+          </div>
+        </div>`).join('');
+    } else {
+      $('listaSolicitudes').innerHTML = '<div class="aviso-vacio">No tienes solicitudes pendientes.</div>';
+    }
+    $('badgeSolicitudes').textContent = cachedSolicitudes.length;
+    $('badgeSolicitudes').classList.toggle('activa', cachedSolicitudes.length > 0);
+  }
+
+  // 2. Traer datos frescos del servidor en segundo plano
+  try {
+    const { amigos } = await api('/amigos');
+    if (currentReq !== reqIdAmigos) return;
+
+    listaAmigosGlobal = amigos || [];
+    LocalStore.guardarLista('contactos', 'mis_amigos', listaAmigosGlobal).catch(() => {});
+
+    const nuevoJsonAmigos = JSON.stringify(listaAmigosGlobal.map(a => ({ id: a.id, name: a.name, is_fav: a.is_favorite, is_online: a.is_online })));
+    const actualJsonAmigos = $('listaAmigos').dataset.cacheState;
+
+    if (!renderizadoCacheAmigos || actualJsonAmigos !== nuevoJsonAmigos) {
+      if (!listaAmigosGlobal.length) {
+        $('listaAmigos').innerHTML = '<div class="aviso-vacio">Todavía no tienes amigos agregados. Ve a "Buscar" para encontrar personas.</div>';
+        $('listaFavoritos').innerHTML = '<div class="aviso-vacio">No tienes amigos marcados como favoritos.</div>';
+      } else {
+        pintarListaPersonas(listaAmigosGlobal.map((a) => ({ ...a, estado_amistad: 'amigos' })), 'listaAmigos');
+        const favs = listaAmigosGlobal.filter(a => a.is_favorite);
+        if (favs.length) {
+          pintarListaPersonas(favs.map((a) => ({ ...a, estado_amistad: 'amigos' })), 'listaFavoritos');
+        } else {
+          $('listaFavoritos').innerHTML = '<div class="aviso-vacio">No tienes amigos marcados como favoritos ⭐</div>';
+        }
+      }
+      $('listaAmigos').dataset.cacheState = nuevoJsonAmigos;
+    }
+  } catch (e) {
+    if (currentReq !== reqIdAmigos) return;
+    if (!cachedAmigos || !cachedAmigos.length) {
+      $('listaAmigos').innerHTML = `<div class="aviso-vacio">${e.message}</div>`;
+    }
+  }
 
   try {
     const { solicitudes } = await api('/amigos/solicitudes');
-    if (!solicitudes.length) { $('listaSolicitudes').innerHTML = '<div class="aviso-vacio">No tienes solicitudes pendientes.</div>'; }
-    else {
-      $('listaSolicitudes').innerHTML = solicitudes.map((s) => `
+    if (currentReq !== reqIdAmigos) return;
+
+    const listaSols = solicitudes || [];
+    LocalStore.guardarLista('contactos', 'mis_solicitudes', listaSols).catch(() => {});
+
+    if (!listaSols.length) {
+      $('listaSolicitudes').innerHTML = '<div class="aviso-vacio">No tienes solicitudes pendientes.</div>';
+    } else {
+      $('listaSolicitudes').innerHTML = listaSols.map((s) => `
         <div class="tarjeta">
           <div class="avatar-wrap"><img class="avatar-circulo" src="${avatarDe(s)}" alt=""></div>
           <div class="id-persona"><div class="nombre">${nombreConBadge(s)}</div><div class="detalle">${s.city || 'Cuba'}</div></div>
@@ -3852,8 +3961,8 @@ async function cargarAmigosYSolicitudes() {
           </div>
         </div>`).join('');
     }
-    $('badgeSolicitudes').textContent = solicitudes.length;
-    $('badgeSolicitudes').classList.toggle('activa', solicitudes.length > 0);
+    $('badgeSolicitudes').textContent = listaSols.length;
+    $('badgeSolicitudes').classList.toggle('activa', listaSols.length > 0);
   } catch (e) { console.error(e); }
 }
 
@@ -4343,6 +4452,11 @@ async function cargarAdminPlatformVideos() {
       return;
     }
 
+    if (res.splash_duration && $('adminSplashDurationInput')) {
+      $('adminSplashDurationInput').value = res.splash_duration;
+      localStorage.setItem('cfg_splash_duration', res.splash_duration.toString());
+    }
+
     cont.innerHTML = res.slots.map(s => {
       const v = s.video;
       const sizeMb = v && v.file_size ? (v.file_size / (1024 * 1024)).toFixed(2) : '0';
@@ -4400,6 +4514,26 @@ async function adminEliminarPlatformVideo(slot) {
   }
 }
 window.adminEliminarPlatformVideo = adminEliminarPlatformVideo;
+
+$('adminBtnSaveSplashDuration')?.addEventListener('click', async () => {
+  const inp = $('adminSplashDurationInput');
+  if (!inp) return;
+  const dur = parseInt(inp.value, 10);
+  if (isNaN(dur) || dur < 1 || dur > 120) {
+    mostrarToast('Ingresa una duración válida entre 1 y 120 segundos.');
+    return;
+  }
+  try {
+    const res = await api('/platform-videos/admin/splash-duration', {
+      method: 'POST',
+      body: { splash_duration: dur }
+    });
+    localStorage.setItem('cfg_splash_duration', dur.toString());
+    mostrarToast(res.mensaje || 'Duración de carga guardada correctamente.');
+  } catch (err) {
+    mostrarToast('Error al guardar duración: ' + err.message);
+  }
+});
 
 $('adminBtnUploadPlatformVideo')?.addEventListener('click', async () => {
   const slotSelect = $('adminVideoSlotSelect');

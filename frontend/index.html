@@ -9,10 +9,10 @@
 <link rel="manifest" id="manifestLink" href="/manifest.json">
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <link rel="icon" href="/icons/icon-192.png">
-<link rel="stylesheet" href="/css/app.css?v=22">
-<link rel="stylesheet" href="/css/call.css?v=22">
-<link rel="stylesheet" href="/css/features.css?v=22">
-<link rel="stylesheet" href="/css/ailab.css?v=22">
+<link rel="stylesheet" href="/css/app.css?v=23">
+<link rel="stylesheet" href="/css/call.css?v=23">
+<link rel="stylesheet" href="/css/features.css?v=23">
+<link rel="stylesheet" href="/css/ailab.css?v=23">
 </head>
 <body>
 
@@ -31,10 +31,6 @@
      ========================================================= -->
 <div id="splashScreen" class="splash-screen">
   <video id="splashVideo" class="splash-video oculto" autoplay muted loop playsinline></video>
-  <div class="splash-content">
-    <h1 class="splash-title">Link</h1>
-    <div class="splash-loader"></div>
-  </div>
 </div>
 
 <!-- =========================================================
@@ -1097,6 +1093,20 @@
       </div>
 
       <div style="background:var(--blanco); border:1px solid var(--borde); border-radius:14px; padding:16px; margin-bottom:18px;">
+        <h4 style="margin:0 0 12px 0; font-size:14px; font-weight:700;">⏱️ Configurar Duración de Carga (Splash Screen)</h4>
+        <div class="campo">
+          <label>Tiempo de Carga de la Página (segundos)</label>
+          <input type="number" id="adminSplashDurationInput" min="1" max="60" value="5" placeholder="5">
+          <div style="font-size:11.5px; color:var(--texto-500); margin-top:2px;">
+            Determina cuántos segundos se reproducirá la pantalla de carga con video al abrir la aplicación.
+          </div>
+        </div>
+        <button type="button" class="btn btn-secundario" id="adminBtnSaveSplashDuration" style="width:100%; margin-top:6px; font-weight:700;">
+          Guardar Duración de Carga
+        </button>
+      </div>
+
+      <div style="background:var(--blanco); border:1px solid var(--borde); border-radius:14px; padding:16px; margin-bottom:18px;">
         <h4 style="margin:0 0 12px 0; font-size:14px; font-weight:700;">Subir o cambiar video para una posición</h4>
         <div class="campo">
           <label>Ubicación / Posición del Video (Slot)</label>
@@ -2088,16 +2098,16 @@
 </div>
 
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-<script src="/js/api.js?v=22"></script>
-<script src="/js/paises.js?v=22"></script>
-<script src="/js/i18n.js?v=22"></script>
-<script src="/js/call.js?v=22"></script>
-<script src="/js/chat.js?v=22"></script>
-<script src="/js/features.js?v=22"></script>
-<script src="/js/linkvideo.js?v=22"></script>
-<script src="/js/ailab.js?v=22"></script>
-<script src="/js/monetization.js?v=22"></script>
-<script src="/js/app.js?v=22"></script>
+<script src="/js/api.js?v=23"></script>
+<script src="/js/paises.js?v=23"></script>
+<script src="/js/i18n.js?v=23"></script>
+<script src="/js/call.js?v=23"></script>
+<script src="/js/chat.js?v=23"></script>
+<script src="/js/features.js?v=23"></script>
+<script src="/js/linkvideo.js?v=23"></script>
+<script src="/js/ailab.js?v=23"></script>
+<script src="/js/monetization.js?v=23"></script>
+<script src="/js/app.js?v=23"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
