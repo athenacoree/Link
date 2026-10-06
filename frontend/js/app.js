@@ -1310,7 +1310,9 @@ function cerrarTodosLosModales() {
 window.cerrarTodosLosModales = cerrarTodosLosModales;
 
 document.addEventListener('DOMContentLoaded', () => {
-  inicializarVideoCargaSplash();
+  if (!Sesion.activa()) {
+    inicializarVideoCargaSplash();
+  }
   inicializarConstelacionLogin();
   inicializarTarjetasHolograficas3D();
   $('cerrarVisorImagen')?.addEventListener('click', cerrarVisorImagen);
@@ -1826,12 +1828,14 @@ async function inicializarVideoCargaSplash() {
 window.inicializarVideoCargaSplash = inicializarVideoCargaSplash;
 
 function ocultarSplashScreen() {
+  if (splashTimer) {
+    clearTimeout(splashTimer);
+    splashTimer = null;
+  }
   const splash = $('splashScreen');
   if (splash) {
     splash.classList.add('oculto');
-    setTimeout(() => {
-      splash.style.display = 'none';
-    }, 500);
+    splash.style.display = 'none';
   }
 }
 window.ocultarSplashScreen = ocultarSplashScreen;
@@ -3887,6 +3891,9 @@ async function cargarAmigosYSolicitudes() {
         $('listaFavoritos').innerHTML = '<div class="aviso-vacio">No tienes amigos marcados como favoritos ⭐</div>';
       }
       renderizadoCacheAmigos = true;
+    } else {
+      $('listaAmigos').innerHTML = '<div class="aviso-vacio">Todavía no tienes amigos agregados. Ve a "Buscar" para encontrar personas.</div>';
+      $('listaFavoritos').innerHTML = '<div class="aviso-vacio">No tienes amigos marcados como favoritos ⭐</div>';
     }
   }
 
@@ -4038,16 +4045,14 @@ $('inputBuscarChats')?.addEventListener('input', (e) => {
 let reqIdConversaciones = 0;
 async function cargarConversaciones() {
   const currentReq = ++reqIdConversaciones;
-  const cachedConvs = await LocalStore.obtenerLista('conversaciones', 'mis_conversaciones');
+  const cachedConvs = await LocalStore.obtenerLista('conversaciones', 'mis_conversaciones').catch(() => null);
   let renderizadoCache = false;
 
-  if (cachedConvs && cachedConvs.length && currentReq === reqIdConversaciones) {
+  if (cachedConvs && Array.isArray(cachedConvs) && currentReq === reqIdConversaciones) {
     listaConversacionesGlobal = cachedConvs;
-    if ($('listaConversaciones').children.length === 0 || $('listaConversaciones').querySelector('.aviso-vacio')) {
-      $('listaConversaciones').innerHTML = renderizarConversacionesHTML(cachedConvs);
-      adjuntarListenersConversaciones();
-      renderizadoCache = true;
-    }
+    $('listaConversaciones').innerHTML = renderizarConversacionesHTML(cachedConvs);
+    adjuntarListenersConversaciones();
+    renderizadoCache = true;
   }
 
   try {
@@ -5877,18 +5882,16 @@ window.actualizarManifestPorGenero = actualizarManifestPorGenero;
 /* ================= ARRANQUE ================= */
 if (Sesion.activa()) {
   actualizarManifestPorGenero();
+  ocultarSplashScreen();
   iniciarApp().finally(() => {
-    setTimeout(() => {
-      ocultarSplashScreen();
-      if (window.location.pathname.startsWith('/app/')) {
-        procesarRutaUniversal(window.location.pathname);
-      } else if (window.location.hash) {
-        procesarRutaUniversal(window.location.hash);
-      }
-    }, 400);
+    if (window.location.pathname.startsWith('/app/')) {
+      procesarRutaUniversal(window.location.pathname);
+    } else if (window.location.hash) {
+      procesarRutaUniversal(window.location.hash);
+    }
   });
 } else {
   actualizarManifestPorGenero($('regGenero')?.value);
   $('authScreen').classList.remove('oculto');
-  setTimeout(ocultarSplashScreen, 400);
+  ocultarSplashScreen();
 }
