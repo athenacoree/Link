@@ -4293,10 +4293,15 @@ $('adminBtnUploadAPK')?.addEventListener('click', async () => {
     formData.append('apk_file', file);
     formData.append('version', version);
 
-    const token = localStorage.getItem('token');
+    const token = typeof Sesion !== 'undefined' ? Sesion.token() : null;
+    if (!token) {
+      mostrarToast('Tu sesión expiró, vuelve a iniciar sesión.');
+      return;
+    }
+
     const res = await fetch('/api/admin/upload-apk', {
       method: 'POST',
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      headers: { Authorization: `Bearer ${token}` },
       body: formData
     });
 
@@ -4320,6 +4325,11 @@ $('adminBtnUploadAPK')?.addEventListener('click', async () => {
 async function cargarAdminPlatformVideos() {
   const cont = $('adminListaPlatformVideos');
   if (!cont) return;
+
+  if (typeof Sesion !== 'undefined' && !Sesion.token()) {
+    cont.innerHTML = '<div style="font-size:12.5px; color:var(--rojo-600);">Tu sesión expiró, vuelve a iniciar sesión.</div>';
+    return;
+  }
 
   cont.innerHTML = '<div style="font-size:12.5px; color:var(--texto-500); padding:10px;">Cargando videos de la plataforma...</div>';
 
@@ -4372,6 +4382,11 @@ window.cargarAdminPlatformVideos = cargarAdminPlatformVideos;
 async function adminEliminarPlatformVideo(slot) {
   if (!confirm(`¿Estás seguro de que deseas eliminar el video configurado para '${slot}'?`)) return;
 
+  if (typeof Sesion !== 'undefined' && !Sesion.token()) {
+    mostrarToast('Tu sesión expiró, vuelve a iniciar sesión.');
+    return;
+  }
+
   try {
     await api(`/platform-videos/admin/${slot}`, { method: 'DELETE' });
     mostrarToast(`Video para '${slot}' eliminado`);
@@ -4411,10 +4426,15 @@ $('adminBtnUploadPlatformVideo')?.addEventListener('click', async () => {
   btn.innerText = 'Subiendo video a la base de datos... Por favor espera';
 
   try {
-    const token = localStorage.getItem('token');
+    const token = typeof Sesion !== 'undefined' ? Sesion.token() : null;
+    if (!token) {
+      mostrarToast('Tu sesión expiró, vuelve a iniciar sesión.');
+      return;
+    }
+
     const res = await fetch('/api/platform-videos/admin/upload', {
       method: 'POST',
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      headers: { Authorization: `Bearer ${token}` },
       body: formData
     });
 
@@ -4834,7 +4854,10 @@ if ($('adminBtnExportarDB')) {
     statusEl.style.color = 'var(--texto-800)';
     statusEl.textContent = 'Generando respaldo .zip y manifest.json...';
     try {
-      const token = Sesion.token();
+      const token = typeof Sesion !== 'undefined' ? Sesion.token() : null;
+      if (!token) {
+        throw new Error('Tu sesión expiró, vuelve a iniciar sesión.');
+      }
       const res = await fetch('/api/admin/exportar-db', {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -4872,7 +4895,10 @@ if ($('adminBtnImportarDB')) {
     const formData = new FormData();
     formData.append('archivo', input.files[0]);
     try {
-      const token = Sesion.token();
+      const token = typeof Sesion !== 'undefined' ? Sesion.token() : null;
+      if (!token) {
+        throw new Error('Tu sesión expiró, vuelve a iniciar sesión.');
+      }
       const res = await fetch('/api/admin/importar-db', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
