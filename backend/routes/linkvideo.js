@@ -3,6 +3,7 @@ const { requireAuth, requireAdmin } = require('../middleware/auth');
 const videoStreamTool = require('../tools/videoStreamTool');
 const linkVideoService = require('../services/linkVideoService');
 const youtubeService = require('../services/youtubeService');
+const { extractYouTubeId } = require('../utils/youtube');
 const realtime = require('../utils/realtime');
 
 const router = express.Router();
@@ -49,7 +50,7 @@ router.get('/youtube/channels', requireAuth, async (req, res) => {
 router.post('/youtube/admin/preview', requireAuth, requireAdmin, async (req, res) => {
   try {
     const { url } = req.body;
-    const videoId = youtubeService.extractYouTubeId(url);
+    const videoId = extractYouTubeId(url) || (youtubeService.extractYouTubeId && youtubeService.extractYouTubeId(url));
     if (!videoId) {
       return res.status(400).json({ error: 'La URL ingresada no es una URL de YouTube válida. Soportados: youtube.com/watch?v=ID, youtu.be/ID, youtube.com/shorts/ID.' });
     }
