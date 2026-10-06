@@ -11,21 +11,25 @@ console.log('1. Verificando versión y archivos shell en frontend/sw.js...');
 const swPath = path.join(__dirname, '..', '..', 'frontend', 'sw.js');
 const swContent = fs.readFileSync(swPath, 'utf8');
 
-assert.strictEqual(swContent.includes("const CACHE_NAME = 'enlace-shell-v20';"), true, 'sw.js debe definir CACHE_NAME como enlace-shell-v20');
-assert.strictEqual(swContent.includes("'/css/app.css?v=20'"), true, 'sw.js debe incluir /css/app.css?v=20');
-assert.strictEqual(swContent.includes("'/js/app.js?v=20'"), true, 'sw.js debe incluir /js/app.js?v=20');
-assert.strictEqual(swContent.includes("'/css/features.css?v=20'"), true, 'sw.js debe incluir /css/features.css?v=20');
-assert.strictEqual(swContent.includes("'/css/ailab.css?v=20'"), true, 'sw.js debe incluir /css/ailab.css?v=20');
-console.log('   ✅ frontend/sw.js contiene enlace-shell-v20 y todos los recursos con ?v=20');
+const matchVer = swContent.match(/const CACHE_NAME = 'enlace-shell-v(\d+)';/);
+assert.ok(matchVer, 'sw.js debe definir CACHE_NAME con formato enlace-shell-vN');
+const currentVersion = matchVer[1];
+
+assert.strictEqual(swContent.includes(`const CACHE_NAME = 'enlace-shell-v${currentVersion}';`), true, `sw.js debe definir CACHE_NAME como enlace-shell-v${currentVersion}`);
+assert.strictEqual(swContent.includes(`'/css/app.css?v=${currentVersion}'`), true, `sw.js debe incluir /css/app.css?v=${currentVersion}`);
+assert.strictEqual(swContent.includes(`'/js/app.js?v=${currentVersion}'`), true, `sw.js debe incluir /js/app.js?v=${currentVersion}`);
+assert.strictEqual(swContent.includes(`'/css/features.css?v=${currentVersion}'`), true, `sw.js debe incluir /css/features.css?v=${currentVersion}`);
+assert.strictEqual(swContent.includes(`'/css/ailab.css?v=${currentVersion}'`), true, `sw.js debe incluir /css/ailab.css?v=${currentVersion}`);
+console.log(`   ✅ frontend/sw.js contiene enlace-shell-v${currentVersion} y todos los recursos con ?v=${currentVersion}`);
 
 // 2. Verificar versionado de assets en frontend/index.html
 console.log('2. Verificando links y scripts en frontend/index.html...');
 const htmlPath = path.join(__dirname, '..', '..', 'frontend', 'index.html');
 const htmlContent = fs.readFileSync(htmlPath, 'utf8');
 
-assert.strictEqual(htmlContent.includes('/css/app.css?v=20'), true, 'index.html debe cargar /css/app.css?v=20');
-assert.strictEqual(htmlContent.includes('/js/app.js?v=20'), true, 'index.html debe cargar /js/app.js?v=20');
-console.log('   ✅ frontend/index.html incluye parámetros ?v=20 en hojas de estilo y scripts JS');
+assert.strictEqual(htmlContent.includes(`/css/app.css?v=${currentVersion}`), true, `index.html debe cargar /css/app.css?v=${currentVersion}`);
+assert.strictEqual(htmlContent.includes(`/js/app.js?v=${currentVersion}`), true, `index.html debe cargar /js/app.js?v=${currentVersion}`);
+console.log(`   ✅ frontend/index.html incluye parámetros ?v=${currentVersion} en hojas de estilo y scripts JS`);
 
 // 3. Verificar estructura de pintarListaPersonas en frontend/js/app.js
 console.log('3. Verificando que pintarListaPersonas en app.js renderice .tarjeta-par-cuadrados para listaBuscar...');
