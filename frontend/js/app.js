@@ -4293,7 +4293,7 @@ $('adminBtnUploadAPK')?.addEventListener('click', async () => {
     formData.append('apk_file', file);
     formData.append('version', version);
 
-    const token = localStorage.getItem('token');
+    const token = Sesion.token();
     const res = await fetch('/api/admin/upload-apk', {
       method: 'POST',
       headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -4411,7 +4411,7 @@ $('adminBtnUploadPlatformVideo')?.addEventListener('click', async () => {
   btn.innerText = 'Subiendo video a la base de datos... Por favor espera';
 
   try {
-    const token = localStorage.getItem('token');
+    const token = Sesion.token();
     const res = await fetch('/api/platform-videos/admin/upload', {
       method: 'POST',
       headers: token ? { Authorization: `Bearer ${token}` } : {},
