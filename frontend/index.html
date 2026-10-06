@@ -742,6 +742,7 @@
       <div class="sub-tab" data-admintab="ai-config">Asistente IA</div>
       <div class="sub-tab" data-admintab="base-datos">Base de Datos</div>
       <div class="sub-tab" data-admintab="editor-db">Editor SQL / Tablas</div>
+      <div class="sub-tab" data-admintab="apk-gestion">Gestión de APK</div>
       <div class="sub-tab" data-admintab="monetizacion">Monetización</div>
     </div>
 
@@ -1042,6 +1043,41 @@
       <div id="adminSQLResult" style="margin-top:12px; max-height:250px; overflow:auto; font-family:monospace; font-size:12px; background:var(--hueso); padding:10px; border-radius:10px; border:1px solid var(--borde);"></div>
     </div>
 
+    <!-- GESTIÓN DE APK Y VERSIONES -->
+    <div id="adminVistaAPK" class="oculto" style="margin-top:16px;">
+      <p style="font-size:13.5px; color:var(--texto-600); margin-bottom:14px;">
+        Sube un nuevo archivo APK de la aplicación Android o especifica una URL externa para que los usuarios puedan descargarla o recibir avisos de actualización si la app está desactualizada.
+      </p>
+
+      <div style="background:var(--blanco); border:1px solid var(--borde); border-radius:12px; padding:16px; margin-bottom:16px;">
+        <h4 style="margin:0 0 10px 0; font-size:14px; font-weight:700;">Subir nuevo archivo APK (.apk)</h4>
+        <div class="campo">
+          <label>Versión de la APK (ejemplo: 1.1.0)</label>
+          <input type="text" id="adminAPKVersionInput" placeholder="1.1.0">
+        </div>
+        <div class="campo">
+          <label>Seleccionar archivo .apk</label>
+          <input type="file" id="adminAPKFileInput" accept=".apk,application/vnd.android.package-archive">
+        </div>
+        <button type="button" class="btn btn-primario" id="adminBtnUploadAPK" style="width:100%; margin-top:8px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:6px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Subir y Publicar APK
+        </button>
+      </div>
+
+      <div style="background:var(--blanco); border:1px solid var(--borde); border-radius:12px; padding:16px;">
+        <h4 style="margin:0 0 10px 0; font-size:14px; font-weight:700;">Enlace Directo / URL Externa Actual de APK</h4>
+        <div class="campo">
+          <label>Versión Actual Registrada</label>
+          <input type="text" id="adminAPKVersionActual" readonly style="opacity:0.8;">
+        </div>
+        <div class="campo">
+          <label>URL de descarga actual</label>
+          <input type="url" id="adminAPKUrlActual" placeholder="https://github.com/.../app-release.apk o /apks/...">
+        </div>
+      </div>
+    </div>
+
     <!-- SECCIÓN ADMINISTRATIVA DE MONETIZACIÓN -->
     <div id="adminVistaMonetizacion" class="oculto" style="margin-top:16px;"></div>
   </div>
@@ -1231,6 +1267,50 @@
   <div class="hoja-grupo" style="display:flex; flex-direction:column; max-height:calc(85vh - 60px); overflow:hidden; margin-bottom:8px;">
     <div class="hoja-persona" style="flex:0 0 auto;"><span style="font-weight:700; color:var(--morado-700); font-size:16px;" data-i18n="cfg_titulo">Configuraciones de la Cuenta</span></div>
     <div class="hoja-form" style="flex:1; overflow-y:auto; max-height:none;">
+
+      <!-- Panel Animación Neón de Notificación de Mensajes -->
+      <div class="panel-acordeon">
+        <div class="panel-header" onclick="toggleAcordeon(this)">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20M5 5l14 14M19 5L5 19"/></svg>
+            <span style="font-weight:700; font-size:14px;">Animación Neón de Mensajes</span>
+          </div>
+          <svg class="chevron-acordeon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
+        </div>
+        <div class="panel-body">
+          <div class="campo">
+            <label>Efecto Neón al Recibir Mensajes</label>
+            <select id="cfgNeonEnabled">
+              <option value="true">Activado (Líneas neón de colores alrededor de la pantalla)</option>
+              <option value="false">Desactivado</option>
+            </select>
+          </div>
+          <div class="campo">
+            <label>Duración de la Animación (<span id="lblNeonDurationVal">3s</span>)</label>
+            <input type="range" id="cfgNeonDuration" min="2" max="6" step="0.5" value="3">
+          </div>
+          <div class="campo">
+            <label>Ancho del Borde Neón</label>
+            <select id="cfgNeonWidth">
+              <option value="3px">Fino (3px)</option>
+              <option value="5px" selected>Mediano (5px)</option>
+              <option value="8px">Grueso (8px)</option>
+              <option value="12px">Extra Grueso (12px)</option>
+            </select>
+          </div>
+          <div class="campo">
+            <label>Velocidad de Giro / Movimiento de Colores</label>
+            <select id="cfgNeonSpeed">
+              <option value="fast">Rápida</option>
+              <option value="medium" selected>Normal</option>
+              <option value="slow">Lenta</option>
+            </select>
+          </div>
+          <button type="button" class="btn btn-secundario" onclick="if(window.dispararAnimacionNeonMensaje) window.dispararAnimacionNeonMensaje();" style="width:100%; font-size:12px; margin-top:6px;">
+            Probador de Animación Neón ✨
+          </button>
+        </div>
+      </div>
 
       <!-- Panel Idioma de la Aplicación -->
       <div class="panel-acordeon">
@@ -2104,6 +2184,13 @@ if ('serviceWorker' in navigator) {
       </button>
     </form>
   </div>
+</div>
+<!-- Overlay para Animación Neón en los bordes de la pantalla al entrar un mensaje -->
+<div id="neonBorderOverlay" class="neon-border-overlay">
+  <div class="neon-top"></div>
+  <div class="neon-right"></div>
+  <div class="neon-bottom"></div>
+  <div class="neon-left"></div>
 </div>
 </body>
 </html>

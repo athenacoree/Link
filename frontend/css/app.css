@@ -2342,24 +2342,49 @@ html[data-tema="oscuro"] .cuadrado-chat-burbuja {
   box-shadow: 0 0 12px #ec4899, 0 0 20px #8b5cf6;
 }
 
+/* ================= OVERLAY BORDES NEÓN ENTRADA MENSAJE ================= */
+.neon-border-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none !important;
+  z-index: 999999;
+  opacity: 0;
+  transition: opacity 0.25s ease-in-out;
+  box-sizing: border-box;
+}
+
+.neon-border-overlay.activo {
+  opacity: 1;
+}
+
+.neon-top, .neon-bottom, .neon-left, .neon-right {
+  position: absolute;
+  pointer-events: none !important;
+  background: linear-gradient(90deg, transparent, #ff007f, #00f0ff, #00ff66, #ff00ff, transparent);
+  box-shadow: 0 0 12px #00f0ff, 0 0 20px #ff007f;
+}
+
 .neon-top {
-  top: 0; left: -100%; width: 100%; height: 4px;
-  animation: neonRunTop 2.2s linear infinite;
+  top: 0; left: -100%; width: 100%; height: var(--neon-border-width, 5px);
+  animation: neonRunTop var(--neon-spin-speed, 1.8s) linear infinite;
 }
 
 .neon-right {
-  top: -100%; right: 0; width: 4px; height: 100%;
-  animation: neonRunRight 2.2s linear infinite 0.55s;
+  top: -100%; right: 0; width: var(--neon-border-width, 5px); height: 100%;
+  animation: neonRunRight var(--neon-spin-speed, 1.8s) linear infinite;
+  animation-delay: calc(var(--neon-spin-speed, 1.8s) * 0.25);
 }
 
 .neon-bottom {
-  bottom: 0; right: -100%; width: 100%; height: 4px;
-  animation: neonRunBottom 2.2s linear infinite 1.1s;
+  bottom: 0; right: -100%; width: 100%; height: var(--neon-border-width, 5px);
+  animation: neonRunBottom var(--neon-spin-speed, 1.8s) linear infinite;
+  animation-delay: calc(var(--neon-spin-speed, 1.8s) * 0.5);
 }
 
 .neon-left {
-  bottom: -100%; left: 0; width: 4px; height: 100%;
-  animation: neonRunLeft 2.2s linear infinite 1.65s;
+  bottom: -100%; left: 0; width: var(--neon-border-width, 5px); height: 100%;
+  animation: neonRunLeft var(--neon-spin-speed, 1.8s) linear infinite;
+  animation-delay: calc(var(--neon-spin-speed, 1.8s) * 0.75);
 }
 
 @keyframes neonRunTop {

@@ -35,8 +35,10 @@ function generatePairingCode() {
 // Download Bridge APK (Redirect to admin configured URL or default release asset)
 router.get('/download-apk', async (req, res) => {
   try {
-    const { rows } = await query(`SELECT value FROM system_settings WHERE key = 'apk_download_url'`);
-    const apkUrl = rows[0]?.value?.trim();
+    const { rows } = await query(`SELECT key, value FROM system_settings WHERE key IN ('apk_download_url', 'apk_version')`);
+    const map = {};
+    rows.forEach(r => { map[r.key] = r.value?.trim(); });
+    const apkUrl = map['apk_download_url'];
     if (apkUrl) {
       return res.redirect(302, apkUrl);
     }
@@ -44,6 +46,23 @@ router.get('/download-apk', async (req, res) => {
   } catch (err) {
     console.error('[bridge download-apk]', err);
     res.status(500).json({ error: 'Error al procesar la descarga del APK.' });
+  }
+});
+
+// Consultar versión más reciente del APK
+router.get('/version', async (req, res) => {
+  try {
+    const { rows } = await query(`SELECT key, value FROM system_settings WHERE key IN ('apk_download_url', 'apk_version')`);
+    const map = {};
+    rows.forEach(r => { map[r.key] = r.value?.trim(); });
+    res.json({
+      ok: true,
+      version: map['apk_version'] || '1.0.0',
+      download_url: map['apk_download_url'] || '/api/bridge/download-apk'
+    });
+  } catch (err) {
+    console.error('[bridge version]', err);
+    res.status(500).json({ error: 'Error al consultar la versión del APK.' });
   }
 });
 

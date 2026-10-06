@@ -4179,7 +4179,9 @@ document.querySelectorAll('#vistaAdmin > .admin-body > .sub-tabs > .sub-tab[data
     $('adminVistaAIConfig')?.classList.toggle('oculto', target !== 'ai-config');
     $('adminVistaBaseDatos')?.classList.toggle('oculto', target !== 'base-datos');
     $('adminVistaEditorDB')?.classList.toggle('oculto', target !== 'editor-db');
+    $('adminVistaAPK')?.classList.toggle('oculto', target !== 'apk-gestion');
     $('adminVistaMonetizacion')?.classList.toggle('oculto', target !== 'monetizacion');
+    if (target === 'apk-gestion') cargarAdminGestionAPK();
     if (target === 'reportes') cargarAdminReportes('pendiente');
     if (target === 'anuncios') cargarAdminAnuncios();
     if (target === 'ai-config') { cargarAdminAIConfig(); adminCargarExperienciasYEventos(); }
@@ -4202,6 +4204,60 @@ $('adminAIAvatarFileInput')?.addEventListener('change', async (e) => {
     } catch (err) {
       mostrarToast('Error al procesar la foto.');
     }
+  }
+});
+
+async function cargarAdminGestionAPK() {
+  try {
+    const res = await api('/bridge/version');
+    if ($('adminAPKVersionActual')) $('adminAPKVersionActual').value = res.version || '1.0.0';
+    if ($('adminAPKUrlActual')) $('adminAPKUrlActual').value = res.download_url || '/api/bridge/download-apk';
+  } catch (err) {
+    console.error('Error cargando gestión APK:', err);
+  }
+}
+
+$('adminBtnUploadAPK')?.addEventListener('click', async () => {
+  const fileInput = $('adminAPKFileInput');
+  const versionInput = $('adminAPKVersionInput');
+  const file = fileInput?.files?.[0];
+  const version = versionInput?.value?.trim() || '1.0.1';
+
+  if (!file) {
+    mostrarToast('Selecciona un archivo .apk para subir.');
+    return;
+  }
+
+  const btn = $('adminBtnUploadAPK');
+  const origTxt = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerText = 'Subiendo APK...';
+
+  try {
+    const formData = new FormData();
+    formData.append('apk_file', file);
+    formData.append('version', version);
+
+    const token = localStorage.getItem('token');
+    const res = await fetch('/api/admin/upload-apk', {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Error subiendo APK');
+
+    mostrarToast('¡APK subida y publicada correctamente!');
+    if (fileInput) fileInput.value = '';
+    if (versionInput) versionInput.value = '';
+    cargarAdminGestionAPK();
+    if (typeof verificarVersionAPK === 'function') verificarVersionAPK();
+  } catch (e) {
+    mostrarToast(e.message || 'Error al subir la APK');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = origTxt;
   }
 });
 
@@ -5049,7 +5105,70 @@ async function abrirModalBridgePairing() {
 }
 window.abrirModalBridgePairing = abrirModalBridgePairing;
 
-// btnDescargarBridgeApp redirecciona directamente al enlace de descarga del APK del Administrador (/api/bridge/download-apk)
+// Comparador semántico de versiones (e.g. "1.1.0" > "1.0.0")
+function esVersionMayor(versionNueva, versionActual) {
+  if (!versionNueva) return false;
+  if (!versionActual) return true;
+  const parse = v => String(v).replace(/^v/i, '').split('.').map(n => parseInt(n, 10) || 0);
+  const vN = parse(versionNueva);
+  const vA = parse(versionActual);
+  const len = Math.max(vN.length, vA.length);
+  for (let i = 0; i < len; i++) {
+    const numN = vN[i] || 0;
+    const numA = vA[i] || 0;
+    if (numN > numA) return true;
+    if (numN < numA) return false;
+  }
+  return false;
+}
+
+// Lógica de detección de app nativa y control del botón de descarga / actualización
+async function verificarVersionAPK() {
+  const btnAjustes = $('btnDescargarBridgeApp');
+  const btnDirectoModal = $('btnDescargarAPKDirecto');
+
+  // Detectar si el usuario está usando la APK de Android (vía JS bridge o User Agent)
+  const esEnAppNativa = (typeof window.AppBridge !== 'undefined') || (navigator.userAgent && navigator.userAgent.includes('LinkApp'));
+  const versionInstalada = (window.AppBridge && typeof window.AppBridge.getAppVersion === 'function') ? window.AppBridge.getAppVersion() : '1.0.0';
+
+  try {
+    const info = await api('/bridge/version');
+    const versionServer = info.version || '1.0.0';
+    const downloadUrl = info.download_url || '/api/bridge/download-apk';
+
+    if (btnAjustes) btnAjustes.href = downloadUrl;
+    if (btnDirectoModal) btnDirectoModal.href = downloadUrl;
+
+    if (!esEnAppNativa) {
+      // Si la persona está usando la web (navegador normal), SIEMPRE le sale el apartado para descargar APK
+      if (btnAjustes) {
+        btnAjustes.style.display = 'flex';
+        btnAjustes.querySelector('.txt').textContent = 'Descargar APK Link (App Android)';
+      }
+    } else {
+      // Si la persona ESTÁ usando la APK
+      const hayNuevaVersion = esVersionMayor(versionServer, versionInstalada);
+      if (hayNuevaVersion) {
+        // La app debe mostrarle que hay una nueva versión para actualizar
+        if (btnAjustes) {
+          btnAjustes.style.display = 'flex';
+          btnAjustes.style.background = 'linear-gradient(135deg, rgba(239,68,68,0.12), rgba(245,158,11,0.12))';
+          btnAjustes.style.border = '1px solid rgba(239,68,68,0.35)';
+          btnAjustes.querySelector('.txt').innerHTML = `<span style="color:#ef4444; font-weight:900;">¡Nueva actualización disponible (${versionServer})!</span> Tap para descargar`;
+        }
+      } else {
+        // Si no hay actualización y está en la APK, NO debe de salirle ese apartado
+        if (btnAjustes) btnAjustes.style.display = 'none';
+      }
+    }
+  } catch (err) {
+    console.error('Error verificando versión APK:', err);
+  }
+}
+window.verificarVersionAPK = verificarVersionAPK;
+document.addEventListener('DOMContentLoaded', () => {
+  verificarVersionAPK();
+});
 
 async function generarCodigoVinculacionBridge() {
   try {
@@ -5067,6 +5186,79 @@ async function generarCodigoVinculacionBridge() {
   }
 }
 window.generarCodigoVinculacionBridge = generarCodigoVinculacionBridge;
+
+/* ================= ANIMACIÓN NEÓN BORDES AL RECIBIR MENSAJE ================= */
+let neonTimer = null;
+
+function dispararAnimacionNeonMensaje() {
+  const overlay = $('neonBorderOverlay');
+  if (!overlay) return;
+
+  const enabled = localStorage.getItem('cfg_neon_enabled') !== 'false';
+  if (!enabled) return;
+
+  const durationSec = parseFloat(localStorage.getItem('cfg_neon_duration') || '3');
+  const widthVal = localStorage.getItem('cfg_neon_width') || '5px';
+  const speedVal = localStorage.getItem('cfg_neon_speed') || 'medium';
+
+  const speedMap = { fast: '1.2s', medium: '1.8s', slow: '2.5s' };
+  const spinSpeed = speedMap[speedVal] || '1.8s';
+
+  overlay.style.setProperty('--neon-border-width', widthVal);
+  overlay.style.setProperty('--neon-spin-speed', spinSpeed);
+
+  overlay.classList.add('activo');
+
+  if (neonTimer) clearTimeout(neonTimer);
+  neonTimer = setTimeout(() => {
+    overlay.classList.remove('activo');
+  }, Math.max(2000, durationSec * 1000));
+}
+window.dispararAnimacionNeonMensaje = dispararAnimacionNeonMensaje;
+
+// Inicializar controles de configuraciones para la animación neón
+function initNeonConfigControls() {
+  const cfgEnabled = $('cfgNeonEnabled');
+  const cfgDuration = $('cfgNeonDuration');
+  const cfgWidth = $('cfgNeonWidth');
+  const cfgSpeed = $('cfgNeonSpeed');
+  const lblDurationVal = $('lblNeonDurationVal');
+
+  if (cfgEnabled) {
+    cfgEnabled.value = localStorage.getItem('cfg_neon_enabled') === 'false' ? 'false' : 'true';
+    cfgEnabled.addEventListener('change', () => {
+      localStorage.setItem('cfg_neon_enabled', cfgEnabled.value);
+    });
+  }
+
+  if (cfgDuration) {
+    const val = localStorage.getItem('cfg_neon_duration') || '3';
+    cfgDuration.value = val;
+    if (lblDurationVal) lblDurationVal.textContent = val + 's';
+    cfgDuration.addEventListener('input', () => {
+      if (lblDurationVal) lblDurationVal.textContent = cfgDuration.value + 's';
+      localStorage.setItem('cfg_neon_duration', cfgDuration.value);
+    });
+  }
+
+  if (cfgWidth) {
+    cfgWidth.value = localStorage.getItem('cfg_neon_width') || '5px';
+    cfgWidth.addEventListener('change', () => {
+      localStorage.setItem('cfg_neon_width', cfgWidth.value);
+    });
+  }
+
+  if (cfgSpeed) {
+    cfgSpeed.value = localStorage.getItem('cfg_neon_speed') || 'medium';
+    cfgSpeed.addEventListener('change', () => {
+      localStorage.setItem('cfg_neon_speed', cfgSpeed.value);
+    });
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  initNeonConfigControls();
+});
 
 window.addEventListener('popstate', () => {
   if (window.location.pathname.startsWith('/app/')) {
