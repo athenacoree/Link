@@ -70,6 +70,14 @@ window.LinkVideo = {
       }
     });
 
+  // Evento en tiempo real para actualización de canales de YouTube
+  window.socket.on('youtube:channel_updated', (data) => {
+    if (data && data.channel) {
+      console.log('[LinkVideo] Canal de YouTube actualizado:', data.channel);
+      this.cargarCatalogo(false);
+    }
+  });
+
     // Eventos de estado de Live
     window.socket.on('live:status_changed', (data) => {
       if (this.isViewer && data.sessionId === this.viewerSessionId) {
@@ -138,7 +146,9 @@ window.LinkVideo = {
       if (res) {
         this.catalog = res.catalog || [];
         this.activeLives = res.lives || [];
+        this.youtubeChannels = res.youtubeChannels || [];
         this.baseUrl = res.base_url || '';
+        this.renderizarCanalesYouTube(this.youtubeChannels);
         this.renderizarLivesActivos(this.activeLives);
         this.setupUIControls();
         this.actualizarDisponibilidadPills();
@@ -203,6 +213,62 @@ window.LinkVideo = {
     }
 
     this.renderizarCatalogo(list);
+  },
+
+  renderizarCanalesYouTube(channels) {
+    const secEl = document.getElementById('linkYouTubeChannelsSection');
+    const gridEl = document.getElementById('linkYouTubeChannelsGrid');
+    if (!secEl || !gridEl) return;
+
+    if (!channels || channels.length === 0) {
+      secEl.style.display = 'none';
+      gridEl.innerHTML = '';
+      return;
+    }
+
+    secEl.style.display = 'block';
+    gridEl.innerHTML = channels.map(item => {
+      const isAct = item.is_active && item.video_id;
+      const statusLabel = isAct ? '● EN VIVO (YouTube)' : 'INACTIVO';
+      const badgeBg = isAct ? '#ef4444' : 'var(--texto-500)';
+      const thumb = isAct ? `https://img.youtube.com/vi/${item.video_id}/hqdefault.jpg` : 'https://images.pexels.com/photos/2506923/pexels-photo-2506923.jpeg?auto=compress&cs=tinysrgb&w=600';
+
+      return `
+        <div class="card" style="padding:14px; border-radius:16px; background:var(--blanco); border:1.5px solid rgba(239,68,68,0.3); display:flex; flex-direction:column; justify-content:space-between; box-shadow:0 4px 14px rgba(239,68,68,0.08);">
+          <div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+              <span style="font-weight:800; font-size:14px; color:var(--morado-700);">${escapeHTMLLinkVideo(item.channel_name || item.channel_id)}</span>
+              <span style="font-size:10px; font-weight:800; background:${badgeBg}; color:#fff; padding:3px 8px; border-radius:12px; text-transform:uppercase;">${statusLabel}</span>
+            </div>
+            <div style="position:relative; width:100%; height:120px; border-radius:12px; overflow:hidden; margin-bottom:10px; background:#000;">
+              <img src="${thumb}" style="width:100%; height:100%; object-fit:cover;" alt="YouTube Thumbnail">
+              ${isAct ? `<div style="position:absolute; inset:0; background:rgba(0,0,0,0.25); display:flex; align-items:center; justify-content:center; color:#fff; font-size:32px;">▶</div>` : ''}
+            </div>
+            <div style="font-weight:800; font-size:14px; color:var(--texto-900); margin-bottom:4px;">${escapeHTMLLinkVideo(item.title || (isAct ? 'Contenido de YouTube' : 'Canal sin transmisión activa'))}</div>
+            <div style="font-size:11.5px; color:var(--texto-600); line-height:1.4; margin-bottom:12px;">Transmisión sincronizada servida directamente por el IFrame Player oficial de YouTube.</div>
+          </div>
+          ${isAct ? `
+            <button class="btn btn-primario" style="width:100%; border-radius:10px; font-weight:800; padding:10px; display:inline-flex; align-items:center; justify-content:center; gap:6px; background:linear-gradient(135deg, #ef4444, #b91c1c); border:none;" onclick="LinkVideo.reproducirYouTubeChannel('${escapeHTMLLinkVideo(item.video_id)}', '${escapeHTMLLinkVideo(item.title || item.channel_name)}', ${item.currentTime || 0})">
+              <span>▶ Ver Canal (${item.channel_name})</span>
+            </button>
+          ` : `
+            <button class="btn btn-secundario" style="width:100%; border-radius:10px; font-weight:700; padding:10px; opacity:0.6; cursor:not-allowed;" disabled>
+              Canal inactivo
+            </button>
+          `}
+        </div>
+      `;
+    }).join('');
+  },
+
+  reproducirYouTubeChannel(videoId, titulo, startSeconds = 0) {
+    if (!videoId) return;
+    const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&start=${Math.max(0, startSeconds)}&enablejsapi=1`;
+    if (window.abrirJuego) {
+      window.abrirJuego(embedUrl, titulo || 'Canal YouTube', 'youtube_channel');
+    } else {
+      window.open(`https://www.youtube.com/watch?v=${videoId}`, '_blank');
+    }
   },
 
   renderizarLivesActivos(lives) {
