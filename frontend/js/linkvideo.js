@@ -263,8 +263,16 @@ window.LinkVideo = {
 
   reproducirYouTubeChannel(videoId, titulo, startSeconds = 0) {
     if (!videoId) return;
-    const origin = window.location.origin ? encodeURIComponent(window.location.origin) : '';
-    const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&enablejsapi=1&start=${Math.max(0, startSeconds)}${origin ? '&origin=' + origin : ''}`;
+    let rawOrigin = window.location.origin;
+    if (!rawOrigin || rawOrigin === 'null' || rawOrigin.startsWith('file://')) {
+      rawOrigin = window.location.protocol && window.location.host ? (window.location.protocol + '//' + window.location.host) : '';
+    }
+    const params = ['autoplay=1', 'enablejsapi=1', 'rel=0', 'modestbranding=1', 'widget_referrer=' + encodeURIComponent(window.location.href)];
+    if (startSeconds > 0) params.push('start=' + Math.max(0, startSeconds));
+    if (rawOrigin && !rawOrigin.startsWith('file://') && rawOrigin !== 'null') {
+      params.push('origin=' + encodeURIComponent(rawOrigin));
+    }
+    const embedUrl = `https://www.youtube.com/embed/${videoId}?${params.join('&')}`;
     if (window.abrirJuego) {
       window.abrirJuego(embedUrl, titulo || 'Canal YouTube', 'youtube_channel');
     } else {
@@ -394,7 +402,7 @@ window.LinkVideo = {
     this.cerrarModalIniciarLive();
 
     try {
-      const res = await api('/linkvideo/live/start', 'POST', { title, category, description });
+      const res = await api('/linkvideo/live/start', { method: 'POST', body: { title, category, description } });
       if (res && res.ok && res.session) {
         this.activeSessionId = res.session.id;
         this.isHost = true;
@@ -449,7 +457,7 @@ window.LinkVideo = {
 
       // Heartbeat HTTP de respaldo para persistencia ante desconexiones de socket
       try {
-        await api('/linkvideo/live/heartbeat', 'POST', { sessionId: this.activeSessionId, status: 'LIVE' });
+        await api('/linkvideo/live/heartbeat', { method: 'POST', body: { sessionId: this.activeSessionId, status: 'LIVE' } });
       } catch (e) {}
     }, 3000);
   },
@@ -460,7 +468,7 @@ window.LinkVideo = {
     if (banner) banner.style.display = 'flex';
 
     try {
-      const res = await api('/linkvideo/live/reconnect', 'POST', { sessionId: this.activeSessionId });
+      const res = await api('/linkvideo/live/reconnect', { method: 'POST', body: { sessionId: this.activeSessionId } });
       if (res && res.ok) {
         if (window.socket) {
           window.socket.emit('live:reconnect', { sessionId: this.activeSessionId });
@@ -521,7 +529,7 @@ window.LinkVideo = {
 
     if (this.activeSessionId) {
       try {
-        await api('/linkvideo/live/end', 'POST', { sessionId: this.activeSessionId });
+        await api('/linkvideo/live/end', { method: 'POST', body: { sessionId: this.activeSessionId } });
         if (window.socket) {
           window.socket.emit('live:end', { sessionId: this.activeSessionId });
         }

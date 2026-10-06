@@ -5906,6 +5906,21 @@ function extractYouTubeIdJS(url) {
   return (match && match[1]) ? match[1] : null;
 }
 
+function construirYouTubeEmbedUrl(videoId, autoPlay = false, startSeconds = 0) {
+  if (!videoId) return '';
+  let rawOrigin = window.location.origin;
+  if (!rawOrigin || rawOrigin === 'null' || rawOrigin.startsWith('file://')) {
+    rawOrigin = window.location.protocol && window.location.host ? (window.location.protocol + '//' + window.location.host) : '';
+  }
+  const params = ['enablejsapi=1', 'rel=0', 'modestbranding=1', 'widget_referrer=' + encodeURIComponent(window.location.href)];
+  if (autoPlay) params.push('autoplay=1');
+  if (startSeconds > 0) params.push('start=' + Math.max(0, startSeconds));
+  if (rawOrigin && !rawOrigin.startsWith('file://') && rawOrigin !== 'null') {
+    params.push('origin=' + encodeURIComponent(rawOrigin));
+  }
+  return `https://www.youtube.com/embed/${videoId}?${params.join('&')}`;
+}
+
 window.adminVistaPreviaYouTube = function() {
   const urlInput = $('adminYTUrlInput');
   const detectedEl = $('adminYTDetectedId');
@@ -5918,8 +5933,7 @@ window.adminVistaPreviaYouTube = function() {
 
   if (videoId) {
     if (detectedEl) detectedEl.value = videoId;
-    const origin = window.location.origin ? encodeURIComponent(window.location.origin) : '';
-    if (previewIFrame) previewIFrame.src = `https://www.youtube.com/embed/${videoId}?enablejsapi=1${origin ? '&origin=' + origin : ''}`;
+    if (previewIFrame) previewIFrame.src = construirYouTubeEmbedUrl(videoId, false);
     if (previewContainer) previewContainer.style.display = 'block';
   } else {
     if (detectedEl) detectedEl.value = url ? 'URL no válida' : '';
@@ -5959,7 +5973,7 @@ async function cargarAdminCanalesYouTube() {
             <div style="font-size:12.5px; color:var(--texto-800); font-weight:700;">${escapeHTMLLinkVideo(ch.title || 'Video activo')}</div>
             <div style="font-size:11px; color:var(--texto-500); font-family:monospace;">ID: ${ch.video_id}</div>
             <div style="border-radius:10px; overflow:hidden; margin-top:4px;">
-              <iframe src="https://www.youtube.com/embed/${ch.video_id}?enablejsapi=1${window.location.origin ? '&origin=' + encodeURIComponent(window.location.origin) : ''}" style="width:100%; height:160px; border:none;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+              <iframe src="${construirYouTubeEmbedUrl(ch.video_id, false)}" style="width:100%; height:160px; border:none;" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
             </div>
             <button class="btn btn-secundario peligro" style="width:100%; padding:8px; font-size:12px; font-weight:700;" onclick="window.adminDetenerVideoYouTube('${ch.channel_id}')">
               ⏹️ Detener Transmisión del Canal
@@ -5988,7 +6002,7 @@ window.adminPublicarVideoYouTube = async function() {
   }
 
   try {
-    const res = await api('/linkvideo/youtube/admin/publish', 'POST', { channelId, url, title });
+    const res = await api('/linkvideo/youtube/admin/publish', { method: 'POST', body: { channelId, url, title } });
     if (res && res.ok) {
       if (window.mostrarToast) mostrarToast('¡Video de YouTube publicado con éxito en ' + channelId + '!');
       if ($('adminYTUrlInput')) $('adminYTUrlInput').value = '';
@@ -6006,7 +6020,7 @@ window.adminPublicarVideoYouTube = async function() {
 window.adminDetenerVideoYouTube = async function(channelId) {
   if (!confirm('¿Deseas finalizar la transmisión activa en este canal?')) return;
   try {
-    const res = await api('/linkvideo/youtube/admin/stop', 'POST', { channelId });
+    const res = await api('/linkvideo/youtube/admin/stop', { method: 'POST', body: { channelId } });
     if (res && res.ok) {
       if (window.mostrarToast) mostrarToast('Transmisión del canal ' + channelId + ' finalizada.');
       await cargarAdminCanalesYouTube();
