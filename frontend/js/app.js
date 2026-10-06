@@ -1040,46 +1040,95 @@ function inicializarConstelacionLogin(canvasId = 'constelacionLoginCanvas') {
 }
 
 // =========================================================
-// 🔮 EFECTO TILT HOLOGRÁFICO EN TARJETAS DE PERFIL
+// 🔮 EFECTO TILT HOLOGRÁFICO TIPO GLASS BUBBLE EN TARJETAS
 // =========================================================
 function inicializarTarjetasHolograficas3D() {
-  document.addEventListener('mousemove', (e) => {
-    const cards = document.querySelectorAll('.tarjeta-par-cuadrados, .tarjeta, .tarjeta-ajustes');
-    cards.forEach(card => {
-      const rect = card.getBoundingClientRect();
-      if (
-        e.clientX >= rect.left && e.clientX <= rect.right &&
-        e.clientY >= rect.top && e.clientY <= rect.bottom
-      ) {
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        const centerX = rect.width / 2;
-        const centerY = rect.height / 2;
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
-        const rotateX = ((y - centerY) / centerY) * -12; // tilt vertical
-        const rotateY = ((x - centerX) / centerX) * 12;  // tilt horizontal
+  const MAX_TILT_DEG = 5; // Máximo 4–6 grados para efecto cristal sutil
+  let tarjetaActiva = null;
 
-        card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(1.02)`;
-        card.style.setProperty('--glow-x', `${(x / rect.width) * 100}%`);
-        card.style.setProperty('--glow-y', `${(y / rect.height) * 100}%`);
-      } else {
-        card.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale(1)';
+  function calcularTilt(e, card) {
+    const rect = card.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+
+    const rotX = Math.max(-MAX_TILT_DEG, Math.min(MAX_TILT_DEG, ((y - centerY) / centerY) * -MAX_TILT_DEG));
+    const rotY = Math.max(-MAX_TILT_DEG, Math.min(MAX_TILT_DEG, ((x - centerX) / centerX) * MAX_TILT_DEG));
+
+    const glowX = (x / rect.width) * 100;
+    const glowY = (y / rect.height) * 100;
+
+    return { rotX, rotY, glowX, glowY };
+  }
+
+  function resetearEfecto(card) {
+    if (!card) return;
+    card.style.transition = 'transform 0.38s cubic-bezier(0.2, 0.85, 0.2, 1.15), box-shadow 0.35s ease';
+    card.style.setProperty('--rotate-x', '0deg');
+    card.style.setProperty('--rotate-y', '0deg');
+    card.style.setProperty('--glow-opacity', '0');
+  }
+
+  function aplicarEfecto(card, rotX, rotY, glowX, glowY) {
+    card.style.transition = 'transform 0.05s ease-out, box-shadow 0.05s ease';
+    card.style.setProperty('--rotate-x', `${rotX.toFixed(2)}deg`);
+    card.style.setProperty('--rotate-y', `${rotY.toFixed(2)}deg`);
+    card.style.setProperty('--glow-x', `${glowX.toFixed(1)}%`);
+    card.style.setProperty('--glow-y', `${glowY.toFixed(1)}%`);
+    card.style.setProperty('--glow-opacity', '1');
+  }
+
+  // Pointer events delegados sobre las tarjetas individuales (nunca sobre el contenedor grid)
+  document.addEventListener('pointermove', (e) => {
+    if (e.pointerType === 'touch' && !e.isPrimary) return;
+
+    const card = e.target.closest('.cuadrado-persona, .tarjeta-contacto-cuadrada, .tarjeta-chat-cuadrada, .tarjeta');
+    if (!card) {
+      if (tarjetaActiva) {
+        resetearEfecto(tarjetaActiva);
+        tarjetaActiva = null;
       }
-    });
-  });
+      return;
+    }
 
-  // Soporte para inclinación por Giroscopio en móviles
+    if (tarjetaActiva && tarjetaActiva !== card) {
+      resetearEfecto(tarjetaActiva);
+    }
+
+    tarjetaActiva = card;
+    const { rotX, rotY, glowX, glowY } = calcularTilt(e, card);
+    aplicarEfecto(card, rotX, rotY, glowX, glowY);
+  }, { passive: true });
+
+  const resetAll = () => {
+    if (tarjetaActiva) {
+      resetearEfecto(tarjetaActiva);
+      tarjetaActiva = null;
+    }
+  };
+
+  document.addEventListener('pointerup', resetAll, { passive: true });
+  document.addEventListener('pointercancel', resetAll, { passive: true });
+  document.addEventListener('mouseleave', resetAll, { passive: true });
+
+  // Soporte suave para giroscopio en dispositivos móviles
   if (window.DeviceOrientationEvent) {
     window.addEventListener('deviceorientation', (e) => {
       if (e.beta === null || e.gamma === null) return;
-      const rotX = Math.max(-15, Math.min(15, e.beta - 45)) * -0.5;
-      const rotY = Math.max(-15, Math.min(15, e.gamma)) * 0.5;
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
-      const visibleCards = document.querySelectorAll('.tarjeta-par-cuadrados, .tarjeta');
+      const rotX = Math.max(-MAX_TILT_DEG, Math.min(MAX_TILT_DEG, (e.beta - 45) * -0.15));
+      const rotY = Math.max(-MAX_TILT_DEG, Math.min(MAX_TILT_DEG, e.gamma * 0.15));
+
+      const visibleCards = document.querySelectorAll('.cuadrado-persona, .tarjeta-contacto-cuadrada, .tarjeta-chat-cuadrada');
       visibleCards.forEach(card => {
         const rect = card.getBoundingClientRect();
         if (rect.top < window.innerHeight && rect.bottom > 0) {
-          card.style.transform = `perspective(1000px) rotateX(${rotX}deg) rotateY(${rotY}deg)`;
+          card.style.setProperty('--rotate-x', `${rotX.toFixed(2)}deg`);
+          card.style.setProperty('--rotate-y', `${rotY.toFixed(2)}deg`);
         }
       });
     }, true);
