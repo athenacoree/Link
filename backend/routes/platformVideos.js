@@ -61,7 +61,17 @@ router.get('/active', async (req, res) => {
       };
     });
 
+    let splashDuration = 5;
+    try {
+      const durRes = await query(`SELECT value FROM system_settings WHERE key = 'splash_duration'`);
+      if (durRes.rows.length && durRes.rows[0].value) {
+        const parsed = parseInt(durRes.rows[0].value, 10);
+        if (!isNaN(parsed) && parsed > 0) splashDuration = parsed;
+      }
+    } catch (e) {}
+
     res.json({
+      splash_duration: splashDuration,
       slots: STANDARD_SLOTS.map(s => ({
         ...s,
         video: activeMap[s.slot] || null
@@ -70,6 +80,7 @@ router.get('/active', async (req, res) => {
   } catch (err) {
     console.error('Error al obtener videos activos de la plataforma:', err.message);
     res.json({
+      splash_duration: 5,
       slots: STANDARD_SLOTS.map(s => ({
         ...s,
         video: null
@@ -167,7 +178,17 @@ router.get('/admin/list', requireAuth, requireAdmin, async (req, res) => {
       };
     });
 
+    let splashDuration = 5;
+    try {
+      const durRes = await query(`SELECT value FROM system_settings WHERE key = 'splash_duration'`);
+      if (durRes.rows.length && durRes.rows[0].value) {
+        const parsed = parseInt(durRes.rows[0].value, 10);
+        if (!isNaN(parsed) && parsed > 0) splashDuration = parsed;
+      }
+    } catch (e) {}
+
     res.json({
+      splash_duration: splashDuration,
       slots: STANDARD_SLOTS.map(s => ({
         ...s,
         video: existingMap[s.slot] || null
@@ -176,11 +197,41 @@ router.get('/admin/list', requireAuth, requireAdmin, async (req, res) => {
   } catch (err) {
     console.error('Error al listar videos en el panel de administrador:', err.message);
     res.json({
+      splash_duration: 5,
       slots: STANDARD_SLOTS.map(s => ({
         ...s,
         video: null
       }))
     });
+  }
+});
+
+/**
+ * POST /api/platform-videos/admin/splash-duration
+ * Actualiza la duración en segundos de la pantalla de carga (splash screen)
+ */
+router.post('/admin/splash-duration', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const splashDuration = parseInt(req.body.splash_duration, 10) || 5;
+    if (splashDuration < 1 || splashDuration > 120) {
+      return res.status(400).json({ error: 'La duración debe estar entre 1 y 120 segundos.' });
+    }
+
+    await query(
+      `INSERT INTO system_settings (key, value, updated_at)
+       VALUES ('splash_duration', $1, now())
+       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
+      [splashDuration.toString()]
+    );
+
+    res.json({
+      ok: true,
+      splash_duration: splashDuration,
+      mensaje: `Duración de carga configurada en ${splashDuration} segundos.`
+    });
+  } catch (err) {
+    console.error('Error al actualizar duración de carga splash:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 
