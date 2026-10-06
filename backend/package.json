@@ -10,7 +10,7 @@
   "scripts": {
     "start": "node server.js",
     "migrate": "node db/migrate.js",
-    "test": "node tests/test_cache_versioning.js && node tests/test_bugs_fix.js && node tests/test_ai_system.js && node tests/test_image_editor.js && node tests/test_google_services_engine.js && node tests/test_video_system.js && node tests/test_games.js && node tests/test_link_video.js && node tests/test_qvapay.js && node tests/test_multimedia_experiences.js && node tests/test_new_features.js"
+    "test": "node tests/test_cache_versioning.js && node tests/test_bugs_fix.js && node tests/test_ai_system.js && node tests/test_image_editor.js && node tests/test_google_services_engine.js && node tests/test_video_system.js && node tests/test_games.js && node tests/test_link_video.js && node tests/test_qvapay.js && node tests/test_multimedia_experiences.js && node tests/test_new_features.js && node tests/test_platform_videos.js"
   },
   "dependencies": {
     "adm-zip": "^0.6.0",

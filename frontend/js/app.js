@@ -1310,6 +1310,7 @@ function cerrarTodosLosModales() {
 window.cerrarTodosLosModales = cerrarTodosLosModales;
 
 document.addEventListener('DOMContentLoaded', () => {
+  inicializarVideoCargaSplash();
   inicializarConstelacionLogin();
   inicializarTarjetasHolograficas3D();
   $('cerrarVisorImagen')?.addEventListener('click', cerrarVisorImagen);
@@ -1725,7 +1726,59 @@ async function comprobarAIConfig() {
   }
 }
 
-/* ================= ARRANQUE DE LA APP ================= */
+/* ================= ARRANQUE DE LA APP Y VIDEO SPLASH ================= */
+async function inicializarVideoCargaSplash() {
+  const splashVid = $('splashVideo');
+  if (!splashVid) return;
+
+  try {
+    const res = await api('/platform-videos/active');
+    if (!res || !res.slots) return;
+
+    const splashData = res.slots.find(s => s.slot === 'splash')?.video;
+    if (!splashData || !splashData.stream_url) {
+      splashVid.classList.add('oculto');
+      return;
+    }
+
+    const videoUrl = splashData.stream_url;
+    let videoBlobUrl = null;
+
+    if ('caches' in window) {
+      try {
+        const cacheName = 'link-platform-videos-v1';
+        const cache = await caches.open(cacheName);
+        const cachedResponse = await cache.match(videoUrl);
+
+        if (cachedResponse) {
+          const blob = await cachedResponse.blob();
+          videoBlobUrl = URL.createObjectURL(blob);
+        } else {
+          const fetchRes = await fetch(videoUrl);
+          if (fetchRes.ok) {
+            const resToCache = fetchRes.clone();
+            await cache.put(videoUrl, resToCache);
+            const blob = await fetchRes.blob();
+            videoBlobUrl = URL.createObjectURL(blob);
+          }
+        }
+      } catch (cacheErr) {
+        console.warn('[PlatformVideo] Error leyendo caché local:', cacheErr);
+      }
+    }
+
+    const finalSrc = videoBlobUrl || videoUrl;
+    if (finalSrc) {
+      splashVid.src = finalSrc;
+      splashVid.classList.remove('oculto');
+      splashVid.play().catch(() => {});
+    }
+  } catch (err) {
+    console.warn('[PlatformVideo] No se pudo obtener el video de carga splash:', err);
+  }
+}
+window.inicializarVideoCargaSplash = inicializarVideoCargaSplash;
+
 function ocultarSplashScreen() {
   const splash = $('splashScreen');
   if (splash) {
@@ -4180,8 +4233,10 @@ document.querySelectorAll('#vistaAdmin > .admin-body > .sub-tabs > .sub-tab[data
     $('adminVistaBaseDatos')?.classList.toggle('oculto', target !== 'base-datos');
     $('adminVistaEditorDB')?.classList.toggle('oculto', target !== 'editor-db');
     $('adminVistaAPK')?.classList.toggle('oculto', target !== 'apk-gestion');
+    $('adminVistaVideos')?.classList.toggle('oculto', target !== 'videos-gestion');
     $('adminVistaMonetizacion')?.classList.toggle('oculto', target !== 'monetizacion');
     if (target === 'apk-gestion') cargarAdminGestionAPK();
+    if (target === 'videos-gestion') cargarAdminPlatformVideos();
     if (target === 'reportes') cargarAdminReportes('pendiente');
     if (target === 'anuncios') cargarAdminAnuncios();
     if (target === 'ai-config') { cargarAdminAIConfig(); adminCargarExperienciasYEventos(); }
@@ -4255,6 +4310,125 @@ $('adminBtnUploadAPK')?.addEventListener('click', async () => {
     if (typeof verificarVersionAPK === 'function') verificarVersionAPK();
   } catch (e) {
     mostrarToast(e.message || 'Error al subir la APK');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = origTxt;
+  }
+});
+
+/* ================= GESTIÓN ADMINISTRATIVA DE VIDEOS DE PLATAFORMA ================= */
+async function cargarAdminPlatformVideos() {
+  const cont = $('adminListaPlatformVideos');
+  if (!cont) return;
+
+  cont.innerHTML = '<div style="font-size:12.5px; color:var(--texto-500); padding:10px;">Cargando videos de la plataforma...</div>';
+
+  try {
+    const res = await api('/platform-videos/admin/list');
+    if (!res || !res.slots) {
+      cont.innerHTML = '<div style="font-size:12.5px; color:var(--rojo-600);">No se pudieron obtener los videos.</div>';
+      return;
+    }
+
+    cont.innerHTML = res.slots.map(s => {
+      const v = s.video;
+      const sizeMb = v && v.file_size ? (v.file_size / (1024 * 1024)).toFixed(2) : '0';
+      const fecha = v && v.updated_at ? new Date(v.updated_at).toLocaleString() : '';
+
+      return `
+        <div style="background:var(--blanco); border:1px solid var(--borde); border-radius:14px; padding:16px;">
+          <div style="display:flex; justify-space-between; align-items:flex-start; margin-bottom:8px;">
+            <div>
+              <div style="font-weight:800; font-size:14.5px; color:var(--texto-900);">${escaparHTML(s.title)}</div>
+              <div style="font-size:11.5px; font-weight:700; color:var(--morado-600); font-family:monospace;">Slot: ${escaparHTML(s.slot)}</div>
+            </div>
+            ${v ? `<span style="font-size:10.5px; font-weight:800; background:var(--verde-100); color:var(--verde-700); padding:4px 10px; border-radius:10px;">● ACTIVO</span>` : `<span style="font-size:10.5px; font-weight:700; background:var(--hueso); color:var(--texto-500); padding:4px 10px; border-radius:10px;">SIN VIDEO</span>`}
+          </div>
+          <div style="font-size:12px; color:var(--texto-600); margin-bottom:10px;">${escaparHTML(s.description)}</div>
+
+          ${v ? `
+            <div style="margin-bottom:10px;">
+              <video controls src="${v.stream_url}" style="width:100%; max-height:220px; border-radius:12px; background:#000; object-fit:contain;"></video>
+            </div>
+            <div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; font-size:11.5px; color:var(--texto-500); gap:8px;">
+              <div>📁 <strong>${escaparHTML(v.filename || 'video.mp4')}</strong> (${sizeMb} MB) • ${fecha}</div>
+              <button class="btn btn-secundario peligro" onclick="adminEliminarPlatformVideo('${s.slot}')" style="padding:5px 12px; font-size:11.5px; border-radius:10px;">
+                🗑️ Eliminar Video
+              </button>
+            </div>
+          ` : `
+            <div style="font-size:11.5px; color:var(--texto-500); font-style:italic;">No hay video subido para este slot. Se muestra el diseño estándar.</div>
+          `}
+        </div>
+      `;
+    }).join('');
+  } catch (err) {
+    console.error('Error al cargar lista de videos de administración:', err);
+    cont.innerHTML = `<div style="font-size:12.5px; color:var(--rojo-600);">Error al obtener la lista de videos: ${err.message}</div>`;
+  }
+}
+window.cargarAdminPlatformVideos = cargarAdminPlatformVideos;
+
+async function adminEliminarPlatformVideo(slot) {
+  if (!confirm(`¿Estás seguro de que deseas eliminar el video configurado para '${slot}'?`)) return;
+
+  try {
+    await api(`/platform-videos/admin/${slot}`, { method: 'DELETE' });
+    mostrarToast(`Video para '${slot}' eliminado`);
+    cargarAdminPlatformVideos();
+    inicializarVideoCargaSplash();
+  } catch (err) {
+    mostrarToast('Error al eliminar video: ' + err.message);
+  }
+}
+window.adminEliminarPlatformVideo = adminEliminarPlatformVideo;
+
+$('adminBtnUploadPlatformVideo')?.addEventListener('click', async () => {
+  const slotSelect = $('adminVideoSlotSelect');
+  const titleInput = $('adminVideoTitleInput');
+  const descInput = $('adminVideoDescInput');
+  const fileInput = $('adminVideoFileInput');
+
+  if (!fileInput || !fileInput.files || !fileInput.files[0]) {
+    mostrarToast('Por favor selecciona un archivo de video para subir.');
+    return;
+  }
+
+  const slot = slotSelect ? slotSelect.value : 'splash';
+  const title = titleInput ? titleInput.value.trim() : '';
+  const desc = descInput ? descInput.value.trim() : '';
+  const file = fileInput.files[0];
+
+  const formData = new FormData();
+  formData.append('slot', slot);
+  formData.append('title', title || file.name);
+  formData.append('description', desc);
+  formData.append('video_file', file);
+
+  const btn = $('adminBtnUploadPlatformVideo');
+  const origTxt = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerText = 'Subiendo video a la base de datos... Por favor espera';
+
+  try {
+    const token = localStorage.getItem('token');
+    const res = await fetch('/api/platform-videos/admin/upload', {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Error subiendo el video');
+
+    mostrarToast(data.mensaje || '¡Video subido con éxito!');
+    if (titleInput) titleInput.value = '';
+    if (descInput) descInput.value = '';
+    if (fileInput) fileInput.value = '';
+    cargarAdminPlatformVideos();
+    inicializarVideoCargaSplash();
+  } catch (err) {
+    mostrarToast('Error al subir video: ' + err.message);
   } finally {
     btn.disabled = false;
     btn.innerHTML = origTxt;
