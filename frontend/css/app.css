@@ -93,6 +93,17 @@ img{max-width:100%;}
   box-shadow:0 8px 20px -8px rgba(91,33,182,0.35); color:var(--morado-700);
 }
 .icono-flotante.campana{right:18px;}
+.icono-flotante.cubo-latido{
+  left:18px;
+  border-radius:12px;
+  cursor:pointer;
+  transition:transform .2s ease, background .2s ease, box-shadow .2s ease;
+}
+.icono-flotante.cubo-latido.activo{
+  background:linear-gradient(135deg, #ec4899, #8b5cf6);
+  color:#ffffff;
+  box-shadow:0 0 14px rgba(236,72,153,0.6);
+}
 .icono-flotante .punto-badge{
   position:absolute; top:6px; right:6px; width:9px; height:9px; border-radius:50%;
   background:var(--alerta); border:2px solid var(--hueso); display:none;
@@ -996,13 +1007,60 @@ html[data-tema="oscuro"] .factor-punto.negativo{background:rgba(239,68,68,0.15);
 
 /* ---- Pantalla Mareada por Sacudida (Shake Effect) ---- */
 body.pantalla-mareada {
-  filter: blur(8px) saturate(130%) brightness(0.92) hue-rotate(15deg) !important;
-  transition: filter 0.3s ease-in-out !important;
+  filter: none !important;
+  transition: none !important;
+}
+
+/* Regla para asegurar que las tarjetas, fotos y elementos no se difuminen ni cambien de tono al interactuar */
+.tarjeta,
+.cuadrado-persona,
+.tarjeta-par-cuadrados,
+.tool-card-square,
+.burbuja,
+.perfil-header .cover,
+img,
+.avatar-circulo {
+  filter: none !important;
+}
+
+.tarjeta:active,
+.cuadrado-persona:active,
+.tool-card-square:active,
+.tarjeta:hover,
+.cuadrado-persona:hover,
+img:active,
+img:hover {
+  filter: none !important;
+  opacity: 1 !important;
 }
 
 /* Pausar/Reanudar animaciones con interacción */
 body.animaciones-pausadas * {
   animation-play-state: paused !important;
+}
+
+/* ---- Modo Latido Lento en Elementos de la App ---- */
+@keyframes latidoLento {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.12);
+  }
+  50% {
+    transform: scale(1.025);
+    box-shadow: 0 8px 22px rgba(236, 72, 153, 0.25);
+  }
+}
+
+body.latido-activo .tarjeta,
+body.latido-activo .cuadrado-persona,
+body.latido-activo .burbuja,
+body.latido-activo .tool-card-square,
+body.latido-activo .fila-contacto,
+body.latido-activo .fila-ajustes,
+body.latido-activo .avatar-circulo,
+body.latido-activo .perfil-header .cover {
+  animation: latidoLento 3.2s ease-in-out infinite !important;
+  will-change: transform, box-shadow;
 }
 
 /* ---- Efectos Visuales de Emoción de la IA en Mensajes ---- */

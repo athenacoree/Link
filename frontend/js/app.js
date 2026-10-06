@@ -5873,6 +5873,16 @@ window.reclamarMision = async function(key) {
   }
 };
 
+/* ================= FUNCION STANDALONE LATIDO APP ================= */
+window.toggleLatidoApp = function() {
+  const body = document.body;
+  const btn = document.getElementById('btnCuboLatido');
+  const activo = body.classList.toggle('latido-activo');
+  if (btn) {
+    btn.classList.toggle('activo', activo);
+  }
+};
+
 /* ================= GESTIÓN DINÁMICA DE MANIFEST ================= */
 function actualizarManifestPorGenero() {
   const linkManifest = document.querySelector('link[rel="manifest"]');
