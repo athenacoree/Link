@@ -30,6 +30,7 @@
      PANTALLA DE CARGA / SPLASH SCREEN DE LA APLICACIÓN
      ========================================================= -->
 <div id="splashScreen" class="splash-screen">
+  <video id="splashVideo" class="splash-video oculto" autoplay muted loop playsinline></video>
   <div class="splash-content">
     <h1 class="splash-title">Link</h1>
     <div class="splash-loader"></div>
@@ -743,6 +744,7 @@
       <div class="sub-tab" data-admintab="base-datos">Base de Datos</div>
       <div class="sub-tab" data-admintab="editor-db">Editor SQL / Tablas</div>
       <div class="sub-tab" data-admintab="apk-gestion">Gestión de APK</div>
+      <div class="sub-tab" data-admintab="videos-gestion">Gestión de Videos</div>
       <div class="sub-tab" data-admintab="monetizacion">Monetización</div>
     </div>
 
@@ -1076,6 +1078,55 @@
           <input type="url" id="adminAPKUrlActual" placeholder="https://github.com/.../app-release.apk o /apks/...">
         </div>
       </div>
+    </div>
+
+    <!-- GESTIÓN DE VIDEOS DE LA PLATAFORMA Y CARTA DE CARGA -->
+    <div id="adminVistaVideos" class="oculto" style="margin-top:16px;">
+      <p style="font-size:13.5px; color:var(--texto-600); margin-bottom:14px;">
+        Sube y gestiona los videos de carga y promocionales de la plataforma. Cada video se guarda en la base de datos en su calidad original sin pérdidas y se descarga una sola vez al dispositivo del usuario para reproducirse al instante.
+      </p>
+
+      <div style="background:var(--morado-50); border:1px solid var(--morado-200); border-radius:14px; padding:14px; margin-bottom:16px;">
+        <h4 style="margin:0 0 8px 0; font-size:14px; font-weight:800; color:var(--morado-700);">📌 ¿En qué partes de Link se muestra cada video?</h4>
+        <ul style="margin:0; padding-left:18px; font-size:12.5px; color:var(--texto-800); line-height:1.6;">
+          <li><strong>Pantalla de Carga (Splash Screen) [<code>splash</code>]:</strong> Se muestra a pantalla completa mientras el usuario espera que la web o app cargue en lugar de la pantalla blanca tradicional.</li>
+          <li><strong>Intermisión / Receso Link Video [<code>intermission</code>]:</strong> Se reproduce como video promocional durante descansos, pausas o reconexión en el hub de streaming Link Video.</li>
+          <li><strong>Fondo de Inicio de Sesión [<code>login_bg</code>]:</strong> Se muestra como fondo animado opcional en la pantalla de autenticación y registro.</li>
+          <li><strong>Banner Promocional / Publicidad [<code>banner_promo</code>]:</strong> Se muestra en destacados o anuncios globales de la plataforma.</li>
+        </ul>
+      </div>
+
+      <div style="background:var(--blanco); border:1px solid var(--borde); border-radius:14px; padding:16px; margin-bottom:18px;">
+        <h4 style="margin:0 0 12px 0; font-size:14px; font-weight:700;">Subir o cambiar video para una posición</h4>
+        <div class="campo">
+          <label>Ubicación / Posición del Video (Slot)</label>
+          <select id="adminVideoSlotSelect">
+            <option value="splash">Pantalla de Carga (Splash Screen)</option>
+            <option value="intermission">Intermisión / Receso Link Video</option>
+            <option value="login_bg">Fondo de Inicio de Sesión</option>
+            <option value="banner_promo">Banner Promocional / Publicidad</option>
+          </select>
+        </div>
+        <div class="campo">
+          <label>Título del Video</label>
+          <input type="text" id="adminVideoTitleInput" placeholder="Ej: Video oficial de carga Link 2025">
+        </div>
+        <div class="campo">
+          <label>Descripción u Observaciones (opcional)</label>
+          <input type="text" id="adminVideoDescInput" placeholder="Ej: Animación gráfica neón de alta calidad">
+        </div>
+        <div class="campo">
+          <label>Seleccionar Archivo de Video (.mp4, .webm, .mov)</label>
+          <input type="file" id="adminVideoFileInput" accept="video/mp4,video/webm,video/quicktime,video/*">
+        </div>
+        <button type="button" class="btn btn-primario" id="adminBtnUploadPlatformVideo" style="width:100%; margin-top:8px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:6px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Subir Video a la Base de Datos
+        </button>
+      </div>
+
+      <h4 style="margin:0 0 12px 0; font-size:14px; font-weight:700;">Videos Activos Registrados</h4>
+      <div id="adminListaPlatformVideos" style="display:flex; flex-direction:column; gap:12px;"></div>
     </div>
 
     <!-- SECCIÓN ADMINISTRATIVA DE MONETIZACIÓN -->

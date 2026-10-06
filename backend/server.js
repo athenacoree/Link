@@ -52,6 +52,7 @@ app.use('/api/misiones', require('./routes/missions'));
 app.use('/api/missions', require('./routes/missions'));
 app.use('/api/image-editor', require('./routes/imageEditor'));
 app.use('/api/videos', require('./routes/videoRoutes'));
+app.use('/api/platform-videos', require('./routes/platformVideos'));
 app.use('/api/tools', require('./routes/tools'));
 
 // Endpoint para Android App Links (Digital Asset Links)
