@@ -3,7 +3,13 @@ const { query } = require('../db/postgres');
 
 async function requireAuth(req, res, next) {
   const header = req.headers.authorization || '';
-  const token = header.startsWith('Bearer ') ? header.slice(7) : null;
+  let token = header.startsWith('Bearer ') ? header.slice(7) : null;
+  if (!token && req.query && req.query.token) {
+    token = req.query.token;
+  }
+  if (token) {
+    token = String(token).trim().replace(/^["']|["']$/g, '');
+  }
   if (!token) return res.status(401).json({ error: 'No autenticado. Falta el token.' });
   try {
     const payload = verifyToken(token);

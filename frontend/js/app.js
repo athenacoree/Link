@@ -2244,7 +2244,10 @@ function pintarPublicacion(p) {
     </div>`;
 }
 
-function escaparHTMLGlobal(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+function escaparHTML(s) { if (s == null) return ''; const d = document.createElement('div'); d.textContent = String(s); return d.innerHTML; }
+function escaparHTMLGlobal(s) { return escaparHTML(s); }
+window.escaparHTML = escaparHTML;
+window.escaparHTMLGlobal = escaparHTMLGlobal;
 
 function procesarTextosYDriveLinks(texto) {
   if (!texto) return '';
@@ -4427,14 +4430,15 @@ $('adminBtnUploadPlatformVideo')?.addEventListener('click', async () => {
 
   try {
     const token = typeof Sesion !== 'undefined' ? Sesion.token() : null;
+    console.log('[PlatformVideoUpload] Token obtenido de Sesion.token():', token ? `${token.substring(0, 10)}...` : 'null/vacio');
     if (!token) {
       mostrarToast('Tu sesión expiró, vuelve a iniciar sesión.');
       return;
     }
 
-    const res = await fetch('/api/platform-videos/admin/upload', {
+    const res = await fetch(`/api/platform-videos/admin/upload?token=${encodeURIComponent(token)}`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { 'Authorization': `Bearer ${token}` },
       body: formData
     });
 
