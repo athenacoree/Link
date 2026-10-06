@@ -4351,9 +4351,11 @@ document.querySelectorAll('#vistaAdmin > .admin-body > .sub-tabs > .sub-tab[data
     $('adminVistaEditorDB')?.classList.toggle('oculto', target !== 'editor-db');
     $('adminVistaAPK')?.classList.toggle('oculto', target !== 'apk-gestion');
     $('adminVistaVideos')?.classList.toggle('oculto', target !== 'videos-gestion');
+    $('adminVistaYouTube')?.classList.toggle('oculto', target !== 'youtube-gestion');
     $('adminVistaMonetizacion')?.classList.toggle('oculto', target !== 'monetizacion');
     if (target === 'apk-gestion') cargarAdminGestionAPK();
     if (target === 'videos-gestion') cargarAdminPlatformVideos();
+    if (target === 'youtube-gestion') cargarAdminCanalesYouTube();
     if (target === 'reportes') cargarAdminReportes('pendiente');
     if (target === 'anuncios') cargarAdminAnuncios();
     if (target === 'ai-config') { cargarAdminAIConfig(); adminCargarExperienciasYEventos(); }
@@ -5874,6 +5876,124 @@ window.reclamarMision = async function(key) {
 };
 
 /* ================= FUNCION STANDALONE LATIDO APP ================= */
+/* ================= FUNCIONES ADMINISTRACIÓN YOUTUBE ================= */
+function extractYouTubeIdJS(url) {
+  if (!url || typeof url !== 'string') return null;
+  const trimmed = url.trim();
+  const regExp = /^(?:https?:\/\/)?(?:www\.)?(?:m\.)?(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})(?:[?&].*)?$/;
+  const match = trimmed.match(regExp);
+  return (match && match[1]) ? match[1] : null;
+}
+
+window.adminVistaPreviaYouTube = function() {
+  const urlInput = $('adminYTUrlInput');
+  const detectedEl = $('adminYTDetectedId');
+  const previewContainer = $('adminYTPreviewContainer');
+  const previewIFrame = $('adminYTPreviewIFrame');
+
+  if (!urlInput) return;
+  const url = urlInput.value.trim();
+  const videoId = extractYouTubeIdJS(url);
+
+  if (videoId) {
+    if (detectedEl) detectedEl.value = videoId;
+    if (previewIFrame) previewIFrame.src = `https://www.youtube.com/embed/${videoId}`;
+    if (previewContainer) previewContainer.style.display = 'block';
+  } else {
+    if (detectedEl) detectedEl.value = url ? 'URL no válida' : '';
+    if (previewContainer) previewContainer.style.display = 'none';
+    if (previewIFrame) previewIFrame.src = '';
+  }
+};
+
+async function cargarAdminCanalesYouTube() {
+  const contenedor = $('adminListaCanalesYouTube');
+  if (!contenedor) return;
+
+  contenedor.innerHTML = `<div style="text-align:center; padding:16px; color:var(--texto-500);">Cargando canales...</div>`;
+
+  try {
+    const res = await api('/linkvideo/youtube/channels');
+    const channels = (res && res.channels) ? res.channels : [];
+
+    if (channels.length === 0) {
+      contenedor.innerHTML = `<div style="text-align:center; padding:16px; color:var(--texto-500);">No se encontraron canales.</div>`;
+      return;
+    }
+
+    contenedor.innerHTML = channels.map(ch => {
+      const isAct = ch.is_active && ch.video_id;
+      const statusBadge = isAct
+        ? `<span style="font-size:10px; font-weight:800; background:#ef4444; color:#fff; padding:3px 8px; border-radius:12px; text-transform:uppercase;">● ACTIVO (${ch.currentTime || 0}s)</span>`
+        : `<span style="font-size:10px; font-weight:800; background:var(--texto-500); color:#fff; padding:3px 8px; border-radius:12px; text-transform:uppercase;">INACTIVO</span>`;
+
+      return `
+        <div class="card" style="padding:14px; border-radius:14px; background:var(--blanco); border:1px solid var(--borde); display:flex; flex-direction:column; gap:8px;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div style="font-weight:800; font-size:14px; color:var(--morado-700);">${escapeHTMLLinkVideo(ch.channel_name || ch.channel_id)}</div>
+            ${statusBadge}
+          </div>
+          ${isAct ? `
+            <div style="font-size:12.5px; color:var(--texto-800); font-weight:700;">${escapeHTMLLinkVideo(ch.title || 'Video activo')}</div>
+            <div style="font-size:11px; color:var(--texto-500); font-family:monospace;">ID: ${ch.video_id}</div>
+            <div style="border-radius:10px; overflow:hidden; margin-top:4px;">
+              <iframe src="https://www.youtube.com/embed/${ch.video_id}" style="width:100%; height:160px; border:none;" allowfullscreen></iframe>
+            </div>
+            <button class="btn btn-secundario peligro" style="width:100%; padding:8px; font-size:12px; font-weight:700;" onclick="window.adminDetenerVideoYouTube('${ch.channel_id}')">
+              ⏹️ Detener Transmisión del Canal
+            </button>
+          ` : `
+            <div style="font-size:12px; color:var(--texto-500); italic;">No hay transmisión activa en este canal.</div>
+          `}
+        </div>
+      `;
+    }).join('');
+  } catch (err) {
+    console.error('Error al cargar canales de YouTube:', err);
+    contenedor.innerHTML = `<div style="text-align:center; padding:16px; color:var(--peligro);">No se pudieron cargar los canales de YouTube.</div>`;
+  }
+}
+window.cargarAdminCanalesYouTube = cargarAdminCanalesYouTube;
+
+window.adminPublicarVideoYouTube = async function() {
+  const url = $('adminYTUrlInput')?.value.trim();
+  const title = $('adminYTTitleInput')?.value.trim();
+  const channelId = $('adminYTChannelSelect')?.value;
+
+  if (!url || !channelId) {
+    if (window.mostrarToast) mostrarToast('Por favor introduce una URL de YouTube y selecciona un canal.');
+    return;
+  }
+
+  try {
+    const res = await api('/linkvideo/youtube/admin/publish', 'POST', { channelId, url, title });
+    if (res && res.ok) {
+      if (window.mostrarToast) mostrarToast('¡Video de YouTube publicado con éxito en ' + channelId + '!');
+      if ($('adminYTUrlInput')) $('adminYTUrlInput').value = '';
+      if ($('adminYTTitleInput')) $('adminYTTitleInput').value = '';
+      window.adminVistaPreviaYouTube();
+      await cargarAdminCanalesYouTube();
+    } else {
+      throw new Error(res.error || 'Error al publicar video');
+    }
+  } catch (err) {
+    if (window.mostrarToast) mostrarToast(err.message || 'No se pudo publicar el video.');
+  }
+};
+
+window.adminDetenerVideoYouTube = async function(channelId) {
+  if (!confirm('¿Deseas finalizar la transmisión activa en este canal?')) return;
+  try {
+    const res = await api('/linkvideo/youtube/admin/stop', 'POST', { channelId });
+    if (res && res.ok) {
+      if (window.mostrarToast) mostrarToast('Transmisión del canal ' + channelId + ' finalizada.');
+      await cargarAdminCanalesYouTube();
+    }
+  } catch (err) {
+    if (window.mostrarToast) mostrarToast('Error al detener la transmisión.');
+  }
+};
+
 window.toggleLatidoApp = function() {
   const body = document.body;
   const btn = document.getElementById('btnCuboLatido');

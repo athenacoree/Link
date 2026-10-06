@@ -1,28 +1,118 @@
 const express = require('express');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireAdmin } = require('../middleware/auth');
 const videoStreamTool = require('../tools/videoStreamTool');
 const linkVideoService = require('../services/linkVideoService');
+const youtubeService = require('../services/youtubeService');
+const realtime = require('../utils/realtime');
 
 const router = express.Router();
 
 /**
- * GET /api/linkvideo/catalog - Obtener el catálogo de streaming de películas/audio/video de Link Video
+ * GET /api/linkvideo/catalog - Obtener el catálogo de streaming de películas/audio/video de Link Video y canales de YouTube
  */
 router.get('/catalog', requireAuth, async (req, res) => {
   try {
     const forceRefresh = req.query.refresh === 'true';
     const catalog = await linkVideoService.getCatalog(forceRefresh);
     const activeLives = await linkVideoService.getActiveLiveSessions();
+    const ytChannels = await youtubeService.getChannels();
     res.json({
       base_url: linkVideoService.getLinkVideoBaseUrl(),
       catalog,
-      lives: activeLives
+      lives: activeLives,
+      youtubeChannels: ytChannels
     });
   } catch (err) {
     console.error('Error al obtener catálogo de Link Video:', err);
     res.status(500).json({ error: 'No se pudo obtener el catálogo de Link Video.' });
   }
 });
+
+// ---------------- RUTAS DE CANALES DE YOUTUBE ----------------
+
+/**
+ * GET /api/linkvideo/youtube/channels - Listar todos los canales de YouTube de Link Video
+ */
+router.get('/youtube/channels', requireAuth, async (req, res) => {
+  try {
+    const channels = await youtubeService.getChannels();
+    res.json({ ok: true, channels });
+  } catch (err) {
+    console.error('Error al obtener canales de YouTube:', err);
+    res.status(500).json({ error: 'Error al consultar canales de YouTube.' });
+  }
+});
+
+/**
+ * POST /api/linkvideo/youtube/admin/preview - Vista previa y validación de una URL de YouTube
+ */
+router.post('/youtube/admin/preview', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { url } = req.body;
+    const videoId = youtubeService.extractYouTubeId(url);
+    if (!videoId) {
+      return res.status(400).json({ error: 'La URL ingresada no es una URL de YouTube válida. Soportados: youtube.com/watch?v=ID, youtu.be/ID, youtube.com/shorts/ID.' });
+    }
+    res.json({
+      ok: true,
+      videoId,
+      embedUrl: `https://www.youtube.com/embed/${videoId}`
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Error al procesar vista previa de YouTube.' });
+  }
+});
+
+/**
+ * POST /api/linkvideo/youtube/admin/publish - Publicar / iniciar un video en un canal de Link Video
+ */
+router.post('/youtube/admin/publish', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { channelId, url, title } = req.body;
+    if (!channelId || !url) {
+      return res.status(400).json({ error: 'Falta seleccionar el canal o la URL de YouTube.' });
+    }
+
+    const channel = await youtubeService.setChannelVideo({ channelId, url, title });
+
+    // Notificar en tiempo real a todos los usuarios conectados vía Sockets
+    const io = realtime.getIO();
+    if (io) {
+      io.emit('youtube:channel_updated', { channel });
+    }
+
+    res.json({ ok: true, channel });
+  } catch (err) {
+    console.error('Error al publicar video de YouTube:', err);
+    res.status(400).json({ error: err.message || 'Error al publicar video de YouTube.' });
+  }
+});
+
+/**
+ * POST /api/linkvideo/youtube/admin/stop - Finalizar transmisión activa en un canal de YouTube
+ */
+router.post('/youtube/admin/stop', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { channelId } = req.body;
+    if (!channelId) {
+      return res.status(400).json({ error: 'Falta indicar el canal a detener.' });
+    }
+
+    const channel = await youtubeService.stopChannelVideo(channelId);
+
+    const io = realtime.getIO();
+    if (io) {
+      io.emit('youtube:channel_updated', { channel });
+    }
+
+    res.json({ ok: true, channel });
+  } catch (err) {
+    console.error('Error al detener transmisión de YouTube:', err);
+    res.status(400).json({ error: err.message || 'Error al detener transmisión.' });
+  }
+});
+
+// ---------------- RUTAS DE LINK LIVE (TRANSMISIONES EN VIVO) ----------------
 
 /**
  * GET /api/linkvideo/live/active - Listar transmisiones en vivo activas

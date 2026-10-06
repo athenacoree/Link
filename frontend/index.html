@@ -205,6 +205,16 @@
       </div>
 
 
+      <!-- Sección Canales de YouTube en Vivo -->
+      <div id="linkYouTubeChannelsSection" style="margin-bottom:24px; display:none;">
+        <div class="linkvideo-section-title" style="color:var(--rojo-700, #dc2626);">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="vertical-align:middle; margin-right:4px;"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z"/><polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"/></svg>
+          Canales de YouTube (Transmisión Directa)
+        </div>
+        <div id="linkYouTubeChannelsGrid" class="linkvideo-cards-grid">
+        </div>
+      </div>
+
       <!-- Sección Transmisiones en Vivo Persistentes (Link Live) -->
       <div id="linkLiveActiveSection" style="margin-bottom:24px; display:none;">
         <div class="linkvideo-section-title">
@@ -745,6 +755,7 @@
       <div class="sub-tab" data-admintab="editor-db">Editor SQL / Tablas</div>
       <div class="sub-tab" data-admintab="apk-gestion">Gestión de APK</div>
       <div class="sub-tab" data-admintab="videos-gestion">Gestión de Videos</div>
+      <div class="sub-tab" data-admintab="youtube-gestion">Canales YouTube</div>
       <div class="sub-tab" data-admintab="monetizacion">Monetización</div>
     </div>
 
@@ -1078,6 +1089,60 @@
           <input type="url" id="adminAPKUrlActual" placeholder="https://github.com/.../app-release.apk o /apks/...">
         </div>
       </div>
+    </div>
+
+    <!-- GESTIÓN DE CANALES DE YOUTUBE PARA LINK VIDEO -->
+    <div id="adminVistaYouTube" class="oculto" style="margin-top:16px;">
+      <p style="font-size:13.5px; color:var(--texto-600); margin-bottom:14px;">
+        Administra el contenido de YouTube incrustado en los canales de Link Video. Pega un enlace directo copiado de YouTube para detectar automáticamente su ID y publicarlo en el canal seleccionado.
+      </p>
+
+      <div style="background:var(--blanco); border:1px solid var(--borde); border-radius:14px; padding:16px; margin-bottom:18px;">
+        <h4 style="margin:0 0 12px 0; font-size:14px; font-weight:700;">📺 Publicar o cambiar video en un Canal</h4>
+
+        <div class="campo">
+          <label>URL de YouTube (watch, youtu.be o shorts)</label>
+          <input type="url" id="adminYTUrlInput" placeholder="https://www.youtube.com/watch?v=..." oninput="if(window.adminVistaPreviaYouTube) window.adminVistaPreviaYouTube()">
+          <div style="font-size:11.5px; color:var(--texto-500); margin-top:2px;">
+            Acepta formatos: youtube.com/watch?v=ID, youtu.be/ID, youtube.com/shorts/ID
+          </div>
+        </div>
+
+        <div class="campo">
+          <label>ID Detectado</label>
+          <input type="text" id="adminYTDetectedId" readonly placeholder="Aún no detectado" style="opacity:0.8; font-family:monospace; font-weight:700;">
+        </div>
+
+        <div class="campo">
+          <label>Título del Video (opcional)</label>
+          <input type="text" id="adminYTTitleInput" placeholder="Ej: Concierto en vivo, Película completa, LoFi Beats...">
+        </div>
+
+        <div class="campo">
+          <label>Canal de Link Video</label>
+          <select id="adminYTChannelSelect">
+            <option value="principal">Canal Principal</option>
+            <option value="musica">Canal Música</option>
+            <option value="cine">Canal Cine</option>
+            <option value="entretenimiento">Canal Entretenimiento</option>
+          </select>
+        </div>
+
+        <!-- Vista Previa IFrame antes de publicar -->
+        <div id="adminYTPreviewContainer" style="display:none; margin:12px 0; border:1px solid var(--borde); border-radius:12px; overflow:hidden; background:#000;">
+          <div style="padding:8px 12px; background:var(--hueso); font-size:12px; font-weight:700; color:var(--texto-800); border-bottom:1px solid var(--borde);">
+            Vista previa del reproductor:
+          </div>
+          <iframe id="adminYTPreviewIFrame" src="" style="width:100%; height:220px; border:none;" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+        </div>
+
+        <button type="button" class="btn btn-primario" id="adminBtnPublishYT" onclick="window.adminPublicarVideoYouTube()" style="width:100%; margin-top:8px; background:linear-gradient(135deg, #ef4444, #b91c1c); border:none; font-weight:800;">
+          <span>▶ Publicar Video en Canal</span>
+        </button>
+      </div>
+
+      <h4 style="margin:0 0 12px 0; font-size:14px; font-weight:700;">Canales de YouTube Registrados</h4>
+      <div id="adminListaCanalesYouTube" style="display:flex; flex-direction:column; gap:12px;"></div>
     </div>
 
     <!-- GESTIÓN DE VIDEOS DE LA PLATAFORMA Y CARTA DE CARGA -->
