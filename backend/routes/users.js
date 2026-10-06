@@ -59,6 +59,61 @@ router.get('/bloqueados', requireAuth, async (req, res) => {
   res.json({ bloqueados: rows.map(publicUser) });
 });
 
+// ---- Mi Panel de Métricas / Analíticas ----
+router.get('/me/panel-metricas', requireAuth, async (req, res) => {
+  try {
+    const [visitasRes, visitantesRes, likesRes, comentariosRes, amigosRes, publicacionesRes] = await Promise.all([
+      query(`SELECT COUNT(*) AS total FROM profile_views WHERE profile_id = $1 OR viewed_id = $1`, [req.userId]),
+      query(
+        `SELECT pv.created_at AS visto_at, u.id, u.name, u.avatar_data, u.city, u.country, u.flag_emoji, u.verified
+           FROM profile_views pv
+           JOIN users u ON u.id = pv.viewer_id
+          WHERE (pv.profile_id = $1 OR pv.viewed_id = $1) AND pv.viewer_id <> $1
+          ORDER BY pv.created_at DESC
+          LIMIT 25`,
+        [req.userId]
+      ),
+      query(`SELECT COUNT(*) AS total FROM post_likes pl JOIN posts p ON p.id = pl.post_id WHERE p.user_id = $1`, [req.userId]),
+      query(`SELECT COUNT(*) AS total FROM post_comments pc JOIN posts p ON p.id = pc.post_id WHERE p.user_id = $1`, [req.userId]),
+      query(`SELECT COUNT(*) AS total FROM friendships WHERE (user_a = $1 OR user_b = $1) AND status = 'amigos'`, [req.userId]),
+      query(`SELECT COUNT(*) AS total FROM posts WHERE user_id = $1`, [req.userId]),
+    ]);
+
+    const totalVisitas = parseInt(visitasRes.rows[0]?.total || '0', 10);
+    const totalLikes = parseInt(likesRes.rows[0]?.total || '0', 10);
+    const totalComentarios = parseInt(comentariosRes.rows[0]?.total || '0', 10);
+    const totalAmigos = parseInt(amigosRes.rows[0]?.total || '0', 10);
+    const totalPublicaciones = parseInt(publicacionesRes.rows[0]?.total || '0', 10);
+
+    const visitantes = visitantesRes.rows.map(v => ({
+      id: v.id,
+      name: v.name,
+      avatar_data: v.avatar_data,
+      city: v.city,
+      country: v.country,
+      flag_emoji: v.flag_emoji,
+      verified: v.verified,
+      visto_at: v.visto_at
+    }));
+
+    res.json({
+      ok: true,
+      stats: {
+        visitas: totalVisitas,
+        likes: totalLikes,
+        comentarios: totalComentarios,
+        amigos: totalAmigos,
+        publicaciones: totalPublicaciones,
+        alcance_estimado: (totalVisitas * 2) + (totalLikes * 3) + (totalComentarios * 5)
+      },
+      visitantes
+    });
+  } catch (err) {
+    console.error('[me/panel-metricas]', err);
+    res.status(500).json({ error: 'Error al obtener métricas del perfil.' });
+  }
+});
+
 // ---- Guardar configuraciones del usuario ----
 router.put('/me/configuraciones', requireAuth, async (req, res) => {
   const settings = req.body;
