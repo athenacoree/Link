@@ -2165,6 +2165,12 @@ function cambiarVista(nombre) {
   cerrarTodosLosModales();
   if (typeof finalizarConteoPerfil === 'function') finalizarConteoPerfil();
   window.scrollTo(0, 0);
+
+  if (typeof mostrarCargandoNeon === 'function') mostrarCargandoNeon();
+  setTimeout(() => {
+    if (typeof ocultarCargandoNeon === 'function') ocultarCargandoNeon();
+  }, 600);
+
   document.querySelectorAll('.vista-app').forEach((v) => {
     v.scrollTop = 0;
     v.classList.toggle('activo', v.dataset.vista === nombre);
@@ -4239,9 +4245,20 @@ $('btnAbrirConfiguraciones')?.addEventListener('click', () => {
   alternarSwitch('swAutoplayVoice', cfg.autoplay_voice_notes === true);
   if ($('cfgVisualDensity')) $('cfgVisualDensity').value = cfg.visual_density || 'normal';
   if ($('cfgDefaultStoryDur')) $('cfgDefaultStoryDur').value = cfg.default_story_duration || 24;
+  if ($('cfgVibrationLevel')) $('cfgVibrationLevel').value = localStorage.getItem('cfg_vibration_level') || 'medium';
+  if ($('cfgLatidoToggle')) $('cfgLatidoToggle').checked = document.body.classList.contains('latido-activo');
 
   $('veloConfiguraciones').classList.add('activo');
   $('hojaConfiguraciones').classList.add('activo');
+});
+
+$('cfgVibrationLevel')?.addEventListener('change', (e) => {
+  const level = e.target.value;
+  localStorage.setItem('cfg_vibration_level', level);
+  if (level !== 'off' && window.SonidosYVibracion) {
+    const patronMap = { high: [150, 50, 150], medium: [80], soft: [30] };
+    window.SonidosYVibracion.vibrar(patronMap[level] || [80]);
+  }
 });
 
 $('cerrarConfiguraciones')?.addEventListener('click', () => {
@@ -5556,7 +5573,10 @@ function dispararAnimacionNeonMensaje() {
 
   if (neonTimer) clearTimeout(neonTimer);
   neonTimer = setTimeout(() => {
-    overlay.classList.remove('activo');
+    const latidoActivo = document.body.classList.contains('latido-activo');
+    if (!latidoActivo) {
+      overlay.classList.remove('activo');
+    }
   }, Math.max(2000, durationSec * 1000));
 }
 window.dispararAnimacionNeonMensaje = dispararAnimacionNeonMensaje;
@@ -5603,6 +5623,7 @@ function initNeonConfigControls() {
 
 document.addEventListener('DOMContentLoaded', () => {
   initNeonConfigControls();
+  restaurarLatidoApp();
 });
 
 window.addEventListener('popstate', () => {
@@ -5897,7 +5918,8 @@ window.adminVistaPreviaYouTube = function() {
 
   if (videoId) {
     if (detectedEl) detectedEl.value = videoId;
-    if (previewIFrame) previewIFrame.src = `https://www.youtube.com/embed/${videoId}`;
+    const origin = window.location.origin ? encodeURIComponent(window.location.origin) : '';
+    if (previewIFrame) previewIFrame.src = `https://www.youtube.com/embed/${videoId}?enablejsapi=1${origin ? '&origin=' + origin : ''}`;
     if (previewContainer) previewContainer.style.display = 'block';
   } else {
     if (detectedEl) detectedEl.value = url ? 'URL no válida' : '';
@@ -5937,7 +5959,7 @@ async function cargarAdminCanalesYouTube() {
             <div style="font-size:12.5px; color:var(--texto-800); font-weight:700;">${escapeHTMLLinkVideo(ch.title || 'Video activo')}</div>
             <div style="font-size:11px; color:var(--texto-500); font-family:monospace;">ID: ${ch.video_id}</div>
             <div style="border-radius:10px; overflow:hidden; margin-top:4px;">
-              <iframe src="https://www.youtube.com/embed/${ch.video_id}" style="width:100%; height:160px; border:none;" allowfullscreen></iframe>
+              <iframe src="https://www.youtube.com/embed/${ch.video_id}?enablejsapi=1${window.location.origin ? '&origin=' + encodeURIComponent(window.location.origin) : ''}" style="width:100%; height:160px; border:none;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
             </div>
             <button class="btn btn-secundario peligro" style="width:100%; padding:8px; font-size:12px; font-weight:700;" onclick="window.adminDetenerVideoYouTube('${ch.channel_id}')">
               ⏹️ Detener Transmisión del Canal
@@ -5994,14 +6016,48 @@ window.adminDetenerVideoYouTube = async function(channelId) {
   }
 };
 
-window.toggleLatidoApp = function() {
+window.toggleLatidoApp = function(forceState = null) {
   const body = document.body;
   const btn = document.getElementById('btnCuboLatido');
-  const activo = body.classList.toggle('latido-activo');
+  const overlay = $('neonBorderOverlay');
+
+  let activo;
+  if (forceState !== null) {
+    activo = forceState;
+    body.classList.toggle('latido-activo', activo);
+  } else {
+    activo = body.classList.toggle('latido-activo');
+  }
+
+  localStorage.setItem('cfg_latido_enabled', activo ? 'true' : 'false');
+
   if (btn) {
     btn.classList.toggle('activo', activo);
   }
+
+  if (overlay) {
+    if (activo) {
+      overlay.classList.add('activo');
+    } else {
+      const enabledMessageNeon = localStorage.getItem('cfg_neon_enabled') !== 'false';
+      if (!enabledMessageNeon || !neonTimer) {
+        overlay.classList.remove('activo');
+      }
+    }
+  }
+
+  const toggleSwitch = $('cfgLatidoToggle');
+  if (toggleSwitch) {
+    toggleSwitch.checked = activo;
+  }
 };
+
+function restaurarLatidoApp() {
+  const guardado = localStorage.getItem('cfg_latido_enabled') === 'true';
+  if (guardado) {
+    window.toggleLatidoApp(true);
+  }
+}
 
 /* ================= GESTIÓN DINÁMICA DE MANIFEST ================= */
 function actualizarManifestPorGenero() {

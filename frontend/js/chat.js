@@ -114,7 +114,7 @@ const Chat = (() => {
             </div>
           </div>
           <div style="position:relative; padding-bottom:56.25%; height:0; overflow:hidden;">
-            <iframe id="${iframeId}" src="https://www.youtube.com/embed/${videoId}?autoplay=0&vq=small&enablejsapi=1" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="position:absolute; top:0; left:0; width:100%; height:100%; border:0;"></iframe>
+            <iframe id="${iframeId}" src="https://www.youtube.com/embed/${videoId}?autoplay=0&enablejsapi=1${window.location.origin ? '&origin=' + encodeURIComponent(window.location.origin) : ''}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen style="position:absolute; top:0; left:0; width:100%; height:100%; border:0;"></iframe>
           </div>
         </div>`;
       }
@@ -886,6 +886,17 @@ const Chat = (() => {
   let outAnimIndex = 0;
   let inAnimIndex = 0;
 
+  function resaltarUltimoMensajeSuyo() {
+    const contenedor = $('chatMensajes');
+    if (!contenedor) return;
+    const todasSuyas = contenedor.querySelectorAll('.burbuja.suya');
+    todasSuyas.forEach(el => el.classList.remove('burbuja-ultimo-mensaje-neon'));
+    if (todasSuyas.length > 0) {
+      const ultima = todasSuyas[todasSuyas.length - 1];
+      ultima.classList.add('burbuja-ultimo-mensaje-neon');
+    }
+  }
+
   function pintarBurbuja(msg, yoId, esHistorico = false) {
     const esMia = msg.senderId === yoId;
     const cont = document.createElement('div');
@@ -1188,6 +1199,7 @@ const Chat = (() => {
     if (cachedMsgs && cachedMsgs.length) {
       $('chatMensajes').innerHTML = '';
       cachedMsgs.forEach((m) => $('chatMensajes').appendChild(pintarBurbuja(m, yo.id, true)));
+      resaltarUltimoMensajeSuyo();
       scrollearAlFinal($('chatMensajes'));
     } else {
       $('chatMensajes').innerHTML = '<div class="aviso-vacio">Cargando conversación…</div>';
@@ -1199,7 +1211,7 @@ const Chat = (() => {
       if (!mensajes.length) {
         if (persona.is_ai) {
           $('chatMensajes').innerHTML = `
-            <div class="burbuja suya" style="max-width:85%;">
+            <div class="burbuja suya burbuja-ultimo-mensaje-neon" style="max-width:85%;">
               <div>¡Hola! Soy <b>Link AI</b>. ¿En qué te puedo ayudar hoy?</div>
               <div style="font-size:10px; opacity:0.7; margin-top:4px;">Justo ahora</div>
             </div>
@@ -1209,6 +1221,7 @@ const Chat = (() => {
         }
       } else {
         mensajes.forEach((m) => $('chatMensajes').appendChild(pintarBurbuja(m, yo.id, true)));
+        resaltarUltimoMensajeSuyo();
         scrollearAlFinal($('chatMensajes'));
 
         if (!persona.is_ai) {
@@ -1323,6 +1336,7 @@ const Chat = (() => {
             }
           }
           $('chatMensajes').appendChild(burbujaEl);
+          resaltarUltimoMensajeSuyo();
           $('chatMensajes').scrollTop = $('chatMensajes').scrollHeight;
           if (typeof cargarConversaciones === 'function') cargarConversaciones();
 
@@ -1428,6 +1442,7 @@ const Chat = (() => {
     if (navigator.vibrate) navigator.vibrate([20, 30, 20]);
     if (conversacionAbiertaCon && conversationId(yo.id, conversacionAbiertaCon.id) === msg.conversationId) {
       $('chatMensajes').appendChild(pintarBurbuja(msg, yo.id));
+      resaltarUltimoMensajeSuyo();
       $('chatMensajes').scrollTop = $('chatMensajes').scrollHeight;
 
       if (window.socket) {

@@ -263,7 +263,8 @@ window.LinkVideo = {
 
   reproducirYouTubeChannel(videoId, titulo, startSeconds = 0) {
     if (!videoId) return;
-    const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&start=${Math.max(0, startSeconds)}&enablejsapi=1`;
+    const origin = window.location.origin ? encodeURIComponent(window.location.origin) : '';
+    const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&enablejsapi=1&start=${Math.max(0, startSeconds)}${origin ? '&origin=' + origin : ''}`;
     if (window.abrirJuego) {
       window.abrirJuego(embedUrl, titulo || 'Canal YouTube', 'youtube_channel');
     } else {

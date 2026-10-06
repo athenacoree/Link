@@ -330,6 +330,27 @@ html[data-tema="oscuro"] .chat-header{background:rgba(18,14,28,0.55); border-bot
 .burbuja.mia{align-self:flex-end; background:linear-gradient(135deg, rgba(124, 58, 237, 0.92) 0%, rgba(109, 40, 217, 0.88) 100%); color:#ffffff; border-bottom-right-radius:6px; border:1px solid rgba(255,255,255,0.35); box-shadow:0 10px 28px -6px rgba(124, 58, 237, 0.42), 0 4px 10px -2px rgba(0,0,0,0.08), inset 0 1px 1px rgba(255,255,255,0.4);}
 .burbuja.suya{align-self:flex-start; background:rgba(255, 255, 255, 0.76); color:var(--texto-900); border:1.5px solid rgba(255, 255, 255, 0.85); border-bottom-left-radius:6px; box-shadow:0 10px 28px -6px rgba(0, 0, 0, 0.1), 0 4px 10px -2px rgba(0, 0, 0, 0.04), inset 0 1px 1.5px rgba(255, 255, 255, 0.9);}
 html[data-tema="oscuro"] .burbuja.suya{background:rgba(26, 22, 38, 0.76); border:1.5px solid rgba(255, 255, 255, 0.18); color:#f3f4f6; box-shadow:0 10px 28px -6px rgba(0, 0, 0, 0.6), 0 4px 10px -2px rgba(0, 0, 0, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.15);}
+
+.burbuja-ultimo-mensaje-neon {
+  border: 2px solid #8b5cf6 !important;
+  box-shadow: 0 0 12px rgba(139, 92, 246, 0.85), inset 0 0 8px rgba(99, 102, 241, 0.6) !important;
+  animation: pulsoNeonBurbuja 2.4s ease-in-out infinite alternate !important;
+}
+
+@keyframes pulsoNeonBurbuja {
+  0% {
+    border-color: #8b5cf6;
+    box-shadow: 0 0 8px rgba(139, 92, 246, 0.7), inset 0 0 6px rgba(139, 92, 246, 0.4);
+  }
+  50% {
+    border-color: #ec4899;
+    box-shadow: 0 0 16px rgba(236, 72, 153, 0.9), inset 0 0 10px rgba(236, 72, 153, 0.6);
+  }
+  100% {
+    border-color: #3b82f6;
+    box-shadow: 0 0 12px rgba(59, 130, 246, 0.8), inset 0 0 8px rgba(59, 130, 246, 0.5);
+  }
+}
 .burbuja img{max-width:100%; border-radius:10px; display:block; margin-top:4px;}
 .chat-input-barra{display:flex; align-items:center; gap:8px; padding:10px 12px calc(12px + env(safe-area-inset-bottom)); background:rgba(255,255,255,0.78); backdrop-filter:blur(18px) saturate(180%); -webkit-backdrop-filter:blur(180%); border-top:1px solid rgba(139,92,246,0.15); flex:0 0 auto; min-height:60px;}
 html[data-tema="oscuro"] .chat-input-barra{background:rgba(24,24,36,0.82); border-top-color:rgba(139,92,246,0.25);}
@@ -2422,34 +2443,47 @@ html[data-tema="oscuro"] .cuadrado-chat-burbuja {
 .neon-top, .neon-bottom, .neon-left, .neon-right {
   position: absolute;
   pointer-events: none !important;
-  box-shadow: 0 0 12px #00f0ff, 0 0 20px #ff007f;
+  box-shadow: 0 0 16px #7c3aed, 0 0 28px #dc2626, 0 0 36px #2563eb;
+  filter: saturate(200%);
 }
 
 .neon-top {
-  top: 0; left: -100%; width: 100%; height: var(--neon-border-width, 5px);
-  background: linear-gradient(90deg, transparent, #ff007f, #00f0ff, #00ff66, #ff00ff, transparent);
+  top: 0; left: -100%; width: 100%; height: var(--neon-border-width, 6px);
+  background: linear-gradient(90deg, transparent, #dc2626, #7c3aed, #2563eb, #059669, #dc2626, transparent);
   animation: neonRunTop var(--neon-spin-speed, 1.8s) linear infinite;
 }
 
 .neon-right {
-  top: -100%; right: 0; width: var(--neon-border-width, 5px); height: 100%;
-  background: linear-gradient(180deg, transparent, #ff007f, #00f0ff, #00ff66, #ff00ff, transparent);
+  top: -100%; right: 0; width: var(--neon-border-width, 6px); height: 100%;
+  background: linear-gradient(180deg, transparent, #dc2626, #7c3aed, #2563eb, #059669, #dc2626, transparent);
   animation: neonRunRight var(--neon-spin-speed, 1.8s) linear infinite;
   animation-delay: calc(var(--neon-spin-speed, 1.8s) * 0.25);
 }
 
 .neon-bottom {
-  bottom: 0; right: -100%; width: 100%; height: var(--neon-border-width, 5px);
-  background: linear-gradient(270deg, transparent, #ff007f, #00f0ff, #00ff66, #ff00ff, transparent);
+  bottom: 0; right: -100%; width: 100%; height: var(--neon-border-width, 6px);
+  background: linear-gradient(270deg, transparent, #dc2626, #7c3aed, #2563eb, #059669, #dc2626, transparent);
   animation: neonRunBottom var(--neon-spin-speed, 1.8s) linear infinite;
   animation-delay: calc(var(--neon-spin-speed, 1.8s) * 0.5);
 }
 
 .neon-left {
-  bottom: -100%; left: 0; width: var(--neon-border-width, 5px); height: 100%;
-  background: linear-gradient(0deg, transparent, #ff007f, #00f0ff, #00ff66, #ff00ff, transparent);
+  bottom: -100%; left: 0; width: var(--neon-border-width, 6px); height: 100%;
+  background: linear-gradient(0deg, transparent, #dc2626, #7c3aed, #2563eb, #059669, #dc2626, transparent);
   animation: neonRunLeft var(--neon-spin-speed, 1.8s) linear infinite;
   animation-delay: calc(var(--neon-spin-speed, 1.8s) * 0.75);
+}
+
+html[data-tema="claro"] .neon-top,
+html[data-tema="claro"] .neon-bottom,
+html[data-tema="claro"] .neon-left,
+html[data-tema="claro"] .neon-right,
+[data-theme="light"] .neon-top,
+[data-theme="light"] .neon-bottom,
+[data-theme="light"] .neon-left,
+[data-theme="light"] .neon-right {
+  box-shadow: 0 0 18px #6d28d9, 0 0 32px #b91c1c, 0 0 40px #1d4ed8;
+  filter: contrast(180%) brightness(1.2) saturate(220%);
 }
 
 @keyframes neonRunTop {
