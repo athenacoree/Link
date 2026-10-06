@@ -68,6 +68,15 @@ app.get('/.well-known/assetlinks.json', (req, res) => {
   }]);
 });
 
+// Servir directorio de APKs subidas
+const PUBLIC_APKS_DIR = path.join(__dirname, 'public', 'apks');
+app.use('/apks', express.static(PUBLIC_APKS_DIR, {
+  setHeaders: (res) => {
+    res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+    res.setHeader('Content-Disposition', 'attachment');
+  }
+}));
+
 // ---------------- Frontend (PWA estática) ----------------
 const FRONTEND_DIR = path.join(__dirname, '..', 'frontend');
 

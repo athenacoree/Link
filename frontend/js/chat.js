@@ -1455,6 +1455,10 @@ const Chat = (() => {
       }
     }
 
+    if (window.dispararAnimacionNeonMensaje) {
+      try { window.dispararAnimacionNeonMensaje(); } catch (e) {}
+    }
+
     if (window.AppBridge && window.AppBridge.vibrate) {
       try { window.AppBridge.vibrate(100); } catch (e) {}
     }

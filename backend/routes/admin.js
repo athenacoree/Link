@@ -8,7 +8,36 @@ const { publicUser, meUser } = require('../utils/serialize');
 const { getAISettings, chatCompletion } = require('../services/aiService');
 const { registry, stateManager, runGoogleServicesBootstrap, sanitizeObject } = require('../google-services');
 
+const fs = require('fs');
+const path = require('path');
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
+
+const apkStorageDir = path.join(__dirname, '..', 'public', 'apks');
+if (!fs.existsSync(apkStorageDir)) {
+  fs.mkdirSync(apkStorageDir, { recursive: true });
+}
+
+const apkDiskStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, apkStorageDir);
+  },
+  filename: (req, file, cb) => {
+    const safeName = 'enlace-bridge-' + Date.now() + '.apk';
+    cb(null, safeName);
+  }
+});
+const uploadApk = multer({
+  storage: apkDiskStorage,
+  limits: { fileSize: 150 * 1024 * 1024 }, // 150 MB max
+  fileFilter: (req, file, cb) => {
+    if (file.originalname.endsWith('.apk') || file.mimetype === 'application/vnd.android.package-archive' || file.mimetype === 'application/octet-stream') {
+      cb(null, true);
+    } else {
+      cb(null, true); // Permitir guardar el archivo
+    }
+  }
+});
+
 const router = express.Router();
 router.use(requireAuth, requireAdmin);
 
@@ -238,6 +267,42 @@ router.delete('/ai-characters/:id', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
+  }
+});
+
+// ---- SUBIDA Y GESTIÓN DE APK DEL ADMINISTRADOR ----
+router.post('/upload-apk', uploadApk.single('apk_file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'Por favor selecciona un archivo APK válido.' });
+    }
+
+    const apkVersion = (req.body.version || '1.0.1').trim();
+    const downloadUrl = `/apks/${req.file.filename}`;
+
+    await query(
+      `INSERT INTO system_settings (key, value, updated_at) VALUES ('apk_download_url', $1, now())
+       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
+      [downloadUrl]
+    );
+
+    await query(
+      `INSERT INTO system_settings (key, value, updated_at) VALUES ('apk_version', $1, now())
+       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
+      [apkVersion]
+    );
+
+    res.json({
+      ok: true,
+      mensaje: '¡APK subida y publicada con éxito!',
+      download_url: downloadUrl,
+      version: apkVersion,
+      filename: req.file.filename,
+      size: req.file.size
+    });
+  } catch (err) {
+    console.error('Error subiendo APK:', err);
+    res.status(500).json({ error: 'No se pudo subir la APK: ' + err.message });
   }
 });
 
