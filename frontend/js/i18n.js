@@ -110,7 +110,7 @@ const DICCIONARIO_I18N = {
     btn_guardar_pref: 'Guardar preferencias',
 
     // Enlace Bridge & Descarga Fotos
-    opt_descargar_bridge_app: 'App Bridge Android (Edición de Fotos)',
+    opt_descargar_bridge_app: 'Descargar APK Link (App Android)',
     btn_descargar_foto: 'Descargar Foto',
     btn_editar_app: 'Editar con App Bridge',
     bridge_modal_titulo: 'Vinculación con Enlace Bridge',
@@ -231,7 +231,7 @@ const DICCIONARIO_I18N = {
     btn_guardar_pref: 'Save preferences',
 
     // Enlace Bridge & Photo Download
-    opt_descargar_bridge_app: 'Android Bridge App (Photo Editing)',
+    opt_descargar_bridge_app: 'Download Link APK (Android App)',
     btn_descargar_foto: 'Download Photo',
     btn_editar_app: 'Edit with Bridge App',
     bridge_modal_titulo: 'Pairing with Enlace Bridge',

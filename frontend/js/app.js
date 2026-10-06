@@ -11,6 +11,19 @@ function mostrarToast(texto) {
   mostrarToast._t = setTimeout(() => t.classList.remove('activo'), 2600);
 }
 
+function mostrarCargandoNeon() {
+  const border = $('neonLoadingBorder');
+  if (border) border.classList.add('activo');
+}
+
+function ocultarCargandoNeon() {
+  const border = $('neonLoadingBorder');
+  if (border) border.classList.remove('activo');
+}
+
+window.mostrarCargandoNeon = mostrarCargandoNeon;
+window.ocultarCargandoNeon = ocultarCargandoNeon;
+
 function abrirVisorImagen(src) {
   if (!src) return;
   const visor = $('modalVisorImagen');
@@ -2630,7 +2643,8 @@ async function cargarDescubrir() {
 
   if (!targetElem) return;
 
-  // Mostrar un indicador visual sutil si la lista está completamente vacía
+  mostrarCargandoNeon();
+
   if (targetElem.children.length === 0) {
     targetElem.innerHTML = `<div class="aviso-vacio" style="padding: 24px; text-align: center;">Cargando personas en Descubrir...</div>`;
   }
@@ -2672,6 +2686,8 @@ async function cargarDescubrir() {
     if (!cachedFeed || !cachedFeed.length) {
       targetElem.innerHTML = `<div class="aviso-vacio">${e.message || 'Error al cargar las publicaciones de descubrir.'}</div>`;
     }
+  } finally {
+    ocultarCargandoNeon();
   }
 }
 async function buscarPersonas(q) {
@@ -3595,9 +3611,86 @@ async function abrirPerfil(personaId) {
       $('p-eliminar-amigo').classList.toggle('oculto', bloqueadoPorEllos || estado_amistad !== 'amigos');
     }
 
+    // Manejar visibilidad de pestaña "Mi Panel" (Solo visible si es mi propio perfil)
+    const tabPanel = $('tabPerfilPanel');
+    if (tabPanel) {
+      tabPanel.style.display = esMiPerfil ? 'block' : 'none';
+    }
+    // Volver a pestaña por defecto "publicaciones" al abrir perfil
+    cambiarTabPerfil('publicaciones');
+
     $('vistaPerfil').classList.add('activo');
   } catch (e) { mostrarToast(e.message); }
 }
+
+function cambiarTabPerfil(tabName) {
+  const tabPub = $('tabPerfilPublicaciones');
+  const tabPanel = $('tabPerfilPanel');
+  const secPub = $('p-publicaciones');
+  const secPanel = $('seccionMiPanelPerfil');
+  const comp = $('p-compositor');
+
+  if (tabPub) tabPub.classList.toggle('activo', tabName === 'publicaciones');
+  if (tabPanel) tabPanel.classList.toggle('activo', tabName === 'panel');
+
+  if (tabName === 'panel') {
+    if (secPub) secPub.classList.add('oculto');
+    if (comp) comp.classList.add('oculto');
+    if (secPanel) secPanel.classList.remove('oculto');
+    cargarMiPanelMetricas();
+  } else {
+    if (secPub) secPub.classList.remove('oculto');
+    if (comp && perfilActualId === Sesion.usuario()?.id) comp.classList.remove('oculto');
+    if (secPanel) secPanel.classList.add('oculto');
+  }
+}
+window.cambiarTabPerfil = cambiarTabPerfil;
+
+async function cargarMiPanelMetricas() {
+  const contVisitantes = $('listaVisitantesPerfil');
+  const countLabel = $('m-stat-visitantes-count');
+  if (!contVisitantes) return;
+
+  try {
+    const res = await api('/usuarios/me/panel-metricas');
+    const stats = res.stats || {};
+    const visitantes = res.visitantes || [];
+
+    if ($('m-stat-visitas')) $('m-stat-visitas').textContent = stats.visitas || 0;
+    if ($('m-stat-likes')) $('m-stat-likes').textContent = stats.likes || 0;
+    if ($('m-stat-comentarios')) $('m-stat-comentarios').textContent = stats.comentarios || 0;
+    if ($('m-stat-alcance')) $('m-stat-alcance').textContent = stats.alcance_estimado || 0;
+
+    const maxPuntos = 150;
+    const porcentaje = Math.min(100, Math.round(((stats.alcance_estimado || 0) / maxPuntos) * 100));
+    if ($('m-stat-nivel-porcentaje')) $('m-stat-nivel-porcentaje').textContent = `${porcentaje}%`;
+    if ($('m-stat-barra-progreso')) $('m-stat-barra-progreso').style.width = `${porcentaje}%`;
+
+    if (countLabel) countLabel.textContent = `${visitantes.length} personas recientes`;
+
+    if (!visitantes.length) {
+      contVisitantes.innerHTML = '<div style="text-align:center; padding:18px; color:var(--texto-500); font-size:12.5px; background:var(--blanco); border:1px solid var(--borde); border-radius:14px;">Aún no tienes visitas registradas de otros usuarios.</div>';
+      return;
+    }
+
+    contVisitantes.innerHTML = visitantes.map(v => `
+      <div style="display:flex; align-items:center; justify-space-between; padding:10px 12px; background:var(--blanco); border:1px solid var(--borde); border-radius:14px; cursor:pointer;" onclick="abrirPerfil('${v.id}')">
+        <div style="display:flex; align-items:center; gap:10px; min-width:0; flex:1;">
+          <img src="${avatarDe(v)}" style="width:38px; height:38px; border-radius:50%; object-fit:cover; border:1px solid var(--borde);" />
+          <div style="min-width:0; flex:1;">
+            <div style="font-weight:700; font-size:13px; color:var(--texto-900);">${nombreConBadge(v)}</div>
+            <div style="font-size:11px; color:var(--texto-500);">${v.flag_emoji || '🇨🇺'} ${v.city || 'Cuba'} · Visto ${tiempoRelativo(v.visto_at)}</div>
+          </div>
+        </div>
+        <button class="mini-btn primario" style="padding:5px 10px; font-size:11px;" onclick="event.stopPropagation(); abrirPerfil('${v.id}')">Ver perfil</button>
+      </div>
+    `).join('');
+  } catch (err) {
+    contVisitantes.innerHTML = `<div style="text-align:center; padding:16px; color:var(--rojo); font-size:12px;">Error al cargar métricas: ${err.message}</div>`;
+  }
+}
+window.cargarMiPanelMetricas = cargarMiPanelMetricas;
+
 $('p-volver').addEventListener('click', () => { cerrarTodosLosModales(); finalizarConteoPerfil(); $('vistaPerfil').classList.remove('activo'); });
 $('btnVerMiPerfil').addEventListener('click', () => abrirPerfil(Sesion.usuario().id));
 
@@ -4956,7 +5049,7 @@ async function abrirModalBridgePairing() {
 }
 window.abrirModalBridgePairing = abrirModalBridgePairing;
 
-$('btnDescargarBridgeApp')?.addEventListener('click', abrirModalBridgePairing);
+// btnDescargarBridgeApp redirecciona directamente al enlace de descarga del APK del Administrador (/api/bridge/download-apk)
 
 async function generarCodigoVinculacionBridge() {
   try {

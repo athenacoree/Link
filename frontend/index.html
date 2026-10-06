@@ -17,6 +17,16 @@
 <body>
 
 <!-- =========================================================
+     ANIMACIÓN BORDES NEÓN DE CARGA
+     ========================================================= -->
+<div id="neonLoadingBorder" class="neon-loading-border">
+  <div class="neon-line neon-top"></div>
+  <div class="neon-line neon-right"></div>
+  <div class="neon-line neon-bottom"></div>
+  <div class="neon-line neon-left"></div>
+</div>
+
+<!-- =========================================================
      PANTALLA DE CARGA / SPLASH SCREEN DE LA APLICACIÓN
      ========================================================= -->
 <div id="splashScreen" class="splash-screen">
@@ -268,11 +278,11 @@
         <div class="txt" style="font-weight:800; color:var(--morado-700);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--morado-700)" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z"/></svg> Descubre qué puedo hacer (Link AI)</div>
         <div class="chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></div>
       </div>
-      <div class="fila-ajustes" id="btnDescargarBridgeApp">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        <div class="txt" data-i18n="opt_descargar_bridge_app">App Bridge Android (Edición de Fotos)</div>
+      <a class="fila-ajustes" id="btnDescargarBridgeApp" href="/api/bridge/download-apk" download style="background: linear-gradient(135deg, rgba(16,185,129,0.1), rgba(59,130,246,0.06)); border: 1px solid rgba(16,185,129,0.25); text-decoration: none;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <div class="txt" style="font-weight: 800; color: var(--texto-900);" data-i18n="opt_descargar_bridge_app">Descargar APK Link (App Android)</div>
         <div class="chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></div>
-      </div>
+      </a>
       <div class="fila-ajustes" id="btnCodigoQR">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
         <div class="txt">Mi Código QR de Perfil</div>
@@ -546,17 +556,84 @@
     <div id="p-reputacion" style="margin:-4px 0 14px;"></div>
   </div>
 
+  <!-- Navegación por pestañas dentro del perfil (Publicaciones, Mi Panel, Detalles) -->
+  <div class="sub-tabs perfil-tabs-nav" style="margin: 0 20px 16px; display: flex; gap: 6px;">
+    <div class="sub-tab activo" id="tabPerfilPublicaciones" onclick="window.cambiarTabPerfil('publicaciones')">Publicaciones</div>
+    <div class="sub-tab" id="tabPerfilPanel" onclick="window.cambiarTabPerfil('panel')">📊 Mi Panel</div>
+  </div>
+
   <div class="interacciones">
     <div class="stat-box"><div class="n" id="p-stat-visitas">0</div><div class="l">VISITAS AL PERFIL</div></div>
     <div class="stat-box"><div class="n" id="p-stat-amigos">—</div><div class="l">ESTADO DE AMISTAD</div></div>
   </div>
-
 
   <div class="boton-porque-wrap oculto" id="p-porque-wrap">
     <div class="boton-porque" id="p-porque-btn">
       <span class="boton-porque-icono"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z"/></svg></span>
       <span>Por qué te la recomendamos</span>
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+    </div>
+  </div>
+
+  <!-- SECCIÓN "MI PANEL" (Estadísticas avanzadas, Visitas recientes, Rendimiento) -->
+  <div id="seccionMiPanelPerfil" class="seccion-mi-panel-perfil oculto" style="padding: 0 20px 24px;">
+    <div class="tarjeta-panel-hero" style="background: linear-gradient(135deg, rgba(139,92,246,0.15), rgba(236,72,153,0.1)); border: 1px solid rgba(139,92,246,0.25); border-radius: 20px; padding: 18px; margin-bottom: 16px; backdrop-filter: blur(12px);">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <div style="width:36px; height:36px; border-radius:12px; background:var(--morado-600); color:#fff; display:flex; align-items:center; justify-content:center; font-size:18px;">📈</div>
+          <div>
+            <div style="font-weight:800; font-size:16px; color:var(--texto-900);">Mi Panel Profesional</div>
+            <div style="font-size:11.5px; color:var(--texto-500);">Métricas reales de interacción y visitas a tu perfil</div>
+          </div>
+        </div>
+        <button class="mini-btn primario" onclick="window.cargarMiPanelMetricas()" style="padding:6px 10px; font-weight:700;">Refrescar</button>
+      </div>
+
+      <!-- Cuadrícula 2x2 de métricas -->
+      <div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:10px; margin-bottom:12px;">
+        <div class="tarjeta-metrica-card" style="background:var(--blanco); border:1px solid var(--borde); border-radius:14px; padding:12px; text-align:center;">
+          <div style="font-size:22px; font-weight:900; color:var(--morado-600);" id="m-stat-visitas">0</div>
+          <div style="font-size:11px; font-weight:700; color:var(--texto-500); text-transform:uppercase;">Visitas totales</div>
+        </div>
+        <div class="tarjeta-metrica-card" style="background:var(--blanco); border:1px solid var(--borde); border-radius:14px; padding:12px; text-align:center;">
+          <div style="font-size:22px; font-weight:900; color:#ec4899;" id="m-stat-likes">0</div>
+          <div style="font-size:11px; font-weight:700; color:var(--texto-500); text-transform:uppercase;">Me gusta recibidos</div>
+        </div>
+        <div class="tarjeta-metrica-card" style="background:var(--blanco); border:1px solid var(--borde); border-radius:14px; padding:12px; text-align:center;">
+          <div style="font-size:22px; font-weight:900; color:#3b82f6;" id="m-stat-comentarios">0</div>
+          <div style="font-size:11px; font-weight:700; color:var(--texto-500); text-transform:uppercase;">Comentarios</div>
+        </div>
+        <div class="tarjeta-metrica-card" style="background:var(--blanco); border:1px solid var(--borde); border-radius:14px; padding:12px; text-align:center;">
+          <div style="font-size:22px; font-weight:900; color:#10b981;" id="m-stat-alcance">0</div>
+          <div style="font-size:11px; font-weight:700; color:var(--texto-500); text-transform:uppercase;">Puntos de alcance</div>
+        </div>
+      </div>
+
+      <!-- Barra de impacto -->
+      <div style="background:var(--blanco); border:1px solid var(--borde); border-radius:14px; padding:10px 14px;">
+        <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:700; margin-bottom:6px;">
+          <span>Nivel de interacción de la comunidad</span>
+          <span id="m-stat-nivel-porcentaje" style="color:var(--morado-600);">0%</span>
+        </div>
+        <div style="width:100%; height:8px; background:var(--borde); border-radius:10px; overflow:hidden;">
+          <div id="m-stat-barra-progreso" style="width:0%; height:100%; background:linear-gradient(90deg, #8b5cf6, #ec4899); transition:width 0.6s ease;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Lista de Personas que Han Visitado tu Perfil -->
+    <div style="margin-top:18px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <div style="font-weight:800; font-size:14px; color:var(--texto-900); display:flex; align-items:center; gap:6px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          Personas que han visto tu perfil
+        </div>
+        <div style="font-size:11px; color:var(--texto-500);" id="m-stat-visitantes-count">0 visitantes</div>
+      </div>
+
+      <div id="listaVisitantesPerfil" style="display:flex; flex-direction:column; gap:8px;">
+        <div style="text-align:center; padding:16px; color:var(--texto-500); font-size:12.5px;">Cargando visitantes...</div>
+      </div>
     </div>
   </div>
 
