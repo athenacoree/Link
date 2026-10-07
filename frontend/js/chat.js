@@ -2421,55 +2421,91 @@ window.cerrarModalRecomendarVideo = function() {
   }
 };
 
+let _cacheRecomendarVideos = null;
+
+function normalizarTextoBusqueda(str) {
+  if (!str) return '';
+  return String(str)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .trim();
+}
+
 window.buscarVideosParaRecomendar = async function(queryStr) {
   const cont = $('listaResultadosRecomendarVideo');
   if (!cont) return;
 
-  const q = (queryStr || '').trim().toLowerCase();
-  let items = [];
+  const rawQ = (queryStr || '').trim();
+  const qNorm = normalizarTextoBusqueda(rawQ);
+  const qTokens = qNorm.split(/\s+/).filter(Boolean);
 
-  if (window.LinkVideo && Array.isArray(window.LinkVideo.collections)) {
-    window.LinkVideo.collections.forEach(col => {
-      if (Array.isArray(col.videos)) {
-        col.videos.forEach(v => {
-          items.push({
-            video_id: v.video_id,
-            title: v.title,
-            thumbnail_url: v.thumbnail_url || `https://img.youtube.com/vi/${v.video_id}/hqdefault.jpg`,
-            collection_name: col.name
+  let items = _cacheRecomendarVideos || [];
+
+  if (!items || items.length === 0) {
+    if (window.LinkVideo && Array.isArray(window.LinkVideo.collections)) {
+      window.LinkVideo.collections.forEach(col => {
+        if (Array.isArray(col.videos)) {
+          col.videos.forEach(v => {
+            items.push({
+              video_id: v.video_id,
+              title: v.title,
+              thumbnail_url: v.thumbnail_url || `https://img.youtube.com/vi/${v.video_id}/hqdefault.jpg`,
+              collection_name: col.name,
+              category: col.category || ''
+            });
           });
-        });
-      }
-    });
+        }
+      });
+    }
   }
 
-  if (items.length === 0) {
+  if (!items || items.length === 0) {
     try {
       const res = await api('/linkvideo/collections');
       if (res && res.collections) {
-        for (const col of res.collections) {
-          const detail = await api(`/linkvideo/collections/${col.id}`);
+        items = [];
+        const colPromises = res.collections.map(col => api(`/linkvideo/collections/${col.id}`).catch(() => null));
+        const details = await Promise.all(colPromises);
+        details.forEach(detail => {
           if (detail && detail.collection && Array.isArray(detail.collection.videos)) {
-            detail.collection.videos.forEach(v => {
+            const col = detail.collection;
+            col.videos.forEach(v => {
               items.push({
                 video_id: v.video_id,
                 title: v.title,
                 thumbnail_url: v.thumbnail_url || `https://img.youtube.com/vi/${v.video_id}/hqdefault.jpg`,
-                collection_name: col.name
+                collection_name: col.name,
+                category: col.category || ''
               });
             });
           }
+        });
+        if (items.length > 0) {
+          _cacheRecomendarVideos = items;
         }
       }
     } catch (e) {}
   }
 
-  if (q) {
-    items = items.filter(v => (v.title || '').toLowerCase().includes(q) || (v.collection_name || '').toLowerCase().includes(q));
+  let resultados = items;
+
+  if (qTokens.length > 0) {
+    resultados = items.filter(v => {
+      const titleNorm = normalizarTextoBusqueda(v.title);
+      const colNorm = normalizarTextoBusqueda(v.collection_name);
+      const catNorm = normalizarTextoBusqueda(v.category);
+      const fullTarget = `${titleNorm} ${colNorm} ${catNorm}`;
+
+      // Búsqueda flexible: coincide si todos los tokens o alguno de los tokens principales coincide con partials o substrings
+      return qTokens.every(token => fullTarget.includes(token)) ||
+             qTokens.some(token => token.length >= 3 && fullTarget.includes(token));
+    });
   }
 
-  if (items.length === 0) {
-    cont.innerHTML = `<div style="text-align:center; padding:20px; font-size:12px; color:var(--texto-500);">No se encontraron videos que coincidan con "${escapar(q)}".</div>`;
+  if (resultados.length === 0) {
+    cont.innerHTML = `<div style="text-align:center; padding:20px; font-size:12px; color:var(--texto-500);">No se encontraron videos que coincidan con "${escapar(rawQ)}".</div>`;
     return;
   }
 
