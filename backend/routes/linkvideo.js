@@ -60,7 +60,8 @@ router.get('/subtitles/:videoId', requireAuth, async (req, res) => {
  */
 router.get('/collections', requireAuth, async (req, res) => {
   try {
-    const collections = await linkVideoService.getCollections(req.userId);
+    const includeVideos = req.query.include_videos === 'true' || req.query.includeVideos === 'true';
+    const collections = await linkVideoService.getCollections(req.userId, { includeVideos });
     res.json({ ok: true, collections });
   } catch (err) {
     console.error('Error al obtener colecciones:', err);
