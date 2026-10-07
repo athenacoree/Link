@@ -9,10 +9,10 @@
 <link rel="manifest" id="manifestLink" href="/manifest.json">
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <link rel="icon" href="/icons/icon-192.png">
-  <link rel="stylesheet" href="/css/app.css?v=33">
-  <link rel="stylesheet" href="/css/call.css?v=33">
-  <link rel="stylesheet" href="/css/features.css?v=33">
-  <link rel="stylesheet" href="/css/ailab.css?v=33">
+  <link rel="stylesheet" href="/css/app.css?v=34">
+  <link rel="stylesheet" href="/css/call.css?v=34">
+  <link rel="stylesheet" href="/css/features.css?v=34">
+  <link rel="stylesheet" href="/css/ailab.css?v=34">
 </head>
 <body>
 
@@ -929,6 +929,38 @@
           <div class="grid-2">
             <div class="campo"><label>Frecuencia / Intervalo (Minutos)</label><input type="number" id="adminAILabAutoIntervalMin" value="0.5" step="0.1" min="0.1"></div>
             <div class="campo"><label>Límite de Turnos Consecutivos</label><input type="number" id="adminAILabAutoMaxTurns" value="10" min="1"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Panel Protección Extrema y Detección de Personas -->
+      <div class="panel-acordeon">
+        <div class="panel-header" onclick="toggleAcordeon(this)">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--morado-700)" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <span style="font-weight:700; font-size:14px;">Protección Extrema & Privacidad de Pantalla</span>
+          </div>
+          <svg class="chevron-acordeon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
+        </div>
+        <div class="panel-body">
+          <div class="campo" style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <div style="font-size:13px; font-weight:700;">Activar Protección Extrema</div>
+              <div style="font-size:11px; color:var(--texto-500);">Difumina contenido sensible si hay más personas o al tomar capturas</div>
+            </div>
+            <input type="checkbox" id="cfgProteccionExtremaToggle" style="width:20px; height:20px; cursor:pointer;" onchange="window.toggleProteccionExtrema(this.checked)">
+          </div>
+          <div class="campo">
+            <label>Secciones de la web sin protección (sin difuminado)</label>
+            <div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:8px; margin-top:6px;">
+              <label style="font-size:12px; font-weight:600; display:flex; align-items:center; gap:6px;"><input type="checkbox" class="chk-seccion-libre" value="feed" onchange="window.actualizarSeccionesLibresProteccion()"> Inicio / Feed</label>
+              <label style="font-size:12px; font-weight:600; display:flex; align-items:center; gap:6px;"><input type="checkbox" class="chk-seccion-libre" value="contactos" onchange="window.actualizarSeccionesLibresProteccion()"> Contactos</label>
+              <label style="font-size:12px; font-weight:600; display:flex; align-items:center; gap:6px;"><input type="checkbox" class="chk-seccion-libre" value="mensajes" onchange="window.actualizarSeccionesLibresProteccion()"> Mensajes</label>
+              <label style="font-size:12px; font-weight:600; display:flex; align-items:center; gap:6px;"><input type="checkbox" class="chk-seccion-libre" value="ailab" onchange="window.actualizarSeccionesLibresProteccion()"> Link Video</label>
+            </div>
+          </div>
+          <div class="campo" style="font-size:11.5px; color:var(--texto-600); background:var(--hueso); padding:10px; border-radius:10px; border:1px solid var(--borde);">
+            🔒 En chats, mantén presionado un mensaje o el botón enviar para enviarlo en <strong>Modo Seguro</strong> con el candadito. Si la cámara detecta más de 1 persona mirando, el contenido protegido se difuminará automáticamente.
           </div>
         </div>
       </div>
@@ -2081,6 +2113,7 @@
       <span style="font-size:24px; cursor:pointer;" data-emoji="😢">😢</span>
       <span style="font-size:24px; cursor:pointer;" data-emoji="🙏">🙏</span>
     </div>
+    <div class="hoja-opcion" id="opMsgModoSeguro" style="color:var(--morado-700); font-weight:700;">🔒 Cambiar / Activar Modo Seguro</div>
     <div class="hoja-opcion" id="opMsgCrearHilo" style="color:#d97706; font-weight:700;">Crear hilo 🧵</div>
     <div class="hoja-opcion" id="opMsgResponder">Responder / Citar</div>
     <div class="hoja-opcion" id="opMsgCopiar">Copiar texto</div>
@@ -2404,16 +2437,16 @@
 </div>
 
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-  <script src="/js/api.js?v=33"></script>
-  <script src="/js/paises.js?v=33"></script>
-  <script src="/js/i18n.js?v=33"></script>
-  <script src="/js/call.js?v=33"></script>
-  <script src="/js/chat.js?v=33"></script>
-  <script src="/js/features.js?v=33"></script>
-  <script src="/js/linkvideo.js?v=33"></script>
-  <script src="/js/ailab.js?v=33"></script>
-  <script src="/js/monetization.js?v=33"></script>
-  <script src="/js/app.js?v=33"></script>
+  <script src="/js/api.js?v=34"></script>
+  <script src="/js/paises.js?v=34"></script>
+  <script src="/js/i18n.js?v=34"></script>
+  <script src="/js/call.js?v=34"></script>
+  <script src="/js/chat.js?v=34"></script>
+  <script src="/js/features.js?v=34"></script>
+  <script src="/js/linkvideo.js?v=34"></script>
+  <script src="/js/ailab.js?v=34"></script>
+  <script src="/js/monetization.js?v=34"></script>
+  <script src="/js/app.js?v=34"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {

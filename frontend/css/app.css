@@ -93,16 +93,20 @@ img{max-width:100%;}
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 12px;
-  height: 28px;
-  background: rgba(15, 12, 28, 0.82);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  color: #ffffff;
-  border-bottom: 1px solid rgba(139, 92, 246, 0.3);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+  padding: 6px 14px;
+  height: 36px;
+  background: var(--blanco);
+  color: var(--texto-900);
+  border-bottom: 1.5px solid var(--borde);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
   cursor: pointer;
   transition: all 0.22s ease;
+}
+
+body[data-tema="oscuro"] .top-audio-banner {
+  background: var(--fondo-tarjeta);
+  color: var(--texto-900);
+  border-bottom: 1px solid var(--borde);
 }
 
 .top-audio-banner.oculto {
@@ -1929,16 +1933,21 @@ body[data-theme="dark"] .burbuja-pensamiento,
   position: fixed;
   bottom: 80px;
   right: 16px;
-  width: 170px;
-  height: 105px;
-  border-radius: 16px;
+  width: 180px;
+  height: 110px;
+  border-radius: 18px;
   overflow: hidden;
-  background: #000;
-  border: 2px solid #8b5cf6;
-  box-shadow: 0 12px 32px rgba(0,0,0,0.6);
+  background: var(--blanco);
+  border: 1.5px solid var(--morado-500, #8b5cf6);
+  box-shadow: 0 12px 32px rgba(0,0,0,0.25);
   z-index: 99999;
   display: flex;
   flex-direction: column;
+}
+
+body[data-tema="oscuro"] .pip-floating-bubble {
+  background: #09090b;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.7);
 }
 
 .pip-floating-bubble video {
@@ -1953,9 +1962,10 @@ body[data-theme="dark"] .burbuja-pensamiento,
   right: 6px;
   display: flex;
   gap: 6px;
-  background: rgba(0, 0, 0, 0.6);
-  padding: 3px 6px;
-  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(8px);
+  padding: 4px 8px;
+  border-radius: 12px;
   color: #fff;
 }
 
@@ -2765,16 +2775,19 @@ html[data-tema="oscuro"] .linkvideo-square-card {
   position: fixed;
   inset: 0;
   z-index: 100000;
-  background: rgba(10, 8, 20, 0.94);
-  backdrop-filter: blur(28px) saturate(180%);
-  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  background: var(--fondo-app, #faf8ff);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  padding: 12px 16px;
-  color: #ffffff;
+  padding: 8px 16px 20px;
+  color: var(--texto-900);
   overflow-y: auto;
+}
+
+body[data-tema="oscuro"] .hitv-player-modal {
+  background: #0f0c29;
+  color: #ffffff;
 }
 
 .hitv-close-btn {
@@ -2882,19 +2895,24 @@ html[data-tema="oscuro"] .linkvideo-square-card {
 .hitv-folder-video-card-item {
   display: flex;
   flex-direction: column;
-  background: rgba(20, 16, 36, 0.7);
-  border: 1px solid rgba(139, 92, 246, 0.3);
+  background: var(--blanco);
+  border: 1.5px solid var(--borde);
   border-radius: 20px;
   overflow: hidden;
   cursor: pointer;
   transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+}
+
+body[data-tema="oscuro"] .hitv-folder-video-card-item {
+  background: var(--fondo-tarjeta);
+  border-color: var(--borde);
 }
 
 .hitv-folder-video-card-item:hover, .hitv-folder-video-card-item.active {
-  border-color: rgba(167, 139, 250, 0.8);
+  border-color: var(--morado-600, #8b5cf6);
   transform: translateY(-2px);
-  box-shadow: 0 12px 32px rgba(124, 58, 237, 0.3);
+  box-shadow: 0 12px 32px rgba(124, 58, 237, 0.2);
 }
 
 .hitv-folder-card-thumb-wrap {
@@ -3068,4 +3086,48 @@ html[data-tema="oscuro"] .linkvideo-square-card {
   color: rgba(255, 255, 255, 0.8);
   letter-spacing: 0.4px;
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+}
+
+/* =========================================================
+   ESTILOS DE PROTECCIÓN EXTREMA / MODO SEGURO
+   ========================================================= */
+.elemento-protegido-difuminado {
+  filter: blur(14px) grayscale(40%) !important;
+  pointer-events: none !important;
+  user-select: none !important;
+  transition: filter 0.3s ease !important;
+}
+
+.icono-candado-candadito {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 3px;
+  vertical-align: middle;
+  color: var(--morado-600, #8b5cf6);
+}
+
+.alerta-seguridad-banner {
+  position: fixed;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000000;
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: #ffffff;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 12.5px;
+  font-weight: 800;
+  box-shadow: 0 8px 24px rgba(220, 38, 38, 0.4);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  animation: pulseBlinkAlert 1.5s infinite;
+}
+
+@keyframes pulseBlinkAlert {
+  0%, 100% { transform: translateX(-50%) scale(1); box-shadow: 0 8px 24px rgba(220, 38, 38, 0.4); }
+  50% { transform: translateX(-50%) scale(1.03); box-shadow: 0 12px 28px rgba(220, 38, 38, 0.7); }
 }

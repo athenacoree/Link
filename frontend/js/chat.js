@@ -899,9 +899,11 @@ const Chat = (() => {
 
   function pintarBurbuja(msg, yoId, esHistorico = false) {
     const esMia = msg.senderId === yoId;
+    const isModoSeguro = msg.isSecure || msg.modo_seguro || msg.is_secure;
     const cont = document.createElement('div');
     const animClass = esHistorico ? '' : (esMia ? 'msg-out-slide' : 'msg-in-slide');
-    cont.className = `burbuja ${esMia ? 'mia' : 'suya'} ${animClass}`.trim();
+    const seguroClass = isModoSeguro ? 'burbuja-modo-seguro' : '';
+    cont.className = `burbuja ${esMia ? 'mia' : 'suya'} ${animClass} ${seguroClass}`.trim();
     cont.dataset.id = msg.id;
 
     if (msg.deletedForAll) {
@@ -1142,8 +1144,14 @@ const Chat = (() => {
       }
     }
 
+    const candadoIcon = isModoSeguro ? `
+      <span class="icono-candado-candadito" title="Modo Seguro">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      </span>
+    ` : '';
+
     html += `<div style="display:flex; justify-content:flex-end; align-items:center; font-size:10px; opacity:0.75; margin-top:3px;">
-      <span>${horaCorta(msg.createdAt)}</span>${checkHtml}
+      ${candadoIcon}<span>${horaCorta(msg.createdAt)}</span>${checkHtml}
     </div>`;
 
     cont.innerHTML = html;
@@ -1375,6 +1383,8 @@ const Chat = (() => {
     enviarMensaje(texto, imagenBase64, audioBase64, audioDur);
   }
 
+  let envioModoSeguroForzado = false;
+
   function enviarMensaje(texto, imagenBase64, audioBase64, audioDur) {
     if (!conversacionAbiertaCon) return;
     if (!texto && !imagenBase64 && !audioBase64) return;
@@ -1382,11 +1392,15 @@ const Chat = (() => {
     reproducirSonidoChat('enviar');
     if (navigator.vibrate) navigator.vibrate(15);
 
+    const esSeguro = envioModoSeguroForzado;
+    envioModoSeguroForzado = false;
+
     if (conversacionAbiertaCon.is_ai) {
       const msgUser = {
         id: 'ai_user_' + Date.now(),
         senderId: Sesion.usuario().id,
         text: texto || '',
+        isSecure: esSeguro,
         createdAt: new Date().toISOString(),
       };
       $('chatMensajes').appendChild(pintarBurbuja(msgUser, Sesion.usuario().id));
@@ -1490,6 +1504,7 @@ const Chat = (() => {
       imageData: imagenBase64 || null,
       audioData: audioBase64 || null,
       audioDuration: audioDur || 0,
+      isSecure: esSeguro,
       replyToId: mensajeRespondiendo ? mensajeRespondiendo.id : null,
     }, async (respuesta) => {
       if (!respuesta.ok) { mostrarToast(respuesta.error || 'No se pudo enviar.'); return; }
@@ -1720,16 +1735,45 @@ const Chat = (() => {
     $('chatVolver').addEventListener('click', cerrarConversacion);
     $('chatCerrarReply')?.addEventListener('click', cancelarRespuesta);
 
-    $('chatBtnEnviar').addEventListener('click', () => {
-      const input = $('chatInputTexto');
-      const texto = input.value.trim();
-      if (!texto) return;
-      solicitarUbicacionYEnviar(texto, null, null, 0);
-      input.value = '';
-      if (window.socket && conversacionAbiertaCon) {
-        window.socket.emit('mensaje:detener_escribiendo', { receiverId: conversacionAbiertaCon.id });
-      }
-    });
+    let longPressTimerEnviar = null;
+    const btnEnviar = $('chatBtnEnviar');
+
+    if (btnEnviar) {
+      btnEnviar.addEventListener('touchstart', () => {
+        longPressTimerEnviar = setTimeout(() => {
+          envioModoSeguroForzado = true;
+          if (navigator.vibrate) navigator.vibrate([50, 50, 50]);
+          mostrarToast('🔒 Mensaje preparado en MODO SEGURO');
+        }, 600);
+      }, { passive: true });
+
+      btnEnviar.addEventListener('touchend', () => {
+        if (longPressTimerEnviar) clearTimeout(longPressTimerEnviar);
+      });
+
+      btnEnviar.addEventListener('mousedown', () => {
+        longPressTimerEnviar = setTimeout(() => {
+          envioModoSeguroForzado = true;
+          if (navigator.vibrate) navigator.vibrate([50, 50, 50]);
+          mostrarToast('🔒 Mensaje preparado en MODO SEGURO');
+        }, 600);
+      });
+
+      btnEnviar.addEventListener('mouseup', () => {
+        if (longPressTimerEnviar) clearTimeout(longPressTimerEnviar);
+      });
+
+      btnEnviar.addEventListener('click', () => {
+        const input = $('chatInputTexto');
+        const texto = input.value.trim();
+        if (!texto) return;
+        solicitarUbicacionYEnviar(texto, null, null, 0);
+        input.value = '';
+        if (window.socket && conversacionAbiertaCon) {
+          window.socket.emit('mensaje:detener_escribiendo', { receiverId: conversacionAbiertaCon.id });
+        }
+      });
+    }
 
     $('chatInputTexto').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') $('chatBtnEnviar').click();
@@ -1799,6 +1843,31 @@ const Chat = (() => {
     $('chatBtnExportar')?.addEventListener('click', exportarConversacionTxt);
 
     $('cerrarMensajeOp')?.addEventListener('click', cerrarMenuMensaje);
+    $('opMsgModoSeguro')?.addEventListener('click', () => {
+      cerrarMenuMensaje();
+      if (mensajeSeleccionado) {
+        mensajeSeleccionado.isSecure = !mensajeSeleccionado.isSecure;
+        mensajeSeleccionado.modo_seguro = mensajeSeleccionado.isSecure;
+        const msgElem = document.querySelector(`.burbuja[data-id="${mensajeSeleccionado.id}"]`);
+        if (msgElem) {
+          msgElem.classList.toggle('burbuja-modo-seguro', mensajeSeleccionado.isSecure);
+          let candado = msgElem.querySelector('.icono-candado-candadito');
+          if (mensajeSeleccionado.isSecure && !candado) {
+            const footer = msgElem.lastElementChild;
+            if (footer) {
+              footer.insertAdjacentHTML('afterbegin', `
+                <span class="icono-candado-candadito" title="Modo Seguro">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                </span>
+              `);
+            }
+          } else if (!mensajeSeleccionado.isSecure && candado) {
+            candado.remove();
+          }
+        }
+        mostrarToast(mensajeSeleccionado.isSecure ? '🔒 Mensaje puesto en MODO SEGURO' : '🔓 Modo seguro desactivado para el mensaje');
+      }
+    });
     $('opMsgFijar')?.addEventListener('click', async () => {
       cerrarMenuMensaje();
       if (mensajeSeleccionado) {

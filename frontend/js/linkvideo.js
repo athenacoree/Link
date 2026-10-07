@@ -1054,13 +1054,23 @@ window.LinkVideo = {
       banner.id = 'topAudioBanner';
       banner.className = 'top-audio-banner oculto';
       banner.onclick = () => this.reabrirReproductorModal();
+
+      const vectorMusicNote = `
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle; color:var(--morado-600, #8b5cf6);">
+          <path d="M9 18V5l12-2v13"></path>
+          <circle cx="6" cy="18" r="3"></circle>
+          <circle cx="18" cy="16" r="3"></circle>
+        </svg>
+      `;
+
       banner.innerHTML = `
-        <div style="display:flex; align-items:center; justify-content:space-between; width:100%; font-size:11px; font-weight:800; letter-spacing:0.3px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; width:100%; font-size:11.5px; font-weight:800; letter-spacing:0.2px;">
           <div style="display:flex; align-items:center; gap:6px; min-width:0;">
-            <span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:#a78bfa; animation:pulse 1.5s infinite;"></span>
-            <span id="topAudioTimeText" style="color:#ddd6fe; font-family:monospace;">00:00 / 00:00</span>
+            ${vectorMusicNote}
+            <span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--morado-600, #8b5cf6); animation:pulse 1.5s infinite;"></span>
+            <span id="topAudioTimeText" style="color:var(--morado-700, #7c3aed); font-family:monospace; font-weight:800;">00:00 / 00:00</span>
           </div>
-          <div style="font-size:10px; font-weight:700; color:rgba(255,255,255,0.7); text-transform:uppercase; text-overflow:ellipsis; overflow:hidden; white-space:nowrap; max-width:180px;" id="topAudioMiniTitle">
+          <div style="font-size:11px; font-weight:800; color:var(--texto-800); text-transform:uppercase; text-overflow:ellipsis; overflow:hidden; white-space:nowrap; max-width:220px;" id="topAudioMiniTitle">
             Link Video
           </div>
         </div>
