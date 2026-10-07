@@ -699,11 +699,14 @@ window.LinkVideo = {
   lastDisplayedCueText: null,
   subSyncInterval: null,
   ytPlayer: null,
+  activeVideoData: null,
+  isPlayingAudioBackground: false,
 
   async abrirReproductorLinkVideo(video) {
     if (!video || !video.video_id) return;
 
-    this.cerrarReproductorLinkVideo();
+    this.activeVideoData = video;
+    this.isPlayingAudioBackground = true;
 
     let modal = document.getElementById('modalPlayerLinkVideo');
     if (!modal) {
@@ -718,27 +721,38 @@ window.LinkVideo = {
     const colName = this.currentCollection ? this.currentCollection.name : 'Link Video';
 
     modal.innerHTML = `
-      <button onclick="LinkVideo.cerrarReproductorLinkVideo()" class="hitv-close-btn" title="Cerrar reproductor">&times;</button>
+      <button onclick="LinkVideo.minimizarOOcultarModalPlayer()" class="hitv-close-btn" title="Cerrar reproductor">&times;</button>
 
       <div class="hitv-player-wrapper">
+        <!-- El video se posiciona mas arriba -->
         <div class="hitv-video-container" id="linkVideoIframeContainer">
           <div id="linkVideoIframePlayer"></div>
+        </div>
 
-          <!-- Superposición de Subtítulos / Animación Aurora -->
-          <div class="hitv-subtitle-overlay" id="hitvSubtitleOverlay">
-            <div id="hitvSubtitlesText" class="hitv-subtitle-line hitv-subtitle-hidden"></div>
+        <!-- Area de Subtitulos / Animación Aurora (Debajo del video, NO encima del video) -->
+        <div class="hitv-subtitle-area" id="hitvSubtitleArea">
+          <div id="hitvSubtitlesText" class="hitv-subtitle-line hitv-subtitle-hidden"></div>
 
-            <div id="hitvAuroraContainer" class="hitv-aurora-container hitv-aurora-hidden">
-              <div class="hitv-aurora-sphere">
-                <div class="hitv-aurora-wave wave-1"></div>
-                <div class="hitv-aurora-wave wave-2"></div>
-                <div class="hitv-aurora-wave wave-3"></div>
-                <div class="hitv-aurora-core"></div>
-              </div>
-              <span class="hitv-aurora-notice">Subtítulos no disponibles</span>
+          <div id="hitvAuroraContainer" class="hitv-aurora-container hitv-aurora-hidden">
+            <div class="hitv-aurora-sphere">
+              <div class="hitv-aurora-wave wave-1"></div>
+              <div class="hitv-aurora-wave wave-2"></div>
+              <div class="hitv-aurora-wave wave-3"></div>
+              <div class="hitv-aurora-core"></div>
             </div>
+            <span class="hitv-aurora-notice">Subtítulos no disponibles</span>
           </div>
         </div>
+
+        <!-- Flechita para desplegar otros videos de la carpeta -->
+        <div style="display:flex; justify-content:center; width:100%; margin-top:8px;">
+          <button id="hitvFolderToggleBtn" class="hitv-folder-toggle-btn" onclick="LinkVideo.toggleFolderVideosList()" title="Ver otros vídeos de la carpeta">
+            <span id="hitvFolderToggleArrow">▲</span>
+          </button>
+        </div>
+
+        <!-- Contenedor desplegable de videos de la carpeta -->
+        <div id="hitvFolderVideosContainer" class="hitv-folder-videos-container" style="display:none;"></div>
       </div>
     `;
 
@@ -786,7 +800,12 @@ window.LinkVideo = {
             },
             onStateChange: (event) => {
               if (window.YT && event.data === YT.PlayerState.PLAYING) {
+                this.isPlayingAudioBackground = true;
                 this.iniciarSincronizacionSubtitulos();
+                this.actualizarAudioBannerTop();
+              } else if (window.YT && event.data === YT.PlayerState.PAUSED) {
+                this.isPlayingAudioBackground = false;
+                this.actualizarAudioBannerTop();
               } else {
                 this.detenerSincronizacionSubtitulos();
               }
@@ -833,6 +852,138 @@ window.LinkVideo = {
         navigator.mediaSession.setActionHandler('previoustrack', () => this.reproducirAnteriorVideo());
       } catch (e) {}
     }
+
+    this.actualizarAudioBannerTop();
+  },
+
+  toggleFolderVideosList() {
+    const container = document.getElementById('hitvFolderVideosContainer');
+    const arrow = document.getElementById('hitvFolderToggleArrow');
+    const subArea = document.getElementById('hitvSubtitleArea');
+    if (!container) return;
+
+    const isHidden = container.style.display === 'none';
+    if (isHidden) {
+      this.renderizarVideosCarpetaPlayer();
+      container.style.display = 'flex';
+      if (arrow) arrow.textContent = '▼';
+      if (subArea) subArea.style.display = 'none';
+    } else {
+      container.style.display = 'none';
+      if (arrow) arrow.textContent = '▲';
+      if (subArea) subArea.style.display = 'flex';
+    }
+  },
+
+  renderizarVideosCarpetaPlayer() {
+    const container = document.getElementById('hitvFolderVideosContainer');
+    if (!container) return;
+
+    const videos = this.currentVideos || [];
+    if (videos.length === 0) {
+      container.innerHTML = `<div style="text-align:center; padding:12px; color:rgba(255,255,255,0.7); font-size:12px;">No hay otros vídeos en esta carpeta.</div>`;
+      return;
+    }
+
+    container.innerHTML = videos.map((v, idx) => {
+      const isCurrent = idx === this.currentVideoIndex;
+      const thumb = v.thumbnail_url || `https://img.youtube.com/vi/${v.video_id}/hqdefault.jpg`;
+      return `
+        <div class="hitv-folder-video-item ${isCurrent ? 'active' : ''}" onclick="LinkVideo.reproducirVideoColeccion(${idx})">
+          <img class="hitv-folder-video-thumb" src="${thumb}" alt="${escapeHTMLLinkVideo(v.title)}">
+          <div class="hitv-folder-video-title">${escapeHTMLLinkVideo(v.title)}</div>
+          <span style="font-size:11px; font-weight:800; color:${isCurrent ? '#a78bfa' : 'rgba(255,255,255,0.6)'};">
+            ${isCurrent ? '▶ Reproduciendo' : 'Seleccionar'}
+          </span>
+        </div>
+      `;
+    }).join('');
+  },
+
+  minimizarOOcultarModalPlayer() {
+    const modal = document.getElementById('modalPlayerLinkVideo');
+    if (modal) {
+      modal.style.display = 'none';
+    }
+    this.actualizarAudioBannerTop();
+  },
+
+  reabrirReproductorModal() {
+    const modal = document.getElementById('modalPlayerLinkVideo');
+    if (modal) {
+      modal.style.display = 'flex';
+    }
+  },
+
+  actualizarAudioBannerTop() {
+    let banner = document.getElementById('topAudioBanner');
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id = 'topAudioBanner';
+      banner.className = 'top-audio-banner oculto';
+      banner.onclick = () => this.reabrirReproductorModal();
+      banner.innerHTML = `
+        <div class="top-audio-info">
+          <div class="top-audio-equalizer">
+            <span></span><span></span><span></span>
+          </div>
+          <div class="top-audio-text">
+            <div id="topAudioTitle" class="top-audio-title">Reproduciendo video</div>
+            <div id="topAudioSubtitle" class="top-audio-subtitle">Link Video</div>
+          </div>
+        </div>
+        <div class="top-audio-controls" onclick="event.stopPropagation()">
+          <button id="btnTopAudioPlayPause" class="top-audio-btn" onclick="LinkVideo.togglePlayPauseAudioBanner()">⏸️</button>
+          <button id="btnTopAudioClose" class="top-audio-btn close" onclick="LinkVideo.detenerYOtrosBannerAudio()">✕</button>
+        </div>
+      `;
+      const appShell = document.getElementById('appShell');
+      if (appShell) {
+        appShell.insertBefore(banner, appShell.firstChild);
+      } else {
+        document.body.insertBefore(banner, document.body.firstChild);
+      }
+    }
+
+    if (this.activeVideoData && this.isPlayingAudioBackground) {
+      const colName = this.currentCollection ? this.currentCollection.name : 'Link Video';
+      const titleEl = document.getElementById('topAudioTitle');
+      const subEl = document.getElementById('topAudioSubtitle');
+      const playPauseBtn = document.getElementById('btnTopAudioPlayPause');
+
+      if (titleEl) titleEl.textContent = this.activeVideoData.title || 'Video activo';
+      if (subEl) subEl.textContent = colName;
+      if (playPauseBtn) playPauseBtn.textContent = '⏸️';
+
+      banner.classList.remove('oculto');
+    } else if (this.activeVideoData && !this.isPlayingAudioBackground) {
+      const playPauseBtn = document.getElementById('btnTopAudioPlayPause');
+      if (playPauseBtn) playPauseBtn.textContent = '▶️';
+      banner.classList.remove('oculto');
+    } else {
+      banner.classList.add('oculto');
+    }
+  },
+
+  togglePlayPauseAudioBanner() {
+    if (!this.ytPlayer) return;
+    try {
+      if (typeof this.ytPlayer.getPlayerState === 'function') {
+        const state = this.ytPlayer.getPlayerState();
+        if (window.YT && state === YT.PlayerState.PLAYING) {
+          this.ytPlayer.pauseVideo();
+          this.isPlayingAudioBackground = false;
+        } else if (typeof this.ytPlayer.playVideo === 'function') {
+          this.ytPlayer.playVideo();
+          this.isPlayingAudioBackground = true;
+        }
+      }
+    } catch (e) {}
+    this.actualizarAudioBannerTop();
+  },
+
+  detenerYOtrosBannerAudio() {
+    this.cerrarReproductorLinkVideo();
   },
 
   crearIframeFallback(videoId) {
@@ -908,6 +1059,8 @@ window.LinkVideo = {
     this.detenerSincronizacionSubtitulos();
     this.currentCues = [];
     this.lastDisplayedCueText = null;
+    this.activeVideoData = null;
+    this.isPlayingAudioBackground = false;
 
     if (this.ytPlayer) {
       try {
@@ -927,6 +1080,8 @@ window.LinkVideo = {
       modal.style.display = 'none';
       modal.innerHTML = '';
     }
+
+    this.actualizarAudioBannerTop();
   },
 
   toggleFullscreenPlayer() {
