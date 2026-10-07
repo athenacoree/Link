@@ -12,9 +12,15 @@ function escapeHTMLLinkVideo(str) {
 
 window.LinkVideo = {
   initialized: false,
+  collections: [],
   catalog: [],
   activeLives: [],
   baseUrl: '',
+
+  // Colección actual seleccionada y cola de reproductor
+  currentCollection: null,
+  currentVideos: [],
+  currentVideoIndex: -1,
 
   // Estado del Streamer (Host)
   isHost: false,
@@ -70,15 +76,13 @@ window.LinkVideo = {
       }
     });
 
-  // Evento en tiempo real para actualización de canales de YouTube
-  window.socket.on('youtube:channel_updated', (data) => {
-    if (data && data.channel) {
-      console.log('[LinkVideo] Canal de YouTube actualizado:', data.channel);
-      this.cargarCatalogo(false);
-    }
-  });
+    window.socket.on('youtube:channel_updated', (data) => {
+      if (data && data.channel) {
+        console.log('[LinkVideo] Canal de YouTube actualizado:', data.channel);
+        this.cargarCatalogo(false);
+      }
+    });
 
-    // Eventos de estado de Live
     window.socket.on('live:status_changed', (data) => {
       if (this.isViewer && data.sessionId === this.viewerSessionId) {
         this.procesarCambioEstadoViewer(data.status, data.session);
@@ -99,7 +103,6 @@ window.LinkVideo = {
       }
     });
 
-    // Señalización WebRTC para Live
     window.socket.on('live:offer', async ({ sessionId, sdp, senderSocketId }) => {
       if (this.isViewer && sessionId === this.viewerSessionId) {
         await this.manejarOfertaWebRTCViewer(sdp, senderSocketId);
@@ -131,238 +134,275 @@ window.LinkVideo = {
     });
   },
 
-  selectedCategory: 'all',
   searchQuery: '',
 
   async cargarCatalogo(forceRefresh = false) {
-    const contenedor = document.getElementById('linkVideoGrid');
-    if (!contenedor) return;
+    const gridEl = document.getElementById('linkVideoCollectionsGrid');
+    if (!gridEl) return;
 
-    contenedor.innerHTML = `<div style="text-align:center; padding:30px; color:var(--texto-500); font-weight:700;">Verificando transmisiones en directo...</div>`;
+    gridEl.innerHTML = `<div style="grid-column: 1 / -1; text-align:center; padding:30px; color:var(--texto-500); font-weight:700;">Cargando colecciones de Link Video...</div>`;
 
     try {
       const url = forceRefresh ? '/linkvideo/catalog?refresh=true' : '/linkvideo/catalog';
       const res = await api(url);
       if (res) {
+        this.collections = res.collections || [];
         this.catalog = res.catalog || [];
         this.activeLives = res.lives || [];
-        this.youtubeChannels = res.youtubeChannels || [];
         this.baseUrl = res.base_url || '';
-        this.renderizarCanalesYouTube(this.youtubeChannels);
-        this.renderizarLivesActivos(this.activeLives);
         this.setupUIControls();
-        this.actualizarDisponibilidadPills();
-        this.aplicarFiltrosYRenderizar();
+        this.renderizarColecciones(this.collections);
       } else {
-        contenedor.innerHTML = `<div class="aviso-vacio">No hay transmisiones disponibles en este momento.</div>`;
+        gridEl.innerHTML = `<div class="aviso-vacio" style="grid-column: 1 / -1;">No hay colecciones disponibles en este momento.</div>`;
       }
     } catch (err) {
       console.error('Error al cargar catálogo de Link Video:', err);
-      contenedor.innerHTML = `<div class="aviso-vacio">No se pudo conectar con el servidor de streaming de Link Video.</div>`;
+      gridEl.innerHTML = `<div class="aviso-vacio" style="grid-column: 1 / -1;">No se pudo conectar con el servidor de streaming de Link Video.</div>`;
     }
   },
 
   setupUIControls() {
-    const pills = document.querySelectorAll('#linkVideoCategoryPills .linkvideo-pill');
-    pills.forEach(pill => {
-      pill.onclick = () => {
-        pills.forEach(p => p.classList.remove('active'));
-        pill.classList.add('active');
-        this.selectedCategory = pill.dataset.cat || 'all';
-        this.aplicarFiltrosYRenderizar();
-      };
-    });
-
     const searchInput = document.getElementById('linkVideoSearchInput');
     if (searchInput) {
       searchInput.oninput = (e) => {
         this.searchQuery = (e.target.value || '').trim().toLowerCase();
-        this.aplicarFiltrosYRenderizar();
+        if (this.currentCollection) {
+          this.renderizarDetalleColeccion(this.currentCollection);
+        } else {
+          this.renderizarColecciones(this.collections);
+        }
       };
     }
   },
 
-  actualizarDisponibilidadPills() {
-    const categoriesPresent = new Set((this.catalog || []).map(item => item.category || item.type));
-    const pills = document.querySelectorAll('#linkVideoCategoryPills .linkvideo-pill');
+  renderizarColecciones(colecciones) {
+    const gridEl = document.getElementById('linkVideoCollectionsGrid');
+    const detailView = document.getElementById('linkVideoCollectionDetailView');
+    if (!gridEl) return;
 
-    pills.forEach(pill => {
-      const cat = pill.dataset.cat;
-      if (cat === 'all') return;
-      if (categoriesPresent.has(cat)) {
-        pill.style.display = 'inline-block';
-      } else {
-        // Si no hay transmisiones activas para esta categoría, ocultarla automáticamente
-        pill.style.display = 'none';
-      }
-    });
-  },
-
-  aplicarFiltrosYRenderizar() {
-    let list = this.catalog || [];
-
-    if (this.selectedCategory && this.selectedCategory !== 'all') {
-      list = list.filter(item => item.category === this.selectedCategory || item.type === this.selectedCategory);
+    if (detailView) {
+      detailView.style.display = 'none';
+      detailView.innerHTML = '';
     }
+    gridEl.style.display = 'grid';
+    this.currentCollection = null;
 
+    let filtradas = colecciones || [];
     if (this.searchQuery) {
-      list = list.filter(item =>
-        (item.title || item.name || '').toLowerCase().includes(this.searchQuery) ||
-        (item.description || '').toLowerCase().includes(this.searchQuery)
-      );
+      const q = this.searchQuery.toLowerCase();
+      filtradas = filtradas.filter(c => (c.name || '').toLowerCase().includes(q));
     }
 
-    this.renderizarCatalogo(list);
-  },
-
-  renderizarCanalesYouTube(channels) {
-    const secEl = document.getElementById('linkYouTubeChannelsSection');
-    const gridEl = document.getElementById('linkYouTubeChannelsGrid');
-    if (!secEl || !gridEl) return;
-
-    if (!channels || channels.length === 0) {
-      secEl.style.display = 'none';
-      gridEl.innerHTML = '';
+    if (!filtradas || filtradas.length === 0) {
+      gridEl.innerHTML = `<div class="aviso-vacio" style="grid-column: 1 / -1; padding:30px;">No se encontraron colecciones o álbumes.</div>`;
       return;
     }
 
-    secEl.style.display = 'block';
-    gridEl.innerHTML = channels.map(item => {
-      const isAct = item.is_active && item.video_id;
-      const statusLabel = isAct ? '● EN VIVO (YouTube)' : 'INACTIVO';
-      const badgeBg = isAct ? '#ef4444' : 'var(--texto-500)';
-      const thumb = isAct ? `https://img.youtube.com/vi/${item.video_id}/hqdefault.jpg` : 'https://images.pexels.com/photos/2506923/pexels-photo-2506923.jpeg?auto=compress&cs=tinysrgb&w=600';
+    gridEl.innerHTML = filtradas.map(col => {
+      const cover = col.cover_url || 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=600';
+      const count = col.video_count || (col.videos ? col.videos.length : 0);
 
       return `
-        <div class="card" style="padding:14px; border-radius:16px; background:var(--blanco); border:1.5px solid rgba(239,68,68,0.3); display:flex; flex-direction:column; justify-content:space-between; box-shadow:0 4px 14px rgba(239,68,68,0.08);">
-          <div>
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-              <span style="font-weight:800; font-size:14px; color:var(--morado-700);">${escapeHTMLLinkVideo(item.channel_name || item.channel_id)}</span>
-              <span style="font-size:10px; font-weight:800; background:${badgeBg}; color:#fff; padding:3px 8px; border-radius:12px; text-transform:uppercase;">${statusLabel}</span>
-            </div>
-            <div style="position:relative; width:100%; height:120px; border-radius:12px; overflow:hidden; margin-bottom:10px; background:#000;">
-              <img src="${thumb}" style="width:100%; height:100%; object-fit:cover;" alt="YouTube Thumbnail">
-              ${isAct ? `<div style="position:absolute; inset:0; background:rgba(0,0,0,0.25); display:flex; align-items:center; justify-content:center; color:#fff; font-size:32px;">▶</div>` : ''}
-            </div>
-            <div style="font-weight:800; font-size:14px; color:var(--texto-900); margin-bottom:4px;">${escapeHTMLLinkVideo(item.title || (isAct ? 'Contenido de YouTube' : 'Canal sin transmisión activa'))}</div>
-            <div style="font-size:11.5px; color:var(--texto-600); line-height:1.4; margin-bottom:12px;">Transmisión sincronizada servida directamente por el IFrame Player oficial de YouTube.</div>
+        <div class="linkvideo-square-card" onclick="LinkVideo.abrirColeccion('${col.id}')">
+          <img class="linkvideo-card-thumb-img" src="${cover}" alt="${escapeHTMLLinkVideo(col.name)}" onerror="this.src='https://images.pexels.com/photos/2506923/pexels-photo-2506923.jpeg?auto=compress&cs=tinysrgb&w=600'">
+          <div class="linkvideo-card-overlay-gradient">
+            <div class="linkvideo-card-title">${escapeHTMLLinkVideo(col.name)}</div>
+            <div class="linkvideo-card-badge-count">🎬 ${count} video${count === 1 ? '' : 's'}</div>
           </div>
-          ${isAct ? `
-            <button class="btn btn-primario" style="width:100%; border-radius:10px; font-weight:800; padding:10px; display:inline-flex; align-items:center; justify-content:center; gap:6px; background:linear-gradient(135deg, #ef4444, #b91c1c); border:none;" onclick="LinkVideo.reproducirYouTubeChannel('${escapeHTMLLinkVideo(item.video_id)}', '${escapeHTMLLinkVideo(item.title || item.channel_name)}', ${item.currentTime || 0})">
-              <span>▶ Ver Canal (${item.channel_name})</span>
-            </button>
-          ` : `
-            <button class="btn btn-secundario" style="width:100%; border-radius:10px; font-weight:700; padding:10px; opacity:0.6; cursor:not-allowed;" disabled>
-              Canal inactivo
-            </button>
-          `}
         </div>
       `;
     }).join('');
   },
 
-  reproducirYouTubeChannel(videoId, titulo, startSeconds = 0) {
-    if (!videoId) return;
+  async abrirColeccion(collectionId) {
+    const gridEl = document.getElementById('linkVideoCollectionsGrid');
+    const detailView = document.getElementById('linkVideoCollectionDetailView');
+    if (!gridEl || !detailView) return;
+
+    gridEl.style.display = 'none';
+    detailView.style.display = 'block';
+    detailView.innerHTML = `<div style="text-align:center; padding:30px; color:var(--texto-500); font-weight:700;">Cargando videos de la colección...</div>`;
+
+    try {
+      const res = await api(`/linkvideo/collections/${collectionId}`);
+      if (res && res.collection) {
+        this.currentCollection = res.collection;
+        this.currentVideos = res.collection.videos || [];
+        this.renderizarDetalleColeccion(this.currentCollection);
+      } else {
+        detailView.innerHTML = `<div class="aviso-vacio">No se pudo cargar la colección.</div>`;
+      }
+    } catch (err) {
+      detailView.innerHTML = `<div class="aviso-vacio">Error al obtener detalles de la colección.</div>`;
+    }
+  },
+
+  renderizarDetalleColeccion(col) {
+    const detailView = document.getElementById('linkVideoCollectionDetailView');
+    if (!detailView) return;
+
+    let videos = col.videos || [];
+    if (this.searchQuery) {
+      const q = this.searchQuery.toLowerCase();
+      videos = videos.filter(v => (v.title || '').toLowerCase().includes(q));
+    }
+
+    const cover = col.cover_url || 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=600';
+
+    detailView.innerHTML = `
+      <div style="margin-bottom:16px;">
+        <button class="btn btn-secundario mini-btn" onclick="LinkVideo.volverAColecciones()" style="padding:8px 14px; font-weight:800; border-radius:12px; margin-bottom:12px;">
+          ‹ Volver a Colecciones
+        </button>
+        <div style="display:flex; align-items:center; gap:14px; background:var(--blanco); border:1.5px solid rgba(139, 92, 246, 0.2); border-radius:18px; padding:12px; box-shadow:0 4px 16px rgba(91, 33, 182, 0.08);">
+          <img src="${cover}" style="width:64px; height:64px; border-radius:14px; object-fit:cover;" alt="Cover">
+          <div>
+            <div style="font-weight:900; font-size:16px; color:var(--texto-900);">${escapeHTMLLinkVideo(col.name)}</div>
+            <div style="font-size:12px; color:var(--morado-700); font-weight:700;">${videos.length} video${videos.length === 1 ? '' : 's'} disponibles</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-cuadrados-linkvideo" id="linkVideoVideosGrid">
+        ${videos.length === 0 ? `<div class="aviso-vacio" style="grid-column: 1 / -1;">Esta colección no tiene videos aún.</div>` : videos.map((v, idx) => `
+          <div class="linkvideo-square-card" onclick="LinkVideo.reproducirVideoColeccion(${idx})">
+            <img class="linkvideo-card-thumb-img" src="${v.thumbnail_url || 'https://img.youtube.com/vi/' + v.video_id + '/hqdefault.jpg'}" alt="${escapeHTMLLinkVideo(v.title)}">
+            <div class="linkvideo-card-overlay-gradient">
+              <div style="font-size:24px; text-align:center; margin-bottom:auto; padding-top:14px;">▶</div>
+              <div class="linkvideo-card-title">${escapeHTMLLinkVideo(v.title)}</div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  },
+
+  volverAColecciones() {
+    this.renderizarColecciones(this.collections);
+  },
+
+  reproducirVideoColeccion(index) {
+    if (!this.currentVideos || !this.currentVideos[index]) return;
+    this.currentVideoIndex = index;
+    const video = this.currentVideos[index];
+    this.abrirReproductorLinkVideo(video);
+  },
+
+  abrirReproductorLinkVideo(video) {
+    if (!video || !video.video_id) return;
+
+    let modal = document.getElementById('modalPlayerLinkVideo');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'modalPlayerLinkVideo';
+      modal.style.cssText = 'position:fixed; inset:0; z-index:100000; background:#000; display:flex; flex-direction:column; color:#fff;';
+      document.body.appendChild(modal);
+    }
+
+    modal.style.display = 'flex';
+
     let rawOrigin = window.location.origin;
     if (!rawOrigin || rawOrigin === 'null' || rawOrigin.startsWith('file://')) {
       rawOrigin = window.location.protocol && window.location.host ? (window.location.protocol + '//' + window.location.host) : '';
     }
-    const params = ['autoplay=1', 'enablejsapi=1', 'rel=0', 'modestbranding=1', 'widget_referrer=' + encodeURIComponent(window.location.href)];
-    if (startSeconds > 0) params.push('start=' + Math.max(0, startSeconds));
+
+    const params = [
+      'autoplay=1',
+      'enablejsapi=1',
+      'rel=0',
+      'modestbranding=1',
+      'controls=1',
+      'widget_referrer=' + encodeURIComponent(window.location.href)
+    ];
     if (rawOrigin && !rawOrigin.startsWith('file://') && rawOrigin !== 'null') {
       params.push('origin=' + encodeURIComponent(rawOrigin));
     }
-    const embedUrl = `https://www.youtube.com/embed/${videoId}?${params.join('&')}`;
-    if (window.abrirJuego) {
-      window.abrirJuego(embedUrl, titulo || 'Canal YouTube', 'youtube_channel');
-    } else {
-      window.open(`https://www.youtube.com/watch?v=${videoId}`, '_blank');
-    }
-  },
 
-  renderizarLivesActivos(lives) {
-    const secEl = document.getElementById('linkLiveActiveSection');
-    const gridEl = document.getElementById('linkLiveActiveGrid');
-    if (!secEl || !gridEl) return;
+    const embedUrl = `https://www.youtube.com/embed/${video.video_id}?${params.join('&')}`;
 
-    if (!lives || lives.length === 0) {
-      secEl.style.display = 'none';
-      gridEl.innerHTML = '';
-      return;
-    }
-
-    secEl.style.display = 'block';
-    gridEl.innerHTML = lives.map(item => {
-      const isReconnecting = item.status === 'RECONNECTING' || item.status === 'INTERMISSION';
-      const statusLabel = isReconnecting ? 'Reconectando...' : '● EN VIVO';
-      const badgeBg = isReconnecting ? '#f59e0b' : '#ef4444';
-
-      return `
-        <div class="card" style="padding:14px; border-radius:16px; background:var(--blanco); border:1.5px solid var(--morado-300); display:flex; flex-direction:column; justify-content:space-between; box-shadow:0 4px 14px rgba(139,92,246,0.08);">
-          <div>
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-              <span style="font-size:22px;">🔴</span>
-              <span style="font-size:10px; font-weight:800; background:${badgeBg}; color:#fff; padding:3px 8px; border-radius:12px; text-transform:uppercase;">${statusLabel}</span>
-            </div>
-            <div style="font-weight:800; font-size:15px; color:var(--texto-900); margin-bottom:4px;">${escapeHTMLLinkVideo(item.title || 'Transmisión en Vivo')}</div>
-            <div style="font-size:12px; color:var(--morado-700); font-weight:700; margin-bottom:6px;">Streamer: ${escapeHTMLLinkVideo(item.hostName || 'Usuario')}</div>
-            <div style="font-size:11.5px; color:var(--texto-600); line-height:1.4; margin-bottom:12px;">${escapeHTMLLinkVideo(item.description || 'Transmisión directa persistente con reconexión inteligente.')}</div>
-          </div>
-          <button class="btn btn-primario" style="width:100%; border-radius:10px; font-weight:800; padding:10px; display:inline-flex; align-items:center; justify-content:center; gap:6px; background:linear-gradient(135deg, #8b5cf6, #6366f1); border:none;" onclick="LinkVideo.unirseLiveViewer('${escapeHTMLLinkVideo(item.id)}')">
-            <span>📺 Unirse al Live (${item.viewerCount || 0} espectadores)</span>
-          </button>
+    modal.innerHTML = `
+      <!-- Header -->
+      <div style="position:absolute; top:0; left:0; right:0; z-index:20; padding:12px 16px; background:linear-gradient(to bottom, rgba(0,0,0,0.85), transparent); display:flex; justify-content:space-between; align-items:center;">
+        <button onclick="LinkVideo.cerrarReproductorLinkVideo()" style="background:rgba(255,255,255,0.2); border:none; color:#fff; width:36px; height:36px; border-radius:50%; font-size:20px; font-weight:bold; cursor:pointer; display:flex; align-items:center; justify-content:center;">&times;</button>
+        <div style="text-align:center; flex:1; min-width:0; padding:0 12px;">
+          <div style="font-weight:800; font-size:14px; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHTMLLinkVideo(video.title)}</div>
+          <div style="font-size:11px; color:rgba(255,255,255,0.7);">${this.currentCollection ? escapeHTMLLinkVideo(this.currentCollection.name) : 'Link Video'}</div>
         </div>
-      `;
-    }).join('');
-  },
+        <button onclick="LinkVideo.toggleFullscreenPlayer()" style="background:rgba(255,255,255,0.2); border:none; color:#fff; width:36px; height:36px; border-radius:50%; font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center;" title="Pantalla completa">⛶</button>
+      </div>
 
-  renderizarCatalogo(lista) {
-    const contenedor = document.getElementById('linkVideoGrid');
-    if (!contenedor) return;
+      <!-- Video Stage -->
+      <div id="linkVideoIframeContainer" style="flex:1; position:relative; width:100%; height:100%; display:flex; align-items:center; justify-content:center; background:#000;">
+        <iframe id="linkVideoIframePlayer" src="${embedUrl}" style="width:100%; height:100%; border:none;" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen" allowfullscreen></iframe>
+      </div>
 
-    if (!lista || lista.length === 0) {
-      contenedor.innerHTML = `<div class="aviso-vacio" style="grid-column: 1 / -1; padding:30px;">No se encontraron transmisiones activas en esta categoría.</div>`;
-      return;
+      <!-- Controls & Queue Footer -->
+      <div style="position:absolute; bottom:0; left:0; right:0; z-index:20; padding:12px 16px; background:linear-gradient(to top, rgba(0,0,0,0.85), transparent); display:flex; align-items:center; justify-content:space-between; gap:12px;">
+        <button onclick="LinkVideo.reproducirAnteriorVideo()" ${this.currentVideoIndex <= 0 ? 'disabled style="opacity:0.4; cursor:not-allowed;"' : ''} class="btn btn-secundario mini-btn" style="padding:8px 14px; font-weight:800; border-radius:12px;">
+          ⏮ Anterior
+        </button>
+
+        <span style="font-size:12px; font-weight:700; color:rgba(255,255,255,0.8);">
+          ${this.currentVideoIndex + 1} de ${this.currentVideos.length}
+        </span>
+
+        <button onclick="LinkVideo.reproducirSiguienteVideo()" ${this.currentVideoIndex >= this.currentVideos.length - 1 ? 'disabled style="opacity:0.4; cursor:not-allowed;"' : ''} class="btn btn-primario mini-btn" style="padding:8px 14px; font-weight:800; border-radius:12px;">
+          Siguiente ⏭
+        </button>
+      </div>
+    `;
+
+    // Configurar MediaSession API para reproducción en segundo plano e integración multimedia
+    if ('mediaSession' in navigator) {
+      try {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: video.title,
+          artist: this.currentCollection ? this.currentCollection.name : 'Link Video',
+          artwork: [
+            { src: video.thumbnail_url || `https://img.youtube.com/vi/${video.video_id}/hqdefault.jpg`, sizes: '512x512', type: 'image/jpeg' }
+          ]
+        });
+
+        navigator.mediaSession.setActionHandler('nexttrack', () => this.reproducirSiguienteVideo());
+        navigator.mediaSession.setActionHandler('previoustrack', () => this.reproducirAnteriorVideo());
+      } catch (e) {}
     }
-
-    const categoryMap = {
-      camaras: { label: '📹 Cámara / TV', bg: '#0284c7' },
-      cortos_ai: { label: '🤖 Video AI', bg: '#7c3aed' },
-      movies: { label: '🎬 Película', bg: '#e11d48' },
-      audio: { label: '📻 Radio / Música', bg: '#059669' }
-    };
-
-    contenedor.innerHTML = lista.map(item => {
-      const playUrl = item.full_url || item.url || (this.baseUrl + (item.id ? item.id + '/' : ''));
-      const catInfo = categoryMap[item.category] || { label: item.type === 'video' ? '🎬 Video' : '📻 Audio', bg: '#7c3aed' };
-      const thumb = item.thumbnail || 'https://images.pexels.com/photos/2506923/pexels-photo-2506923.jpeg?auto=compress&cs=tinysrgb&w=600';
-
-      return `
-        <div class="linkvideo-card">
-          <div class="linkvideo-card-thumb-wrap">
-            <img class="linkvideo-card-thumb" src="${thumb}" alt="${escapeHTMLLinkVideo(item.title || item.name)}" onerror="this.src='https://images.pexels.com/photos/3861969/pexels-photo-3861969.jpeg?auto=compress&cs=tinysrgb&w=600'">
-            <div class="linkvideo-card-badge" style="background:${catInfo.bg}">${catInfo.label}</div>
-          </div>
-          <div class="linkvideo-card-body">
-            <div class="linkvideo-card-title">${escapeHTMLLinkVideo(item.title || item.name || 'Transmisión')}</div>
-            <div class="linkvideo-card-desc">${escapeHTMLLinkVideo(item.description || 'Transmisión en vivo y streaming continuo en Link Video.')}</div>
-            <button class="btn btn-primario linkvideo-card-btn" onclick="LinkVideo.reproducir('${escapeHTMLLinkVideo(playUrl)}', '${escapeHTMLLinkVideo(item.title || item.name)}', ${JSON.stringify(item).replace(/"/g, '&quot;')})">
-              ▶ Reproducir Stream
-            </button>
-          </div>
-        </div>
-      `;
-    }).join('');
   },
 
-  reproducir(url, titulo, itemData) {
-    const isAudio = (itemData && itemData.type === 'audio') || (url && (url.endsWith('.mp3') || url.includes('icecast')));
-    if (window.abrirVideoStream) {
-      window.abrirVideoStream(url, titulo, isAudio ? 'audio' : 'video', itemData);
-    } else if (window.abrirJuego) {
-      window.abrirJuego(url, titulo, 'linkvideo');
+  reproducirSiguienteVideo() {
+    if (this.currentVideoIndex < this.currentVideos.length - 1) {
+      this.reproducirVideoColeccion(this.currentVideoIndex + 1);
+    }
+  },
+
+  reproducirAnteriorVideo() {
+    if (this.currentVideoIndex > 0) {
+      this.reproducirVideoColeccion(this.currentVideoIndex - 1);
+    }
+  },
+
+  cerrarReproductorLinkVideo() {
+    const modal = document.getElementById('modalPlayerLinkVideo');
+    if (modal) {
+      modal.style.display = 'none';
+      modal.innerHTML = '';
+    }
+  },
+
+  toggleFullscreenPlayer() {
+    const container = document.getElementById('modalPlayerLinkVideo') || document.getElementById('linkVideoIframeContainer');
+    if (!container) return;
+
+    if (!document.fullscreenElement) {
+      if (container.requestFullscreen) {
+        container.requestFullscreen().catch(() => {});
+      } else if (container.webkitRequestFullscreen) {
+        container.webkitRequestFullscreen();
+      }
     } else {
-      window.open(url, '_blank');
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      }
     }
   },
 
@@ -424,7 +464,6 @@ window.LinkVideo = {
     document.getElementById('streamerLiveTitle').textContent = session.title || 'Mi Live';
     document.getElementById('streamerSessionIdBadge').textContent = 'ID: ' + session.id;
 
-    // Obtener stream de cámara y micrófono
     try {
       this.localMediaStream = await navigator.mediaDevices.getUserMedia({
         video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
@@ -436,12 +475,10 @@ window.LinkVideo = {
       console.warn('[LinkLive] No se pudo obtener cámara/micrófono real:', e.message);
     }
 
-    // Registrar en socket
     if (window.socket) {
       window.socket.emit('live:heartbeat', { sessionId: session.id, isHost: true });
     }
 
-    // Iniciar temporizador de heartbeat continuo
     this.iniciarHeartbeatStreamer();
   },
 
@@ -455,7 +492,6 @@ window.LinkVideo = {
         window.socket.emit('live:heartbeat', { sessionId: this.activeSessionId, isHost: true });
       }
 
-      // Heartbeat HTTP de respaldo para persistencia ante desconexiones de socket
       try {
         await api('/linkvideo/live/heartbeat', { method: 'POST', body: { sessionId: this.activeSessionId, status: 'LIVE' } });
       } catch (e) {}
@@ -560,7 +596,6 @@ window.LinkVideo = {
     if (!modal) return;
     modal.style.display = 'flex';
 
-    // Obtener metadatos de la transmisión
     try {
       const session = await api(`/linkvideo/live/${sessionId}`);
       if (session) {
@@ -571,7 +606,6 @@ window.LinkVideo = {
       }
     } catch (e) {}
 
-    // Unirse a room mediante socket
     if (window.socket) {
       window.socket.emit('live:join', { sessionId });
     }
@@ -636,7 +670,6 @@ window.LinkVideo = {
         clipVideo.src = '/media/' + clipName;
         clipVideo.style.display = 'block';
         clipVideo.play().catch(() => {
-          // Fallback visual si el archivo mp4 no está presente físicamente
           clipVideo.style.display = 'none';
         });
       }

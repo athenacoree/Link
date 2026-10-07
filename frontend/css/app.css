@@ -2505,3 +2505,93 @@ html[data-tema="claro"] .neon-right,
   0% { bottom: -100%; }
   100% { bottom: 100%; }
 }
+
+/* ================= LINK VIDEO GRID DE COLECCIONES / TARJETAS CUADRADAS ================= */
+.grid-cuadrados-linkvideo {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 20px;
+}
+
+@media (max-width: 380px) {
+  .grid-cuadrados-linkvideo {
+    gap: 8px;
+  }
+}
+
+.linkvideo-square-card {
+  aspect-ratio: 1 / 1;
+  position: relative;
+  border-radius: 22px;
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(91, 33, 182, 0.12);
+  border: 1.5px solid rgba(139, 92, 246, 0.25);
+  background: var(--blanco);
+  transition: transform 0.22s cubic-bezier(0.2, 0.85, 0.2, 1), box-shadow 0.22s ease, border-color 0.22s ease;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  user-select: none;
+}
+
+html[data-tema="oscuro"] .linkvideo-square-card {
+  background: var(--fondo-tarjeta, #181824);
+  border-color: rgba(139, 92, 246, 0.35);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+}
+
+.linkvideo-square-card:active {
+  transform: scale(0.96);
+}
+
+.linkvideo-card-thumb-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.4s ease;
+}
+
+.linkvideo-square-card:hover .linkvideo-card-thumb-img {
+  transform: scale(1.06);
+}
+
+.linkvideo-card-overlay-gradient {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0,0,0,0.02) 20%, rgba(0,0,0,0.85) 100%);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 12px;
+  color: #ffffff;
+  z-index: 2;
+}
+
+.linkvideo-card-title {
+  font-size: 13.5px;
+  font-weight: 800;
+  line-height: 1.25;
+  color: #ffffff;
+  text-shadow: 0 2px 6px rgba(0,0,0,0.6);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.linkvideo-card-badge-count {
+  font-size: 10px;
+  font-weight: 800;
+  background: rgba(139, 92, 246, 0.85);
+  backdrop-filter: blur(8px);
+  color: #ffffff;
+  padding: 3px 8px;
+  border-radius: 10px;
+  width: fit-content;
+  margin-top: 4px;
+}
