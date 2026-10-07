@@ -93,15 +93,16 @@ img{max-width:100%;}
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 14px;
-  background: linear-gradient(135deg, rgba(124, 58, 237, 0.95), rgba(236, 72, 153, 0.92));
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  padding: 4px 12px;
+  height: 28px;
+  background: rgba(15, 12, 28, 0.82);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
   color: #ffffff;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  border-bottom: 1px solid rgba(139, 92, 246, 0.3);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
   cursor: pointer;
-  transition: transform 0.22s ease, opacity 0.22s ease;
+  transition: all 0.22s ease;
 }
 
 .top-audio-banner.oculto {
@@ -2584,9 +2585,8 @@ html[data-tema="oscuro"] .cuadrado-chat-burbuja {
   will-change: transform;
 }
 
-/* ================= BORDES NEÓN ENTRADA MENSAJE Y CARGA (Un Solo Hilo de Luz Continua) ================= */
-.neon-loading-border,
-.neon-border-overlay {
+/* ================= EFECTO BORDES GIRATORIOS CON DESENFOQUE 3D ================= */
+.aurora-glow-overlay {
   position: fixed;
   inset: 0;
   pointer-events: none !important;
@@ -2594,52 +2594,27 @@ html[data-tema="oscuro"] .cuadrado-chat-burbuja {
   opacity: 0;
   visibility: hidden;
   overflow: hidden;
-  transition: opacity 0.25s ease-in-out, visibility 0.25s ease-in-out;
+  transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
   box-sizing: border-box;
 }
 
-.neon-loading-border.activo,
-.neon-border-overlay.activo {
+.aurora-glow-overlay.activo {
   opacity: 1;
   visibility: visible;
 }
 
-.neon-loading-border::before,
-.neon-border-overlay::before {
+.aurora-glow-overlay::before {
   content: '';
   position: absolute;
-  inset: 0;
-  border: var(--neon-border-width, 5px) solid transparent;
+  inset: -4px;
+  border: 4px solid transparent;
   border-radius: 0px;
-  background: conic-gradient(from var(--neon-angle, 0deg),
-    transparent 0deg,
-    transparent 300deg,
-    rgba(236, 72, 153, 0.2) 320deg,
-    #ec4899 342deg,
-    #c084fc 352deg,
-    #ffffff 360deg
-  ) border-box;
+  background: conic-gradient(from var(--aurora-angle, 0deg), transparent 0deg, transparent 270deg, rgba(255, 255, 255, 0.95) 305deg, rgba(167, 139, 250, 0.85) 330deg, transparent 360deg) border-box;
   -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
-  box-shadow: inset 0 0 16px rgba(139, 92, 246, 0.7), 0 0 20px rgba(236, 72, 153, 0.7);
-  filter: saturate(180%);
-}
-
-.neon-loading-border.activo::before,
-.neon-border-overlay.activo::before {
-  animation: spinContinuousNeon var(--neon-spin-speed, 1.8s) linear infinite;
-}
-
-@property --neon-angle {
-  syntax: '<angle>';
-  initial-value: 0deg;
-  inherits: false;
-}
-
-@keyframes spinContinuousNeon {
-  0% { --neon-angle: 0deg; }
-  100% { --neon-angle: 360deg; }
+  filter: blur(8px) saturate(200%);
+  animation: spinAuroraSegment 3.5s linear infinite;
 }
 
 /* ================= LINK VIDEO GRID DE COLECCIONES / TARJETAS CUADRADAS ================= */
@@ -2790,15 +2765,16 @@ html[data-tema="oscuro"] .linkvideo-square-card {
   position: fixed;
   inset: 0;
   z-index: 100000;
-  background: rgba(10, 8, 20, 0.92);
+  background: rgba(10, 8, 20, 0.94);
   backdrop-filter: blur(28px) saturate(180%);
   -webkit-backdrop-filter: blur(28px) saturate(180%);
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 16px;
+  justify-content: flex-start;
+  padding: 12px 16px;
   color: #ffffff;
-  overflow: hidden;
+  overflow-y: auto;
 }
 
 .hitv-close-btn {
@@ -2879,11 +2855,9 @@ html[data-tema="oscuro"] .linkvideo-square-card {
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(139, 92, 246, 0.5);
   color: #ffffff;
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  font-size: 16px;
-  font-weight: bold;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -2894,59 +2868,82 @@ html[data-tema="oscuro"] .linkvideo-square-card {
 
 .hitv-folder-toggle-btn:hover {
   background: rgba(124, 58, 237, 0.6);
-  transform: scale(1.08);
+  transform: scale(1.05);
 }
 
 .hitv-folder-videos-container {
   width: 100%;
-  max-height: 220px;
-  overflow-y: auto;
-  margin-top: 10px;
-  background: rgba(15, 12, 28, 0.88);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(139, 92, 246, 0.35);
-  border-radius: 16px;
-  padding: 10px;
+  margin-top: 12px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  scrollbar-width: thin;
+  gap: 16px;
 }
 
-.hitv-folder-video-item {
+.hitv-folder-video-card-item {
+  display: flex;
+  flex-direction: column;
+  background: rgba(20, 16, 36, 0.7);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 20px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.hitv-folder-video-card-item:hover, .hitv-folder-video-card-item.active {
+  border-color: rgba(167, 139, 250, 0.8);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px rgba(124, 58, 237, 0.3);
+}
+
+.hitv-folder-card-thumb-wrap {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  position: relative;
+  background: #000;
+  overflow: hidden;
+}
+
+.hitv-folder-card-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.hitv-folder-card-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 60%);
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 8px 10px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
-  cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  justify-content: center;
 }
 
-.hitv-folder-video-item:hover, .hitv-folder-video-item.active {
-  background: rgba(124, 58, 237, 0.3);
-  border-color: rgba(139, 92, 246, 0.6);
-}
-
-.hitv-folder-video-thumb {
+.hitv-folder-card-play-icon {
   width: 52px;
-  height: 36px;
-  border-radius: 8px;
-  object-fit: cover;
-  flex-shrink: 0;
+  height: 52px;
+  background: rgba(124, 58, 237, 0.85);
+  backdrop-filter: blur(8px);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.5);
 }
 
-.hitv-folder-video-title {
-  font-size: 12.5px;
-  font-weight: 700;
+.hitv-folder-card-info {
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hitv-folder-card-title {
+  font-size: 14px;
+  font-weight: 800;
   color: #ffffff;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex: 1;
+  line-height: 1.3;
 }
 
 .hitv-subtitle-line {
