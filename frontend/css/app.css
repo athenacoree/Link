@@ -2559,3 +2559,23 @@ html[data-tema="oscuro"] .linkvideo-square-card {
   width: fit-content;
   margin-top: 4px;
 }
+
+.linkvideo-video-item {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+}
+
+.linkvideo-video-title-below {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--texto-900);
+  margin-top: 6px;
+  padding: 0 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  text-align: center;
+}

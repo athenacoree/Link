@@ -2114,6 +2114,43 @@ function conectarSocket() {
       });
     }
   });
+  window.socket.on('actividad:usuario_viendo', ({ userId, watching }) => {
+    window.usuarioViendoMap = window.usuarioViendoMap || new Map();
+    if (watching) {
+      window.usuarioViendoMap.set(userId, watching);
+    } else {
+      window.usuarioViendoMap.delete(userId);
+    }
+
+    if (window.conversacionAbiertaCon && window.conversacionAbiertaCon.id === userId) {
+      const estadoLineaEl = document.getElementById('chatEstadoLinea');
+      if (estadoLineaEl) {
+        if (watching) {
+          estadoLineaEl.innerHTML = `<span style="color:#a78bfa; font-weight:800;">🎬 Viendo: ${escaparHTMLGlobal(watching.title)}</span>`;
+        } else {
+          estadoLineaEl.textContent = window.conversacionAbiertaCon.is_online ? 'En línea' : 'Desconectado';
+        }
+      }
+    }
+
+    if (window.perfilUsuarioActual && window.perfilUsuarioActual.id === userId) {
+      const pD = document.getElementById('p-descripcion');
+      let badgeEl = document.getElementById('p-watching-badge');
+      if (watching && pD) {
+        if (!badgeEl) {
+          badgeEl = document.createElement('div');
+          badgeEl.id = 'p-watching-badge';
+          badgeEl.style.cssText = 'margin-top:6px; font-size:12px; font-weight:800; color:#8b5cf6; background:var(--morado-50); border:1px solid var(--morado-200); padding:4px 10px; border-radius:12px; display:inline-block;';
+          pD.parentNode.insertBefore(badgeEl, pD.nextSibling);
+        }
+        badgeEl.style.display = 'inline-block';
+        badgeEl.innerHTML = `🎬 Viendo ahora: ${escaparHTMLGlobal(watching.title)}`;
+      } else if (badgeEl) {
+        badgeEl.style.display = 'none';
+      }
+    }
+  });
+
   window.socket.on('connect_error', (err) => {
     console.warn('Socket no pudo conectar:', err.message);
   });
@@ -3642,6 +3679,22 @@ async function abrirPerfil(personaId) {
     const partesUbicacion = [persona.city, persona.state, persona.country || 'Cuba'].filter(Boolean);
     $('p-ubicacion').textContent = `${persona.flag_emoji || '🇨🇺'} ${partesUbicacion.join(' · ')}`;
     $('p-descripcion').textContent = persona.bio || '';
+
+    let badgeEl = $('p-watching-badge');
+    const watching = persona.currently_watching || (window.usuarioViendoMap && window.usuarioViendoMap.get(persona.id));
+    if (watching && $('p-descripcion')) {
+      if (!badgeEl) {
+        badgeEl = document.createElement('div');
+        badgeEl.id = 'p-watching-badge';
+        badgeEl.style.cssText = 'margin-top:6px; font-size:12px; font-weight:800; color:#8b5cf6; background:var(--morado-50); border:1px solid var(--morado-200); padding:4px 10px; border-radius:12px; display:inline-block;';
+        $('p-descripcion').parentNode.insertBefore(badgeEl, $('p-descripcion').nextSibling);
+      }
+      badgeEl.style.display = 'inline-block';
+      badgeEl.innerHTML = `🎬 Viendo ahora: ${escaparHTMLGlobal(watching.title)}`;
+    } else if (badgeEl) {
+      badgeEl.style.display = 'none';
+    }
+
     $('p-chips').innerHTML = [persona.gender, persona.skin_color, persona.relationship_status].filter(Boolean).map((c) => `<div class="chip">${c}</div>`).join('');
     $('p-reputacion').innerHTML = chipReputacion(reputacion);
 
@@ -4239,6 +4292,7 @@ $('btnAbrirConfiguraciones')?.addEventListener('click', () => {
   const cfg = u.settings || {};
   if ($('cfgPrivacyProfile')) $('cfgPrivacyProfile').value = cfg.privacy_profile || 'public';
   if ($('cfgPrivacyRequests')) $('cfgPrivacyRequests').value = cfg.privacy_requests || 'everyone';
+  if ($('cfgPrivacyMediaActivity')) $('cfgPrivacyMediaActivity').value = cfg.privacy_media_activity || 'everyone';
   alternarSwitch('swShowOnline', cfg.show_online_status !== false);
   alternarSwitch('swNotifSounds', cfg.notification_sounds !== false);
   alternarSwitch('swReadReceipts', cfg.read_receipts !== false);
@@ -4275,6 +4329,7 @@ $('btnGuardarConfiguraciones')?.addEventListener('click', async () => {
     const settings = {
       privacy_profile: $('cfgPrivacyProfile')?.value || 'public',
       privacy_requests: $('cfgPrivacyRequests')?.value || 'everyone',
+      privacy_media_activity: $('cfgPrivacyMediaActivity')?.value || 'everyone',
       show_online_status: esSwitchActivo('swShowOnline'),
       notification_sounds: esSwitchActivo('swNotifSounds'),
       read_receipts: esSwitchActivo('swReadReceipts'),
@@ -4480,6 +4535,7 @@ async function cargarAdminColeccionesLinkVideo() {
     cont.innerHTML = cols.map(c => {
       const cover = c.cover_url || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600&auto=format&fit=crop';
       const count = c.video_count || 0;
+      const cat = c.category || 'General';
 
       return `
         <div style="background:var(--blanco); border:1px solid var(--borde); border-radius:14px; padding:12px; display:flex; justify-content:space-between; align-items:center; gap:12px;">
@@ -4487,7 +4543,10 @@ async function cargarAdminColeccionesLinkVideo() {
             <img src="${cover}" style="width:48px; height:48px; border-radius:10px; object-fit:cover;" alt="Cover">
             <div style="min-width:0;">
               <div style="font-weight:800; font-size:13.5px; color:var(--texto-900); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escaparHTMLGlobal(c.name)}</div>
-              <div style="font-size:11.5px; color:var(--morado-700); font-weight:700;">${count} video${count === 1 ? '' : 's'}</div>
+              <div style="display:flex; gap:6px; align-items:center; margin-top:2px;">
+                <span style="font-size:10px; font-weight:800; background:var(--morado-100); color:var(--morado-700); padding:2px 6px; border-radius:6px;">🏷️ ${escaparHTMLGlobal(cat)}</span>
+                <span style="font-size:11.5px; color:var(--morado-700); font-weight:700;">${count} video${count === 1 ? '' : 's'}</span>
+              </div>
             </div>
           </div>
           <div style="display:flex; gap:6px; flex-shrink:0;">
@@ -4520,6 +4579,7 @@ window.adminCargarFotoPortadaColeccion = adminCargarFotoPortadaColeccion;
 async function adminGuardarColeccion() {
   const id = $('adminColIdInput')?.value;
   const name = $('adminColNameInput')?.value.trim();
+  const category = $('adminColCategoryInput')?.value.trim() || 'General';
   const cover_url = $('adminColCoverInput')?.value.trim();
 
   if (!name) {
@@ -4529,10 +4589,10 @@ async function adminGuardarColeccion() {
 
   try {
     if (id) {
-      await api(`/linkvideo/admin/collections/${id}`, { method: 'PUT', body: { name, cover_url } });
+      await api(`/linkvideo/admin/collections/${id}`, { method: 'PUT', body: { name, cover_url, category } });
       mostrarToast('Colección actualizada correctamente');
     } else {
-      await api('/linkvideo/admin/collections', { method: 'POST', body: { name, cover_url } });
+      await api('/linkvideo/admin/collections', { method: 'POST', body: { name, cover_url, category } });
       mostrarToast('Colección creada correctamente');
     }
 
@@ -4549,6 +4609,7 @@ function adminEditarColeccion(col) {
   if (!col) return;
   if ($('adminColIdInput')) $('adminColIdInput').value = col.id;
   if ($('adminColNameInput')) $('adminColNameInput').value = col.name || '';
+  if ($('adminColCategoryInput')) $('adminColCategoryInput').value = col.category || 'General';
   if ($('adminColCoverInput')) $('adminColCoverInput').value = col.cover_url || '';
   if ($('adminColFormTitle')) $('adminColFormTitle').textContent = `✏️ Editando: ${col.name}`;
 }
@@ -4557,6 +4618,7 @@ window.adminEditarColeccion = adminEditarColeccion;
 function adminLimpiarFormColeccion() {
   if ($('adminColIdInput')) $('adminColIdInput').value = '';
   if ($('adminColNameInput')) $('adminColNameInput').value = '';
+  if ($('adminColCategoryInput')) $('adminColCategoryInput').value = '';
   if ($('adminColCoverInput')) $('adminColCoverInput').value = '';
   if ($('adminColFormTitle')) $('adminColFormTitle').textContent = '📁 Crear / Editar Colección o Álbum';
 }

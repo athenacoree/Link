@@ -1182,7 +1182,12 @@ const Chat = (() => {
     if (persona.is_ai) {
       $('chatEstadoLinea').textContent = 'Asistente de IA';
     } else {
-      $('chatEstadoLinea').textContent = persona.is_online ? 'En línea' : formatearUltimaVez(persona.last_seen);
+      const watching = persona.currently_watching || (window.usuarioViendoMap && window.usuarioViendoMap.get(persona.id));
+      if (watching) {
+        $('chatEstadoLinea').innerHTML = `<span style="color:#a78bfa; font-weight:800;">🎬 Viendo: ${escapar(watching.title)}</span>`;
+      } else {
+        $('chatEstadoLinea').textContent = persona.is_online ? 'En línea' : formatearUltimaVez(persona.last_seen);
+      }
     }
 
     actualizarBotonVozAlta(obtenerEstadoVozAltaChat(persona.id));
@@ -1764,6 +1769,10 @@ const Chat = (() => {
     $('opChatVozAlta')?.addEventListener('click', () => {
       cerrarMenuAdjuntos();
       alternarVozAltaChat();
+    });
+    $('opChatRecomendar')?.addEventListener('click', () => {
+      cerrarMenuAdjuntos();
+      window.abrirModalRecomendarVideo();
     });
     $('opChatFoto')?.addEventListener('click', () => {
       cerrarMenuAdjuntos();
@@ -2387,4 +2396,113 @@ window.animarVisualizador3DAudio = function(canvasId, audioElement) {
   renderWave();
 };
 
-document.addEventListener('DOMContentLoaded', () => Chat.enlazarUI());
+/* ================= BUSCADOR FLOTANTE DE RECOMENDACIONES EN CHAT ================= */
+window.abrirModalRecomendarVideo = function() {
+  const velo = $('veloBuscadorRecomendar');
+  const modal = $('modalBuscadorRecomendar');
+  const input = $('inputBuscarRecomendarVideo');
+  if (velo && modal) {
+    velo.classList.add('activo');
+    modal.style.display = 'flex';
+    if (input) {
+      input.value = '';
+      setTimeout(() => input.focus(), 100);
+    }
+    window.buscarVideosParaRecomendar('');
+  }
+};
+
+window.cerrarModalRecomendarVideo = function() {
+  const velo = $('veloBuscadorRecomendar');
+  const modal = $('modalBuscadorRecomendar');
+  if (velo && modal) {
+    velo.classList.remove('activo');
+    modal.style.display = 'none';
+  }
+};
+
+window.buscarVideosParaRecomendar = async function(queryStr) {
+  const cont = $('listaResultadosRecomendarVideo');
+  if (!cont) return;
+
+  const q = (queryStr || '').trim().toLowerCase();
+  let items = [];
+
+  if (window.LinkVideo && Array.isArray(window.LinkVideo.collections)) {
+    window.LinkVideo.collections.forEach(col => {
+      if (Array.isArray(col.videos)) {
+        col.videos.forEach(v => {
+          items.push({
+            video_id: v.video_id,
+            title: v.title,
+            thumbnail_url: v.thumbnail_url || `https://img.youtube.com/vi/${v.video_id}/hqdefault.jpg`,
+            collection_name: col.name
+          });
+        });
+      }
+    });
+  }
+
+  if (items.length === 0) {
+    try {
+      const res = await api('/linkvideo/collections');
+      if (res && res.collections) {
+        for (const col of res.collections) {
+          const detail = await api(`/linkvideo/collections/${col.id}`);
+          if (detail && detail.collection && Array.isArray(detail.collection.videos)) {
+            detail.collection.videos.forEach(v => {
+              items.push({
+                video_id: v.video_id,
+                title: v.title,
+                thumbnail_url: v.thumbnail_url || `https://img.youtube.com/vi/${v.video_id}/hqdefault.jpg`,
+                collection_name: col.name
+              });
+            });
+          }
+        }
+      }
+    } catch (e) {}
+  }
+
+  if (q) {
+    items = items.filter(v => (v.title || '').toLowerCase().includes(q) || (v.collection_name || '').toLowerCase().includes(q));
+  }
+
+  if (items.length === 0) {
+    cont.innerHTML = `<div style="text-align:center; padding:20px; font-size:12px; color:var(--texto-500);">No se encontraron videos que coincidan con "${escapar(q)}".</div>`;
+    return;
+  }
+
+  cont.innerHTML = items.slice(0, 15).map(v => {
+    const vObj = JSON.stringify(v).replace(/"/g, '&quot;');
+    return `
+      <div onclick="window.enviarRecomendacionVideo(${vObj})" style="display:flex; align-items:center; gap:10px; padding:8px; background:var(--blanco); border:1px solid var(--borde); border-radius:14px; cursor:pointer; transition:background 0.15s ease;" onmouseenter="this.style.background='var(--morado-50)'" onmouseleave="this.style.background='var(--blanco)'">
+        <img src="${v.thumbnail_url}" style="width:52px; height:38px; border-radius:8px; object-fit:cover; flex-shrink:0;" alt="">
+        <div style="flex:1; min-width:0;">
+          <div style="font-weight:800; font-size:12px; color:var(--texto-900); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapar(v.title)}</div>
+          <div style="font-size:10.5px; color:var(--morado-600); font-weight:700;">${escapar(v.collection_name || 'Link Video')}</div>
+        </div>
+        <div style="font-size:10px; font-weight:800; background:var(--morado-600); color:#fff; padding:4px 8px; border-radius:8px; flex-shrink:0;">Recomendar</div>
+      </div>
+    `;
+  }).join('');
+};
+
+window.enviarRecomendacionVideo = function(video) {
+  if (!video || !video.video_id) return;
+  const payload = `[RECOMMEND_VIDEO:${JSON.stringify(video)}]`;
+  const inputTexto = $('chatInputTexto');
+  if (inputTexto) {
+    inputTexto.value = payload;
+    $('chatBtnEnviar')?.click();
+  }
+  window.cerrarModalRecomendarVideo();
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+  Chat.enlazarUI();
+  $('inputBuscarRecomendarVideo')?.addEventListener('input', (e) => {
+    window.buscarVideosParaRecomendar(e.target.value);
+  });
+  $('veloBuscadorRecomendar')?.addEventListener('click', window.cerrarModalRecomendarVideo);
+});

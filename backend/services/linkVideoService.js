@@ -18,6 +18,7 @@ const DEFAULT_MEM_COLLECTIONS = [
     id: 'col_musica_destacada',
     name: 'Música & Videos Destacados',
     cover_url: 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=600',
+    category: 'Música',
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   },
@@ -25,6 +26,7 @@ const DEFAULT_MEM_COLLECTIONS = [
     id: 'col_cine_trailers',
     name: 'Cine & Estrenos',
     cover_url: 'https://images.pexels.com/photos/2506923/pexels-photo-2506923.jpeg?auto=compress&cs=tinysrgb&w=600',
+    category: 'Películas, Series',
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   }
@@ -55,10 +57,23 @@ for (const vid of DEFAULT_MEM_VIDEOS) {
 
 // ---------------- GESTIÓN DE COLECCIONES Y VIDEOS ----------------
 
-async function getCollections() {
+async function getCollections(userId = null) {
+  let userInterests = [];
+  if (userId) {
+    try {
+      const uRes = await query(`SELECT interests, hobbies FROM users WHERE id = $1`, [userId]);
+      if (uRes.rows && uRes.rows[0]) {
+        const raw = [...(uRes.rows[0].interests || []), ...(uRes.rows[0].hobbies || [])];
+        userInterests = raw.map(i => String(i).toLowerCase().trim()).filter(Boolean);
+      }
+    } catch (e) {}
+  }
+
+  let collections = [];
+
   try {
     const { rows } = await query(
-      `SELECT c.id, c.name, c.cover_url, c.created_at, c.updated_at,
+      `SELECT c.id, c.name, c.cover_url, c.category, c.created_at, c.updated_at,
               COUNT(v.id)::int AS video_count
        FROM linkvideo_collections c
        LEFT JOIN linkvideo_videos v ON c.id = v.collection_id AND v.status = 'active'
@@ -66,19 +81,35 @@ async function getCollections() {
        ORDER BY c.created_at DESC`
     );
     if (rows && rows.length > 0) {
-      return rows;
+      collections = rows.map(col => ({ ...col, category: col.category || 'General' }));
     }
   } catch (err) {
     // Fallback in-memory
   }
 
-  return Array.from(inMemoryCollections.values()).map(col => {
-    const count = Array.from(inMemoryVideos.values()).filter(v => v.collection_id === col.id && v.status === 'active').length;
-    return {
-      ...col,
-      video_count: count
-    };
-  });
+  if (!collections.length) {
+    collections = Array.from(inMemoryCollections.values()).map(col => {
+      const count = Array.from(inMemoryVideos.values()).filter(v => v.collection_id === col.id && v.status === 'active').length;
+      return {
+        ...col,
+        category: col.category || 'General',
+        video_count: count
+      };
+    });
+  }
+
+  if (userInterests.length > 0) {
+    // Alimentar el algoritmo: ordenar o ponderar según coincidencia con las categorías de la colección
+    collections.sort((a, b) => {
+      const catA = (a.category || '').toLowerCase();
+      const catB = (b.category || '').toLowerCase();
+      const matchA = userInterests.some(interest => catA.includes(interest) || interest.includes(catA)) ? 1 : 0;
+      const matchB = userInterests.some(interest => catB.includes(interest) || interest.includes(catB)) ? 1 : 0;
+      return matchB - matchA;
+    });
+  }
+
+  return collections;
 }
 
 async function getCollectionById(collectionId) {
@@ -87,7 +118,7 @@ async function getCollectionById(collectionId) {
 
   try {
     const colRes = await query(
-      `SELECT id, name, cover_url, created_at, updated_at
+      `SELECT id, name, cover_url, category, created_at, updated_at
        FROM linkvideo_collections
        WHERE id::text = $1::text`,
       [collectionId]
@@ -125,21 +156,22 @@ async function getCollectionById(collectionId) {
   return null;
 }
 
-async function createCollection({ name, cover_url }) {
+async function createCollection({ name, cover_url, category }) {
   const cleanName = (name || '').trim();
   if (!cleanName) {
     throw new Error('El nombre de la colección es obligatorio.');
   }
 
   const cleanCover = cover_url || null;
+  const cleanCategory = (category || 'General').trim();
   const nowIso = new Date().toISOString();
 
   try {
     const { rows } = await query(
-      `INSERT INTO linkvideo_collections (name, cover_url, created_at, updated_at)
-       VALUES ($1, $2, now(), now())
-       RETURNING id, name, cover_url, created_at, updated_at`,
-      [cleanName, cleanCover]
+      `INSERT INTO linkvideo_collections (name, cover_url, category, created_at, updated_at)
+       VALUES ($1, $2, $3, now(), now())
+       RETURNING id, name, cover_url, category, created_at, updated_at`,
+      [cleanName, cleanCover, cleanCategory]
     );
     if (rows && rows.length > 0) {
       const created = { ...rows[0], video_count: 0, videos: [] };
@@ -155,6 +187,7 @@ async function createCollection({ name, cover_url }) {
     id,
     name: cleanName,
     cover_url: cleanCover,
+    category: cleanCategory,
     created_at: nowIso,
     updated_at: nowIso,
     video_count: 0,
@@ -164,8 +197,9 @@ async function createCollection({ name, cover_url }) {
   return created;
 }
 
-async function updateCollection(collectionId, { name, cover_url }) {
+async function updateCollection(collectionId, { name, cover_url, category }) {
   const cleanName = name ? name.trim() : undefined;
+  const cleanCategory = category ? category.trim() : undefined;
   const nowIso = new Date().toISOString();
 
   try {
@@ -181,11 +215,15 @@ async function updateCollection(collectionId, { name, cover_url }) {
       fields.push(`cover_url = $${idx++}`);
       values.push(cover_url);
     }
+    if (cleanCategory !== undefined) {
+      fields.push(`category = $${idx++}`);
+      values.push(cleanCategory);
+    }
 
     if (fields.length > 0) {
       fields.push(`updated_at = now()`);
       values.push(collectionId);
-      const queryStr = `UPDATE linkvideo_collections SET ${fields.join(', ')} WHERE id::text = $${idx} RETURNING id, name, cover_url, created_at, updated_at`;
+      const queryStr = `UPDATE linkvideo_collections SET ${fields.join(', ')} WHERE id::text = $${idx} RETURNING id, name, cover_url, category, created_at, updated_at`;
       const { rows } = await query(queryStr, values);
       if (rows && rows.length > 0) {
         const updated = rows[0];
@@ -201,6 +239,7 @@ async function updateCollection(collectionId, { name, cover_url }) {
     const col = inMemoryCollections.get(collectionId);
     if (cleanName !== undefined) col.name = cleanName;
     if (cover_url !== undefined) col.cover_url = cover_url;
+    if (cleanCategory !== undefined) col.category = cleanCategory;
     col.updated_at = nowIso;
     inMemoryCollections.set(collectionId, col);
     return await getCollectionById(collectionId);

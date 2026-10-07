@@ -7,9 +7,26 @@
  */
 let ioRef = null;
 const onlineUsers = new Map(); // userId -> Set(socketId)
+const activeWatchingMap = new Map(); // userId -> { title, videoUrl, collectionName, startedAt }
 
 function setIO(io) {
   ioRef = io;
+}
+
+function setWatchingStatus(userId, watchingData) {
+  if (!watchingData) {
+    activeWatchingMap.delete(userId);
+  } else {
+    activeWatchingMap.set(userId, watchingData);
+  }
+}
+
+function getWatchingStatus(userId) {
+  return activeWatchingMap.get(userId) || null;
+}
+
+function removeWatchingStatus(userId) {
+  activeWatchingMap.delete(userId);
 }
 
 function registerSocket(userId, socketId) {
@@ -37,4 +54,14 @@ function emitToUser(userId, event, payload) {
   }
 }
 
-module.exports = { setIO, registerSocket, unregisterSocket, isOnline, emitToUser };
+module.exports = {
+  setIO,
+  getIO: () => ioRef,
+  registerSocket,
+  unregisterSocket,
+  isOnline,
+  emitToUser,
+  setWatchingStatus,
+  getWatchingStatus,
+  removeWatchingStatus
+};
