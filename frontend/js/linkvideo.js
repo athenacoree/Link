@@ -59,6 +59,7 @@ window.LinkVideo = {
     this.initialized = true;
     this.setupSocketListeners();
     this.setupNetworkListeners();
+    this.setupVolumeKeyListeners();
     await this.cargarCatalogo();
   },
 
@@ -670,6 +671,28 @@ window.LinkVideo = {
     this.abrirReproductorLinkVideo(video);
   },
 
+  activarVolumenProteccion() {
+    this.hasUserActivatedVolume = true;
+    if (this.ytPlayer && typeof this.ytPlayer.unMute === 'function') {
+      try { this.ytPlayer.unMute(); } catch (e) {}
+    }
+    const btn = document.getElementById('hitvVolumeProtectionBtn');
+    if (btn) btn.style.display = 'none';
+  },
+
+  setupVolumeKeyListeners() {
+    if (this.volumeKeyListenersSet) return;
+    this.volumeKeyListenersSet = true;
+
+    window.addEventListener('keydown', (e) => {
+      if (this.activeVideoData && !this.hasUserActivatedVolume) {
+        if (e.key === 'AudioVolumeUp' || e.key === 'AudioVolumeDown' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+          this.activarVolumenProteccion();
+        }
+      }
+    });
+  },
+
   ensureYouTubeApiLoaded(callback) {
     if (window.YT && window.YT.Player) {
       callback();
@@ -701,6 +724,8 @@ window.LinkVideo = {
   ytPlayer: null,
   activeVideoData: null,
   isPlayingAudioBackground: false,
+  isAudioProtectionActive: true, // Protección de volumen activada por defecto al entrar
+  hasUserActivatedVolume: false, // Flag de volumen activado por usuario en la sesión de Link Video
 
   async abrirReproductorLinkVideo(video) {
     if (!video || !video.video_id) return;
@@ -720,13 +745,35 @@ window.LinkVideo = {
 
     const colName = this.currentCollection ? this.currentCollection.name : 'Link Video';
 
+    // SVG vectorial para el botón desplegable pegado a la izquierda
+    const vectorArrowSvg = `
+      <svg id="hitvFolderToggleArrowSvg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="18 15 12 9 6 15"></polyline>
+      </svg>
+    `;
+
+    // SVG vectorial para el botón flotante de volumen (Protección de sonido)
+    const vectorVolumeSvg = `
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+        <line x1="23" y1="9" x2="17" y2="15"></line>
+        <line x1="17" y1="9" x2="23" y2="15"></line>
+      </svg>
+    `;
+
     modal.innerHTML = `
-      <button onclick="LinkVideo.minimizarOOcultarModalPlayer()" class="hitv-close-btn" title="Cerrar reproductor">&times;</button>
+      <button onclick="LinkVideo.confirmarSalidaYSegundoPlano()" class="hitv-close-btn" title="Cerrar reproductor">&times;</button>
 
       <div class="hitv-player-wrapper">
-        <!-- El video se posiciona mas arriba -->
+        <!-- El video se posiciona arriba casi tocando el borde superior -->
         <div class="hitv-video-container" id="linkVideoIframeContainer">
           <div id="linkVideoIframePlayer"></div>
+
+          <!-- Botón vectorial pequeño flotante sobre el video para activar sonido -->
+          <button id="hitvVolumeProtectionBtn" class="hitv-volume-protection-btn" style="display:${this.hasUserActivatedVolume ? 'none' : 'flex'}; position:absolute; bottom:14px; right:14px; z-index:30; background:rgba(124,58,237,0.85); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); border:1px solid rgba(255,255,255,0.4); border-radius:30px; padding:8px 14px; color:#fff; font-size:12px; font-weight:800; cursor:pointer; align-items:center; gap:8px; box-shadow:0 6px 20px rgba(0,0,0,0.5);" onclick="LinkVideo.activarVolumenProteccion()">
+            ${vectorVolumeSvg}
+            <span>Activar sonido</span>
+          </button>
         </div>
 
         <!-- Area de Subtitulos / Animación Aurora (Debajo del video, NO encima del video) -->
@@ -744,10 +791,10 @@ window.LinkVideo = {
           </div>
         </div>
 
-        <!-- Flechita para desplegar otros videos de la carpeta -->
-        <div style="display:flex; justify-content:center; width:100%; margin-top:8px;">
+        <!-- Flecha vectorial pegada al lado izquierdo debajo del video -->
+        <div style="display:flex; justify-content:flex-start; width:100%; margin-top:10px; padding-left:4px;">
           <button id="hitvFolderToggleBtn" class="hitv-folder-toggle-btn" onclick="LinkVideo.toggleFolderVideosList()" title="Ver otros vídeos de la carpeta">
-            <span id="hitvFolderToggleArrow">▲</span>
+            ${vectorArrowSvg}
           </button>
         </div>
 
@@ -796,7 +843,15 @@ window.LinkVideo = {
           },
           events: {
             onReady: (event) => {
-              try { event.target.playVideo(); } catch (err) {}
+              try {
+                // Aplicar sistema de protección de audio si no se ha activado aún el volumen
+                if (!this.hasUserActivatedVolume) {
+                  event.target.mute();
+                } else {
+                  event.target.unMute();
+                }
+                event.target.playVideo();
+              } catch (err) {}
             },
             onStateChange: (event) => {
               if (window.YT && event.data === YT.PlayerState.PLAYING) {
@@ -858,7 +913,7 @@ window.LinkVideo = {
 
   toggleFolderVideosList() {
     const container = document.getElementById('hitvFolderVideosContainer');
-    const arrow = document.getElementById('hitvFolderToggleArrow');
+    const arrowSvg = document.getElementById('hitvFolderToggleArrowSvg');
     const subArea = document.getElementById('hitvSubtitleArea');
     if (!container) return;
 
@@ -866,11 +921,11 @@ window.LinkVideo = {
     if (isHidden) {
       this.renderizarVideosCarpetaPlayer();
       container.style.display = 'flex';
-      if (arrow) arrow.textContent = '▼';
+      if (arrowSvg) arrowSvg.style.transform = 'rotate(180deg)';
       if (subArea) subArea.style.display = 'none';
     } else {
       container.style.display = 'none';
-      if (arrow) arrow.textContent = '▲';
+      if (arrowSvg) arrowSvg.style.transform = 'rotate(0deg)';
       if (subArea) subArea.style.display = 'flex';
     }
   },
@@ -881,20 +936,38 @@ window.LinkVideo = {
 
     const videos = this.currentVideos || [];
     if (videos.length === 0) {
-      container.innerHTML = `<div style="text-align:center; padding:12px; color:rgba(255,255,255,0.7); font-size:12px;">No hay otros vídeos en esta carpeta.</div>`;
+      container.innerHTML = `<div style="text-align:center; padding:16px; color:rgba(255,255,255,0.7); font-size:13px; font-weight:700;">No hay otros vídeos en esta carpeta.</div>`;
       return;
     }
+
+    const vectorPlay = `
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="#ffffff">
+        <polygon points="5 3 19 12 5 21 5 3"></polygon>
+      </svg>
+    `;
 
     container.innerHTML = videos.map((v, idx) => {
       const isCurrent = idx === this.currentVideoIndex;
       const thumb = v.thumbnail_url || `https://img.youtube.com/vi/${v.video_id}/hqdefault.jpg`;
       return `
-        <div class="hitv-folder-video-item ${isCurrent ? 'active' : ''}" onclick="LinkVideo.reproducirVideoColeccion(${idx})">
-          <img class="hitv-folder-video-thumb" src="${thumb}" alt="${escapeHTMLLinkVideo(v.title)}">
-          <div class="hitv-folder-video-title">${escapeHTMLLinkVideo(v.title)}</div>
-          <span style="font-size:11px; font-weight:800; color:${isCurrent ? '#a78bfa' : 'rgba(255,255,255,0.6)'};">
-            ${isCurrent ? '▶ Reproduciendo' : 'Seleccionar'}
-          </span>
+        <div class="hitv-folder-video-card-item ${isCurrent ? 'active' : ''}" onclick="LinkVideo.reproducirVideoColeccion(${idx})">
+          <div class="hitv-folder-card-thumb-wrap">
+            <img class="hitv-folder-card-thumb-img" src="${thumb}" alt="${escapeHTMLLinkVideo(v.title)}">
+            <div class="hitv-folder-card-overlay">
+              <div class="hitv-folder-card-play-icon">
+                ${vectorPlay}
+              </div>
+            </div>
+            ${isCurrent ? `
+              <div style="position:absolute; top:10px; right:10px; background:#7c3aed; color:#fff; font-size:11px; font-weight:900; padding:4px 10px; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.4);">
+                ▶ Reproduciendo
+              </div>
+            ` : ''}
+          </div>
+          <div class="hitv-folder-card-info">
+            <div class="hitv-folder-card-title">${escapeHTMLLinkVideo(v.title)}</div>
+            ${v.audio_description ? `<div style="font-size:11px; color:rgba(255,255,255,0.6);">🎙️ ${escapeHTMLLinkVideo(v.audio_description)}</div>` : ''}
+          </div>
         </div>
       `;
     }).join('');
@@ -915,6 +988,65 @@ window.LinkVideo = {
     }
   },
 
+  confirmarSalidaYSegundoPlano() {
+    if (!this.activeVideoData) {
+      this.cerrarReproductorLinkVideo();
+      return;
+    }
+
+    let confirmModal = document.getElementById('modalConfirmBackgroundAudio');
+    if (!confirmModal) {
+      confirmModal = document.createElement('div');
+      confirmModal.id = 'modalConfirmBackgroundAudio';
+      confirmModal.style.cssText = 'position:fixed; inset:0; z-index:100010; background:rgba(0,0,0,0.7); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); display:flex; align-items:center; justify-content:center; padding:20px;';
+      document.body.appendChild(confirmModal);
+    }
+
+    const vectorCheckSvg = `
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="20 6 9 17 4 12"></polyline>
+      </svg>
+    `;
+
+    const vectorCrossSvg = `
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="6" x2="6" y2="18"></line>
+        <line x1="6" y1="6" x2="18" y2="18"></line>
+      </svg>
+    `;
+
+    confirmModal.style.display = 'flex';
+    confirmModal.innerHTML = `
+      <div style="background:rgba(20, 16, 36, 0.95); border:1px solid rgba(139,92,246,0.4); border-radius:24px; padding:24px; width:100%; max-width:380px; text-align:center; box-shadow:0 16px 40px rgba(0,0,0,0.6); color:#fff;">
+        <div style="font-size:17px; font-weight:900; margin-bottom:8px; color:#ddd6fe;">¿Seguir escuchando en segundo plano?</div>
+        <div style="font-size:13px; color:rgba(255,255,255,0.75); margin-bottom:20px; line-height:1.4;">El audio del video continuará reproduciéndose de forma fluida mientras navegas por la plataforma.</div>
+
+        <div style="display:flex; gap:12px; justify-content:center;">
+          <button onclick="LinkVideo.respuestaSegundoPlano(false)" style="flex:1; background:rgba(239,68,68,0.2); border:1px solid rgba(239,68,68,0.5); border-radius:16px; padding:10px; color:#fca5a5; font-size:13px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;">
+            ${vectorCrossSvg}
+            <span>Rechazar</span>
+          </button>
+
+          <button onclick="LinkVideo.respuestaSegundoPlano(true)" style="flex:1; background:linear-gradient(135deg, #7c3aed, #ec4899); border:none; border-radius:16px; padding:10px; color:#ffffff; font-size:13px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; box-shadow:0 4px 16px rgba(124,58,237,0.4);">
+            ${vectorCheckSvg}
+            <span>Aceptar</span>
+          </button>
+        </div>
+      </div>
+    `;
+  },
+
+  respuestaSegundoPlano(aceptar) {
+    const confirmModal = document.getElementById('modalConfirmBackgroundAudio');
+    if (confirmModal) confirmModal.style.display = 'none';
+
+    if (aceptar) {
+      this.minimizarOOcultarModalPlayer();
+    } else {
+      this.cerrarReproductorLinkVideo();
+    }
+  },
+
   actualizarAudioBannerTop() {
     let banner = document.getElementById('topAudioBanner');
     if (!banner) {
@@ -923,18 +1055,14 @@ window.LinkVideo = {
       banner.className = 'top-audio-banner oculto';
       banner.onclick = () => this.reabrirReproductorModal();
       banner.innerHTML = `
-        <div class="top-audio-info">
-          <div class="top-audio-equalizer">
-            <span></span><span></span><span></span>
+        <div style="display:flex; align-items:center; justify-content:space-between; width:100%; font-size:11px; font-weight:800; letter-spacing:0.3px;">
+          <div style="display:flex; align-items:center; gap:6px; min-width:0;">
+            <span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:#a78bfa; animation:pulse 1.5s infinite;"></span>
+            <span id="topAudioTimeText" style="color:#ddd6fe; font-family:monospace;">00:00 / 00:00</span>
           </div>
-          <div class="top-audio-text">
-            <div id="topAudioTitle" class="top-audio-title">Reproduciendo video</div>
-            <div id="topAudioSubtitle" class="top-audio-subtitle">Link Video</div>
+          <div style="font-size:10px; font-weight:700; color:rgba(255,255,255,0.7); text-transform:uppercase; text-overflow:ellipsis; overflow:hidden; white-space:nowrap; max-width:180px;" id="topAudioMiniTitle">
+            Link Video
           </div>
-        </div>
-        <div class="top-audio-controls" onclick="event.stopPropagation()">
-          <button id="btnTopAudioPlayPause" class="top-audio-btn" onclick="LinkVideo.togglePlayPauseAudioBanner()">⏸️</button>
-          <button id="btnTopAudioClose" class="top-audio-btn close" onclick="LinkVideo.detenerYOtrosBannerAudio()">✕</button>
         </div>
       `;
       const appShell = document.getElementById('appShell');
@@ -946,23 +1074,49 @@ window.LinkVideo = {
     }
 
     if (this.activeVideoData && this.isPlayingAudioBackground) {
-      const colName = this.currentCollection ? this.currentCollection.name : 'Link Video';
-      const titleEl = document.getElementById('topAudioTitle');
-      const subEl = document.getElementById('topAudioSubtitle');
-      const playPauseBtn = document.getElementById('btnTopAudioPlayPause');
-
-      if (titleEl) titleEl.textContent = this.activeVideoData.title || 'Video activo';
-      if (subEl) subEl.textContent = colName;
-      if (playPauseBtn) playPauseBtn.textContent = '⏸️';
-
       banner.classList.remove('oculto');
-    } else if (this.activeVideoData && !this.isPlayingAudioBackground) {
-      const playPauseBtn = document.getElementById('btnTopAudioPlayPause');
-      if (playPauseBtn) playPauseBtn.textContent = '▶️';
-      banner.classList.remove('oculto');
+      const titleEl = document.getElementById('topAudioMiniTitle');
+      if (titleEl && this.activeVideoData.title) {
+        titleEl.textContent = this.activeVideoData.title;
+      }
+      this.iniciarTimerBannerAudio();
     } else {
       banner.classList.add('oculto');
+      this.detenerTimerBannerAudio();
     }
+  },
+
+  bannerTimerInterval: null,
+
+  iniciarTimerBannerAudio() {
+    this.detenerTimerBannerAudio();
+    this.bannerTimerInterval = setInterval(() => {
+      const timeEl = document.getElementById('topAudioTimeText');
+      if (!timeEl || !this.ytPlayer) return;
+
+      try {
+        if (typeof this.ytPlayer.getCurrentTime === 'function' && typeof this.ytPlayer.getDuration === 'function') {
+          const current = Math.floor(this.ytPlayer.getCurrentTime() || 0);
+          const duration = Math.floor(this.ytPlayer.getDuration() || 0);
+          const remaining = Math.max(0, duration - current);
+
+          timeEl.textContent = `${this.formatTimeSeconds(current)} / -${this.formatTimeSeconds(remaining)}`;
+        }
+      } catch (e) {}
+    }, 500);
+  },
+
+  detenerTimerBannerAudio() {
+    if (this.bannerTimerInterval) {
+      clearInterval(this.bannerTimerInterval);
+      this.bannerTimerInterval = null;
+    }
+  },
+
+  formatTimeSeconds(sec) {
+    const m = Math.floor(sec / 60);
+    const s = Math.floor(sec % 60);
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   },
 
   togglePlayPauseAudioBanner() {

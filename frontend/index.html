@@ -9,22 +9,17 @@
 <link rel="manifest" id="manifestLink" href="/manifest.json">
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <link rel="icon" href="/icons/icon-192.png">
-  <link rel="stylesheet" href="/css/app.css?v=32">
-  <link rel="stylesheet" href="/css/call.css?v=32">
-  <link rel="stylesheet" href="/css/features.css?v=32">
-  <link rel="stylesheet" href="/css/ailab.css?v=32">
+  <link rel="stylesheet" href="/css/app.css?v=33">
+  <link rel="stylesheet" href="/css/call.css?v=33">
+  <link rel="stylesheet" href="/css/features.css?v=33">
+  <link rel="stylesheet" href="/css/ailab.css?v=33">
 </head>
 <body>
 
 <!-- =========================================================
-     ANIMACIÓN BORDES NEÓN DE CARGA
+     EFECTO BORDES GIRATORIOS CON DESENFOQUE 3D
      ========================================================= -->
-<div id="neonLoadingBorder" class="neon-loading-border">
-  <div class="neon-line neon-top"></div>
-  <div class="neon-line neon-right"></div>
-  <div class="neon-line neon-bottom"></div>
-  <div class="neon-line neon-left"></div>
-</div>
+<div id="neonLoadingBorder" class="aurora-glow-overlay"></div>
 
 <!-- =========================================================
      PANTALLA DE CARGA / SPLASH SCREEN DE LA APLICACIÓN
@@ -2409,16 +2404,16 @@
 </div>
 
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-  <script src="/js/api.js?v=32"></script>
-  <script src="/js/paises.js?v=32"></script>
-  <script src="/js/i18n.js?v=32"></script>
-  <script src="/js/call.js?v=32"></script>
-  <script src="/js/chat.js?v=32"></script>
-  <script src="/js/features.js?v=32"></script>
-  <script src="/js/linkvideo.js?v=32"></script>
-  <script src="/js/ailab.js?v=32"></script>
-  <script src="/js/monetization.js?v=32"></script>
-  <script src="/js/app.js?v=32"></script>
+  <script src="/js/api.js?v=33"></script>
+  <script src="/js/paises.js?v=33"></script>
+  <script src="/js/i18n.js?v=33"></script>
+  <script src="/js/call.js?v=33"></script>
+  <script src="/js/chat.js?v=33"></script>
+  <script src="/js/features.js?v=33"></script>
+  <script src="/js/linkvideo.js?v=33"></script>
+  <script src="/js/ailab.js?v=33"></script>
+  <script src="/js/monetization.js?v=33"></script>
+  <script src="/js/app.js?v=33"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
@@ -2557,12 +2552,7 @@ if ('serviceWorker' in navigator) {
     </form>
   </div>
 </div>
-<!-- Overlay para Animación Neón en los bordes de la pantalla al entrar un mensaje -->
-<div id="neonBorderOverlay" class="neon-border-overlay">
-  <div class="neon-top"></div>
-  <div class="neon-right"></div>
-  <div class="neon-bottom"></div>
-  <div class="neon-left"></div>
-</div>
+<!-- Overlay para Efecto Giratorio 3D con desenfoque al tocar botón 3D -->
+<div id="neonBorderOverlay" class="aurora-glow-overlay"></div>
 </body>
 </html>
