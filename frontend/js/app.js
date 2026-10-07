@@ -4625,7 +4625,8 @@ window.adminCargarFotoPortadaColeccion = adminCargarFotoPortadaColeccion;
 async function adminGuardarColeccion() {
   const id = $('adminColIdInput')?.value;
   const name = $('adminColNameInput')?.value.trim();
-  const category = $('adminColCategoryInput')?.value.trim() || 'General';
+  const category = $('adminColCategoryInput')?.value || 'General';
+  const audio_description = $('adminColAudioDescInput')?.value.trim();
   const cover_url = $('adminColCoverInput')?.value.trim();
 
   if (!name) {
@@ -4635,10 +4636,10 @@ async function adminGuardarColeccion() {
 
   try {
     if (id) {
-      await api(`/linkvideo/admin/collections/${id}`, { method: 'PUT', body: { name, cover_url, category } });
+      await api(`/linkvideo/admin/collections/${id}`, { method: 'PUT', body: { name, cover_url, category, audio_description } });
       mostrarToast('Colección actualizada correctamente');
     } else {
-      await api('/linkvideo/admin/collections', { method: 'POST', body: { name, cover_url, category } });
+      await api('/linkvideo/admin/collections', { method: 'POST', body: { name, cover_url, category, audio_description } });
       mostrarToast('Colección creada correctamente');
     }
 
@@ -4656,6 +4657,7 @@ function adminEditarColeccion(col) {
   if ($('adminColIdInput')) $('adminColIdInput').value = col.id;
   if ($('adminColNameInput')) $('adminColNameInput').value = col.name || '';
   if ($('adminColCategoryInput')) $('adminColCategoryInput').value = col.category || 'General';
+  if ($('adminColAudioDescInput')) $('adminColAudioDescInput').value = col.audio_description || '';
   if ($('adminColCoverInput')) $('adminColCoverInput').value = col.cover_url || '';
   if ($('adminColFormTitle')) $('adminColFormTitle').textContent = `✏️ Editando: ${col.name}`;
 }
@@ -4664,7 +4666,8 @@ window.adminEditarColeccion = adminEditarColeccion;
 function adminLimpiarFormColeccion() {
   if ($('adminColIdInput')) $('adminColIdInput').value = '';
   if ($('adminColNameInput')) $('adminColNameInput').value = '';
-  if ($('adminColCategoryInput')) $('adminColCategoryInput').value = '';
+  if ($('adminColCategoryInput')) $('adminColCategoryInput').value = 'General';
+  if ($('adminColAudioDescInput')) $('adminColAudioDescInput').value = '';
   if ($('adminColCoverInput')) $('adminColCoverInput').value = '';
   if ($('adminColFormTitle')) $('adminColFormTitle').textContent = '📁 Crear / Editar Colección o Álbum';
 }
@@ -4768,6 +4771,7 @@ window.adminPreviewVideoUrl = adminPreviewVideoUrl;
 async function adminAgregarVideoAColeccion() {
   const url = $('adminVideoUrlInput')?.value.trim();
   const title = $('adminVideoTitleInput')?.value.trim();
+  const audio_description = $('adminVideoAudioDescInput')?.value.trim();
 
   if (!url || !adminColeccionSeleccionadaId) {
     mostrarToast('Por favor introduce la URL de YouTube.');
@@ -4777,12 +4781,13 @@ async function adminAgregarVideoAColeccion() {
   try {
     await api(`/linkvideo/admin/collections/${adminColeccionSeleccionadaId}/videos`, {
       method: 'POST',
-      body: { url, title }
+      body: { url, title, audio_description }
     });
 
     mostrarToast('Video agregado a la colección');
     if ($('adminVideoUrlInput')) $('adminVideoUrlInput').value = '';
     if ($('adminVideoTitleInput')) $('adminVideoTitleInput').value = '';
+    if ($('adminVideoAudioDescInput')) $('adminVideoAudioDescInput').value = '';
     if ($('adminBoxVideoPreview')) $('adminBoxVideoPreview').style.display = 'none';
 
     await adminCargarVideosDeColeccion(adminColeccionSeleccionadaId);

@@ -9,10 +9,10 @@
 <link rel="manifest" id="manifestLink" href="/manifest.json">
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <link rel="icon" href="/icons/icon-192.png">
-<link rel="stylesheet" href="/css/app.css?v=27">
-<link rel="stylesheet" href="/css/call.css?v=27">
-<link rel="stylesheet" href="/css/features.css?v=27">
-<link rel="stylesheet" href="/css/ailab.css?v=27">
+<link rel="stylesheet" href="/css/app.css?v=28">
+<link rel="stylesheet" href="/css/call.css?v=28">
+<link rel="stylesheet" href="/css/features.css?v=28">
+<link rel="stylesheet" href="/css/ailab.css?v=28">
 </head>
 <body>
 
@@ -1183,8 +1183,22 @@
         </div>
 
         <div class="campo">
-          <label>Categoría(s) (Ej: Película, Serie, Telenovela, Música, Videos)</label>
-          <input type="text" id="adminColCategoryInput" placeholder="Ej: Película, Serie, Telenovela, Música, etc.">
+          <label>Categoría</label>
+          <select id="adminColCategoryInput">
+            <option value="General">General</option>
+            <option value="Música">Música</option>
+            <option value="Álbumes">Álbumes</option>
+            <option value="Películas">Películas</option>
+            <option value="Series">Series</option>
+            <option value="Telenovelas">Telenovelas</option>
+            <option value="Documentales">Documentales</option>
+            <option value="Animes">Animes</option>
+          </select>
+        </div>
+
+        <div class="campo">
+          <label>Descripción de Audio del Álbum (Opcional)</label>
+          <textarea id="adminColAudioDescInput" rows="2" placeholder="Resumen o detalles de audio del álbum/colección..."></textarea>
         </div>
 
         <div class="campo">
@@ -1227,6 +1241,11 @@
         <div class="campo">
           <label>Título del Video (editable)</label>
           <input type="text" id="adminVideoTitleInput" placeholder="Título real del video">
+        </div>
+
+        <div class="campo">
+          <label>Descripción de Audio del Video (Opcional)</label>
+          <textarea id="adminVideoAudioDescInput" rows="2" placeholder="Descripción hablada o nota sobre el audio/video..."></textarea>
         </div>
 
         <div id="adminBoxVideoPreview" style="display:none; margin-bottom:12px; padding:8px; background:var(--hueso); border:1px solid var(--borde); border-radius:12px;">
@@ -2390,16 +2409,16 @@
 </div>
 
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-<script src="/js/api.js?v=27"></script>
-<script src="/js/paises.js?v=27"></script>
-<script src="/js/i18n.js?v=27"></script>
-<script src="/js/call.js?v=27"></script>
-<script src="/js/chat.js?v=27"></script>
-<script src="/js/features.js?v=27"></script>
-<script src="/js/linkvideo.js?v=27"></script>
-<script src="/js/ailab.js?v=27"></script>
-<script src="/js/monetization.js?v=27"></script>
-<script src="/js/app.js?v=27"></script>
+<script src="/js/api.js?v=28"></script>
+<script src="/js/paises.js?v=28"></script>
+<script src="/js/i18n.js?v=28"></script>
+<script src="/js/call.js?v=28"></script>
+<script src="/js/chat.js?v=28"></script>
+<script src="/js/features.js?v=28"></script>
+<script src="/js/linkvideo.js?v=28"></script>
+<script src="/js/ailab.js?v=28"></script>
+<script src="/js/monetization.js?v=28"></script>
+<script src="/js/app.js?v=28"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
