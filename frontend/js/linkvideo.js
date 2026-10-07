@@ -251,6 +251,12 @@ window.LinkVideo = {
     }).join('');
   },
 
+  toggleAlbumDesc(el) {
+    if (el) {
+      el.classList.toggle('expandido');
+    }
+  },
+
   filtrarPorCategoria(cat) {
     this.selectedCategory = cat;
     this.renderizarColecciones(this.collections);
@@ -321,7 +327,11 @@ window.LinkVideo = {
                 <span style="font-size:11px; font-weight:800; background:var(--morado-600); color:#ffffff; padding:3px 10px; border-radius:10px;">🏷️ ${escapeHTMLLinkVideo(categoryTag)}</span>
                 <span style="font-size:12px; color:var(--morado-700); font-weight:800;">🎬 ${videos.length} video${videos.length === 1 ? '' : 's'}</span>
               </div>
-              ${colAudioDesc ? `<div style="font-size:12px; color:var(--texto-700); line-height:1.3; font-weight:500;">🎙️ ${escapeHTMLLinkVideo(colAudioDesc)}</div>` : ''}
+              ${colAudioDesc ? `
+                <div class="linkvideo-album-desc-truncated" onclick="LinkVideo.toggleAlbumDesc(this)" title="Toca para expandir / contraer">
+                  🎙️ ${escapeHTMLLinkVideo(colAudioDesc)}
+                </div>
+              ` : ''}
             </div>
           </div>
         </div>
@@ -629,51 +639,37 @@ window.LinkVideo = {
     const categoryTag = (this.currentCollection && this.currentCollection.category) || 'General';
     const videoAudioDesc = video.audio_description || (this.currentCollection && this.currentCollection.audio_description) || '';
 
-    // Subtítulos/letras sincronizadas simuladas estilo karaoke HiTV basados en el título o audio_description
+    // Letras/fragmentos flotantes basados en el título o descripción sin recuadros ni etiquetas
     const lyricsLines = [
-      `🎵 [Audio HD - ${escapeHTMLLinkVideo(video.title)}]`,
-      videoAudioDesc ? `🗣️ ${escapeHTMLLinkVideo(videoAudioDesc)}` : '✨ Reproduciendo contenido original de YouTube con calidad configurable.',
-      `📌 Álbum: ${escapeHTMLLinkVideo(colName)} • Categoría: ${escapeHTMLLinkVideo(categoryTag)}`,
-      `💬 Subtítulos nativos activados en el reproductor`
-    ];
+      `${escapeHTMLLinkVideo(video.title)}`,
+      videoAudioDesc ? `${escapeHTMLLinkVideo(videoAudioDesc)}` : `${escapeHTMLLinkVideo(colName)}`,
+      `${escapeHTMLLinkVideo(colName)} • ${escapeHTMLLinkVideo(categoryTag)}`
+    ].filter(Boolean);
 
     modal.innerHTML = `
-      <!-- Botón flotante para cerrar en la esquina superior izquierda sin obstruir el video de YouTube -->
+      <!-- Botón flotante para cerrar -->
       <button onclick="LinkVideo.cerrarReproductorLinkVideo()" class="hitv-close-btn" title="Cerrar reproductor">&times;</button>
 
-      <!-- Zona Superior: Video de YouTube Limpio e Interactivo -->
+      <!-- Zona de Video Limpia -->
       <div class="hitv-video-container" id="linkVideoIframeContainer">
         <iframe id="linkVideoIframePlayer" src="${embedUrl}" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen" allowfullscreen></iframe>
       </div>
 
-      <!-- Zona Inferior Estilo HiTV: Fondo Difuminado Glassmorphism -->
+      <!-- Área de Letras Flotantes Limpia sin Recuadros -->
       <div class="hitv-info-panel">
-        <div class="hitv-header-info">
-          <div class="hitv-title">${escapeHTMLLinkVideo(video.title)}</div>
-          <div class="hitv-artist-row">
-            <span class="hitv-artist">👤 ${escapeHTMLLinkVideo(colName)}</span>
-            <span class="hitv-badge">🏷️ ${escapeHTMLLinkVideo(categoryTag)}</span>
-          </div>
-          ${videoAudioDesc ? `<div class="hitv-audio-desc">🎙️ ${escapeHTMLLinkVideo(videoAudioDesc)}</div>` : ''}
-        </div>
-
-        <!-- Subtítulos y Letras Dinámicas tipo Karaoke sobre el Fondo Difuminado -->
-        <div class="hitv-subtitles-card">
-          <div style="font-size:10px; font-weight:800; color:rgba(255,255,255,0.6); text-transform:uppercase; letter-spacing:1px; margin-bottom:6px; display:flex; align-items:center; gap:6px;">
-            <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#10b981; animation:pulse 1.5s infinite;"></span>
-            Subtítulos y Letras en Vivo (Estilo Karaoke)
-          </div>
-          <div id="hitvSubtitlesText" class="hitv-subtitle-line active">
-            ${lyricsLines[0]}
+        <div class="hitv-floating-lyrics-area">
+          <div id="hitvSubtitlesText" class="hitv-subtitle-line">
+            ${lyricsLines[0] || ''}
           </div>
         </div>
       </div>
     `;
 
-    // Iniciar ciclo de cambio de subtítulos estilo karaoke sobre el fondo difuminado
+    // Ciclo de letras flotantes suave
     if (this.lyricsInterval) clearInterval(this.lyricsInterval);
     let lineIdx = 0;
     this.lyricsInterval = setInterval(() => {
+      if (lyricsLines.length <= 1) return;
       lineIdx = (lineIdx + 1) % lyricsLines.length;
       const subEl = document.getElementById('hitvSubtitlesText');
       if (subEl) {
@@ -683,7 +679,7 @@ window.LinkVideo = {
           subEl.innerHTML = lyricsLines[lineIdx];
           subEl.style.opacity = '1';
           subEl.style.transform = 'translateY(0)';
-        }, 200);
+        }, 300);
       }
     }, 4000);
 
