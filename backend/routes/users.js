@@ -9,6 +9,7 @@ const {
   construirFeedDescubrir, explicarRecomendacion,
   TIPOS_REACCION, registrarReaccion, quitarReaccion, obtenerMiReaccion, obtenerMisReaccionesPara,
 } = require('../utils/recomendaciones');
+const { getWatchingStatus } = require('../utils/realtime');
 
 const router = express.Router();
 
@@ -23,14 +24,23 @@ router.get('/', requireAuth, async (req, res) => {
   const rows = await construirFeedDescubrir(req.userId, { limite: 30 });
   const misReacciones = await obtenerMisReaccionesPara(req.userId, rows.map((r) => r.id));
   res.json({
-    personas: rows.map(r => ({
-      ...publicUser(r),
-      estado_amistad: r.estado_amistad || 'ninguno',
-      solicitud_de_mi: r.requested_by === req.userId,
-      origen: r._origen,
-      localidad_bloque: r._localidad_bloque,
-      mi_reaccion: misReacciones.get(r.id) || null,
-    })),
+    personas: rows.map(r => {
+      let watching = getWatchingStatus(r.id);
+      if (watching) {
+        const privacy = r.settings?.privacy_media_activity || 'everyone';
+        if (privacy === 'nobody') watching = null;
+        else if (privacy === 'friends' && r.estado_amistad !== 'amigos') watching = null;
+      }
+      return {
+        ...publicUser(r),
+        estado_amistad: r.estado_amistad || 'ninguno',
+        solicitud_de_mi: r.requested_by === req.userId,
+        origen: r._origen,
+        localidad_bloque: r._localidad_bloque,
+        mi_reaccion: misReacciones.get(r.id) || null,
+        currently_watching: watching
+      };
+    }),
   });
 });
 
@@ -207,8 +217,18 @@ router.get('/:id', requireAuth, async (req, res) => {
   );
   const reputacion = await obtenerReputacion(req.params.id);
 
+  let watching = getWatchingStatus(req.params.id);
+  if (watching) {
+    const privacy = user.settings?.privacy_media_activity || 'everyone';
+    if (privacy === 'nobody' && req.params.id !== req.userId) {
+      watching = null;
+    } else if (privacy === 'friends' && req.params.id !== req.userId) {
+      if (fr.rows[0]?.status !== 'amigos') watching = null;
+    }
+  }
+
   res.json({
-    persona: { ...publicUser(user), views_count: user.views_count || 0 },
+    persona: { ...publicUser(user), views_count: user.views_count || 0, currently_watching: watching },
     estado_amistad: fr.rows[0]?.status || 'ninguno',
     solicitud_de_mi: fr.rows[0]?.requested_by === req.userId,
     contacto_verificado: cv.rows[0]?.verified || false,

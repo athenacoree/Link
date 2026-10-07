@@ -1,6 +1,6 @@
 const { verifyToken } = require('../utils/jwt');
 const { query } = require('../db/postgres');
-const { setIO, registerSocket, unregisterSocket, isOnline, emitToUser } = require('../utils/realtime');
+const { setIO, registerSocket, unregisterSocket, isOnline, emitToUser, setWatchingStatus, getWatchingStatus, removeWatchingStatus } = require('../utils/realtime');
 const { registrarSenal } = require('../utils/recomendaciones');
 const { initAILabBackgroundJobs } = require('../services/aiLabService');
 const linkVideoService = require('../services/linkVideoService');
@@ -48,6 +48,40 @@ function initSockets(io) {
 
     await query('UPDATE users SET is_online=true WHERE id=$1', [userId]).catch(() => {});
     broadcastPresencia(io, userId, true);
+
+    // ---------------- ACTIVIDAD MULTIMEDIA EN TIEMPO REAL ("¿Quién ve qué hago?") ----------------
+    socket.on('actividad:viendo', async ({ title, videoUrl, collectionName }) => {
+      if (!title) return;
+      const watchingData = { title, videoUrl: videoUrl || '', collectionName: collectionName || '', startedAt: new Date().toISOString() };
+      setWatchingStatus(userId, watchingData);
+
+      try {
+        const { rows } = await query('SELECT settings FROM users WHERE id = $1', [userId]);
+        const privacy = rows[0]?.settings?.privacy_media_activity || 'everyone';
+
+        if (privacy === 'nobody') return;
+
+        if (privacy === 'friends') {
+          const fRes = await query(
+            `SELECT CASE WHEN user_a = $1 THEN user_b ELSE user_a END AS friend_id
+             FROM friendships WHERE (user_a = $1 OR user_b = $1) AND status = 'amigos'`,
+            [userId]
+          );
+          for (const f of fRes.rows) {
+            emitToUser(f.friend_id, 'actividad:usuario_viendo', { userId, watching: watchingData });
+          }
+        } else {
+          io.emit('actividad:usuario_viendo', { userId, watching: watchingData });
+        }
+      } catch (err) {
+        console.error('[actividad:viendo] error:', err.message);
+      }
+    });
+
+    socket.on('actividad:detener_viendo', async () => {
+      removeWatchingStatus(userId);
+      io.emit('actividad:usuario_viendo', { userId, watching: null });
+    });
 
     // ---------------- LINK LIVE / LINK VIDEO PERSISTENTE ----------------
     socket.on('live:join', async ({ sessionId }) => {
@@ -484,6 +518,8 @@ function initSockets(io) {
 
       unregisterSocket(userId, socket.id);
       if (!isOnline(userId)) {
+        removeWatchingStatus(userId);
+        io.emit('actividad:usuario_viendo', { userId, watching: null });
         await query('UPDATE users SET is_online=false, last_seen=now() WHERE id=$1', [userId]).catch(() => {});
         broadcastPresencia(io, userId, false);
       }

@@ -135,6 +135,7 @@ window.LinkVideo = {
   },
 
   searchQuery: '',
+  selectedCategory: 'Todas',
 
   async cargarCatalogo(forceRefresh = false) {
     const gridEl = document.getElementById('linkVideoCollectionsGrid');
@@ -187,10 +188,44 @@ window.LinkVideo = {
     gridEl.style.display = 'grid';
     this.currentCollection = null;
 
+    // Extraer categorías únicas
+    const catSet = new Set(['Todas']);
+    (colecciones || []).forEach(c => {
+      if (c.category) {
+        c.category.split(',').forEach(subCat => {
+          const trimmed = subCat.trim();
+          if (trimmed) catSet.add(trimmed);
+        });
+      }
+    });
+
+    const categoriasUnicas = Array.from(catSet);
+
+    // Crear barra de píldoras de categorías si no existe
+    let catBar = document.getElementById('linkVideoCategoryBar');
+    if (!catBar) {
+      catBar = document.createElement('div');
+      catBar.id = 'linkVideoCategoryBar';
+      catBar.style.cssText = 'display:flex; gap:8px; overflow-x:auto; margin-bottom:14px; padding-bottom:4px; width:100%; box-sizing:border-box; scrollbar-width:none;';
+      gridEl.parentNode.insertBefore(catBar, gridEl);
+    }
+
+    catBar.style.display = 'flex';
+    catBar.innerHTML = categoriasUnicas.map(cat => {
+      const activo = (this.selectedCategory === cat) ? 'background:var(--morado-600); color:#fff;' : 'background:var(--fondo-tarjeta); color:var(--texto-800); border:1px solid var(--borde);';
+      return `<button class="mini-btn" style="padding:6px 12px; border-radius:14px; font-weight:800; font-size:12px; white-space:nowrap; cursor:pointer; ${activo}" onclick="LinkVideo.filtrarPorCategoria('${escapeHTMLLinkVideo(cat)}')">${escapeHTMLLinkVideo(cat)}</button>`;
+    }).join('');
+
     let filtradas = colecciones || [];
+
+    if (this.selectedCategory && this.selectedCategory !== 'Todas') {
+      const sel = this.selectedCategory.toLowerCase();
+      filtradas = filtradas.filter(c => (c.category || '').toLowerCase().includes(sel));
+    }
+
     if (this.searchQuery) {
       const q = this.searchQuery.toLowerCase();
-      filtradas = filtradas.filter(c => (c.name || '').toLowerCase().includes(q));
+      filtradas = filtradas.filter(c => (c.name || '').toLowerCase().includes(q) || (c.category || '').toLowerCase().includes(q));
     }
 
     if (!filtradas || filtradas.length === 0) {
@@ -201,17 +236,24 @@ window.LinkVideo = {
     gridEl.innerHTML = filtradas.map(col => {
       const cover = col.cover_url || 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=600';
       const count = col.video_count || (col.videos ? col.videos.length : 0);
+      const categoryTag = col.category || 'General';
 
       return `
         <div class="linkvideo-square-card" onclick="LinkVideo.abrirColeccion('${col.id}')">
           <img class="linkvideo-card-thumb-img" src="${cover}" alt="${escapeHTMLLinkVideo(col.name)}" onerror="this.src='https://images.pexels.com/photos/2506923/pexels-photo-2506923.jpeg?auto=compress&cs=tinysrgb&w=600'">
           <div class="linkvideo-card-overlay-gradient">
+            <div style="font-size:10px; font-weight:800; background:rgba(0,0,0,0.6); color:#ddd6fe; padding:2px 6px; border-radius:6px; width:fit-content; margin-bottom:4px;">🏷️ ${escapeHTMLLinkVideo(categoryTag)}</div>
             <div class="linkvideo-card-title">${escapeHTMLLinkVideo(col.name)}</div>
             <div class="linkvideo-card-badge-count">🎬 ${count} video${count === 1 ? '' : 's'}</div>
           </div>
         </div>
       `;
     }).join('');
+  },
+
+  filtrarPorCategoria(cat) {
+    this.selectedCategory = cat;
+    this.renderizarColecciones(this.collections);
   },
 
   async abrirColeccion(collectionId) {
@@ -239,6 +281,9 @@ window.LinkVideo = {
 
   renderizarDetalleColeccion(col) {
     const detailView = document.getElementById('linkVideoCollectionDetailView');
+    const catBar = document.getElementById('linkVideoCategoryBar');
+    if (catBar) catBar.style.display = 'none';
+
     if (!detailView) return;
 
     let videos = col.videos || [];
@@ -248,6 +293,7 @@ window.LinkVideo = {
     }
 
     const cover = col.cover_url || 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=600';
+    const categoryTag = col.category || 'General';
     const esAdmin = !!(window.currentUser?.is_admin || window.MI_ES_ADMIN);
 
     detailView.innerHTML = `
@@ -266,19 +312,24 @@ window.LinkVideo = {
           <img src="${cover}" style="width:64px; height:64px; border-radius:14px; object-fit:cover;" alt="Cover">
           <div>
             <div style="font-weight:900; font-size:16px; color:var(--texto-900);">${escapeHTMLLinkVideo(col.name)}</div>
-            <div style="font-size:12px; color:var(--morado-700); font-weight:700;">${videos.length} video${videos.length === 1 ? '' : 's'} disponibles</div>
+            <div style="display:flex; gap:6px; align-items:center; margin-top:2px;">
+              <span style="font-size:11px; font-weight:800; background:var(--morado-100); color:var(--morado-700); padding:2px 8px; border-radius:8px;">🏷️ ${escapeHTMLLinkVideo(categoryTag)}</span>
+              <span style="font-size:12px; color:var(--morado-700); font-weight:700;">${videos.length} video${videos.length === 1 ? '' : 's'}</span>
+            </div>
           </div>
         </div>
       </div>
 
       <div class="grid-cuadrados-linkvideo" id="linkVideoVideosGrid">
         ${videos.length === 0 ? `<div class="aviso-vacio" style="grid-column: 1 / -1;">Esta colección no tiene videos aún.</div>` : videos.map((v, idx) => `
-          <div class="linkvideo-square-card" onclick="LinkVideo.reproducirVideoColeccion(${idx})">
-            <img class="linkvideo-card-thumb-img" src="${v.thumbnail_url || 'https://img.youtube.com/vi/' + v.video_id + '/hqdefault.jpg'}" alt="${escapeHTMLLinkVideo(v.title)}">
-            <div class="linkvideo-card-overlay-gradient">
-              <div style="font-size:24px; text-align:center; margin-bottom:auto; padding-top:14px;">▶</div>
-              <div class="linkvideo-card-title">${escapeHTMLLinkVideo(v.title)}</div>
+          <div class="linkvideo-video-item">
+            <div class="linkvideo-square-card" onclick="LinkVideo.reproducirVideoColeccion(${idx})">
+              <img class="linkvideo-card-thumb-img" src="${v.thumbnail_url || 'https://img.youtube.com/vi/' + v.video_id + '/hqdefault.jpg'}" alt="${escapeHTMLLinkVideo(v.title)}">
+              <div class="linkvideo-card-overlay-gradient">
+                <div style="font-size:26px; text-align:center; margin:auto;">▶</div>
+              </div>
             </div>
+            <div class="linkvideo-video-title-below" title="${escapeHTMLLinkVideo(v.title)}">${escapeHTMLLinkVideo(v.title)}</div>
           </div>
         `).join('')}
       </div>
@@ -576,6 +627,15 @@ window.LinkVideo = {
       ` : ''}
     `;
 
+    // Emitir actividad multimedia en tiempo real
+    if (window.socket) {
+      window.socket.emit('actividad:viendo', {
+        title: video.title,
+        videoUrl: embedUrl,
+        collectionName: this.currentCollection ? this.currentCollection.name : 'Link Video'
+      });
+    }
+
     // Configurar MediaSession API para reproducción en segundo plano e integración multimedia
     if ('mediaSession' in navigator) {
       try {
@@ -606,6 +666,9 @@ window.LinkVideo = {
   },
 
   cerrarReproductorLinkVideo() {
+    if (window.socket) {
+      window.socket.emit('actividad:detener_viendo');
+    }
     const modal = document.getElementById('modalPlayerLinkVideo');
     if (modal) {
       const iframe = modal.querySelector('iframe');

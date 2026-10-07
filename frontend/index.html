@@ -9,10 +9,10 @@
 <link rel="manifest" id="manifestLink" href="/manifest.json">
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <link rel="icon" href="/icons/icon-192.png">
-<link rel="stylesheet" href="/css/app.css?v=26">
-<link rel="stylesheet" href="/css/call.css?v=26">
-<link rel="stylesheet" href="/css/features.css?v=26">
-<link rel="stylesheet" href="/css/ailab.css?v=26">
+<link rel="stylesheet" href="/css/app.css?v=27">
+<link rel="stylesheet" href="/css/call.css?v=27">
+<link rel="stylesheet" href="/css/features.css?v=27">
+<link rel="stylesheet" href="/css/ailab.css?v=27">
 </head>
 <body>
 
@@ -1078,6 +1078,11 @@
         </div>
 
         <div class="campo">
+          <label>Categoría(s) (Ej: Película, Serie, Telenovela, Música, Videos)</label>
+          <input type="text" id="adminColCategoryInput" placeholder="Ej: Película, Serie, Telenovela, Música, etc.">
+        </div>
+
+        <div class="campo">
           <label>Portada de la Colección (URL o Imagen subida)</label>
           <div style="display:flex; gap:8px; align-items:center;">
             <input type="text" id="adminColCoverInput" placeholder="https://... o imagen cargada" style="flex:1;">
@@ -1530,6 +1535,14 @@
               <option value="nobody">Nadie</option>
             </select>
           </div>
+          <div class="campo">
+            <label>¿Quién ve qué hago? (Contenido Multimedia)</label>
+            <select id="cfgPrivacyMediaActivity">
+              <option value="everyone">Todos (Pueden ver qué video o contenido estoy viendo)</option>
+              <option value="friends">Solo Amigos</option>
+              <option value="nobody">Nadie (Ocultar mi actividad multimedia)</option>
+            </select>
+          </div>
           <div class="campo" style="display:flex; justify-content:space-between; align-items:center;">
             <div>
               <div style="font-size:13px; font-weight:700;">Estado "En línea"</div>
@@ -1906,6 +1919,7 @@
   <div class="hoja-grupo">
     <div class="hoja-persona"><span style="font-weight:700; color:var(--morado-700); font-size:16px;">Opciones de la conversación</span></div>
     <div class="hoja-opcion" id="opChatVozAlta" style="display:flex; align-items:center; gap:8px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg><span id="txtOpChatVozAlta">Lectura en voz alta (Desactivada)</span></div>
+    <div class="hoja-opcion" id="opChatRecomendar" style="display:flex; align-items:center; gap:8px; color:var(--morado-700); font-weight:700;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>Recomendar video/contenido</div>
     <div class="hoja-opcion" id="opChatFoto" style="display:flex; align-items:center; gap:8px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>Enviar foto</div>
     <div class="hoja-opcion" id="opChatLivePhoto" style="display:flex; align-items:center; gap:8px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>Enviar Foto Live (iOS / Android)</div>
     <div class="hoja-opcion" id="opChatVoz" style="display:flex; align-items:center; gap:8px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>Grabar nota de voz</div>
@@ -1914,6 +1928,26 @@
     <div class="hoja-opcion" id="opChatExportar" style="display:flex; align-items:center; gap:8px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Exportar conversación (.txt)</div>
   </div>
   <div class="hoja-cancelar" id="cerrarChatAdjuntos">Cancelar</div>
+</div>
+
+<!-- ---------- Modal Buscador Flotante de Recomendaciones (Tarjeta Difuminada Cuadrada) ---------- -->
+<div class="velo" id="veloBuscadorRecomendar" style="z-index:99990;"></div>
+<div id="modalBuscadorRecomendar" style="display:none; position:fixed; inset:0; z-index:99995; align-items:center; justify-content:center; padding:16px;">
+  <div style="width:90vw; max-width:380px; aspect-ratio:1/1; border-radius:28px; background:rgba(255,255,255,0.85); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); border:1.5px solid rgba(139,92,246,0.3); box-shadow:0 20px 50px rgba(0,0,0,0.3); padding:18px; display:flex; flex-direction:column; color:var(--texto-900); overflow:hidden; position:relative;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <div style="font-weight:900; font-size:15px; color:var(--morado-700); display:flex; align-items:center; gap:6px;">
+        🎬 Recomendar Contenido
+      </div>
+      <button onclick="window.cerrarModalRecomendarVideo()" style="background:rgba(0,0,0,0.06); border:none; width:28px; height:28px; border-radius:50%; font-size:16px; font-weight:bold; cursor:pointer;">&times;</button>
+    </div>
+    <div class="caja-busqueda" style="margin-bottom:10px; background:rgba(255,255,255,0.9);">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      <input type="text" id="inputBuscarRecomendarVideo" placeholder="Buscar video, artista o carpeta…" style="font-size:12.5px;">
+    </div>
+    <div id="listaResultadosRecomendarVideo" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:8px; padding-right:2px; scrollbar-width:thin;">
+      <div style="text-align:center; padding:20px; font-size:12px; color:var(--texto-500);">Escribe un nombre para buscar videos o carpetas...</div>
+    </div>
+  </div>
 </div>
 
 <!-- ---------- Opciones de Mensaje (Reacciones / Citar / Copiar / Eliminar) ---------- -->
@@ -2251,16 +2285,16 @@
 </div>
 
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-<script src="/js/api.js?v=26"></script>
-<script src="/js/paises.js?v=26"></script>
-<script src="/js/i18n.js?v=26"></script>
-<script src="/js/call.js?v=26"></script>
-<script src="/js/chat.js?v=26"></script>
-<script src="/js/features.js?v=26"></script>
-<script src="/js/linkvideo.js?v=26"></script>
-<script src="/js/ailab.js?v=26"></script>
-<script src="/js/monetization.js?v=26"></script>
-<script src="/js/app.js?v=26"></script>
+<script src="/js/api.js?v=27"></script>
+<script src="/js/paises.js?v=27"></script>
+<script src="/js/i18n.js?v=27"></script>
+<script src="/js/call.js?v=27"></script>
+<script src="/js/chat.js?v=27"></script>
+<script src="/js/features.js?v=27"></script>
+<script src="/js/linkvideo.js?v=27"></script>
+<script src="/js/ailab.js?v=27"></script>
+<script src="/js/monetization.js?v=27"></script>
+<script src="/js/app.js?v=27"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {

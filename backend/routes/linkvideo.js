@@ -14,7 +14,7 @@ const router = express.Router();
 router.get('/catalog', requireAuth, async (req, res) => {
   try {
     const forceRefresh = req.query.refresh === 'true';
-    const collections = await linkVideoService.getCollections();
+    const collections = await linkVideoService.getCollections(req.userId);
     const catalog = await linkVideoService.getCatalog(forceRefresh);
     const activeLives = await linkVideoService.getActiveLiveSessions();
     const ytChannels = await youtubeService.getChannels();
@@ -38,7 +38,7 @@ router.get('/catalog', requireAuth, async (req, res) => {
  */
 router.get('/collections', requireAuth, async (req, res) => {
   try {
-    const collections = await linkVideoService.getCollections();
+    const collections = await linkVideoService.getCollections(req.userId);
     res.json({ ok: true, collections });
   } catch (err) {
     console.error('Error al obtener colecciones:', err);
@@ -67,11 +67,11 @@ router.get('/collections/:id', requireAuth, async (req, res) => {
  */
 router.post('/admin/collections', requireAuth, requireAdmin, async (req, res) => {
   try {
-    const { name, cover_url } = req.body;
+    const { name, cover_url, category } = req.body;
     if (!name || !name.trim()) {
       return res.status(400).json({ error: 'El nombre de la colección es obligatorio.' });
     }
-    const collection = await linkVideoService.createCollection({ name, cover_url });
+    const collection = await linkVideoService.createCollection({ name, cover_url, category });
     res.json({ ok: true, collection });
   } catch (err) {
     console.error('Error al crear colección:', err);
@@ -80,12 +80,12 @@ router.post('/admin/collections', requireAuth, requireAdmin, async (req, res) =>
 });
 
 /**
- * PUT /api/linkvideo/admin/collections/:id - Editar colección (nombre, portada) (Admin)
+ * PUT /api/linkvideo/admin/collections/:id - Editar colección (nombre, portada, categoría) (Admin)
  */
 router.put('/admin/collections/:id', requireAuth, requireAdmin, async (req, res) => {
   try {
-    const { name, cover_url } = req.body;
-    const collection = await linkVideoService.updateCollection(req.params.id, { name, cover_url });
+    const { name, cover_url, category } = req.body;
+    const collection = await linkVideoService.updateCollection(req.params.id, { name, cover_url, category });
     res.json({ ok: true, collection });
   } catch (err) {
     console.error('Error al actualizar colección:', err);
