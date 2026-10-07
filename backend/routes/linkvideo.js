@@ -36,11 +36,13 @@ router.get('/catalog', requireAuth, async (req, res) => {
  */
 router.get('/subtitles/:videoId', requireAuth, async (req, res) => {
   try {
+    const rawParam = req.params.videoId || req.query.url || req.query.link || '';
+    const cleanVideoId = extractYouTubeId(rawParam) || rawParam;
     const lang = req.query.lang || 'es';
-    const subResult = await linkVideoService.getOrFetchSubtitles(req.params.videoId, lang);
+    const subResult = await linkVideoService.getOrFetchSubtitles(cleanVideoId, lang);
     res.json({
       ok: true,
-      videoId: req.params.videoId,
+      videoId: cleanVideoId,
       subtitles: subResult.cues || [],
       status: subResult.status || 'no_subtitles',
       languageCode: subResult.languageCode || lang,

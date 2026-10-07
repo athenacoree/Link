@@ -1302,6 +1302,12 @@ function cerrarTodosLosModales() {
   if (visorPdf) visorPdf.style.display = 'none';
   const visorHist = document.getElementById('modalVisorHistorias3D');
   if (visorHist) visorHist.style.display = 'none';
+  const playerModal = document.getElementById('modalPlayerLinkVideo');
+  if (playerModal && playerModal.style.display !== 'none') {
+    if (window.LinkVideo && typeof window.LinkVideo.minimizarOOcultarModalPlayer === 'function') {
+      window.LinkVideo.minimizarOOcultarModalPlayer();
+    }
+  }
   const splash = document.getElementById('splashScreen');
   if (splash && splash.style.display !== 'none' && Sesion.activa()) {
     splash.style.display = 'none';

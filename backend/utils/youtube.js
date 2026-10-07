@@ -19,6 +19,11 @@ function extractYouTubeId(url) {
 
   const trimmed = url.trim();
 
+  // Si ya es un ID de 11 caracteres de YouTube
+  if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) {
+    return trimmed;
+  }
+
   // Expresión regular para capturar ID de YouTube (11 caracteres)
   const regExp = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?|shorts)\/|.*[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
   const match = trimmed.match(regExp);
@@ -186,7 +191,9 @@ function parseSubtitleContent(content) {
  */
 async function fetchYouTubeSubtitles(videoId) {
   if (!videoId || typeof videoId !== 'string') return { cues: [], languageCode: 'es' };
-  const cleanId = videoId.trim();
+  const cleanId = extractYouTubeId(videoId) || videoId.trim();
+
+  // Estrategia 1: YouTube captionTracks en página de watch
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 6000);
@@ -198,31 +205,74 @@ async function fetchYouTubeSubtitles(videoId) {
       signal: controller.signal
     });
     clearTimeout(timeout);
-    const html = await watchRes.text();
-    const match = html.match(/"captionTracks":\s*(\[.*?\])/);
-    if (!match) return { cues: [], languageCode: 'es' };
-    const tracks = JSON.parse(match[1]);
-    if (!tracks || !tracks.length) return { cues: [], languageCode: 'es' };
-
-    const targetTrack = tracks.find(t => t.languageCode?.startsWith('es')) ||
-                        tracks.find(t => t.languageCode?.startsWith('en')) ||
-                        tracks[0];
-    if (!targetTrack || !targetTrack.baseUrl) return { cues: [], languageCode: 'es' };
-
-    const langCode = targetTrack.languageCode || 'es';
-
-    const capController = new AbortController();
-    const capTimeout = setTimeout(() => capController.abort(), 6000);
-    const capRes = await fetch(targetTrack.baseUrl, { signal: capController.signal });
-    clearTimeout(capTimeout);
-    const xml = await capRes.text();
-
-    const cues = parseSubtitleContent(xml);
-    return { cues, languageCode: langCode };
+    if (watchRes.ok) {
+      const html = await watchRes.text();
+      const match = html.match(/"captionTracks":\s*(\[.*?\])/);
+      if (match) {
+        const tracks = JSON.parse(match[1]);
+        if (tracks && tracks.length) {
+          const targetTrack = tracks.find(t => t.languageCode?.startsWith('es')) ||
+                              tracks.find(t => t.languageCode?.startsWith('en')) ||
+                              tracks[0];
+          if (targetTrack && targetTrack.baseUrl) {
+            const langCode = targetTrack.languageCode || 'es';
+            const capController = new AbortController();
+            const capTimeout = setTimeout(() => capController.abort(), 6000);
+            const capRes = await fetch(targetTrack.baseUrl, { signal: capController.signal });
+            clearTimeout(capTimeout);
+            const xml = await capRes.text();
+            const cues = parseSubtitleContent(xml);
+            if (cues.length > 0) {
+              return { cues, languageCode: langCode };
+            }
+          }
+        }
+      }
+    }
   } catch (err) {
-    console.error('Error al obtener subtítulos de YouTube:', err.message);
-    return { cues: [], languageCode: 'es' };
+    console.warn(`[YouTube CaptionTracks Strategy] error for ${cleanId}:`, err.message);
   }
+
+  // Estrategia 2: YouTube API Direct Timedtext Endpoint (es, en)
+  for (const lang of ['es', 'en']) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
+      const timedRes = await fetch(`https://www.youtube.com/api/timedtext?v=${cleanId}&lang=${lang}&fmt=vtt`, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+        signal: controller.signal
+      });
+      clearTimeout(timeout);
+      if (timedRes.ok) {
+        const text = await timedRes.text();
+        const cues = parseSubtitleContent(text);
+        if (cues.length > 0) {
+          return { cues, languageCode: lang };
+        }
+      }
+    } catch (e) {}
+  }
+
+  // Estrategia 3: Servicio público/gratuito de transcripción
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 7000);
+    const apiRes = await fetch(`https://youtube-transcriptor.vercel.app/api/transcript?url=https://www.youtube.com/watch?v=${cleanId}`, {
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+      signal: controller.signal
+    });
+    clearTimeout(timeout);
+    if (apiRes.ok) {
+      const data = await apiRes.json();
+      const content = data.transcript || data.lines || data;
+      const cues = parseSubtitleContent(content);
+      if (cues.length > 0) {
+        return { cues, languageCode: 'es' };
+      }
+    }
+  } catch (e) {}
+
+  return { cues: [], languageCode: 'es' };
 }
 
 /**
