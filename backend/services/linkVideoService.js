@@ -80,7 +80,8 @@ for (const vid of DEFAULT_MEM_VIDEOS) {
 
 // ---------------- GESTIÓN DE COLECCIONES Y VIDEOS ----------------
 
-async function getCollections(userId = null) {
+async function getCollections(userId = null, options = {}) {
+  const includeVideos = typeof options === 'boolean' ? options : !!options.includeVideos;
   let userInterests = [];
   if (userId) {
     try {
@@ -95,14 +96,37 @@ async function getCollections(userId = null) {
   let collections = [];
 
   try {
-    const { rows } = await query(
-      `SELECT c.id, c.name, c.cover_url, c.category, c.audio_description, c.created_at, c.updated_at,
-              COUNT(v.id)::int AS video_count
-       FROM linkvideo_collections c
-       LEFT JOIN linkvideo_videos v ON c.id = v.collection_id AND v.status = 'active'
-       GROUP BY c.id
-       ORDER BY c.created_at DESC`
-    );
+    const selectQuery = includeVideos
+      ? `SELECT c.id, c.name, c.cover_url, c.category, c.audio_description, c.created_at, c.updated_at,
+                COUNT(v.id)::int AS video_count,
+                COALESCE(
+                  json_agg(
+                    json_build_object(
+                      'id', v.id,
+                      'collection_id', v.collection_id,
+                      'title', v.title,
+                      'video_id', v.video_id,
+                      'original_url', v.original_url,
+                      'thumbnail_url', v.thumbnail_url,
+                      'position', v.position,
+                      'status', v.status,
+                      'audio_description', v.audio_description
+                    ) ORDER BY v.position ASC, v.created_at ASC
+                  ) FILTER (WHERE v.id IS NOT NULL AND v.status = 'active'),
+                  '[]'::json
+                ) AS videos
+         FROM linkvideo_collections c
+         LEFT JOIN linkvideo_videos v ON c.id = v.collection_id AND v.status = 'active'
+         GROUP BY c.id
+         ORDER BY c.created_at DESC`
+      : `SELECT c.id, c.name, c.cover_url, c.category, c.audio_description, c.created_at, c.updated_at,
+                COUNT(v.id)::int AS video_count
+         FROM linkvideo_collections c
+         LEFT JOIN linkvideo_videos v ON c.id = v.collection_id AND v.status = 'active'
+         GROUP BY c.id
+         ORDER BY c.created_at DESC`;
+
+    const { rows } = await query(selectQuery);
     if (rows && rows.length > 0) {
       collections = rows.map(col => ({ ...col, category: sanitizeCategory(col.category) }));
     }
@@ -112,12 +136,16 @@ async function getCollections(userId = null) {
 
   if (!collections.length) {
     collections = Array.from(inMemoryCollections.values()).map(col => {
-      const count = Array.from(inMemoryVideos.values()).filter(v => v.collection_id === col.id && v.status === 'active').length;
-      return {
+      const memVideos = Array.from(inMemoryVideos.values()).filter(v => v.collection_id === col.id && v.status === 'active');
+      const item = {
         ...col,
         category: col.category || 'General',
-        video_count: count
+        video_count: memVideos.length
       };
+      if (includeVideos) {
+        item.videos = memVideos.sort((a, b) => (a.position - b.position));
+      }
+      return item;
     });
   }
 

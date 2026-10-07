@@ -950,6 +950,102 @@ const Chat = (() => {
         </div>
         <div style="font-size:12.5px; line-height:1.4;">${formatearUrlsTexto(escapar(textoAMostrar))}</div>
       </div>`;
+    } else if (textoAMostrar && (textoAMostrar.includes('[RECOMMEND_VIDEO:') || textoAMostrar.includes('[RECOMMEND_ALBUM:') || textoAMostrar.includes('[RECOMMEND_USER:'))) {
+      if (textoAMostrar.includes('[RECOMMEND_VIDEO:')) {
+        const match = textoAMostrar.match(/\[RECOMMEND_VIDEO:(\{.*?\})\]/s);
+        if (match) {
+          try {
+            const v = JSON.parse(match[1]);
+            const thumbUrl = v.thumbnail_url || `https://img.youtube.com/vi/${v.video_id}/hqdefault.jpg`;
+            const title = v.title || 'Video de Link';
+            const vidId = v.video_id || '';
+            html += `
+              <div style="background:var(--blanco, #ffffff); border:1.5px solid var(--morado-600, #8b5cf6); border-radius:16px; padding:10px; margin-bottom:4px; width:100%; max-width:280px; box-shadow:0 4px 14px rgba(139,92,246,0.12); box-sizing:border-box;">
+                <div style="display:flex; align-items:center; gap:6px; margin-bottom:6px; font-size:11px; font-weight:800; color:var(--morado-700, #7c3aed);">
+                  ▶ Link Video
+                </div>
+                <div style="position:relative; width:100%; aspect-ratio:16/9; border-radius:12px; overflow:hidden; margin-bottom:8px; cursor:pointer;" onclick="if(window.reproducirSonidoChat) window.reproducirSonidoChat('click'); if(window.LinkVideo) window.LinkVideo.abrirReproductorLinkVideo({ video_id: '${escapar(vidId)}', title: '${escapar(title).replace(/'/g, "\\'")}', thumbnail_url: '${escapar(thumbUrl)}' });">
+                  <img src="${thumbUrl}" style="width:100%; height:100%; object-fit:cover;" alt="">
+                  <div style="position:absolute; inset:0; background:rgba(0,0,0,0.3); display:flex; align-items:center; justify-content:center;">
+                    <div style="width:40px; height:40px; border-radius:50%; background:var(--morado-600, #8b5cf6); color:#fff; display:flex; align-items:center; justify-content:center; font-size:18px; box-shadow:0 4px 12px rgba(0,0,0,0.4);">▶</div>
+                  </div>
+                </div>
+                <div style="font-weight:800; font-size:12.5px; color:var(--texto-900); margin-bottom:8px; line-height:1.3; overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;">${escapar(title)}</div>
+                <button class="mini-btn primario" style="width:100%; padding:7px; font-weight:800; font-size:11.5px; border-radius:10px; background:var(--morado-600); color:#fff; cursor:pointer;" onclick="if(window.LinkVideo) window.LinkVideo.abrirReproductorLinkVideo({ video_id: '${escapar(vidId)}', title: '${escapar(title).replace(/'/g, "\\'")}', thumbnail_url: '${escapar(thumbUrl)}' });">
+                  ▶ Reproducir en Link Video
+                </button>
+              </div>
+            `;
+          } catch (e) {
+            html += `<div>${formatearUrlsTexto(escapar(textoAMostrar))}</div>`;
+          }
+        } else {
+          html += `<div>${formatearUrlsTexto(escapar(textoAMostrar))}</div>`;
+        }
+      } else if (textoAMostrar.includes('[RECOMMEND_ALBUM:')) {
+        const match = textoAMostrar.match(/\[RECOMMEND_ALBUM:(\{.*?\})\]/s);
+        if (match) {
+          try {
+            const col = JSON.parse(match[1]);
+            const coverUrl = col.cover_url || 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=300';
+            const name = col.name || 'Álbum / Colección';
+            const count = col.video_count || (col.videos ? col.videos.length : 0);
+            const colId = col.id || col.collection_id;
+            html += `
+              <div style="background:var(--blanco, #ffffff); border:1.5px solid var(--morado-600, #8b5cf6); border-radius:16px; padding:12px; margin-bottom:4px; width:100%; max-width:280px; box-shadow:0 4px 14px rgba(139,92,246,0.12); box-sizing:border-box;">
+                <div style="display:flex; align-items:center; gap:6px; margin-bottom:8px; font-size:11px; font-weight:800; color:var(--morado-700, #7c3aed);">
+                  📁 Colección Link Video
+                </div>
+                <div style="display:flex; align-items:center; gap:12px; margin-bottom:10px;">
+                  <img src="${coverUrl}" style="width:58px; height:58px; border-radius:12px; object-fit:cover; flex-shrink:0; box-shadow:0 4px 10px rgba(0,0,0,0.15);" alt="">
+                  <div style="flex:1; min-width:0;">
+                    <div style="font-weight:900; font-size:13px; color:var(--texto-900); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapar(name)}</div>
+                    <div style="font-size:11px; color:var(--texto-500); font-weight:700; margin-top:2px;">🎬 ${count} video${count === 1 ? '' : 's'}</div>
+                  </div>
+                </div>
+                <button class="mini-btn primario" style="width:100%; padding:7px; font-weight:800; font-size:11.5px; border-radius:10px; background:var(--morado-600); color:#fff; cursor:pointer;" onclick="if(window.cambiarVista) window.cambiarVista('ailab'); if(window.LinkVideo) window.LinkVideo.abrirColeccion('${escapar(colId)}');">
+                  ▶ Abrir colección
+                </button>
+              </div>
+            `;
+          } catch (e) {
+            html += `<div>${formatearUrlsTexto(escapar(textoAMostrar))}</div>`;
+          }
+        } else {
+          html += `<div>${formatearUrlsTexto(escapar(textoAMostrar))}</div>`;
+        }
+      } else if (textoAMostrar.includes('[RECOMMEND_USER:')) {
+        const match = textoAMostrar.match(/\[RECOMMEND_USER:(\{.*?\})\]/s);
+        if (match) {
+          try {
+            const u = JSON.parse(match[1]);
+            const avatarUrl = u.avatar_data || u.avatar || 'https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg?auto=compress&cs=tinysrgb&w=150';
+            const name = u.name || 'Usuario de Link';
+            const username = u.username ? `@${u.username}` : '';
+            html += `
+              <div style="background:var(--blanco, #ffffff); border:1.5px solid var(--morado-600, #8b5cf6); border-radius:16px; padding:12px; margin-bottom:4px; width:100%; max-width:280px; box-shadow:0 4px 14px rgba(139,92,246,0.12); box-sizing:border-box;">
+                <div style="display:flex; align-items:center; gap:6px; margin-bottom:8px; font-size:11px; font-weight:800; color:var(--morado-700, #7c3aed);">
+                  👤 Recomendación de Persona
+                </div>
+                <div style="display:flex; align-items:center; gap:12px; margin-bottom:10px;">
+                  <img src="${avatarUrl}" style="width:48px; height:48px; border-radius:50%; object-fit:cover; flex-shrink:0;" alt="">
+                  <div style="flex:1; min-width:0;">
+                    <div style="font-weight:900; font-size:13px; color:var(--texto-900); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapar(name)}</div>
+                    ${username ? `<div style="font-size:11px; color:var(--texto-500); font-weight:600;">${escapar(username)}</div>` : ''}
+                  </div>
+                </div>
+                <button class="mini-btn primario" style="width:100%; padding:7px; font-weight:800; font-size:11.5px; border-radius:10px; background:var(--morado-600); color:#fff; cursor:pointer;" onclick="if(window.abrirPerfil) window.abrirPerfil('${escapar(u.id)}');">
+                  Ver perfil
+                </button>
+              </div>
+            `;
+          } catch (e) {
+            html += `<div>${formatearUrlsTexto(escapar(textoAMostrar))}</div>`;
+          }
+        } else {
+          html += `<div>${formatearUrlsTexto(escapar(textoAMostrar))}</div>`;
+        }
+      }
     } else if (textoAMostrar) {
       // Detección de palabra disparador al inicio de la oración (solo para acciones interactivas reales: jugar, musica, video)
       const matchTrigger = textoAMostrar.match(/^(jugar|musica|música|video)\b/i);
@@ -2421,7 +2517,8 @@ window.cerrarModalRecomendarVideo = function() {
   }
 };
 
-let _cacheRecomendarVideos = null;
+let _cacheRecomendarCollections = null;
+let _debounceTimerRecomendar = null;
 
 function normalizarTextoBusqueda(str) {
   if (!str) return '';
@@ -2437,91 +2534,191 @@ window.buscarVideosParaRecomendar = async function(queryStr) {
   const cont = $('listaResultadosRecomendarVideo');
   if (!cont) return;
 
+  const meEscapar = window.meEscapar || ((s) => String(s || ''));
+  const escapar = meEscapar;
+
   const rawQ = (queryStr || '').trim();
   const qNorm = normalizarTextoBusqueda(rawQ);
   const qTokens = qNorm.split(/\s+/).filter(Boolean);
 
-  let items = _cacheRecomendarVideos || [];
+  // 1. Cargar o reutilizar colecciones y videos de Link Video (garantizando que incluyan los videos)
+  const tieneVideosEnCache = Array.isArray(_cacheRecomendarCollections) && _cacheRecomendarCollections.some(c => Array.isArray(c.videos) && c.videos.length > 0);
 
-  if (!items || items.length === 0) {
-    if (window.LinkVideo && Array.isArray(window.LinkVideo.collections)) {
-      window.LinkVideo.collections.forEach(col => {
-        if (Array.isArray(col.videos)) {
-          col.videos.forEach(v => {
-            items.push({
-              video_id: v.video_id,
-              title: v.title,
-              thumbnail_url: v.thumbnail_url || `https://img.youtube.com/vi/${v.video_id}/hqdefault.jpg`,
-              collection_name: col.name,
-              category: col.category || ''
-            });
-          });
+  if (!_cacheRecomendarCollections || _cacheRecomendarCollections.length === 0 || !tieneVideosEnCache) {
+    if (window.LinkVideo && Array.isArray(window.LinkVideo.collections) && window.LinkVideo.collections.some(c => Array.isArray(c.videos) && c.videos.length > 0)) {
+      _cacheRecomendarCollections = window.LinkVideo.collections;
+    } else {
+      try {
+        const res = await api('/linkvideo/collections?include_videos=true');
+        if (res && Array.isArray(res.collections)) {
+          _cacheRecomendarCollections = res.collections;
         }
-      });
+      } catch (e) {}
     }
   }
 
-  if (!items || items.length === 0) {
+  // 2. Buscar personas si se ingresó texto
+  let personasResult = [];
+  if (rawQ.length > 0) {
     try {
-      const res = await api('/linkvideo/collections');
-      if (res && res.collections) {
-        items = [];
-        const colPromises = res.collections.map(col => api(`/linkvideo/collections/${col.id}`).catch(() => null));
-        const details = await Promise.all(colPromises);
-        details.forEach(detail => {
-          if (detail && detail.collection && Array.isArray(detail.collection.videos)) {
-            const col = detail.collection;
-            col.videos.forEach(v => {
-              items.push({
-                video_id: v.video_id,
-                title: v.title,
-                thumbnail_url: v.thumbnail_url || `https://img.youtube.com/vi/${v.video_id}/hqdefault.jpg`,
-                collection_name: col.name,
-                category: col.category || ''
-              });
-            });
-          }
-        });
-        if (items.length > 0) {
-          _cacheRecomendarVideos = items;
-        }
+      const resUsers = await api(`/users/buscar?q=${encodeURIComponent(rawQ)}`);
+      if (resUsers && Array.isArray(resUsers.personas)) {
+        personasResult = resUsers.personas;
       }
     } catch (e) {}
   }
 
-  let resultados = items;
+  // 3. Filtrar PERSONAS
+  let personasCoincidentes = personasResult.map(p => ({
+    id: p.id,
+    name: p.name,
+    username: p.username || (p.name ? p.name.toLowerCase().replace(/\s+/g, '') : ''),
+    avatar_data: p.avatar_data || p.avatar || ''
+  }));
 
+  // 4. Filtrar VIDEOS de Link Video
+  const todosLosVideos = [];
+  (_cacheRecomendarCollections || []).forEach(col => {
+    if (Array.isArray(col.videos)) {
+      col.videos.forEach(v => {
+        todosLosVideos.push({
+          id: v.id,
+          video_id: v.video_id,
+          title: v.title,
+          thumbnail_url: v.thumbnail_url || `https://img.youtube.com/vi/${v.video_id}/hqdefault.jpg`,
+          collection_id: col.id,
+          collection_name: col.name,
+          category: col.category || '',
+          audio_description: v.audio_description || ''
+        });
+      });
+    }
+  });
+
+  let videosCoincidentes = todosLosVideos;
   if (qTokens.length > 0) {
-    resultados = items.filter(v => {
+    videosCoincidentes = todosLosVideos.filter(v => {
       const titleNorm = normalizarTextoBusqueda(v.title);
       const colNorm = normalizarTextoBusqueda(v.collection_name);
       const catNorm = normalizarTextoBusqueda(v.category);
-      const fullTarget = `${titleNorm} ${colNorm} ${catNorm}`;
+      const audioNorm = normalizarTextoBusqueda(v.audio_description);
+      const fullTarget = `${titleNorm} ${colNorm} ${catNorm} ${audioNorm}`;
 
-      // Búsqueda flexible: coincide si todos los tokens o alguno de los tokens principales coincide con partials o substrings
       return qTokens.every(token => fullTarget.includes(token)) ||
              qTokens.some(token => token.length >= 3 && fullTarget.includes(token));
     });
   }
 
-  if (resultados.length === 0) {
-    cont.innerHTML = `<div style="text-align:center; padding:20px; font-size:12px; color:var(--texto-500);">No se encontraron videos que coincidan con "${escapar(rawQ)}".</div>`;
+  // 5. Filtrar ÁLBUMES / COLECCIONES de Link Video
+  let albumesCoincidentes = _cacheRecomendarCollections || [];
+  if (qTokens.length > 0) {
+    albumesCoincidentes = (_cacheRecomendarCollections || []).filter(col => {
+      const colNameNorm = normalizarTextoBusqueda(col.name);
+      const colCatNorm = normalizarTextoBusqueda(col.category);
+      const colAudioNorm = normalizarTextoBusqueda(col.audio_description);
+      const fullTarget = `${colNameNorm} ${colCatNorm} ${colAudioNorm}`;
+
+      return qTokens.every(token => fullTarget.includes(token)) ||
+             qTokens.some(token => token.length >= 3 && fullTarget.includes(token));
+    });
+  }
+
+  const totalCoincidencias = personasCoincidentes.length + videosCoincidentes.length + albumesCoincidentes.length;
+
+  if (totalCoincidencias === 0) {
+    cont.innerHTML = `<div style="text-align:center; padding:24px 12px; font-size:12.5px; color:var(--texto-500); font-weight:700;">No encontramos resultados</div>`;
     return;
   }
 
-  cont.innerHTML = items.slice(0, 15).map(v => {
-    const vObj = JSON.stringify(v).replace(/"/g, '&quot;');
-    return `
-      <div onclick="window.enviarRecomendacionVideo(${vObj})" style="display:flex; align-items:center; gap:10px; padding:8px; background:var(--blanco); border:1px solid var(--borde); border-radius:14px; cursor:pointer; transition:background 0.15s ease;" onmouseenter="this.style.background='var(--morado-50)'" onmouseleave="this.style.background='var(--blanco)'">
-        <img src="${v.thumbnail_url}" style="width:52px; height:38px; border-radius:8px; object-fit:cover; flex-shrink:0;" alt="">
-        <div style="flex:1; min-width:0;">
-          <div style="font-weight:800; font-size:12px; color:var(--texto-900); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapar(v.title)}</div>
-          <div style="font-size:10.5px; color:var(--morado-600); font-weight:700;">${escapar(v.collection_name || 'Link Video')}</div>
-        </div>
-        <div style="font-size:10px; font-weight:800; background:var(--morado-600); color:#fff; padding:4px 8px; border-radius:8px; flex-shrink:0;">Recomendar</div>
+  let htmlResultados = '';
+
+  // Renderizar PERSONA
+  if (personasCoincidentes.length > 0) {
+    htmlResultados += `
+      <div style="font-size:10px; font-weight:900; color:var(--morado-700); text-transform:uppercase; letter-spacing:0.5px; margin:4px 0 2px 4px; display:flex; align-items:center; gap:4px;">
+        👤 Persona
       </div>
+      ${personasCoincidentes.slice(0, 4).map(p => {
+        const pObj = JSON.stringify(p).replace(/"/g, '&quot;');
+        const avatarUrl = p.avatar_data || 'https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg?auto=compress&cs=tinysrgb&w=150';
+        return `
+          <div onclick="window.enviarRecomendacionPersona(${pObj})" style="display:flex; align-items:center; gap:10px; padding:8px 10px; background:var(--blanco); border:1px solid var(--borde); border-radius:14px; cursor:pointer; transition:background 0.15s ease;" onmouseenter="this.style.background='var(--morado-50)'" onmouseleave="this.style.background='var(--blanco)'">
+            <img src="${avatarUrl}" style="width:38px; height:38px; border-radius:50%; object-fit:cover; flex-shrink:0;" alt="">
+            <div style="flex:1; min-width:0;">
+              <div style="font-weight:800; font-size:12.5px; color:var(--texto-900); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapar(p.name)}</div>
+              <div style="font-size:11px; color:var(--texto-500); font-weight:600;">@${escapar(p.username || '')}</div>
+            </div>
+            <div style="font-size:10px; font-weight:800; background:var(--morado-600); color:#fff; padding:4px 9px; border-radius:8px; flex-shrink:0;">Recomendar</div>
+          </div>
+        `;
+      }).join('')}
     `;
-  }).join('');
+  }
+
+  // Renderizar VIDEO
+  if (videosCoincidentes.length > 0) {
+    htmlResultados += `
+      <div style="font-size:10px; font-weight:900; color:var(--morado-700); text-transform:uppercase; letter-spacing:0.5px; margin:8px 0 2px 4px; display:flex; align-items:center; gap:4px;">
+        🎬 Video
+      </div>
+      ${videosCoincidentes.slice(0, 5).map(v => {
+        const vObj = JSON.stringify(v).replace(/"/g, '&quot;');
+        return `
+          <div onclick="window.enviarRecomendacionVideo(${vObj})" style="display:flex; align-items:center; gap:10px; padding:8px 10px; background:var(--blanco); border:1px solid var(--borde); border-radius:14px; cursor:pointer; transition:background 0.15s ease;" onmouseenter="this.style.background='var(--morado-50)'" onmouseleave="this.style.background='var(--blanco)'">
+            <img src="${v.thumbnail_url}" style="width:52px; height:38px; border-radius:8px; object-fit:cover; flex-shrink:0;" alt="">
+            <div style="flex:1; min-width:0;">
+              <div style="font-weight:800; font-size:12.5px; color:var(--texto-900); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapar(v.title)}</div>
+              <div style="font-size:11px; color:var(--morado-600); font-weight:700;">▶ Link Video ${v.collection_name ? `• ${escapar(v.collection_name)}` : ''}</div>
+            </div>
+            <div style="font-size:10px; font-weight:800; background:var(--morado-600); color:#fff; padding:4px 9px; border-radius:8px; flex-shrink:0;">Recomendar</div>
+          </div>
+        `;
+      }).join('')}
+    `;
+  }
+
+  // Renderizar ÁLBUM / COLECCIÓN
+  if (albumesCoincidentes.length > 0) {
+    htmlResultados += `
+      <div style="font-size:10px; font-weight:900; color:var(--morado-700); text-transform:uppercase; letter-spacing:0.5px; margin:8px 0 2px 4px; display:flex; align-items:center; gap:4px;">
+        📁 Álbum / Colección
+      </div>
+      ${albumesCoincidentes.slice(0, 4).map(col => {
+        const colObj = JSON.stringify({
+          id: col.id,
+          collection_id: col.id,
+          name: col.name,
+          cover_url: col.cover_url,
+          video_count: col.video_count || (col.videos ? col.videos.length : 0)
+        }).replace(/"/g, '&quot;');
+        const coverUrl = col.cover_url || 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=300';
+        const count = col.video_count || (col.videos ? col.videos.length : 0);
+        return `
+          <div onclick="window.enviarRecomendacionAlbum(${colObj})" style="display:flex; align-items:center; gap:10px; padding:8px 10px; background:var(--blanco); border:1px solid var(--borde); border-radius:14px; cursor:pointer; transition:background 0.15s ease;" onmouseenter="this.style.background='var(--morado-50)'" onmouseleave="this.style.background='var(--blanco)'">
+            <img src="${coverUrl}" style="width:44px; height:44px; border-radius:10px; object-fit:cover; flex-shrink:0;" alt="">
+            <div style="flex:1; min-width:0;">
+              <div style="font-weight:800; font-size:12.5px; color:var(--texto-900); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapar(col.name)}</div>
+              <div style="font-size:11px; color:var(--texto-500); font-weight:600;">${count} video${count === 1 ? '' : 's'} • ▶ Abrir colección</div>
+            </div>
+            <div style="font-size:10px; font-weight:800; background:var(--morado-600); color:#fff; padding:4px 9px; border-radius:8px; flex-shrink:0;">Recomendar</div>
+          </div>
+        `;
+      }).join('')}
+    `;
+  }
+
+  cont.innerHTML = htmlResultados;
+};
+
+window.enviarRecomendacionPersona = function(persona) {
+  if (!persona || !persona.id) return;
+  const payload = `[RECOMMEND_USER:${JSON.stringify(persona)}]`;
+  const inputTexto = $('chatInputTexto');
+  if (inputTexto) {
+    inputTexto.value = payload;
+    $('chatBtnEnviar')?.click();
+  }
+  window.cerrarModalRecomendarVideo();
 };
 
 window.enviarRecomendacionVideo = function(video) {
@@ -2535,10 +2732,24 @@ window.enviarRecomendacionVideo = function(video) {
   window.cerrarModalRecomendarVideo();
 };
 
+window.enviarRecomendacionAlbum = function(collection) {
+  if (!collection || !collection.id) return;
+  const payload = `[RECOMMEND_ALBUM:${JSON.stringify(collection)}]`;
+  const inputTexto = $('chatInputTexto');
+  if (inputTexto) {
+    inputTexto.value = payload;
+    $('chatBtnEnviar')?.click();
+  }
+  window.cerrarModalRecomendarVideo();
+};
+
 document.addEventListener('DOMContentLoaded', () => {
   Chat.enlazarUI();
   $('inputBuscarRecomendarVideo')?.addEventListener('input', (e) => {
-    window.buscarVideosParaRecomendar(e.target.value);
+    if (_debounceTimerRecomendar) clearTimeout(_debounceTimerRecomendar);
+    _debounceTimerRecomendar = setTimeout(() => {
+      window.buscarVideosParaRecomendar(e.target.value);
+    }, 250);
   });
   $('veloBuscadorRecomendar')?.addEventListener('click', window.cerrarModalRecomendarVideo);
 });
