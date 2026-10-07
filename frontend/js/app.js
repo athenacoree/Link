@@ -5865,6 +5865,14 @@ function initNeonConfigControls() {
     cfgEnabled.value = localStorage.getItem('cfg_neon_enabled') === 'false' ? 'false' : 'true';
     cfgEnabled.addEventListener('change', () => {
       localStorage.setItem('cfg_neon_enabled', cfgEnabled.value);
+      if (cfgEnabled.value === 'false') {
+        const overlay = $('neonBorderOverlay');
+        if (overlay) overlay.classList.remove('activo');
+        if (neonTimer) {
+          clearTimeout(neonTimer);
+          neonTimer = null;
+        }
+      }
     });
   }
 
@@ -5948,18 +5956,19 @@ const EmojisFlotantes = (() => {
 
 // Detección de Sacudida del Teléfono deshabilitada para evitar bloqueos/interrupciones visuales
 
-// Control de pausa/reanudación de animaciones en interacción (5 segundos)
+// Control de pausa/reanudación de animaciones en interacción optimizado
 let temporizadorPausaAnim = null;
 function pausarAnimacionesPorInteraccion() {
-  document.body.classList.add('animaciones-pausadas');
+  if (!document.body.classList.contains('animaciones-pausadas')) {
+    document.body.classList.add('animaciones-pausadas');
+  }
   clearTimeout(temporizadorPausaAnim);
   temporizadorPausaAnim = setTimeout(() => {
     document.body.classList.remove('animaciones-pausadas');
-  }, 5000);
+  }, 3000);
 }
 
 window.addEventListener('touchstart', pausarAnimacionesPorInteraccion, { passive: true });
-window.addEventListener('mousedown', pausarAnimacionesPorInteraccion, { passive: true });
 
 /* ================= LINK GAMES — INTERFACE & POSTMESSAGE BRIDGE ================= */
 let vistaPreviaJuego = null;
