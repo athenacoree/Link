@@ -3,7 +3,7 @@ const { requireAuth, requireAdmin } = require('../middleware/auth');
 const videoStreamTool = require('../tools/videoStreamTool');
 const linkVideoService = require('../services/linkVideoService');
 const youtubeService = require('../services/youtubeService');
-const { extractYouTubeId, fetchYouTubeInfo } = require('../utils/youtube');
+const { extractYouTubeId, fetchYouTubeInfo, fetchYouTubePlaylist, fetchYouTubeSubtitles } = require('../utils/youtube');
 const realtime = require('../utils/realtime');
 
 const router = express.Router();
@@ -28,6 +28,19 @@ router.get('/catalog', requireAuth, async (req, res) => {
   } catch (err) {
     console.error('Error al obtener catálogo de Link Video:', err);
     res.status(500).json({ error: 'No se pudo obtener el catálogo de Link Video.' });
+  }
+});
+
+/**
+ * GET /api/linkvideo/subtitles/:videoId - Obtener subtítulos reales de YouTube para Karaoke
+ */
+router.get('/subtitles/:videoId', requireAuth, async (req, res) => {
+  try {
+    const subtitles = await fetchYouTubeSubtitles(req.params.videoId);
+    res.json({ ok: true, videoId: req.params.videoId, subtitles });
+  } catch (err) {
+    console.error('Error al obtener subtítulos:', err);
+    res.json({ ok: true, videoId: req.params.videoId, subtitles: [] });
   }
 });
 
@@ -76,6 +89,57 @@ router.post('/admin/collections', requireAuth, requireAdmin, async (req, res) =>
   } catch (err) {
     console.error('Error al crear colección:', err);
     res.status(400).json({ error: err.message || 'Error al crear la colección.' });
+  }
+});
+
+/**
+ * POST /api/linkvideo/admin/collections/import-playlist - Importar lista de reproducción de YouTube (Admin)
+ */
+router.post('/admin/collections/import-playlist', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { url, collectionId, category } = req.body;
+    if (!url || !url.trim()) {
+      return res.status(400).json({ error: 'Ingresa la URL o ID de la lista de reproducción de YouTube.' });
+    }
+
+    const playlistData = await fetchYouTubePlaylist(url);
+
+    let targetCollection = null;
+    if (collectionId) {
+      targetCollection = await linkVideoService.getCollectionById(collectionId);
+    }
+
+    if (!targetCollection) {
+      targetCollection = await linkVideoService.createCollection({
+        name: playlistData.title || 'Lista de YouTube Importada',
+        category: category || 'Música',
+        audio_description: `Álbum importado desde lista de reproducción de YouTube (${playlistData.videos.length} vídeos).`
+      });
+    }
+
+    const addedVideos = [];
+    for (const v of playlistData.videos) {
+      try {
+        const added = await linkVideoService.addVideoToCollection(targetCollection.id, {
+          url: v.url,
+          title: v.title
+        });
+        addedVideos.push(added);
+      } catch (err) {
+        console.warn(`[Playlist Import Warning] Video ${v.videoId} no se pudo agregar:`, err.message);
+      }
+    }
+
+    const updatedCol = await linkVideoService.getCollectionById(targetCollection.id);
+    res.json({
+      ok: true,
+      mensaje: `¡Importación exitosa! Se procesaron y agregaron ${addedVideos.length} vídeos a la carpeta.`,
+      collection: updatedCol,
+      importedCount: addedVideos.length
+    });
+  } catch (err) {
+    console.error('Error al importar lista de reproducción:', err);
+    res.status(400).json({ error: err.message || 'Error al importar la lista de reproducción de YouTube.' });
   }
 });
 
