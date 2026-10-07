@@ -1,12 +1,341 @@
 /**
- * Servicio Backend para Link Video y Transmisiones Persistentes en Vivo (Link Live)
+ * Servicio Backend para Link Video (Colecciones, Álbumes y Videos) y Transmisiones Persistentes en Vivo (Link Live)
  */
 
 const { query } = require('../db/postgres');
 const videoStreamTool = require('../tools/videoStreamTool');
+const { fetchYouTubeInfo, extractYouTubeId } = require('../utils/youtube');
+const { crypto } = require('crypto');
 
 // Almacén en memoria de respaldo para tests o entornos sin PostgreSQL activo
 const inMemoryLiveSessions = new Map();
+const inMemoryCollections = new Map(); // id -> collection object
+const inMemoryVideos = new Map(); // id -> video object
+
+// Colecciones por defecto en memoria
+const DEFAULT_MEM_COLLECTIONS = [
+  {
+    id: 'col_musica_destacada',
+    name: 'Música & Videos Destacados',
+    cover_url: 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=600',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  },
+  {
+    id: 'col_cine_trailers',
+    name: 'Cine & Estrenos',
+    cover_url: 'https://images.pexels.com/photos/2506923/pexels-photo-2506923.jpeg?auto=compress&cs=tinysrgb&w=600',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  }
+];
+
+const DEFAULT_MEM_VIDEOS = [
+  {
+    id: 'vid_default_1',
+    collection_id: 'col_musica_destacada',
+    title: 'Rick Astley - Never Gonna Give You Up (Official Video)',
+    video_id: 'dQw4w9WgXcQ',
+    original_url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    thumbnail_url: 'https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg',
+    position: 0,
+    status: 'active',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  }
+];
+
+// Inicializar memoria por defecto
+for (const col of DEFAULT_MEM_COLLECTIONS) {
+  inMemoryCollections.set(col.id, col);
+}
+for (const vid of DEFAULT_MEM_VIDEOS) {
+  inMemoryVideos.set(vid.id, vid);
+}
+
+// ---------------- GESTIÓN DE COLECCIONES Y VIDEOS ----------------
+
+async function getCollections() {
+  try {
+    const { rows } = await query(
+      `SELECT c.id, c.name, c.cover_url, c.created_at, c.updated_at,
+              COUNT(v.id)::int AS video_count
+       FROM linkvideo_collections c
+       LEFT JOIN linkvideo_videos v ON c.id = v.collection_id AND v.status = 'active'
+       GROUP BY c.id
+       ORDER BY c.created_at DESC`
+    );
+    if (rows && rows.length > 0) {
+      return rows;
+    }
+  } catch (err) {
+    // Fallback in-memory
+  }
+
+  return Array.from(inMemoryCollections.values()).map(col => {
+    const count = Array.from(inMemoryVideos.values()).filter(v => v.collection_id === col.id && v.status === 'active').length;
+    return {
+      ...col,
+      video_count: count
+    };
+  });
+}
+
+async function getCollectionById(collectionId) {
+  let collection = null;
+  let videos = [];
+
+  try {
+    const colRes = await query(
+      `SELECT id, name, cover_url, created_at, updated_at
+       FROM linkvideo_collections
+       WHERE id::text = $1::text`,
+      [collectionId]
+    );
+    if (colRes.rows && colRes.rows.length > 0) {
+      collection = colRes.rows[0];
+      const vidRes = await query(
+        `SELECT id, collection_id, title, video_id, original_url, thumbnail_url, position, status, created_at, updated_at
+         FROM linkvideo_videos
+         WHERE collection_id::text = $1::text AND status = 'active'
+         ORDER BY position ASC, created_at ASC`,
+        [collectionId]
+      );
+      videos = vidRes.rows || [];
+      return {
+        ...collection,
+        videos
+      };
+    }
+  } catch (err) {
+    // Fallback in-memory
+  }
+
+  if (inMemoryCollections.has(collectionId)) {
+    collection = inMemoryCollections.get(collectionId);
+    videos = Array.from(inMemoryVideos.values())
+      .filter(v => v.collection_id === collectionId && v.status === 'active')
+      .sort((a, b) => (a.position - b.position));
+    return {
+      ...collection,
+      videos
+    };
+  }
+
+  return null;
+}
+
+async function createCollection({ name, cover_url }) {
+  const cleanName = (name || '').trim();
+  if (!cleanName) {
+    throw new Error('El nombre de la colección es obligatorio.');
+  }
+
+  const cleanCover = cover_url || null;
+  const nowIso = new Date().toISOString();
+
+  try {
+    const { rows } = await query(
+      `INSERT INTO linkvideo_collections (name, cover_url, created_at, updated_at)
+       VALUES ($1, $2, now(), now())
+       RETURNING id, name, cover_url, created_at, updated_at`,
+      [cleanName, cleanCover]
+    );
+    if (rows && rows.length > 0) {
+      const created = { ...rows[0], video_count: 0, videos: [] };
+      inMemoryCollections.set(created.id, created);
+      return created;
+    }
+  } catch (err) {
+    // Memory fallback
+  }
+
+  const id = 'col_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+  const created = {
+    id,
+    name: cleanName,
+    cover_url: cleanCover,
+    created_at: nowIso,
+    updated_at: nowIso,
+    video_count: 0,
+    videos: []
+  };
+  inMemoryCollections.set(id, created);
+  return created;
+}
+
+async function updateCollection(collectionId, { name, cover_url }) {
+  const cleanName = name ? name.trim() : undefined;
+  const nowIso = new Date().toISOString();
+
+  try {
+    const fields = [];
+    const values = [];
+    let idx = 1;
+
+    if (cleanName !== undefined) {
+      fields.push(`name = $${idx++}`);
+      values.push(cleanName);
+    }
+    if (cover_url !== undefined) {
+      fields.push(`cover_url = $${idx++}`);
+      values.push(cover_url);
+    }
+
+    if (fields.length > 0) {
+      fields.push(`updated_at = now()`);
+      values.push(collectionId);
+      const queryStr = `UPDATE linkvideo_collections SET ${fields.join(', ')} WHERE id::text = $${idx} RETURNING id, name, cover_url, created_at, updated_at`;
+      const { rows } = await query(queryStr, values);
+      if (rows && rows.length > 0) {
+        const updated = rows[0];
+        inMemoryCollections.set(collectionId, updated);
+        return await getCollectionById(collectionId);
+      }
+    }
+  } catch (err) {
+    // Memory fallback
+  }
+
+  if (inMemoryCollections.has(collectionId)) {
+    const col = inMemoryCollections.get(collectionId);
+    if (cleanName !== undefined) col.name = cleanName;
+    if (cover_url !== undefined) col.cover_url = cover_url;
+    col.updated_at = nowIso;
+    inMemoryCollections.set(collectionId, col);
+    return await getCollectionById(collectionId);
+  }
+
+  throw new Error('Colección no encontrada.');
+}
+
+async function deleteCollection(collectionId) {
+  try {
+    await query(`DELETE FROM linkvideo_collections WHERE id::text = $1::text`, [collectionId]);
+  } catch (err) {}
+
+  inMemoryCollections.delete(collectionId);
+  for (const [vId, v] of inMemoryVideos.entries()) {
+    if (v.collection_id === collectionId) {
+      inMemoryVideos.delete(vId);
+    }
+  }
+
+  return { ok: true, id: collectionId };
+}
+
+async function addVideoToCollection(collectionId, { url, title }) {
+  const collection = await getCollectionById(collectionId);
+  if (!collection) {
+    throw new Error('La colección especificada no existe.');
+  }
+
+  const ytInfo = await fetchYouTubeInfo(url, title);
+  const nowIso = new Date().toISOString();
+
+  // Calcular siguiente posición
+  const currentCount = collection.videos ? collection.videos.length : 0;
+  const nextPos = currentCount;
+
+  try {
+    const { rows } = await query(
+      `INSERT INTO linkvideo_videos (collection_id, title, video_id, original_url, thumbnail_url, position, status, created_at, updated_at)
+       VALUES ($1::uuid, $2, $3, $4, $5, $6, 'active', now(), now())
+       RETURNING id, collection_id, title, video_id, original_url, thumbnail_url, position, status, created_at, updated_at`,
+      [collectionId, ytInfo.title, ytInfo.videoId, ytInfo.original_url, ytInfo.thumbnail_url, nextPos]
+    );
+    if (rows && rows.length > 0) {
+      const createdVid = rows[0];
+      inMemoryVideos.set(createdVid.id, createdVid);
+      return createdVid;
+    }
+  } catch (err) {
+    // Fallback memory
+  }
+
+  const id = 'vid_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+  const createdVid = {
+    id,
+    collection_id: collectionId,
+    title: ytInfo.title,
+    video_id: ytInfo.videoId,
+    original_url: ytInfo.original_url,
+    thumbnail_url: ytInfo.thumbnail_url,
+    position: nextPos,
+    status: 'active',
+    created_at: nowIso,
+    updated_at: nowIso
+  };
+  inMemoryVideos.set(id, createdVid);
+  return createdVid;
+}
+
+async function updateVideo(videoId, { title, position }) {
+  const cleanTitle = title ? title.trim() : undefined;
+  const nowIso = new Date().toISOString();
+
+  try {
+    const fields = [];
+    const values = [];
+    let idx = 1;
+
+    if (cleanTitle !== undefined) {
+      fields.push(`title = $${idx++}`);
+      values.push(cleanTitle);
+    }
+    if (position !== undefined && typeof position === 'number') {
+      fields.push(`position = $${idx++}`);
+      values.push(position);
+    }
+
+    if (fields.length > 0) {
+      fields.push(`updated_at = now()`);
+      values.push(videoId);
+      const queryStr = `UPDATE linkvideo_videos SET ${fields.join(', ')} WHERE id::text = $${idx} RETURNING id, collection_id, title, video_id, original_url, thumbnail_url, position, status, created_at, updated_at`;
+      const { rows } = await query(queryStr, values);
+      if (rows && rows.length > 0) {
+        const updated = rows[0];
+        inMemoryVideos.set(videoId, updated);
+        return updated;
+      }
+    }
+  } catch (err) {
+    // Memory fallback
+  }
+
+  if (inMemoryVideos.has(videoId)) {
+    const vid = inMemoryVideos.get(videoId);
+    if (cleanTitle !== undefined) vid.title = cleanTitle;
+    if (position !== undefined && typeof position === 'number') vid.position = position;
+    vid.updated_at = nowIso;
+    inMemoryVideos.set(videoId, vid);
+    return vid;
+  }
+
+  throw new Error('Video no encontrado.');
+}
+
+async function deleteVideo(videoId) {
+  try {
+    await query(`DELETE FROM linkvideo_videos WHERE id::text = $1::text`, [videoId]);
+  } catch (err) {}
+
+  inMemoryVideos.delete(videoId);
+  return { ok: true, id: videoId };
+}
+
+async function reorderVideos(collectionId, orderedVideoIds) {
+  if (!Array.isArray(orderedVideoIds)) return { ok: false };
+
+  for (let pos = 0; pos < orderedVideoIds.length; pos++) {
+    const vId = orderedVideoIds[pos];
+    await updateVideo(vId, { position: pos });
+  }
+
+  return await getCollectionById(collectionId);
+}
+
+// ---------------- SERVICIOS ORIGINALES REUTILIZADOS ----------------
 
 async function getCatalog(forceRefresh = false) {
   return await videoStreamTool.getVideoCatalog(forceRefresh);
@@ -194,7 +523,6 @@ async function reconnectLiveSession(sessionId, hostId) {
   }
 
   await updateLiveHeartbeat(sessionId, hostId, 'RECONNECTED');
-  // Breve transición antes de volver a LIVE
   setTimeout(async () => {
     await updateLiveStatus(sessionId, 'LIVE');
   }, 1000);
@@ -244,7 +572,7 @@ async function updateViewerCount(sessionId, delta = 1) {
 }
 
 /**
- * Limpieza periódica de sesiones abandonadas (sin heartbeat durante más de timeoutSeconds).
+ * Limpieza periódica de sesiones abandonadas.
  */
 async function cleanupAbandonedSessions(timeoutSeconds = 180) {
   try {
@@ -274,6 +602,18 @@ async function cleanupAbandonedSessions(timeoutSeconds = 180) {
 }
 
 module.exports = {
+  // Colecciones & Videos
+  getCollections,
+  getCollectionById,
+  createCollection,
+  updateCollection,
+  deleteCollection,
+  addVideoToCollection,
+  updateVideo,
+  deleteVideo,
+  reorderVideos,
+
+  // Stream & Live Sessions
   getCatalog,
   getStreamById,
   createLiveSession,

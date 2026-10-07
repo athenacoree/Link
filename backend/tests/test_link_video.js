@@ -105,8 +105,34 @@ async function runLinkVideoTests() {
   assert.strictEqual(liveSession.status, 'LIVE', 'El estado inicial debe ser LIVE');
   console.log('   ✅ Sesión Live creada con ID único:', liveSession.id);
 
-  // 6. Probando estados de Reconexión e Intermisión
-  console.log('6. Probando ciclo de reconexión y transiciones de estado (LIVE -> RECONNECTING -> INTERMISSION -> RECONNECTED)...');
+  // 6. Probando CRUD de Colecciones y Videos
+  console.log('6. Probando CRUD de Colecciones y Videos de Link Video...');
+  const colCreated = await linkVideoService.createCollection({
+    name: 'Álbum Test Pop',
+    cover_url: 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg'
+  });
+  assert.ok(colCreated && colCreated.id, 'Colección creada con ID');
+  assert.strictEqual(colCreated.name, 'Álbum Test Pop');
+
+  const cols = await linkVideoService.getCollections();
+  assert.ok(Array.isArray(cols) && cols.length >= 1, 'Debe listar colecciones');
+
+  const videoAdded = await linkVideoService.addVideoToCollection(colCreated.id, {
+    url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    title: 'Never Gonna Give You Up'
+  });
+  assert.ok(videoAdded && videoAdded.video_id === 'dQw4w9WgXcQ', 'Video agregado correctamente a colección');
+
+  const colWithVids = await linkVideoService.getCollectionById(colCreated.id);
+  assert.ok(colWithVids && colWithVids.videos.length === 1, 'La colección debe contener 1 video');
+
+  await linkVideoService.deleteCollection(colCreated.id);
+  const deletedCol = await linkVideoService.getCollectionById(colCreated.id);
+  assert.strictEqual(deletedCol, null, 'Colección eliminada debe ser null');
+  console.log('   ✅ CRUD de Colecciones y Videos validado correctamente.');
+
+  // 7. Probando estados de Reconexión e Intermisión
+  console.log('7. Probando ciclo de reconexión y transiciones de estado (LIVE -> RECONNECTING -> INTERMISSION -> RECONNECTED)...');
   await linkVideoService.updateLiveStatus(liveSession.id, 'RECONNECTING');
   let fetchedSession = await linkVideoService.getLiveSessionById(liveSession.id);
   assert.strictEqual(fetchedSession.status, 'RECONNECTING', 'Estado debe actualizarse a RECONNECTING');
@@ -119,8 +145,8 @@ async function runLinkVideoTests() {
   assert.strictEqual(reconnectedSession.status, 'RECONNECTED', 'Reconexión del streamer debe restaurar a RECONNECTED');
   console.log('   ✅ Flujo de reconexión inteligente e intermisión validado.');
 
-  // 7. Probando Heartbeat y Limpieza por Timeout
-  console.log('7. Probando Heartbeat y Limpieza automática de transmisiones abandonadas...');
+  // 8. Probando Heartbeat y Limpieza por Timeout
+  console.log('8. Probando Heartbeat y Limpieza automática de transmisiones abandonadas...');
   const hbRes = await linkVideoService.updateLiveHeartbeat(liveSession.id, testHostId, 'LIVE');
   assert.ok(hbRes, 'Heartbeat debe responder con sesión actualizada');
 
@@ -140,8 +166,8 @@ async function runLinkVideoTests() {
   assert.strictEqual(checkedOldSession.status, 'ENDED', 'Sesión abandonada sin heartbeat debe pasar a ENDED');
   console.log('   ✅ Heartbeat y limpieza por timeout comprobados.');
 
-  // 8. Probando Finalización Voluntaria
-  console.log('8. Probando finalización explícita de transmisión...');
+  // 9. Probando Finalización Voluntaria
+  console.log('9. Probando finalización explícita de transmisión...');
   const endRes = await linkVideoService.endLiveSession(liveSession.id, testHostId);
   assert.strictEqual(endRes.status, 'ENDED');
   const checkedEndedSession = await linkVideoService.getLiveSessionById(liveSession.id);

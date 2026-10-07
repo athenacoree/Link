@@ -9,10 +9,10 @@
 <link rel="manifest" id="manifestLink" href="/manifest.json">
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <link rel="icon" href="/icons/icon-192.png">
-<link rel="stylesheet" href="/css/app.css?v=25">
-<link rel="stylesheet" href="/css/call.css?v=25">
-<link rel="stylesheet" href="/css/features.css?v=25">
-<link rel="stylesheet" href="/css/ailab.css?v=25">
+<link rel="stylesheet" href="/css/app.css?v=26">
+<link rel="stylesheet" href="/css/call.css?v=26">
+<link rel="stylesheet" href="/css/features.css?v=26">
+<link rel="stylesheet" href="/css/ailab.css?v=26">
 </head>
 <body>
 
@@ -182,58 +182,28 @@
     <div class="lista-conversaciones" id="listaConversaciones"></div>
   </main>
 
-  <!-- ---------- LINK VIDEO & LIVE STREAMING HUB ---------- -->
+  <!-- ---------- LINK VIDEO HUB ---------- -->
   <main class="vista-app" id="vistaAilab" data-vista="ailab">
-    <div class="linkvideo-hub-container">
-      <!-- Banner de Encabezado Ultramoderno -->
-      <div class="linkvideo-hero-card">
-        <div class="linkvideo-hero-content">
-          <div class="linkvideo-hero-badge">
-            <span class="live-dot-pulse"></span> STREAMING PLATFORM 2.0
-          </div>
-          <p class="linkvideo-hero-sub">Plataforma inteligente con transmisiones en vivo verificadas, videos AI, cámaras públicas, películas y radio 24/7.</p>
-        </div>
-        <div class="linkvideo-hero-actions">
-          <button class="btn btn-primario linkvideo-btn-live" onclick="LinkVideo.abrirModalIniciarLive()">
-            <span class="live-dot-mini"></span> Transmitir Live
-          </button>
-          <button class="btn btn-secundario linkvideo-btn-refresh" onclick="LinkVideo.cargarCatalogo(true)">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
-            Refrescar
-          </button>
-        </div>
-      </div>
-
-
-      <!-- Sección Canales de YouTube en Vivo -->
-      <div id="linkYouTubeChannelsSection" style="margin-bottom:24px; display:none;">
-        <div class="linkvideo-section-title" style="color:var(--rojo-700, #dc2626);">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="vertical-align:middle; margin-right:4px;"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z"/><polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"/></svg>
-          Canales de YouTube (Transmisión Directa)
-        </div>
-        <div id="linkYouTubeChannelsGrid" class="linkvideo-cards-grid">
-        </div>
-      </div>
-
-      <!-- Sección Transmisiones en Vivo Persistentes (Link Live) -->
-      <div id="linkLiveActiveSection" style="margin-bottom:24px; display:none;">
-        <div class="linkvideo-section-title">
-          <span class="live-dot-pulse"></span>
-          Transmisiones en Vivo Activas (Link Live)
-        </div>
-        <div id="linkLiveActiveGrid" class="linkvideo-cards-grid">
-        </div>
-      </div>
-
-      <!-- Sección Catálogo Principal por Categoría -->
-      <div class="linkvideo-section-title">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
-        Canales y Transmisiones Verificadas
-      </div>
-      <div id="linkVideoGrid" class="linkvideo-cards-grid">
-        <!-- Catálogo renderizado dinámicamente -->
-      </div>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <div class="titulo-vista" style="margin:0;">Link Video</div>
+      <button class="btn btn-secundario mini-btn" onclick="LinkVideo.cargarCatalogo(true)" style="padding:6px 12px; font-size:12px; font-weight:700;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="vertical-align:middle; margin-right:4px;"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>Refrescar
+      </button>
     </div>
+
+    <!-- Buscador compacto en Link Video -->
+    <div class="caja-busqueda" style="margin-bottom:14px;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      <input type="text" id="linkVideoSearchInput" placeholder="Buscar colecciones, artistas o videos…">
+    </div>
+
+    <!-- Cuadrícula Principal de Tarjetas Cuadradas de Colecciones -->
+    <div id="linkVideoCollectionsGrid" class="grid-cuadrados-linkvideo">
+      <!-- Renderizado dinámico de tarjetas cuadradas de colecciones -->
+    </div>
+
+    <!-- Vista de Colección seleccionada / Feed de Videos -->
+    <div id="linkVideoCollectionDetailView" style="display:none;"></div>
   </main>
 
   <!-- ---------- AJUSTES ---------- -->
@@ -755,6 +725,7 @@
       <div class="sub-tab" data-admintab="editor-db">Editor SQL / Tablas</div>
       <div class="sub-tab" data-admintab="apk-gestion">Gestión de APK</div>
       <div class="sub-tab" data-admintab="videos-gestion">Gestión de Videos</div>
+      <div class="sub-tab" data-admintab="colecciones-linkvideo">Colecciones Link Video</div>
       <div class="sub-tab" data-admintab="youtube-gestion">Canales YouTube</div>
       <div class="sub-tab" data-admintab="monetizacion">Monetización</div>
     </div>
@@ -1088,6 +1059,79 @@
           <label>URL de descarga actual</label>
           <input type="url" id="adminAPKUrlActual" placeholder="https://github.com/.../app-release.apk o /apks/...">
         </div>
+      </div>
+    </div>
+
+    <!-- GESTIÓN DE COLECCIONES Y VIDEOS DE LINK VIDEO -->
+    <div id="adminVistaColeccionesLinkVideo" class="oculto" style="margin-top:16px;">
+      <p style="font-size:13.5px; color:var(--texto-600); margin-bottom:14px;">
+        Crea y administra las colecciones, álbumes o grupos de videos de Link Video. Agrega enlaces de YouTube (watch, youtu.be o shorts), auto-detecta metadatos y reordena los videos.
+      </p>
+
+      <div style="background:var(--blanco); border:1px solid var(--borde); border-radius:14px; padding:16px; margin-bottom:18px;">
+        <h4 style="margin:0 0 12px 0; font-size:14px; font-weight:700;" id="adminColFormTitle">📁 Crear / Editar Colección o Álbum</h4>
+        <input type="hidden" id="adminColIdInput">
+
+        <div class="campo">
+          <label>Nombre de la Colección</label>
+          <input type="text" id="adminColNameInput" placeholder="Ej: Éxitos Pop, Álbum Reggaeton, Películas Retro...">
+        </div>
+
+        <div class="campo">
+          <label>Portada de la Colección (URL o Imagen subida)</label>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <input type="text" id="adminColCoverInput" placeholder="https://... o imagen cargada" style="flex:1;">
+            <button class="btn btn-secundario" id="adminBtnUploadColCover" style="padding:8px 12px; font-size:12px;" onclick="$('adminColCoverFileInput')?.click()">Foto</button>
+            <input type="file" id="adminColCoverFileInput" accept="image/*" style="display:none" onchange="window.adminCargarFotoPortadaColeccion(event)">
+          </div>
+        </div>
+
+        <div style="display:flex; gap:8px; margin-top:8px;">
+          <button type="button" class="btn btn-primario" id="adminBtnSaveCol" onclick="window.adminGuardarColeccion()" style="flex:1; font-weight:800;">
+            💾 Guardar Colección
+          </button>
+          <button type="button" class="btn btn-secundario" onclick="window.adminLimpiarFormColeccion()" style="font-size:12px;">
+            Limpiar
+          </button>
+        </div>
+      </div>
+
+      <h4 style="margin:0 0 12px 0; font-size:14px; font-weight:700;">Colecciones Existentes</h4>
+      <div id="adminListaColeccionesLinkVideo" style="display:flex; flex-direction:column; gap:12px; margin-bottom:20px;"></div>
+
+      <!-- Sección Administrar Videos de Colección Seleccionada -->
+      <div id="adminBoxVideosColeccion" style="display:none; background:var(--blanco); border:1.5px solid var(--morado-300); border-radius:16px; padding:16px; margin-top:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <h4 style="margin:0; font-size:15px; font-weight:800; color:var(--morado-700);" id="adminTitleColSelected">Administrar Videos de la Colección</h4>
+          <button class="mini-btn secundario" onclick="$('adminBoxVideosColeccion').style.display='none'">Cerrar</button>
+        </div>
+
+        <div class="campo">
+          <label>URL de YouTube (watch, youtu.be o shorts)</label>
+          <div style="display:flex; gap:8px;">
+            <input type="url" id="adminVideoUrlInput" placeholder="https://www.youtube.com/watch?v=..." style="flex:1;">
+            <button class="btn btn-secundario mini-btn" onclick="window.adminPreviewVideoUrl()" style="font-weight:700;">Detectar</button>
+          </div>
+        </div>
+
+        <div class="campo">
+          <label>Título del Video (editable)</label>
+          <input type="text" id="adminVideoTitleInput" placeholder="Título real del video">
+        </div>
+
+        <div id="adminBoxVideoPreview" style="display:none; margin-bottom:12px; padding:8px; background:var(--hueso); border:1px solid var(--borde); border-radius:12px;">
+          <div style="display:flex; gap:10px; align-items:center;">
+            <img id="adminImgVideoPreview" src="" style="width:70px; height:50px; border-radius:8px; object-fit:cover;">
+            <div style="font-size:12px; font-weight:700; color:var(--texto-800);" id="adminTxtVideoPreview">Vista previa lista</div>
+          </div>
+        </div>
+
+        <button type="button" class="btn btn-primario" onclick="window.adminAgregarVideoAColeccion()" style="width:100%; font-weight:800;">
+          ➕ Agregar Video a la Colección
+        </button>
+
+        <h5 style="margin:16px 0 10px; font-size:13px; font-weight:800;">Videos de esta colección:</h5>
+        <div id="adminListaVideosColeccion" style="display:flex; flex-direction:column; gap:8px;"></div>
       </div>
     </div>
 
@@ -2207,16 +2251,16 @@
 </div>
 
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-<script src="/js/api.js?v=25"></script>
-<script src="/js/paises.js?v=25"></script>
-<script src="/js/i18n.js?v=25"></script>
-<script src="/js/call.js?v=25"></script>
-<script src="/js/chat.js?v=25"></script>
-<script src="/js/features.js?v=25"></script>
-<script src="/js/linkvideo.js?v=25"></script>
-<script src="/js/ailab.js?v=25"></script>
-<script src="/js/monetization.js?v=25"></script>
-<script src="/js/app.js?v=25"></script>
+<script src="/js/api.js?v=26"></script>
+<script src="/js/paises.js?v=26"></script>
+<script src="/js/i18n.js?v=26"></script>
+<script src="/js/call.js?v=26"></script>
+<script src="/js/chat.js?v=26"></script>
+<script src="/js/features.js?v=26"></script>
+<script src="/js/linkvideo.js?v=26"></script>
+<script src="/js/ailab.js?v=26"></script>
+<script src="/js/monetization.js?v=26"></script>
+<script src="/js/app.js?v=26"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {

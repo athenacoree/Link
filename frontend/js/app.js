@@ -4369,9 +4369,11 @@ document.querySelectorAll('#vistaAdmin > .admin-body > .sub-tabs > .sub-tab[data
     $('adminVistaAPK')?.classList.toggle('oculto', target !== 'apk-gestion');
     $('adminVistaVideos')?.classList.toggle('oculto', target !== 'videos-gestion');
     $('adminVistaYouTube')?.classList.toggle('oculto', target !== 'youtube-gestion');
+    $('adminVistaColeccionesLinkVideo')?.classList.toggle('oculto', target !== 'colecciones-linkvideo');
     $('adminVistaMonetizacion')?.classList.toggle('oculto', target !== 'monetizacion');
     if (target === 'apk-gestion') cargarAdminGestionAPK();
     if (target === 'videos-gestion') cargarAdminPlatformVideos();
+    if (target === 'colecciones-linkvideo') cargarAdminColeccionesLinkVideo();
     if (target === 'youtube-gestion') cargarAdminCanalesYouTube();
     if (target === 'reportes') cargarAdminReportes('pendiente');
     if (target === 'anuncios') cargarAdminAnuncios();
@@ -4456,6 +4458,276 @@ $('adminBtnUploadAPK')?.addEventListener('click', async () => {
     btn.innerHTML = origTxt;
   }
 });
+
+/* ================= GESTIÓN ADMINISTRATIVA DE COLECCIONES Y VIDEOS (LINK VIDEO) ================= */
+let adminColeccionSeleccionadaId = null;
+
+async function cargarAdminColeccionesLinkVideo() {
+  const cont = $('adminListaColeccionesLinkVideo');
+  if (!cont) return;
+
+  cont.innerHTML = '<div style="font-size:12.5px; color:var(--texto-500); padding:10px;">Cargando colecciones...</div>';
+
+  try {
+    const res = await api('/linkvideo/collections');
+    const cols = (res && res.collections) ? res.collections : [];
+
+    if (!cols || cols.length === 0) {
+      cont.innerHTML = '<div style="font-size:12.5px; color:var(--texto-500); padding:10px;">No hay colecciones registradas.</div>';
+      return;
+    }
+
+    cont.innerHTML = cols.map(c => {
+      const cover = c.cover_url || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600&auto=format&fit=crop';
+      const count = c.video_count || 0;
+
+      return `
+        <div style="background:var(--blanco); border:1px solid var(--borde); border-radius:14px; padding:12px; display:flex; justify-content:space-between; align-items:center; gap:12px;">
+          <div style="display:flex; align-items:center; gap:12px; min-width:0;">
+            <img src="${cover}" style="width:48px; height:48px; border-radius:10px; object-fit:cover;" alt="Cover">
+            <div style="min-width:0;">
+              <div style="font-weight:800; font-size:13.5px; color:var(--texto-900); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escaparHTMLGlobal(c.name)}</div>
+              <div style="font-size:11.5px; color:var(--morado-700); font-weight:700;">${count} video${count === 1 ? '' : 's'}</div>
+            </div>
+          </div>
+          <div style="display:flex; gap:6px; flex-shrink:0;">
+            <button class="mini-btn primario" onclick="window.adminSeleccionarColeccionParaVideos('${c.id}', ${JSON.stringify(c.name).replace(/"/g, '&quot;')})">Videos</button>
+            <button class="mini-btn secundario" onclick="window.adminEditarColeccion(${JSON.stringify(c).replace(/"/g, '&quot;')})">Editar</button>
+            <button class="mini-btn peligro" onclick="window.adminEliminarColeccion('${c.id}')">Borrar</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  } catch (err) {
+    cont.innerHTML = `<div style="font-size:12.5px; color:var(--peligro);">Error al cargar colecciones: ${err.message}</div>`;
+  }
+}
+window.cargarAdminColeccionesLinkVideo = cargarAdminColeccionesLinkVideo;
+
+async function adminCargarFotoPortadaColeccion(e) {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  try {
+    const base64 = await archivoABase64(file, 800, 0.8);
+    if ($('adminColCoverInput')) $('adminColCoverInput').value = base64;
+    mostrarToast('Foto de portada cargada');
+  } catch (err) {
+    mostrarToast('Error al procesar imagen de portada.');
+  }
+}
+window.adminCargarFotoPortadaColeccion = adminCargarFotoPortadaColeccion;
+
+async function adminGuardarColeccion() {
+  const id = $('adminColIdInput')?.value;
+  const name = $('adminColNameInput')?.value.trim();
+  const cover_url = $('adminColCoverInput')?.value.trim();
+
+  if (!name) {
+    mostrarToast('Ingresa un nombre para la colección.');
+    return;
+  }
+
+  try {
+    if (id) {
+      await api(`/linkvideo/admin/collections/${id}`, { method: 'PUT', body: { name, cover_url } });
+      mostrarToast('Colección actualizada correctamente');
+    } else {
+      await api('/linkvideo/admin/collections', { method: 'POST', body: { name, cover_url } });
+      mostrarToast('Colección creada correctamente');
+    }
+
+    adminLimpiarFormColeccion();
+    await cargarAdminColeccionesLinkVideo();
+    if (window.LinkVideo) window.LinkVideo.cargarCatalogo();
+  } catch (err) {
+    mostrarToast(err.message || 'Error al guardar colección.');
+  }
+}
+window.adminGuardarColeccion = adminGuardarColeccion;
+
+function adminEditarColeccion(col) {
+  if (!col) return;
+  if ($('adminColIdInput')) $('adminColIdInput').value = col.id;
+  if ($('adminColNameInput')) $('adminColNameInput').value = col.name || '';
+  if ($('adminColCoverInput')) $('adminColCoverInput').value = col.cover_url || '';
+  if ($('adminColFormTitle')) $('adminColFormTitle').textContent = `✏️ Editando: ${col.name}`;
+}
+window.adminEditarColeccion = adminEditarColeccion;
+
+function adminLimpiarFormColeccion() {
+  if ($('adminColIdInput')) $('adminColIdInput').value = '';
+  if ($('adminColNameInput')) $('adminColNameInput').value = '';
+  if ($('adminColCoverInput')) $('adminColCoverInput').value = '';
+  if ($('adminColFormTitle')) $('adminColFormTitle').textContent = '📁 Crear / Editar Colección o Álbum';
+}
+window.adminLimpiarFormColeccion = adminLimpiarFormColeccion;
+
+async function adminEliminarColeccion(id) {
+  if (!confirm('¿Eliminar esta colección y todos los videos pertenecientes a ella?')) return;
+  try {
+    await api(`/linkvideo/admin/collections/${id}`, { method: 'DELETE' });
+    mostrarToast('Colección eliminada');
+    if (adminColeccionSeleccionadaId === id) {
+      if ($('adminBoxVideosColeccion')) $('adminBoxVideosColeccion').style.display = 'none';
+      adminColeccionSeleccionadaId = null;
+    }
+    await cargarAdminColeccionesLinkVideo();
+    if (window.LinkVideo) window.LinkVideo.cargarCatalogo();
+  } catch (err) {
+    mostrarToast(err.message || 'Error al eliminar colección.');
+  }
+}
+window.adminEliminarColeccion = adminEliminarColeccion;
+
+async function adminSeleccionarColeccionParaVideos(colId, colName) {
+  adminColeccionSeleccionadaId = colId;
+  const box = $('adminBoxVideosColeccion');
+  const titleEl = $('adminTitleColSelected');
+
+  if (titleEl) titleEl.textContent = `🎬 Videos de "${colName}"`;
+  if (box) box.style.display = 'block';
+
+  if ($('adminVideoUrlInput')) $('adminVideoUrlInput').value = '';
+  if ($('adminVideoTitleInput')) $('adminVideoTitleInput').value = '';
+  if ($('adminBoxVideoPreview')) $('adminBoxVideoPreview').style.display = 'none';
+
+  await adminCargarVideosDeColeccion(colId);
+}
+window.adminSeleccionarColeccionParaVideos = adminSeleccionarColeccionParaVideos;
+
+async function adminCargarVideosDeColeccion(colId) {
+  const cont = $('adminListaVideosColeccion');
+  if (!cont) return;
+
+  cont.innerHTML = '<div style="font-size:12px; color:var(--texto-500);">Cargando videos...</div>';
+
+  try {
+    const res = await api(`/linkvideo/collections/${colId}`);
+    const videos = (res && res.collection && res.collection.videos) ? res.collection.videos : [];
+
+    if (!videos || videos.length === 0) {
+      cont.innerHTML = '<div style="font-size:12px; color:var(--texto-500); padding:8px 0;">No hay videos agregados a esta colección.</div>';
+      return;
+    }
+
+    cont.innerHTML = videos.map((v, idx) => `
+      <div style="background:var(--hueso); border:1px solid var(--borde); border-radius:12px; padding:10px; display:flex; justify-content:space-between; align-items:center; gap:10px;">
+        <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+          <img src="${v.thumbnail_url || 'https://img.youtube.com/vi/' + v.video_id + '/hqdefault.jpg'}" style="width:50px; height:38px; border-radius:8px; object-fit:cover;" alt="Thumb">
+          <div style="min-width:0;">
+            <div style="font-size:12.5px; font-weight:700; color:var(--texto-900); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escaparHTMLGlobal(v.title)}</div>
+            <div style="font-size:10.5px; color:var(--texto-500); font-family:monospace;">ID: ${v.video_id}</div>
+          </div>
+        </div>
+        <div style="display:flex; gap:4px; flex-shrink:0;">
+          ${idx > 0 ? `<button class="mini-btn secundario" onclick="window.adminMoverVideoPosicion('${colId}', '${v.id}', 'up')" title="Subir">▲</button>` : ''}
+          ${idx < videos.length - 1 ? `<button class="mini-btn secundario" onclick="window.adminMoverVideoPosicion('${colId}', '${v.id}', 'down')" title="Bajar">▼</button>` : ''}
+          <button class="mini-btn peligro" onclick="window.adminEliminarVideoColeccion('${v.id}')">✕</button>
+        </div>
+      </div>
+    `).join('');
+  } catch (err) {
+    cont.innerHTML = `<div style="font-size:12px; color:var(--peligro);">Error al cargar videos.</div>`;
+  }
+}
+
+async function adminPreviewVideoUrl() {
+  const url = $('adminVideoUrlInput')?.value.trim();
+  if (!url || !adminColeccionSeleccionadaId) {
+    mostrarToast('Introduce una URL de YouTube.');
+    return;
+  }
+
+  try {
+    const res = await api(`/linkvideo/admin/collections/${adminColeccionSeleccionadaId}/videos/preview`, {
+      method: 'POST',
+      body: { url }
+    });
+
+    if (res && res.ok) {
+      if ($('adminVideoTitleInput')) $('adminVideoTitleInput').value = res.title || '';
+      if ($('adminImgVideoPreview')) $('adminImgVideoPreview').src = res.thumbnail_url || '';
+      if ($('adminTxtVideoPreview')) $('adminTxtVideoPreview').textContent = `✓ Video detectado: ID ${res.videoId}`;
+      if ($('adminBoxVideoPreview')) $('adminBoxVideoPreview').style.display = 'block';
+      mostrarToast('Video de YouTube detectado correctamente');
+    }
+  } catch (err) {
+    mostrarToast(err.message || 'Error al obtener vista previa de YouTube.');
+  }
+}
+window.adminPreviewVideoUrl = adminPreviewVideoUrl;
+
+async function adminAgregarVideoAColeccion() {
+  const url = $('adminVideoUrlInput')?.value.trim();
+  const title = $('adminVideoTitleInput')?.value.trim();
+
+  if (!url || !adminColeccionSeleccionadaId) {
+    mostrarToast('Por favor introduce la URL de YouTube.');
+    return;
+  }
+
+  try {
+    await api(`/linkvideo/admin/collections/${adminColeccionSeleccionadaId}/videos`, {
+      method: 'POST',
+      body: { url, title }
+    });
+
+    mostrarToast('Video agregado a la colección');
+    if ($('adminVideoUrlInput')) $('adminVideoUrlInput').value = '';
+    if ($('adminVideoTitleInput')) $('adminVideoTitleInput').value = '';
+    if ($('adminBoxVideoPreview')) $('adminBoxVideoPreview').style.display = 'none';
+
+    await adminCargarVideosDeColeccion(adminColeccionSeleccionadaId);
+    await cargarAdminColeccionesLinkVideo();
+    if (window.LinkVideo) window.LinkVideo.cargarCatalogo();
+  } catch (err) {
+    mostrarToast(err.message || 'Error al agregar el video.');
+  }
+}
+window.adminAgregarVideoAColeccion = adminAgregarVideoAColeccion;
+
+async function adminEliminarVideoColeccion(videoId) {
+  if (!confirm('¿Eliminar este video de la colección?')) return;
+  try {
+    await api(`/linkvideo/admin/videos/${videoId}`, { method: 'DELETE' });
+    mostrarToast('Video eliminado');
+    if (adminColeccionSeleccionadaId) {
+      await adminCargarVideosDeColeccion(adminColeccionSeleccionadaId);
+      await cargarAdminColeccionesLinkVideo();
+    }
+    if (window.LinkVideo) window.LinkVideo.cargarCatalogo();
+  } catch (err) {
+    mostrarToast(err.message || 'Error al eliminar video.');
+  }
+}
+window.adminEliminarVideoColeccion = adminEliminarVideoColeccion;
+
+async function adminMoverVideoPosicion(colId, videoId, direccion) {
+  try {
+    const res = await api(`/linkvideo/collections/${colId}`);
+    const videos = (res && res.collection && res.collection.videos) ? res.collection.videos : [];
+    const idx = videos.findIndex(v => v.id === videoId);
+    if (idx === -1) return;
+
+    const targetIdx = direccion === 'up' ? idx - 1 : idx + 1;
+    if (targetIdx < 0 || targetIdx >= videos.length) return;
+
+    const temp = videos[idx];
+    videos[idx] = videos[targetIdx];
+    videos[targetIdx] = temp;
+
+    const orderedIds = videos.map(v => v.id);
+    await api(`/linkvideo/admin/collections/${colId}/reorder`, {
+      method: 'POST',
+      body: { videoIds: orderedIds }
+    });
+
+    await adminCargarVideosDeColeccion(colId);
+  } catch (err) {
+    console.error('Error al mover posición de video:', err);
+  }
+}
+window.adminMoverVideoPosicion = adminMoverVideoPosicion;
 
 /* ================= GESTIÓN ADMINISTRATIVA DE VIDEOS DE PLATAFORMA ================= */
 async function cargarAdminPlatformVideos() {

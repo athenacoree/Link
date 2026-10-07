@@ -3,22 +3,24 @@ const { requireAuth, requireAdmin } = require('../middleware/auth');
 const videoStreamTool = require('../tools/videoStreamTool');
 const linkVideoService = require('../services/linkVideoService');
 const youtubeService = require('../services/youtubeService');
-const { extractYouTubeId } = require('../utils/youtube');
+const { extractYouTubeId, fetchYouTubeInfo } = require('../utils/youtube');
 const realtime = require('../utils/realtime');
 
 const router = express.Router();
 
 /**
- * GET /api/linkvideo/catalog - Obtener el catálogo de streaming de películas/audio/video de Link Video y canales de YouTube
+ * GET /api/linkvideo/catalog - Obtener el catálogo de streaming y canales
  */
 router.get('/catalog', requireAuth, async (req, res) => {
   try {
     const forceRefresh = req.query.refresh === 'true';
+    const collections = await linkVideoService.getCollections();
     const catalog = await linkVideoService.getCatalog(forceRefresh);
     const activeLives = await linkVideoService.getActiveLiveSessions();
     const ytChannels = await youtubeService.getChannels();
     res.json({
       base_url: linkVideoService.getLinkVideoBaseUrl(),
+      collections,
       catalog,
       lives: activeLives,
       youtubeChannels: ytChannels
@@ -26,6 +28,152 @@ router.get('/catalog', requireAuth, async (req, res) => {
   } catch (err) {
     console.error('Error al obtener catálogo de Link Video:', err);
     res.status(500).json({ error: 'No se pudo obtener el catálogo de Link Video.' });
+  }
+});
+
+// ---------------- RUTAS DE COLECCIONES / ÁLBUMES DE LINK VIDEO ----------------
+
+/**
+ * GET /api/linkvideo/collections - Listar todas las colecciones/álbumes
+ */
+router.get('/collections', requireAuth, async (req, res) => {
+  try {
+    const collections = await linkVideoService.getCollections();
+    res.json({ ok: true, collections });
+  } catch (err) {
+    console.error('Error al obtener colecciones:', err);
+    res.status(500).json({ error: 'Error al consultar colecciones.' });
+  }
+});
+
+/**
+ * GET /api/linkvideo/collections/:id - Obtener una colección con sus videos
+ */
+router.get('/collections/:id', requireAuth, async (req, res) => {
+  try {
+    const collection = await linkVideoService.getCollectionById(req.params.id);
+    if (!collection) {
+      return res.status(404).json({ error: 'Colección no encontrada.' });
+    }
+    res.json({ ok: true, collection });
+  } catch (err) {
+    console.error('Error al obtener colección:', err);
+    res.status(500).json({ error: 'Error al consultar colección.' });
+  }
+});
+
+/**
+ * POST /api/linkvideo/admin/collections - Crear una colección/álbum (Admin)
+ */
+router.post('/admin/collections', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { name, cover_url } = req.body;
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: 'El nombre de la colección es obligatorio.' });
+    }
+    const collection = await linkVideoService.createCollection({ name, cover_url });
+    res.json({ ok: true, collection });
+  } catch (err) {
+    console.error('Error al crear colección:', err);
+    res.status(400).json({ error: err.message || 'Error al crear la colección.' });
+  }
+});
+
+/**
+ * PUT /api/linkvideo/admin/collections/:id - Editar colección (nombre, portada) (Admin)
+ */
+router.put('/admin/collections/:id', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { name, cover_url } = req.body;
+    const collection = await linkVideoService.updateCollection(req.params.id, { name, cover_url });
+    res.json({ ok: true, collection });
+  } catch (err) {
+    console.error('Error al actualizar colección:', err);
+    res.status(400).json({ error: err.message || 'Error al actualizar la colección.' });
+  }
+});
+
+/**
+ * DELETE /api/linkvideo/admin/collections/:id - Eliminar colección (Admin)
+ */
+router.delete('/admin/collections/:id', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const result = await linkVideoService.deleteCollection(req.params.id);
+    res.json(result);
+  } catch (err) {
+    console.error('Error al eliminar colección:', err);
+    res.status(400).json({ error: err.message || 'Error al eliminar la colección.' });
+  }
+});
+
+/**
+ * POST /api/linkvideo/admin/collections/:id/videos/preview - Previsualizar video de YouTube por URL (Admin)
+ */
+router.post('/admin/collections/:id/videos/preview', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { url, title } = req.body;
+    if (!url) {
+      return res.status(400).json({ error: 'Ingresa una URL de YouTube.' });
+    }
+    const ytInfo = await fetchYouTubeInfo(url, title);
+    res.json({ ok: true, ...ytInfo });
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'Error al procesar vista previa de YouTube.' });
+  }
+});
+
+/**
+ * POST /api/linkvideo/admin/collections/:id/videos - Agregar video a una colección (Admin)
+ */
+router.post('/admin/collections/:id/videos', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { url, title } = req.body;
+    if (!url) {
+      return res.status(400).json({ error: 'Falta la URL del video de YouTube.' });
+    }
+    const video = await linkVideoService.addVideoToCollection(req.params.id, { url, title });
+    res.json({ ok: true, video });
+  } catch (err) {
+    console.error('Error al agregar video a colección:', err);
+    res.status(400).json({ error: err.message || 'Error al agregar el video.' });
+  }
+});
+
+/**
+ * PUT /api/linkvideo/admin/videos/:id - Editar título o posición de video (Admin)
+ */
+router.put('/admin/videos/:id', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { title, position } = req.body;
+    const video = await linkVideoService.updateVideo(req.params.id, { title, position });
+    res.json({ ok: true, video });
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'Error al actualizar video.' });
+  }
+});
+
+/**
+ * DELETE /api/linkvideo/admin/videos/:id - Eliminar video de una colección (Admin)
+ */
+router.delete('/admin/videos/:id', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const result = await linkVideoService.deleteVideo(req.params.id);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'Error al eliminar video.' });
+  }
+});
+
+/**
+ * POST /api/linkvideo/admin/collections/:id/reorder - Reordenar videos de una colección (Admin)
+ */
+router.post('/admin/collections/:id/reorder', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { videoIds } = req.body;
+    const collection = await linkVideoService.reorderVideos(req.params.id, videoIds);
+    res.json({ ok: true, collection });
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'Error al reordenar videos.' });
   }
 });
 
@@ -50,14 +198,17 @@ router.get('/youtube/channels', requireAuth, async (req, res) => {
 router.post('/youtube/admin/preview', requireAuth, requireAdmin, async (req, res) => {
   try {
     const { url } = req.body;
-    const videoId = extractYouTubeId(url) || (youtubeService.extractYouTubeId && youtubeService.extractYouTubeId(url));
+    const videoId = extractYouTubeId(url);
     if (!videoId) {
       return res.status(400).json({ error: 'La URL ingresada no es una URL de YouTube válida. Soportados: youtube.com/watch?v=ID, youtu.be/ID, youtube.com/shorts/ID.' });
     }
+    const info = await fetchYouTubeInfo(url);
     res.json({
       ok: true,
       videoId,
-      embedUrl: `https://www.youtube.com/embed/${videoId}`
+      title: info.title,
+      thumbnail_url: info.thumbnail_url,
+      embedUrl: info.embedUrl
     });
   } catch (err) {
     res.status(500).json({ error: 'Error al procesar vista previa de YouTube.' });
@@ -76,7 +227,7 @@ router.post('/youtube/admin/publish', requireAuth, requireAdmin, async (req, res
 
     const channel = await youtubeService.setChannelVideo({ channelId, url, title });
 
-    // Notificar en tiempo real a todos los usuarios conectados vía Sockets
+    // Notificar en tiempo real
     const io = realtime.getIO();
     if (io) {
       io.emit('youtube:channel_updated', { channel });
