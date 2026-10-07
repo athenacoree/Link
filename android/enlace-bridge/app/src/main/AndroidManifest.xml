@@ -35,6 +35,8 @@
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTask"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize"
+            android:hardwareAccelerated="true"
             android:theme="@style/Theme.EnlaceBridge">
 
             <intent-filter>

@@ -32,15 +32,24 @@ router.get('/catalog', requireAuth, async (req, res) => {
 });
 
 /**
- * GET /api/linkvideo/subtitles/:videoId - Obtener subtítulos reales de YouTube para Karaoke
+ * GET /api/linkvideo/subtitles/:videoId - Obtener subtítulos reales de YouTube (desde BD / Caché persistente)
  */
 router.get('/subtitles/:videoId', requireAuth, async (req, res) => {
   try {
-    const subtitles = await fetchYouTubeSubtitles(req.params.videoId);
-    res.json({ ok: true, videoId: req.params.videoId, subtitles });
+    const lang = req.query.lang || 'es';
+    const subResult = await linkVideoService.getOrFetchSubtitles(req.params.videoId, lang);
+    res.json({
+      ok: true,
+      videoId: req.params.videoId,
+      subtitles: subResult.cues || [],
+      status: subResult.status || 'no_subtitles',
+      languageCode: subResult.languageCode || lang,
+      source: subResult.source || 'youtube_extractor',
+      cached: !!subResult.cached
+    });
   } catch (err) {
     console.error('Error al obtener subtítulos:', err);
-    res.json({ ok: true, videoId: req.params.videoId, subtitles: [] });
+    res.json({ ok: true, videoId: req.params.videoId, subtitles: [], status: 'failed' });
   }
 });
 

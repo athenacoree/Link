@@ -5942,7 +5942,14 @@ function dispararAnimacionNeonMensaje() {
   if (!overlay) return;
 
   const enabled = localStorage.getItem('cfg_neon_enabled') !== 'false';
-  if (!enabled) return;
+  if (!enabled) {
+    overlay.classList.remove('activo');
+    if (neonTimer) {
+      clearTimeout(neonTimer);
+      neonTimer = null;
+    }
+    return;
+  }
 
   const durationSec = parseFloat(localStorage.getItem('cfg_neon_duration') || '3');
   const widthVal = localStorage.getItem('cfg_neon_width') || '5px';
@@ -6072,13 +6079,16 @@ const EmojisFlotantes = (() => {
 // Control de pausa/reanudación de animaciones en interacción optimizado
 let temporizadorPausaAnim = null;
 function pausarAnimacionesPorInteraccion() {
-  if (!document.body.classList.contains('animaciones-pausadas')) {
-    document.body.classList.add('animaciones-pausadas');
+  const constelacionBg = document.querySelector('.constelacion-login-bg');
+  if (constelacionBg) {
+    if (!document.body.classList.contains('animaciones-pausadas')) {
+      document.body.classList.add('animaciones-pausadas');
+    }
+    clearTimeout(temporizadorPausaAnim);
+    temporizadorPausaAnim = setTimeout(() => {
+      document.body.classList.remove('animaciones-pausadas');
+    }, 3000);
   }
-  clearTimeout(temporizadorPausaAnim);
-  temporizadorPausaAnim = setTimeout(() => {
-    document.body.classList.remove('animaciones-pausadas');
-  }, 3000);
 }
 
 window.addEventListener('touchstart', pausarAnimacionesPorInteraccion, { passive: true });

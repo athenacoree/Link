@@ -40,6 +40,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var progressBar: ProgressBar
 
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
+    private var customView: android.view.View? = null
+    private var customViewCallback: WebChromeClient.CustomViewCallback? = null
 
     private val filePickerLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -73,13 +75,19 @@ class MainActivity : AppCompatActivity() {
         configureWebView()
         requestInitialPermissions()
 
-        val targetUrl = identityManager.getServerUrl()
-        webView.loadUrl(targetUrl)
+        if (savedInstanceState == null) {
+            val targetUrl = identityManager.getServerUrl()
+            webView.loadUrl(targetUrl)
+        } else {
+            webView.restoreState(savedInstanceState)
+        }
 
-        // Handle Back button to navigate back in WebView history
+        // Handle Back button to navigate back in WebView history or exit fullscreen custom view
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                if (::webView.isInitialized && webView.canGoBack()) {
+                if (customView != null) {
+                    hideCustomView()
+                } else if (::webView.isInitialized && webView.canGoBack()) {
                     webView.goBack()
                 } else {
                     finish()
@@ -104,11 +112,30 @@ class MainActivity : AppCompatActivity() {
         CookieManager.getInstance().flush()
     }
 
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        if (::webView.isInitialized) {
+            webView.saveState(outState)
+        }
+    }
+
     override fun onDestroy() {
         if (::webView.isInitialized) {
             webView.destroy()
         }
         super.onDestroy()
+    }
+
+    private fun hideCustomView() {
+        if (customView == null) return
+        val root = window.decorView as FrameLayout
+        root.removeView(customView)
+        customView = null
+        customViewCallback?.onCustomViewHidden()
+        customViewCallback = null
+        if (::webView.isInitialized) {
+            webView.visibility = android.view.View.VISIBLE
+        }
     }
 
     private fun setupUI() {
@@ -202,6 +229,25 @@ class MainActivity : AppCompatActivity() {
                 } else {
                     progressBar.visibility = android.view.View.GONE
                 }
+            }
+
+            override fun onShowCustomView(view: android.view.View?, callback: CustomViewCallback?) {
+                if (customView != null) {
+                    onHideCustomView()
+                    return
+                }
+                customView = view
+                customViewCallback = callback
+                webView.visibility = android.view.View.GONE
+                val root = window.decorView as FrameLayout
+                root.addView(customView, FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT
+                ))
+            }
+
+            override fun onHideCustomView() {
+                this@MainActivity.hideCustomView()
             }
 
             override fun onGeolocationPermissionsShowPrompt(origin: String?, callback: GeolocationPermissions.Callback?) {

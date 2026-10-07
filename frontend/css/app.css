@@ -2464,83 +2464,61 @@ html[data-tema="oscuro"] .cuadrado-chat-burbuja {
   animation: rainFall 1.2s linear infinite;
 }
 
-/* ================= PERFIL DE RENDIMIENTO Y FLUIDEZ (HARDWARE ACCELERATION) ================= */
+/* ================= PERFIL DE RENDIMIENTO Y FLUIDEZ ================= */
 .vista-app,
-.lista-mensajes,
-.grid-cuadrados-chats,
-.grid-cuadrados-contactos,
-.tarjeta-par-cuadrados,
-.tarjeta,
-.burbuja {
-  transform: translate3d(0, 0, 0);
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-  perspective: 1000px;
-  contain: content;
-}
-
-.tarjeta-par-cuadrados, .tarjeta, .conversacion-item {
-  will-change: transform;
-}
-
-.vista-app {
+.lista-mensajes {
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
   scroll-behavior: smooth;
 }
 
-/* ================= BORDES NEÓN RECORRIENDO LA PANTALLA EN CARGA ================= */
-.neon-loading-border {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 999999;
-  opacity: 0;
-  visibility: hidden;
-  overflow: hidden;
-  transition: opacity 0.3s ease, visibility 0.3s ease;
+.tarjeta-par-cuadrados, .cuadrado-persona {
+  will-change: transform;
 }
 
-.neon-loading-border.activo {
-  opacity: 1;
-  visibility: visible;
-}
-
-.neon-line {
-  position: absolute;
-  box-shadow: 0 0 12px #ec4899, 0 0 20px #8b5cf6;
-}
-
-/* ================= OVERLAY BORDES NEÓN ENTRADA MENSAJE (Luz Única Continua) ================= */
+/* ================= BORDES NEÓN ENTRADA MENSAJE Y CARGA (Un Solo Hilo de Luz Continua) ================= */
+.neon-loading-border,
 .neon-border-overlay {
   position: fixed;
   inset: 0;
   pointer-events: none !important;
   z-index: 999999;
   opacity: 0;
+  visibility: hidden;
   overflow: hidden;
-  transition: opacity 0.25s ease-in-out;
+  transition: opacity 0.25s ease-in-out, visibility 0.25s ease-in-out;
   box-sizing: border-box;
 }
 
+.neon-loading-border.activo,
 .neon-border-overlay.activo {
   opacity: 1;
+  visibility: visible;
 }
 
+.neon-loading-border::before,
 .neon-border-overlay::before {
   content: '';
   position: absolute;
   inset: 0;
   border: var(--neon-border-width, 5px) solid transparent;
   border-radius: 0px;
-  background: conic-gradient(from var(--neon-angle, 0deg), #ec4899 0deg, #8b5cf6 90deg, #3b82f6 180deg, #10b981 270deg, #ec4899 360deg) border-box;
+  background: conic-gradient(from var(--neon-angle, 0deg),
+    transparent 0deg,
+    transparent 300deg,
+    rgba(236, 72, 153, 0.2) 320deg,
+    #ec4899 342deg,
+    #c084fc 352deg,
+    #ffffff 360deg
+  ) border-box;
   -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
-  box-shadow: inset 0 0 16px rgba(139, 92, 246, 0.6), 0 0 20px rgba(236, 72, 153, 0.6);
+  box-shadow: inset 0 0 16px rgba(139, 92, 246, 0.7), 0 0 20px rgba(236, 72, 153, 0.7);
   filter: saturate(180%);
 }
 
+.neon-loading-border.activo::before,
 .neon-border-overlay.activo::before {
   animation: spinContinuousNeon var(--neon-spin-speed, 1.8s) linear infinite;
 }
@@ -2704,34 +2682,29 @@ html[data-tema="oscuro"] .linkvideo-square-card {
   position: fixed;
   inset: 0;
   z-index: 100000;
-  background: rgba(255, 255, 255, 0.45);
-  backdrop-filter: blur(35px) saturate(200%);
-  -webkit-backdrop-filter: blur(35px) saturate(200%);
+  background: rgba(10, 8, 20, 0.92);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
   display: flex;
-  flex-direction: column;
-  color: var(--texto-900);
-  overflow: hidden;
-}
-
-html[data-tema="oscuro"] .hitv-player-modal {
-  background: rgba(18, 13, 28, 0.65);
-  backdrop-filter: blur(35px) saturate(200%);
-  -webkit-backdrop-filter: blur(35px) saturate(200%);
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
   color: #ffffff;
+  overflow: hidden;
 }
 
 .hitv-close-btn {
   position: absolute;
-  top: 14px;
-  left: 14px;
-  z-index: 30;
-  background: rgba(0, 0, 0, 0.4);
+  top: 16px;
+  right: 16px;
+  z-index: 40;
+  background: rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.3);
-  color: #fff;
-  width: 40px;
-  height: 40px;
+  color: #ffffff;
+  width: 42px;
+  height: 42px;
   border-radius: 50%;
   font-size: 24px;
   font-weight: bold;
@@ -2739,28 +2712,35 @@ html[data-tema="oscuro"] .hitv-player-modal {
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-  transition: transform 0.15s ease;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  transition: transform 0.15s ease, background 0.15s ease;
 }
 
 .hitv-close-btn:active {
   transform: scale(0.92);
 }
 
-.hitv-video-container {
-  width: calc(100% - 24px);
-  height: 50vh;
-  max-height: 50vh;
-  margin: 12px auto 0;
+.hitv-player-wrapper {
+  width: 100%;
+  max-width: 920px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   position: relative;
-  background: #000;
-  flex-shrink: 0;
-  border-radius: 20px;
-  overflow: hidden;
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35);
 }
 
-.hitv-video-container iframe {
+.hitv-video-container {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  position: relative;
+  background: #000000;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+.hitv-video-container iframe,
+.hitv-video-container #linkVideoIframePlayer {
   width: 100%;
   height: 100%;
   border: none;
@@ -2768,40 +2748,143 @@ html[data-tema="oscuro"] .hitv-player-modal {
   inset: 0;
 }
 
-.hitv-info-panel {
-  flex: 1;
-  background: transparent;
-  padding: 20px;
+/* Superposición Elegante de Subtítulos dentro del Reproductor */
+.hitv-subtitle-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 16px 20px 24px;
+  background: linear-gradient(0deg, rgba(0, 0, 0, 0.82) 0%, rgba(0, 0, 0, 0.35) 65%, transparent 100%);
+  pointer-events: none;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  text-align: center;
-  overflow-y: auto;
-}
-
-.hitv-floating-lyrics-area {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  max-width: 600px;
-  padding: 10px;
+  justify-content: flex-end;
+  z-index: 10;
+  min-height: 70px;
 }
 
 .hitv-subtitle-line {
-  font-size: 22px;
+  font-size: clamp(14px, 3.6vw, 22px);
   font-weight: 800;
-  color: var(--morado-950);
-  line-height: 1.5;
+  color: #ffffff;
   text-align: center;
-  text-shadow: 0 2px 10px rgba(255, 255, 255, 0.8);
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9), 0 0 12px rgba(139, 92, 246, 0.6);
+  line-height: 1.35;
   letter-spacing: 0.2px;
+  padding: 6px 14px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  max-width: 90%;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  word-wrap: break-word;
 }
 
-html[data-tema="oscuro"] .hitv-subtitle-line {
-  color: #f3e8ff;
-  text-shadow: 0 2px 14px rgba(139, 92, 246, 0.7);
+.hitv-subtitle-line.hitv-subtitle-hidden {
+  opacity: 0;
+  transform: translateY(6px);
+  pointer-events: none;
+  display: none;
+}
+
+/* Animación Esfera Luminosa Link + Ondas Aurora */
+.hitv-aurora-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.hitv-aurora-container.hitv-aurora-hidden {
+  opacity: 0;
+  transform: scale(0.85);
+  pointer-events: none;
+  display: none;
+}
+
+.hitv-aurora-sphere {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hitv-aurora-core {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #ffffff 0%, #c084fc 60%, #8b5cf6 100%);
+  box-shadow: 0 0 12px #a855f7, 0 0 24px #ec4899;
+  z-index: 2;
+  animation: auroraCorePulse 2s infinite ease-in-out;
+}
+
+.hitv-aurora-wave {
+  position: absolute;
+  border-radius: 50%;
+  border: 1.5px solid rgba(192, 132, 252, 0.6);
+  box-shadow: 0 0 10px rgba(236, 72, 153, 0.4);
+  animation: auroraExpand 2.8s infinite ease-out;
+  pointer-events: none;
+}
+
+.hitv-aurora-wave.wave-1 {
+  width: 16px;
+  height: 16px;
+  animation-delay: 0s;
+}
+
+.hitv-aurora-wave.wave-2 {
+  width: 16px;
+  height: 16px;
+  animation-delay: 0.9s;
+}
+
+.hitv-aurora-wave.wave-3 {
+  width: 16px;
+  height: 16px;
+  animation-delay: 1.8s;
+}
+
+@keyframes auroraExpand {
+  0% {
+    width: 14px;
+    height: 14px;
+    opacity: 0.9;
+    border-color: rgba(236, 72, 153, 0.8);
+    transform: scale(1);
+  }
+  100% {
+    width: 60px;
+    height: 60px;
+    opacity: 0;
+    border-color: rgba(139, 92, 246, 0.2);
+    transform: scale(1.6);
+  }
+}
+
+@keyframes auroraCorePulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 10px #a855f7, 0 0 20px #ec4899;
+  }
+  50% {
+    transform: scale(1.15);
+    box-shadow: 0 0 16px #c084fc, 0 0 30px #3b82f6;
+  }
+}
+
+.hitv-aurora-notice {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.8);
+  letter-spacing: 0.4px;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
 }

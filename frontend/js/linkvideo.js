@@ -670,8 +670,40 @@ window.LinkVideo = {
     this.abrirReproductorLinkVideo(video);
   },
 
+  ensureYouTubeApiLoaded(callback) {
+    if (window.YT && window.YT.Player) {
+      callback();
+      return;
+    }
+
+    const prevOnReady = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => {
+      if (typeof prevOnReady === 'function') prevOnReady();
+      callback();
+    };
+
+    if (!document.getElementById('ytIframeApiScript')) {
+      const tag = document.createElement('script');
+      tag.id = 'ytIframeApiScript';
+      tag.src = 'https://www.youtube.com/iframe_api';
+      const firstScriptTag = document.getElementsByTagName('script')[0];
+      if (firstScriptTag && firstScriptTag.parentNode) {
+        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+      } else {
+        document.head.appendChild(tag);
+      }
+    }
+  },
+
+  currentCues: [],
+  lastDisplayedCueText: null,
+  subSyncInterval: null,
+  ytPlayer: null,
+
   async abrirReproductorLinkVideo(video) {
     if (!video || !video.video_id) return;
+
+    this.cerrarReproductorLinkVideo();
 
     let modal = document.getElementById('modalPlayerLinkVideo');
     if (!modal) {
@@ -683,101 +715,105 @@ window.LinkVideo = {
 
     modal.style.display = 'flex';
 
-    let rawOrigin = window.location.origin;
-    if (!rawOrigin || rawOrigin === 'null' || rawOrigin.startsWith('file://')) {
-      rawOrigin = window.location.protocol && window.location.host ? (window.location.protocol + '//' + window.location.host) : '';
-    }
-
-    const params = [
-      'autoplay=1',
-      'controls=1',
-      'fs=1',
-      'playsinline=1',
-      'enablejsapi=1',
-      'rel=0',
-      'modestbranding=1',
-      'cc_load_policy=1',
-      'widget_referrer=' + encodeURIComponent(window.location.href)
-    ];
-    if (rawOrigin && !rawOrigin.startsWith('file://') && rawOrigin !== 'null') {
-      params.push('origin=' + encodeURIComponent(rawOrigin));
-    }
-
-    const embedUrl = `https://www.youtube.com/embed/${video.video_id}?${params.join('&')}`;
-
     const colName = this.currentCollection ? this.currentCollection.name : 'Link Video';
-    const categoryTag = (this.currentCollection && this.currentCollection.category) || 'General';
-    const videoAudioDesc = video.audio_description || (this.currentCollection && this.currentCollection.audio_description) || '';
-
-    // Subtítulos iniciales de respaldo limpios sin etiquetas ni recuadros
-    let lyricsLines = [
-      `${escapeHTMLLinkVideo(video.title)}`,
-      videoAudioDesc ? `${escapeHTMLLinkVideo(videoAudioDesc)}` : `${escapeHTMLLinkVideo(colName)}`
-    ].filter(Boolean);
 
     modal.innerHTML = `
-      <!-- Botón flotante para cerrar -->
       <button onclick="LinkVideo.cerrarReproductorLinkVideo()" class="hitv-close-btn" title="Cerrar reproductor">&times;</button>
 
-      <!-- Zona de Video Agrandada Responsiva estilo Cristal -->
-      <div class="hitv-video-container" id="linkVideoIframeContainer">
-        <iframe id="linkVideoIframePlayer" src="${embedUrl}" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen" allowfullscreen></iframe>
-      </div>
+      <div class="hitv-player-wrapper">
+        <div class="hitv-video-container" id="linkVideoIframeContainer">
+          <div id="linkVideoIframePlayer"></div>
 
-      <!-- Área de Subtítulos Karaoke Flotante Limpia sin Recuadros -->
-      <div class="hitv-info-panel">
-        <div class="hitv-floating-lyrics-area">
-          <div id="hitvSubtitlesText" class="hitv-subtitle-line">
-            ${lyricsLines[0] || ''}
+          <!-- Superposición de Subtítulos / Animación Aurora -->
+          <div class="hitv-subtitle-overlay" id="hitvSubtitleOverlay">
+            <div id="hitvSubtitlesText" class="hitv-subtitle-line hitv-subtitle-hidden"></div>
+
+            <div id="hitvAuroraContainer" class="hitv-aurora-container hitv-aurora-hidden">
+              <div class="hitv-aurora-sphere">
+                <div class="hitv-aurora-wave wave-1"></div>
+                <div class="hitv-aurora-wave wave-2"></div>
+                <div class="hitv-aurora-wave wave-3"></div>
+                <div class="hitv-aurora-core"></div>
+              </div>
+              <span class="hitv-aurora-notice">Subtítulos no disponibles</span>
+            </div>
           </div>
         </div>
       </div>
     `;
 
-    // Función de actualización de texto en pantalla estilo karaoke
-    const updateSubtitleDisplay = (text) => {
-      const subEl = document.getElementById('hitvSubtitlesText');
-      if (subEl && text) {
-        subEl.style.opacity = '0';
-        subEl.style.transform = 'translateY(6px)';
-        setTimeout(() => {
-          subEl.innerHTML = escapeHTMLLinkVideo(text);
-          subEl.style.opacity = '1';
-          subEl.style.transform = 'translateY(0)';
-        }, 250);
-      }
-    };
+    // Cargar subtítulos desde el backend
+    this.currentCues = [];
+    this.lastDisplayedCueText = null;
 
-    // Ciclo de animación
-    if (this.lyricsInterval) clearInterval(this.lyricsInterval);
-    let lineIdx = 0;
-
-    // Obtener subtítulos reales de YouTube desde el servidor
     try {
       const subRes = await api(`/linkvideo/subtitles/${video.video_id}`);
       if (subRes && subRes.ok && Array.isArray(subRes.subtitles) && subRes.subtitles.length > 0) {
-        const ytSubLines = subRes.subtitles.map(s => s.text).filter(Boolean);
-        if (ytSubLines.length > 0) {
-          lyricsLines = ytSubLines;
-        }
+        this.currentCues = subRes.subtitles;
       }
     } catch (e) {
-      console.warn('[LinkVideo Subtitles] Error o sin subtítulos:', e.message);
+      console.warn('[LinkVideo Subtitles] Error al consultar subtítulos:', e.message);
     }
 
-    updateSubtitleDisplay(lyricsLines[0]);
+    const subTextEl = document.getElementById('hitvSubtitlesText');
+    const auroraEl = document.getElementById('hitvAuroraContainer');
 
-    this.lyricsInterval = setInterval(() => {
-      if (lyricsLines.length <= 1) return;
-      lineIdx = (lineIdx + 1) % lyricsLines.length;
-      updateSubtitleDisplay(lyricsLines[lineIdx]);
-    }, 3800);
+    if (this.currentCues.length > 0) {
+      if (auroraEl) auroraEl.classList.add('hitv-aurora-hidden');
+    } else {
+      if (subTextEl) subTextEl.classList.add('hitv-subtitle-hidden');
+      if (auroraEl) auroraEl.classList.remove('hitv-aurora-hidden');
+    }
+
+    // Inicializar reproductor mediante YouTube IFrame Player API
+    this.ensureYouTubeApiLoaded(() => {
+      try {
+        if (!document.getElementById('linkVideoIframePlayer')) return;
+        this.ytPlayer = new YT.Player('linkVideoIframePlayer', {
+          videoId: video.video_id,
+          playerVars: {
+            autoplay: 1,
+            controls: 1,
+            fs: 1,
+            playsinline: 1,
+            enablejsapi: 1,
+            rel: 0,
+            modestbranding: 1
+          },
+          events: {
+            onReady: (event) => {
+              try { event.target.playVideo(); } catch (err) {}
+            },
+            onStateChange: (event) => {
+              if (window.YT && event.data === YT.PlayerState.PLAYING) {
+                this.iniciarSincronizacionSubtitulos();
+              } else {
+                this.detenerSincronizacionSubtitulos();
+              }
+            }
+          }
+        });
+      } catch (err) {
+        console.warn('[LinkVideo] Fallback iframe directo:', err.message);
+        this.crearIframeFallback(video.video_id);
+      }
+    });
+
+    // Fallback de respaldo por si la API de YouTube no se carga a tiempo
+    setTimeout(() => {
+      if (!this.ytPlayer && document.getElementById('linkVideoIframeContainer')) {
+        const container = document.getElementById('linkVideoIframeContainer');
+        if (container && !container.querySelector('iframe')) {
+          this.crearIframeFallback(video.video_id);
+        }
+      }
+    }, 2000);
 
     // Emitir actividad multimedia en tiempo real
     if (window.socket) {
       window.socket.emit('actividad:viendo', {
         title: video.title,
-        videoUrl: embedUrl,
+        videoUrl: `https://www.youtube.com/watch?v=${video.video_id}`,
         collectionName: colName
       });
     }
@@ -799,6 +835,63 @@ window.LinkVideo = {
     }
   },
 
+  crearIframeFallback(videoId) {
+    const playerTarget = document.getElementById('linkVideoIframePlayer');
+    if (playerTarget) {
+      playerTarget.outerHTML = `<iframe id="linkVideoIframePlayer" src="https://www.youtube.com/embed/${videoId}?autoplay=1&controls=1&fs=1&playsinline=1&enablejsapi=1&rel=0&modestbranding=1" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen" allowfullscreen></iframe>`;
+    }
+  },
+
+  iniciarSincronizacionSubtitulos() {
+    this.detenerSincronizacionSubtitulos();
+    this.subSyncInterval = setInterval(() => {
+      let currentTime = 0;
+      if (this.ytPlayer && typeof this.ytPlayer.getCurrentTime === 'function') {
+        try { currentTime = this.ytPlayer.getCurrentTime(); } catch (e) {}
+      }
+      this.actualizarSubtituloActivo(currentTime);
+    }, 100);
+  },
+
+  detenerSincronizacionSubtitulos() {
+    if (this.subSyncInterval) {
+      clearInterval(this.subSyncInterval);
+      this.subSyncInterval = null;
+    }
+  },
+
+  actualizarSubtituloActivo(currentTime) {
+    const subTextEl = document.getElementById('hitvSubtitlesText');
+    const auroraEl = document.getElementById('hitvAuroraContainer');
+    if (!subTextEl) return;
+
+    if (!this.currentCues || this.currentCues.length === 0) {
+      subTextEl.classList.add('hitv-subtitle-hidden');
+      if (auroraEl) auroraEl.classList.remove('hitv-aurora-hidden');
+      return;
+    }
+
+    if (auroraEl) auroraEl.classList.add('hitv-aurora-hidden');
+
+    const activeCue = this.currentCues.find(cue => {
+      const dur = typeof cue.dur === 'number' && cue.dur > 0 ? cue.dur : 3;
+      return currentTime >= cue.start && currentTime < (cue.start + dur);
+    });
+
+    if (activeCue && activeCue.text) {
+      if (this.lastDisplayedCueText !== activeCue.text) {
+        this.lastDisplayedCueText = activeCue.text;
+        subTextEl.textContent = activeCue.text;
+        subTextEl.classList.remove('hitv-subtitle-hidden');
+      }
+    } else {
+      if (this.lastDisplayedCueText !== '') {
+        this.lastDisplayedCueText = '';
+        subTextEl.classList.add('hitv-subtitle-hidden');
+      }
+    }
+  },
+
   reproducirSiguienteVideo() {
     if (this.currentVideoIndex < this.currentVideos.length - 1) {
       this.reproducirVideoColeccion(this.currentVideoIndex + 1);
@@ -812,19 +905,25 @@ window.LinkVideo = {
   },
 
   cerrarReproductorLinkVideo() {
-    if (this.lyricsInterval) {
-      clearInterval(this.lyricsInterval);
-      this.lyricsInterval = null;
+    this.detenerSincronizacionSubtitulos();
+    this.currentCues = [];
+    this.lastDisplayedCueText = null;
+
+    if (this.ytPlayer) {
+      try {
+        if (typeof this.ytPlayer.destroy === 'function') {
+          this.ytPlayer.destroy();
+        }
+      } catch (e) {}
+      this.ytPlayer = null;
     }
+
     if (window.socket) {
       window.socket.emit('actividad:detener_viendo');
     }
+
     const modal = document.getElementById('modalPlayerLinkVideo');
     if (modal) {
-      const iframe = modal.querySelector('iframe');
-      if (iframe) {
-        iframe.src = 'about:blank';
-      }
       modal.style.display = 'none';
       modal.innerHTML = '';
     }

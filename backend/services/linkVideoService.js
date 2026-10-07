@@ -4,7 +4,7 @@
 
 const { query } = require('../db/postgres');
 const videoStreamTool = require('../tools/videoStreamTool');
-const { fetchYouTubeInfo, extractYouTubeId } = require('../utils/youtube');
+const { fetchYouTubeInfo, extractYouTubeId, fetchYouTubeSubtitles } = require('../utils/youtube');
 const { crypto } = require('crypto');
 
 // Lista estática y predefinida de categorías para la plataforma Link Video
@@ -30,6 +30,7 @@ function sanitizeCategory(cat) {
 const inMemoryLiveSessions = new Map();
 const inMemoryCollections = new Map(); // id -> collection object
 const inMemoryVideos = new Map(); // id -> video object
+const inMemorySubtitles = new Map(); // videoId_lang -> subtitle object
 
 // Colecciones por defecto en memoria
 const DEFAULT_MEM_COLLECTIONS = [
@@ -678,8 +679,134 @@ async function cleanupAbandonedSessions(timeoutSeconds = 180) {
   }
 }
 
+/**
+ * Obtiene subtítulos desde la BD (caché persistente) o mediante el extractor si no existen.
+ */
+async function getOrFetchSubtitles(videoId, requestedLang = 'es') {
+  if (!videoId || typeof videoId !== 'string') {
+    return { videoId: '', languageCode: requestedLang, cues: [], status: 'no_subtitles', source: 'none' };
+  }
+
+  const cleanVideoId = videoId.trim();
+  const cleanLang = (requestedLang || 'es').trim().toLowerCase();
+  const now = new Date();
+  const ONE_HOUR_MS = 60 * 60 * 1000;
+
+  // 1. Intentar consultar en base de datos PostgreSQL
+  try {
+    const { rows } = await query(
+      `SELECT id, video_id, language_code, status, cues, source, created_at, updated_at
+       FROM video_subtitles
+       WHERE video_id = $1 AND (language_code = $2 OR language_code LIKE $3)
+       ORDER BY (language_code = $2) DESC, updated_at DESC
+       LIMIT 1`,
+      [cleanVideoId, cleanLang, `${cleanLang.substring(0, 2)}%`]
+    );
+
+    if (rows && rows.length > 0) {
+      const cached = rows[0];
+      const updatedAt = new Date(cached.updated_at);
+      const isRecent = (now - updatedAt) < ONE_HOUR_MS;
+
+      // Si están completos ('ready'), devolver directamente desde la BD
+      if (cached.status === 'ready' && Array.isArray(cached.cues) && cached.cues.length > 0) {
+        return {
+          videoId: cached.video_id,
+          languageCode: cached.language_code,
+          cues: cached.cues,
+          source: cached.source || 'db_cache',
+          status: 'ready',
+          cached: true
+        };
+      }
+
+      // Si previamente falló o no tenía subtítulos y la consulta es reciente, devolver estado de la BD sin repetir peticiones
+      if ((cached.status === 'no_subtitles' || cached.status === 'failed') && isRecent) {
+        return {
+          videoId: cached.video_id,
+          languageCode: cached.language_code,
+          cues: [],
+          source: cached.source || 'db_cache',
+          status: cached.status,
+          cached: true
+        };
+      }
+    }
+  } catch (err) {
+    // Fallback si la BD no está disponible
+  }
+
+  // 2. Verificar en almacén en memoria
+  const memKey = `${cleanVideoId}_${cleanLang}`;
+  if (inMemorySubtitles.has(memKey)) {
+    const cachedMem = inMemorySubtitles.get(memKey);
+    const isRecent = (now - new Date(cachedMem.updated_at)) < ONE_HOUR_MS;
+    if (cachedMem.status === 'ready' && cachedMem.cues.length > 0) {
+      return { ...cachedMem, cached: true };
+    }
+    if (isRecent && (cachedMem.status === 'no_subtitles' || cachedMem.status === 'failed')) {
+      return { ...cachedMem, cached: true };
+    }
+  }
+
+  // 3. Obtener subtítulos mediante extractor
+  let extractedCues = [];
+  let langCode = cleanLang;
+  let source = 'youtube_extractor';
+  let status = 'ready';
+
+  try {
+    const ytSub = await fetchYouTubeSubtitles(cleanVideoId);
+    if (ytSub && Array.isArray(ytSub.cues) && ytSub.cues.length > 0) {
+      extractedCues = ytSub.cues;
+      langCode = ytSub.languageCode || cleanLang;
+      status = 'ready';
+    } else {
+      status = 'no_subtitles';
+    }
+  } catch (err) {
+    console.error(`[LinkVideo Subtitles] Error al extraer subtítulos para ${cleanVideoId}:`, err.message);
+    status = 'failed';
+  }
+
+  // 4. Guardar o actualizar en BD (UPSERT)
+  const resultObj = {
+    videoId: cleanVideoId,
+    languageCode: langCode,
+    cues: extractedCues,
+    source,
+    status,
+    updated_at: now.toISOString(),
+    cached: false
+  };
+
+  try {
+    await query(
+      `INSERT INTO video_subtitles (video_id, language_code, status, cues, source, created_at, updated_at)
+       VALUES ($1, $2, $3, $4::jsonb, $5, now(), now())
+       ON CONFLICT (video_id, language_code)
+       DO UPDATE SET
+         status = EXCLUDED.status,
+         cues = EXCLUDED.cues,
+         source = EXCLUDED.source,
+         updated_at = now()`,
+      [cleanVideoId, langCode, status, JSON.stringify(extractedCues), source]
+    );
+  } catch (err) {
+    // Memoria fallback
+  }
+
+  inMemorySubtitles.set(memKey, resultObj);
+  inMemorySubtitles.set(`${cleanVideoId}_${langCode}`, resultObj);
+
+  return resultObj;
+}
+
 module.exports = {
   PREDEFINED_CATEGORIES,
+  // Subtítulos
+  getOrFetchSubtitles,
+
   // Colecciones & Videos
   getCollections,
   getCollectionById,
