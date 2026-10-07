@@ -67,11 +67,11 @@ router.get('/collections/:id', requireAuth, async (req, res) => {
  */
 router.post('/admin/collections', requireAuth, requireAdmin, async (req, res) => {
   try {
-    const { name, cover_url, category } = req.body;
+    const { name, cover_url, category, audio_description } = req.body;
     if (!name || !name.trim()) {
       return res.status(400).json({ error: 'El nombre de la colección es obligatorio.' });
     }
-    const collection = await linkVideoService.createCollection({ name, cover_url, category });
+    const collection = await linkVideoService.createCollection({ name, cover_url, category, audio_description });
     res.json({ ok: true, collection });
   } catch (err) {
     console.error('Error al crear colección:', err);
@@ -80,12 +80,12 @@ router.post('/admin/collections', requireAuth, requireAdmin, async (req, res) =>
 });
 
 /**
- * PUT /api/linkvideo/admin/collections/:id - Editar colección (nombre, portada, categoría) (Admin)
+ * PUT /api/linkvideo/admin/collections/:id - Editar colección (nombre, portada, categoría, audio_description) (Admin)
  */
 router.put('/admin/collections/:id', requireAuth, requireAdmin, async (req, res) => {
   try {
-    const { name, cover_url, category } = req.body;
-    const collection = await linkVideoService.updateCollection(req.params.id, { name, cover_url, category });
+    const { name, cover_url, category, audio_description } = req.body;
+    const collection = await linkVideoService.updateCollection(req.params.id, { name, cover_url, category, audio_description });
     res.json({ ok: true, collection });
   } catch (err) {
     console.error('Error al actualizar colección:', err);
@@ -127,11 +127,11 @@ router.post('/admin/collections/:id/videos/preview', requireAuth, requireAdmin, 
  */
 router.post('/admin/collections/:id/videos', requireAuth, requireAdmin, async (req, res) => {
   try {
-    const { url, title } = req.body;
+    const { url, title, audio_description } = req.body;
     if (!url) {
       return res.status(400).json({ error: 'Falta la URL del video de YouTube.' });
     }
-    const video = await linkVideoService.addVideoToCollection(req.params.id, { url, title });
+    const video = await linkVideoService.addVideoToCollection(req.params.id, { url, title, audio_description });
     res.json({ ok: true, video });
   } catch (err) {
     console.error('Error al agregar video a colección:', err);
@@ -140,12 +140,12 @@ router.post('/admin/collections/:id/videos', requireAuth, requireAdmin, async (r
 });
 
 /**
- * PUT /api/linkvideo/admin/videos/:id - Editar título o posición de video (Admin)
+ * PUT /api/linkvideo/admin/videos/:id - Editar título, posición o audio_description de video (Admin)
  */
 router.put('/admin/videos/:id', requireAuth, requireAdmin, async (req, res) => {
   try {
-    const { title, position } = req.body;
-    const video = await linkVideoService.updateVideo(req.params.id, { title, position });
+    const { title, position, audio_description } = req.body;
+    const video = await linkVideoService.updateVideo(req.params.id, { title, position, audio_description });
     res.json({ ok: true, video });
   } catch (err) {
     res.status(400).json({ error: err.message || 'Error al actualizar video.' });

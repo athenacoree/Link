@@ -7,6 +7,25 @@ const videoStreamTool = require('../tools/videoStreamTool');
 const { fetchYouTubeInfo, extractYouTubeId } = require('../utils/youtube');
 const { crypto } = require('crypto');
 
+// Lista estática y predefinida de categorías para la plataforma Link Video
+const PREDEFINED_CATEGORIES = [
+  'General',
+  'Música',
+  'Álbumes',
+  'Películas',
+  'Series',
+  'Telenovelas',
+  'Documentales',
+  'Animes'
+];
+
+function sanitizeCategory(cat) {
+  if (!cat) return 'General';
+  const clean = String(cat).trim();
+  const found = PREDEFINED_CATEGORIES.find(c => c.toLowerCase() === clean.toLowerCase());
+  return found || 'General';
+}
+
 // Almacén en memoria de respaldo para tests o entornos sin PostgreSQL activo
 const inMemoryLiveSessions = new Map();
 const inMemoryCollections = new Map(); // id -> collection object
@@ -19,6 +38,7 @@ const DEFAULT_MEM_COLLECTIONS = [
     name: 'Música & Videos Destacados',
     cover_url: 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=600',
     category: 'Música',
+    audio_description: 'Colección oficial de éxitos musicales y clips de video en alta definición.',
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   },
@@ -26,7 +46,8 @@ const DEFAULT_MEM_COLLECTIONS = [
     id: 'col_cine_trailers',
     name: 'Cine & Estrenos',
     cover_url: 'https://images.pexels.com/photos/2506923/pexels-photo-2506923.jpeg?auto=compress&cs=tinysrgb&w=600',
-    category: 'Películas, Series',
+    category: 'Películas',
+    audio_description: 'Tráilers cinematográficos, películas destacadas y estrenos mundiales.',
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   }
@@ -42,6 +63,7 @@ const DEFAULT_MEM_VIDEOS = [
     thumbnail_url: 'https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg',
     position: 0,
     status: 'active',
+    audio_description: 'Hit musical de los 80s interpretado por Rick Astley.',
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   }
@@ -73,7 +95,7 @@ async function getCollections(userId = null) {
 
   try {
     const { rows } = await query(
-      `SELECT c.id, c.name, c.cover_url, c.category, c.created_at, c.updated_at,
+      `SELECT c.id, c.name, c.cover_url, c.category, c.audio_description, c.created_at, c.updated_at,
               COUNT(v.id)::int AS video_count
        FROM linkvideo_collections c
        LEFT JOIN linkvideo_videos v ON c.id = v.collection_id AND v.status = 'active'
@@ -81,7 +103,7 @@ async function getCollections(userId = null) {
        ORDER BY c.created_at DESC`
     );
     if (rows && rows.length > 0) {
-      collections = rows.map(col => ({ ...col, category: col.category || 'General' }));
+      collections = rows.map(col => ({ ...col, category: sanitizeCategory(col.category) }));
     }
   } catch (err) {
     // Fallback in-memory
@@ -118,7 +140,7 @@ async function getCollectionById(collectionId) {
 
   try {
     const colRes = await query(
-      `SELECT id, name, cover_url, category, created_at, updated_at
+      `SELECT id, name, cover_url, category, audio_description, created_at, updated_at
        FROM linkvideo_collections
        WHERE id::text = $1::text`,
       [collectionId]
@@ -126,7 +148,7 @@ async function getCollectionById(collectionId) {
     if (colRes.rows && colRes.rows.length > 0) {
       collection = colRes.rows[0];
       const vidRes = await query(
-        `SELECT id, collection_id, title, video_id, original_url, thumbnail_url, position, status, created_at, updated_at
+        `SELECT id, collection_id, title, video_id, original_url, thumbnail_url, position, status, audio_description, created_at, updated_at
          FROM linkvideo_videos
          WHERE collection_id::text = $1::text AND status = 'active'
          ORDER BY position ASC, created_at ASC`,
@@ -156,22 +178,23 @@ async function getCollectionById(collectionId) {
   return null;
 }
 
-async function createCollection({ name, cover_url, category }) {
+async function createCollection({ name, cover_url, category, audio_description }) {
   const cleanName = (name || '').trim();
   if (!cleanName) {
     throw new Error('El nombre de la colección es obligatorio.');
   }
 
   const cleanCover = cover_url || null;
-  const cleanCategory = (category || 'General').trim();
+  const cleanCategory = sanitizeCategory(category);
+  const cleanAudioDesc = audio_description ? audio_description.trim() : null;
   const nowIso = new Date().toISOString();
 
   try {
     const { rows } = await query(
-      `INSERT INTO linkvideo_collections (name, cover_url, category, created_at, updated_at)
-       VALUES ($1, $2, $3, now(), now())
-       RETURNING id, name, cover_url, category, created_at, updated_at`,
-      [cleanName, cleanCover, cleanCategory]
+      `INSERT INTO linkvideo_collections (name, cover_url, category, audio_description, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, now(), now())
+       RETURNING id, name, cover_url, category, audio_description, created_at, updated_at`,
+      [cleanName, cleanCover, cleanCategory, cleanAudioDesc]
     );
     if (rows && rows.length > 0) {
       const created = { ...rows[0], video_count: 0, videos: [] };
@@ -188,6 +211,7 @@ async function createCollection({ name, cover_url, category }) {
     name: cleanName,
     cover_url: cleanCover,
     category: cleanCategory,
+    audio_description: cleanAudioDesc,
     created_at: nowIso,
     updated_at: nowIso,
     video_count: 0,
@@ -197,9 +221,10 @@ async function createCollection({ name, cover_url, category }) {
   return created;
 }
 
-async function updateCollection(collectionId, { name, cover_url, category }) {
+async function updateCollection(collectionId, { name, cover_url, category, audio_description }) {
   const cleanName = name ? name.trim() : undefined;
-  const cleanCategory = category ? category.trim() : undefined;
+  const cleanCategory = category ? sanitizeCategory(category) : undefined;
+  const cleanAudioDesc = audio_description !== undefined ? (audio_description ? audio_description.trim() : null) : undefined;
   const nowIso = new Date().toISOString();
 
   try {
@@ -219,11 +244,15 @@ async function updateCollection(collectionId, { name, cover_url, category }) {
       fields.push(`category = $${idx++}`);
       values.push(cleanCategory);
     }
+    if (cleanAudioDesc !== undefined) {
+      fields.push(`audio_description = $${idx++}`);
+      values.push(cleanAudioDesc);
+    }
 
     if (fields.length > 0) {
       fields.push(`updated_at = now()`);
       values.push(collectionId);
-      const queryStr = `UPDATE linkvideo_collections SET ${fields.join(', ')} WHERE id::text = $${idx} RETURNING id, name, cover_url, category, created_at, updated_at`;
+      const queryStr = `UPDATE linkvideo_collections SET ${fields.join(', ')} WHERE id::text = $${idx} RETURNING id, name, cover_url, category, audio_description, created_at, updated_at`;
       const { rows } = await query(queryStr, values);
       if (rows && rows.length > 0) {
         const updated = rows[0];
@@ -240,6 +269,7 @@ async function updateCollection(collectionId, { name, cover_url, category }) {
     if (cleanName !== undefined) col.name = cleanName;
     if (cover_url !== undefined) col.cover_url = cover_url;
     if (cleanCategory !== undefined) col.category = cleanCategory;
+    if (cleanAudioDesc !== undefined) col.audio_description = cleanAudioDesc;
     col.updated_at = nowIso;
     inMemoryCollections.set(collectionId, col);
     return await getCollectionById(collectionId);
@@ -263,13 +293,14 @@ async function deleteCollection(collectionId) {
   return { ok: true, id: collectionId };
 }
 
-async function addVideoToCollection(collectionId, { url, title }) {
+async function addVideoToCollection(collectionId, { url, title, audio_description }) {
   const collection = await getCollectionById(collectionId);
   if (!collection) {
     throw new Error('La colección especificada no existe.');
   }
 
   const ytInfo = await fetchYouTubeInfo(url, title);
+  const cleanAudioDesc = audio_description ? audio_description.trim() : null;
   const nowIso = new Date().toISOString();
 
   // Calcular siguiente posición
@@ -278,10 +309,10 @@ async function addVideoToCollection(collectionId, { url, title }) {
 
   try {
     const { rows } = await query(
-      `INSERT INTO linkvideo_videos (collection_id, title, video_id, original_url, thumbnail_url, position, status, created_at, updated_at)
-       VALUES ($1::uuid, $2, $3, $4, $5, $6, 'active', now(), now())
-       RETURNING id, collection_id, title, video_id, original_url, thumbnail_url, position, status, created_at, updated_at`,
-      [collectionId, ytInfo.title, ytInfo.videoId, ytInfo.original_url, ytInfo.thumbnail_url, nextPos]
+      `INSERT INTO linkvideo_videos (collection_id, title, video_id, original_url, thumbnail_url, position, status, audio_description, created_at, updated_at)
+       VALUES ($1::uuid, $2, $3, $4, $5, $6, 'active', $7, now(), now())
+       RETURNING id, collection_id, title, video_id, original_url, thumbnail_url, position, status, audio_description, created_at, updated_at`,
+      [collectionId, ytInfo.title, ytInfo.videoId, ytInfo.original_url, ytInfo.thumbnail_url, nextPos, cleanAudioDesc]
     );
     if (rows && rows.length > 0) {
       const createdVid = rows[0];
@@ -302,6 +333,7 @@ async function addVideoToCollection(collectionId, { url, title }) {
     thumbnail_url: ytInfo.thumbnail_url,
     position: nextPos,
     status: 'active',
+    audio_description: cleanAudioDesc,
     created_at: nowIso,
     updated_at: nowIso
   };
@@ -309,8 +341,9 @@ async function addVideoToCollection(collectionId, { url, title }) {
   return createdVid;
 }
 
-async function updateVideo(videoId, { title, position }) {
+async function updateVideo(videoId, { title, position, audio_description }) {
   const cleanTitle = title ? title.trim() : undefined;
+  const cleanAudioDesc = audio_description !== undefined ? (audio_description ? audio_description.trim() : null) : undefined;
   const nowIso = new Date().toISOString();
 
   try {
@@ -326,11 +359,15 @@ async function updateVideo(videoId, { title, position }) {
       fields.push(`position = $${idx++}`);
       values.push(position);
     }
+    if (cleanAudioDesc !== undefined) {
+      fields.push(`audio_description = $${idx++}`);
+      values.push(cleanAudioDesc);
+    }
 
     if (fields.length > 0) {
       fields.push(`updated_at = now()`);
       values.push(videoId);
-      const queryStr = `UPDATE linkvideo_videos SET ${fields.join(', ')} WHERE id::text = $${idx} RETURNING id, collection_id, title, video_id, original_url, thumbnail_url, position, status, created_at, updated_at`;
+      const queryStr = `UPDATE linkvideo_videos SET ${fields.join(', ')} WHERE id::text = $${idx} RETURNING id, collection_id, title, video_id, original_url, thumbnail_url, position, status, audio_description, created_at, updated_at`;
       const { rows } = await query(queryStr, values);
       if (rows && rows.length > 0) {
         const updated = rows[0];
@@ -346,6 +383,7 @@ async function updateVideo(videoId, { title, position }) {
     const vid = inMemoryVideos.get(videoId);
     if (cleanTitle !== undefined) vid.title = cleanTitle;
     if (position !== undefined && typeof position === 'number') vid.position = position;
+    if (cleanAudioDesc !== undefined) vid.audio_description = cleanAudioDesc;
     vid.updated_at = nowIso;
     inMemoryVideos.set(videoId, vid);
     return vid;
@@ -641,6 +679,7 @@ async function cleanupAbandonedSessions(timeoutSeconds = 180) {
 }
 
 module.exports = {
+  PREDEFINED_CATEGORIES,
   // Colecciones & Videos
   getCollections,
   getCollectionById,
