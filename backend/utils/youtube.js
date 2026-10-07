@@ -93,43 +93,37 @@ async function fetchYouTubeInfo(url, customTitle = '') {
 }
 
 /**
- * Obtiene los subtítulos reales de un video de YouTube en formato Karaoke / Cues.
- * @param {string} videoId
- * @returns {Promise<Array<{start: number, dur: number, text: string}>>}
+ * Parsea contenido de subtítulos en diversos formatos (XML de YouTube, VTT, SRT, JSON)
+ * y los convierte al formato unificado { start, dur, text }.
  */
-async function fetchYouTubeSubtitles(videoId) {
-  if (!videoId || typeof videoId !== 'string') return [];
-  const cleanId = videoId.trim();
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 6000);
-    const watchRes = await fetch(`https://www.youtube.com/watch?v=${cleanId}`, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8'
-      },
-      signal: controller.signal
-    });
-    clearTimeout(timeout);
-    const html = await watchRes.text();
-    const match = html.match(/"captionTracks":\s*(\[.*?\])/);
-    if (!match) return [];
-    const tracks = JSON.parse(match[1]);
-    if (!tracks || !tracks.length) return [];
+function parseSubtitleTime(timeStr) {
+  if (!timeStr) return 0;
+  if (typeof timeStr === 'number') return timeStr;
+  const parts = String(timeStr).trim().replace(',', '.').split(':');
+  if (parts.length === 3) {
+    return parseFloat(parts[0]) * 3600 + parseFloat(parts[1]) * 60 + parseFloat(parts[2]);
+  } else if (parts.length === 2) {
+    return parseFloat(parts[0]) * 60 + parseFloat(parts[1]);
+  }
+  return parseFloat(timeStr) || 0;
+}
 
-    const targetTrack = tracks.find(t => t.languageCode?.startsWith('es')) ||
-                        tracks.find(t => t.languageCode?.startsWith('en')) ||
-                        tracks[0];
-    if (!targetTrack || !targetTrack.baseUrl) return [];
+function parseSubtitleContent(content) {
+  if (!content) return [];
+  if (Array.isArray(content)) {
+    return content.map(item => ({
+      start: typeof item.start === 'number' ? item.start : parseSubtitleTime(item.start),
+      dur: typeof item.dur === 'number' ? item.dur : (item.end ? (parseSubtitleTime(item.end) - parseSubtitleTime(item.start)) : 3),
+      text: String(item.text || '').replace(/<[^>]*>/g, '').trim()
+    })).filter(c => c.text);
+  }
 
-    const capController = new AbortController();
-    const capTimeout = setTimeout(() => capController.abort(), 6000);
-    const capRes = await fetch(targetTrack.baseUrl, { signal: capController.signal });
-    clearTimeout(capTimeout);
-    const xml = await capRes.text();
+  const str = String(content);
 
+  // XML YouTube captions
+  if (str.includes('<text')) {
     const cues = [];
-    const textMatches = [...xml.matchAll(/<text start="([\d\.]+)" dur="([\d\.]+)".*?>(.*?)<\/text>/g)];
+    const textMatches = [...str.matchAll(/<text start="([\d\.]+)" dur="([\d\.]+)".*?>(.*?)<\/text>/g)];
     for (const m of textMatches) {
       const rawText = m[3]
         .replace(/&amp;/g, '&')
@@ -148,9 +142,86 @@ async function fetchYouTubeSubtitles(videoId) {
       }
     }
     return cues;
+  }
+
+  // VTT o SRT
+  if (str.includes('-->')) {
+    const cues = [];
+    const blocks = str.split(/\n\s*\n/);
+    for (const block of blocks) {
+      const timeMatch = block.match(/(?:(\d{2}:)?\d{2}:\d{2}[\.,]\d{3})\s*-->\s*(?:(\d{2}:)?\d{2}:\d{2}[\.,]\d{3})/);
+      if (timeMatch) {
+        const times = timeMatch[0].split('-->');
+        const start = parseSubtitleTime(times[0]);
+        const end = parseSubtitleTime(times[1]);
+        const dur = Math.max(0.5, end - start);
+        const textLines = block.substring(block.indexOf(timeMatch[0]) + timeMatch[0].length)
+          .split('\n')
+          .map(l => l.replace(/<[^>]*>/g, '').trim())
+          .filter(Boolean)
+          .join(' ');
+        if (textLines) {
+          cues.push({ start, dur, text: textLines });
+        }
+      }
+    }
+    return cues;
+  }
+
+  // JSON string
+  try {
+    const json = JSON.parse(str);
+    if (Array.isArray(json)) {
+      return parseSubtitleContent(json);
+    }
+  } catch (e) {}
+
+  return [];
+}
+
+/**
+ * Obtiene los subtítulos reales de un video de YouTube en formato Karaoke / Cues.
+ * @param {string} videoId
+ * @returns {Promise<{cues: Array<{start: number, dur: number, text: string}>, languageCode: string}>}
+ */
+async function fetchYouTubeSubtitles(videoId) {
+  if (!videoId || typeof videoId !== 'string') return { cues: [], languageCode: 'es' };
+  const cleanId = videoId.trim();
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 6000);
+    const watchRes = await fetch(`https://www.youtube.com/watch?v=${cleanId}`, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8'
+      },
+      signal: controller.signal
+    });
+    clearTimeout(timeout);
+    const html = await watchRes.text();
+    const match = html.match(/"captionTracks":\s*(\[.*?\])/);
+    if (!match) return { cues: [], languageCode: 'es' };
+    const tracks = JSON.parse(match[1]);
+    if (!tracks || !tracks.length) return { cues: [], languageCode: 'es' };
+
+    const targetTrack = tracks.find(t => t.languageCode?.startsWith('es')) ||
+                        tracks.find(t => t.languageCode?.startsWith('en')) ||
+                        tracks[0];
+    if (!targetTrack || !targetTrack.baseUrl) return { cues: [], languageCode: 'es' };
+
+    const langCode = targetTrack.languageCode || 'es';
+
+    const capController = new AbortController();
+    const capTimeout = setTimeout(() => capController.abort(), 6000);
+    const capRes = await fetch(targetTrack.baseUrl, { signal: capController.signal });
+    clearTimeout(capTimeout);
+    const xml = await capRes.text();
+
+    const cues = parseSubtitleContent(xml);
+    return { cues, languageCode: langCode };
   } catch (err) {
     console.error('Error al obtener subtítulos de YouTube:', err.message);
-    return [];
+    return { cues: [], languageCode: 'es' };
   }
 }
 
@@ -280,5 +351,6 @@ module.exports = {
   isValidYouTubeUrl,
   fetchYouTubeInfo,
   fetchYouTubeSubtitles,
-  fetchYouTubePlaylist
+  fetchYouTubePlaylist,
+  parseSubtitleContent
 };
