@@ -63,20 +63,21 @@ img{max-width:100%;}
 }
 
 /* ============ AUTENTICACIÓN ============ */
-#authScreen{min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px;}
-.auth-caja{width:100%; max-width:380px; background:var(--blanco); border-radius:24px; padding:28px 24px; box-shadow:var(--sombra-tarjeta);}
+#authScreen{min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px; position:relative; z-index:10; pointer-events:auto !important;}
+.auth-caja{width:100%; max-width:380px; background:var(--blanco); border-radius:24px; padding:28px 24px; box-shadow:var(--sombra-tarjeta); position:relative; z-index:20; pointer-events:auto !important;}
 .auth-logo{width:70px; height:70px; border-radius:20px; background:linear-gradient(135deg,var(--morado-600),var(--morado-700)); display:flex; align-items:center; justify-content:center; margin:0 auto 14px; box-shadow:0 14px 28px -10px rgba(91,33,182,0.5); overflow:hidden; padding:4px;}
 .auth-logo-img{width:100%; height:100%; object-fit:cover; border-radius:16px;}
 .auth-titulo{text-align:center; font-size:22px; font-weight:800; letter-spacing:-0.02em; margin-bottom:2px;}
 .auth-sub{text-align:center; color:var(--texto-500); font-size:13.5px; margin-bottom:20px;}
 .auth-tabs{display:flex; background:var(--morado-100); border-radius:14px; padding:4px; margin-bottom:18px;}
-.auth-tab{flex:1; text-align:center; padding:9px; border-radius:11px; font-size:13.5px; font-weight:700; color:var(--morado-700);}
+.auth-tab{flex:1; text-align:center; padding:9px; border-radius:11px; font-size:13.5px; font-weight:700; color:var(--morado-700); cursor:pointer; user-select:none; -webkit-tap-highlight-color:transparent;}
 .auth-tab.activo{background:var(--blanco); box-shadow:0 4px 10px -4px rgba(91,33,182,0.3);}
-.campo{margin-bottom:12px;}
+.campo{margin-bottom:12px; position:relative; z-index:25; pointer-events:auto !important;}
 .campo label{display:block; font-size:11.5px; font-weight:700; color:var(--texto-500); text-transform:uppercase; letter-spacing:0.4px; margin-bottom:5px;}
 .campo input, .campo select, .campo textarea{
   width:100%; border:1.5px solid var(--linea); border-radius:13px; padding:12px 13px;
   font-size:15px; background:var(--hueso); color:var(--texto-900); outline:none;
+  position:relative; z-index:30; pointer-events:auto !important; user-select:text !important; -webkit-user-select:text !important;
 }
 .campo input:focus, .campo select:focus, .campo textarea:focus{border-color:var(--morado-500);}
 .campo-error{color:var(--peligro); font-size:12.5px; margin-top:4px; min-height:15px;}
@@ -200,9 +201,94 @@ img{max-width:100%;}
 .caja-busqueda svg{color:var(--texto-400); flex:0 0 auto;}
 
 /* ---- Contactos: sub tabs ---- */
-.sub-tabs{display:flex; gap:8px; margin-bottom:14px;}
-.sub-tab{flex:1; text-align:center; padding:9px; border-radius:12px; font-size:13px; font-weight:700; color:var(--morado-700); background:var(--morado-100);}
+.sub-tabs{display:flex; gap:8px; margin-bottom:14px; overflow-x:auto;}
+.sub-tab{flex:1; text-align:center; padding:9px; border-radius:12px; font-size:13.5px; font-weight:700; color:var(--morado-700); background:var(--morado-100); cursor:pointer; white-space:nowrap;}
 .sub-tab.activo{background:var(--morado-700); color:#fff;}
+
+/* ---- Admin Panel: Navegación por Grid de Tarjetas Cuadradas ---- */
+.admin-grid-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 18px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.admin-card-cuadrado {
+  background: var(--blanco);
+  border: 1px solid var(--linea);
+  border-radius: 18px;
+  padding: 14px 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 105px;
+  cursor: pointer;
+  user-select: none;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.04);
+  transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  box-sizing: border-box;
+}
+
+.admin-card-cuadrado:active {
+  transform: scale(0.96);
+}
+
+.admin-card-cuadrado.activo {
+  background: linear-gradient(135deg, var(--morado-600), var(--morado-700));
+  border-color: var(--morado-700);
+  color: #ffffff !important;
+  box-shadow: 0 8px 22px rgba(124, 58, 237, 0.35);
+}
+
+.admin-card-cuadrado .admin-card-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: var(--morado-100);
+  color: var(--morado-700);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.admin-card-cuadrado.activo .admin-card-icon {
+  background: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+}
+
+.admin-card-cuadrado .admin-card-title {
+  font-weight: 800;
+  font-size: 13.5px;
+  letter-spacing: -0.01em;
+  margin-bottom: 2px;
+}
+
+.admin-card-cuadrado.activo .admin-card-title {
+  color: #ffffff;
+}
+
+.admin-card-cuadrado .admin-card-sub {
+  font-size: 10.5px;
+  color: var(--texto-500);
+  line-height: 1.2;
+}
+
+.admin-card-cuadrado.activo .admin-card-sub {
+  color: rgba(255, 255, 255, 0.82);
+}
+
+html[data-tema="oscuro"] .admin-card-cuadrado {
+  background: var(--fondo-tarjeta, #121217);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+html[data-tema="oscuro"] .admin-card-cuadrado.activo {
+  background: linear-gradient(135deg, var(--morado-600), var(--morado-800));
+}
 
 /* ---- Mensajes ---- */
 .lista-conversaciones{display:flex; flex-direction:column; gap:8px;}

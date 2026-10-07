@@ -4408,12 +4408,58 @@ $('btnCerrarSesion').addEventListener('click', () => {
 $('btnPanelAdmin').addEventListener('click', () => {
   $('vistaAdmin').classList.add('activo');
   cargarAdminUsuarios('');
+  comprobarEstadoServidorAdmin();
 });
 $('admin-volver').addEventListener('click', () => $('vistaAdmin').classList.remove('activo'));
 
-document.querySelectorAll('#vistaAdmin > .admin-body > .sub-tabs > .sub-tab[data-admintab]').forEach((tab) => {
+async function comprobarEstadoServidorAdmin() {
+  try {
+    const res = await api('/auth/check');
+    if ($('adminServerStatus')) $('adminServerStatus').textContent = `En línea (${res.user ? res.user.name || 'Sesión Admin' : 'OK'})`;
+    if ($('adminServerStatusDot')) $('adminServerStatusDot').style.background = '#10b981';
+  } catch (err) {
+    if ($('adminServerStatus')) $('adminServerStatus').textContent = 'Atención (Sincronizando)';
+    if ($('adminServerStatusDot')) $('adminServerStatusDot').style.background = '#f59e0b';
+  }
+}
+
+$('adminBtnRefreshStats')?.addEventListener('click', () => {
+  comprobarEstadoServidorAdmin();
+  const activeCard = document.querySelector('#vistaAdmin .admin-card-cuadrado.activo');
+  if (activeCard && activeCard.dataset.admintab) {
+    const target = activeCard.dataset.admintab;
+    if (target === 'usuarios') cargarAdminUsuarios($('adminBuscarUsuario')?.value || '');
+    if (target === 'reportes') cargarAdminReportes('pendiente');
+    if (target === 'anuncios') cargarAdminAnuncios();
+    if (target === 'ai-config') cargarAdminAIConfig();
+  }
+});
+
+$('adminBtnLimpiarCache')?.addEventListener('click', async () => {
+  if (typeof LocalStore !== 'undefined' && LocalStore.limpiarTodo) {
+    await LocalStore.limpiarTodo();
+  }
+  if (window.caches) {
+    try {
+      const keys = await caches.keys();
+      for (const key of keys) await caches.delete(key);
+    } catch(e) {}
+  }
+  alert('¡Caché local del navegador y almacenamiento interno limpiados con éxito!');
+});
+
+$('adminBtnComprobarAI')?.addEventListener('click', async () => {
+  try {
+    const aiConf = await api('/ai/config');
+    alert(`Link AI Estado:\nNombre: ${aiConf.name || 'Link AI'}\nDisponible: ${aiConf.available ? 'Sí (Gemini API activa)' : 'No (Sin API key configurada)'}`);
+  } catch (e) {
+    alert(`Error al verificar IA: ${e.message}`);
+  }
+});
+
+document.querySelectorAll('#vistaAdmin .admin-card-cuadrado[data-admintab], #vistaAdmin .sub-tab[data-admintab]').forEach((tab) => {
   tab.addEventListener('click', () => {
-    document.querySelectorAll('#vistaAdmin > .admin-body > .sub-tabs > .sub-tab[data-admintab]').forEach((t) => t.classList.toggle('activo', t === tab));
+    document.querySelectorAll('#vistaAdmin .admin-card-cuadrado[data-admintab], #vistaAdmin .sub-tab[data-admintab]').forEach((t) => t.classList.toggle('activo', t.dataset.admintab === tab.dataset.admintab));
     const target = tab.dataset.admintab;
     $('adminVistaUsuarios')?.classList.toggle('oculto', target !== 'usuarios');
     $('adminVistaReportes')?.classList.toggle('oculto', target !== 'reportes');

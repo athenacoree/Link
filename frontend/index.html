@@ -716,18 +716,123 @@
     <div class="titulo">Panel de administrador</div>
   </div>
   <div class="admin-body">
-    <div class="sub-tabs">
-      <div class="sub-tab activo" data-admintab="usuarios">Usuarios</div>
-      <div class="sub-tab" data-admintab="reportes">Reportes</div>
-      <div class="sub-tab" data-admintab="anuncios">Anuncios</div>
-      <div class="sub-tab" data-admintab="ai-config">Asistente IA</div>
-      <div class="sub-tab" data-admintab="base-datos">Base de Datos</div>
-      <div class="sub-tab" data-admintab="editor-db">Editor SQL / Tablas</div>
-      <div class="sub-tab" data-admintab="apk-gestion">Gestión de APK</div>
-      <div class="sub-tab" data-admintab="videos-gestion">Gestión de Videos</div>
-      <div class="sub-tab" data-admintab="colecciones-linkvideo">Colecciones Link Video</div>
-      <div class="sub-tab" data-admintab="youtube-gestion">Canales YouTube</div>
-      <div class="sub-tab" data-admintab="monetizacion">Monetización</div>
+    <!-- Panel Resumen de Métricas y Controles Rápidos del Sistema -->
+    <div class="admin-metrics-summary" style="margin-bottom: 16px; display:flex; flex-direction:column; gap:10px;">
+      <div class="stat-box" style="padding:14px; border-radius:18px; background:linear-gradient(135deg, rgba(124,58,237,0.12), rgba(236,72,153,0.12)); border:1px solid rgba(124,58,237,0.25); display:flex; align-items:center; justify-content:space-between;">
+        <div>
+          <div style="font-size:11px; font-weight:800; text-transform:uppercase; color:var(--morado-700); letter-spacing:0.5px;">Estado del Servidor & Sistema</div>
+          <div style="font-size:15px; font-weight:800; color:var(--texto-900); display:flex; align-items:center; gap:6px; margin-top:3px;">
+            <span id="adminServerStatusDot" style="width:10px; height:10px; border-radius:50%; background:#10b981; display:inline-block; box-shadow:0 0 8px #10b981;"></span>
+            <span id="adminServerStatus">En línea (Servicios Activos)</span>
+          </div>
+        </div>
+        <div style="display:flex; gap:6px;">
+          <button class="btn btn-secundario" id="adminBtnRefreshStats" style="padding:7px 12px; font-size:12px; font-weight:700; border-radius:12px; width:auto; flex:0 0 auto;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="vertical-align:middle; margin-right:4px;"><path d="M21.5 2v6h-6M2.5 22v-6h6"/><path d="M2 11.5a10 10 0 0 1 18.8-4.3L21.5 8M22 12.5a10 10 0 0 1-18.8 4.3L2.5 16"/></svg> Refrescar
+          </button>
+        </div>
+      </div>
+
+      <!-- Barra de Acciones Rápidas del Administrador -->
+      <div style="display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:8px;">
+        <button class="btn btn-secundario" id="adminBtnLimpiarCache" style="padding:10px; font-size:12px; font-weight:700; border-radius:14px; justify-content:center;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:5px;"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> Limpiar Caché
+        </button>
+        <button class="btn btn-secundario" id="adminBtnComprobarAI" style="padding:10px; font-size:12px; font-weight:700; border-radius:14px; justify-content:center;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:5px;"><path d="M12 2a10 10 0 1 0 10 10H12V2z"/><path d="M12 12 2.1 10.5"/><path d="M12 12l4.3 8.6"/></svg> Estado Link AI
+        </button>
+      </div>
+    </div>
+
+    <!-- Navegación del Panel Admin en Grid de Cuadrados -->
+    <div class="admin-grid-cards">
+      <div class="admin-card-cuadrado activo" data-admintab="usuarios">
+        <div class="admin-card-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
+        <div class="admin-card-title">Usuarios</div>
+        <div class="admin-card-sub">Gestión de cuentas y perfiles</div>
+      </div>
+
+      <div class="admin-card-cuadrado" data-admintab="reportes">
+        <div class="admin-card-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+        </div>
+        <div class="admin-card-title">Reportes</div>
+        <div class="admin-card-sub">Moderación de contenido</div>
+      </div>
+
+      <div class="admin-card-cuadrado" data-admintab="anuncios">
+        <div class="admin-card-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 11 18-5v12L3 13v-2z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>
+        </div>
+        <div class="admin-card-title">Anuncios</div>
+        <div class="admin-card-sub">Mensajes globales de la app</div>
+      </div>
+
+      <div class="admin-card-cuadrado" data-admintab="ai-config">
+        <div class="admin-card-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10H12V2z"/><path d="M12 12 2.1 10.5"/><path d="M12 12l4.3 8.6"/></svg>
+        </div>
+        <div class="admin-card-title">Asistente IA</div>
+        <div class="admin-card-sub">Configuración de Gemini</div>
+      </div>
+
+      <div class="admin-card-cuadrado" data-admintab="base-datos">
+        <div class="admin-card-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+        </div>
+        <div class="admin-card-title">Base de Datos</div>
+        <div class="admin-card-sub">Respaldos y restauración</div>
+      </div>
+
+      <div class="admin-card-cuadrado" data-admintab="editor-db">
+        <div class="admin-card-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+        </div>
+        <div class="admin-card-title">Editor SQL</div>
+        <div class="admin-card-sub">Consultas directas a tablas</div>
+      </div>
+
+      <div class="admin-card-cuadrado" data-admintab="apk-gestion">
+        <div class="admin-card-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+        </div>
+        <div class="admin-card-title">Gestión APK</div>
+        <div class="admin-card-sub">Actualización Android App</div>
+      </div>
+
+      <div class="admin-card-cuadrado" data-admintab="videos-gestion">
+        <div class="admin-card-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/></svg>
+        </div>
+        <div class="admin-card-title">Videos Splash</div>
+        <div class="admin-card-sub">Videos de carga y promociones</div>
+      </div>
+
+      <div class="admin-card-cuadrado" data-admintab="colecciones-linkvideo">
+        <div class="admin-card-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m22 8-6 4 6 4V8z"/><rect x="2" y="6" width="14" height="12" rx="2" ry="2"/></svg>
+        </div>
+        <div class="admin-card-title">Colecciones Video</div>
+        <div class="admin-card-sub">Catálogo Link Video Streaming</div>
+      </div>
+
+      <div class="admin-card-cuadrado" data-admintab="youtube-gestion">
+        <div class="admin-card-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z"/><polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"/></svg>
+        </div>
+        <div class="admin-card-title">Canales YouTube</div>
+        <div class="admin-card-sub">Transmisiones e iframe live</div>
+      </div>
+
+      <div class="admin-card-cuadrado" data-admintab="monetizacion">
+        <div class="admin-card-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 6v2m0 8v2"/></svg>
+        </div>
+        <div class="admin-card-title">Monetización</div>
+        <div class="admin-card-sub">Verificaciones y QvaPay</div>
+      </div>
     </div>
 
     <div id="adminVistaUsuarios">
