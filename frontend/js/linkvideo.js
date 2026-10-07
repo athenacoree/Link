@@ -248,12 +248,20 @@ window.LinkVideo = {
     }
 
     const cover = col.cover_url || 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=600';
+    const esAdmin = !!(window.currentUser?.is_admin || window.MI_ES_ADMIN);
 
     detailView.innerHTML = `
       <div style="margin-bottom:16px;">
-        <button class="btn btn-secundario mini-btn" onclick="LinkVideo.volverAColecciones()" style="padding:8px 14px; font-weight:800; border-radius:12px; margin-bottom:12px;">
-          ‹ Volver a Colecciones
-        </button>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <button class="btn btn-secundario mini-btn" onclick="LinkVideo.volverAColecciones()" style="padding:8px 14px; font-weight:800; border-radius:12px;">
+            ‹ Volver a Colecciones
+          </button>
+          ${esAdmin ? `
+            <button class="btn btn-primario mini-btn" onclick="LinkVideo.abrirModalAdminAlbum('${col.id}')" style="padding:8px 14px; font-weight:800; border-radius:12px; background:linear-gradient(135deg, #7c3aed, #ec4899);">
+              ⚙️ Administrar álbum
+            </button>
+          ` : ''}
+        </div>
         <div style="display:flex; align-items:center; gap:14px; background:var(--blanco); border:1.5px solid rgba(139, 92, 246, 0.2); border-radius:18px; padding:12px; box-shadow:0 4px 16px rgba(91, 33, 182, 0.08);">
           <img src="${cover}" style="width:64px; height:64px; border-radius:14px; object-fit:cover;" alt="Cover">
           <div>
@@ -277,6 +285,213 @@ window.LinkVideo = {
     `;
   },
 
+  // Direct In-Place Album Administration Modal & Handlers
+  async abrirModalAdminAlbum(colId) {
+    let modal = document.getElementById('modalAdminAlbumLinkVideo');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'modalAdminAlbumLinkVideo';
+      modal.style.cssText = 'position:fixed; inset:0; z-index:100005; background:rgba(0,0,0,0.7); backdrop-filter:blur(8px); display:flex; align-items:center; justify-content:center; padding:16px;';
+      document.body.appendChild(modal);
+    }
+
+    modal.style.display = 'flex';
+    modal.innerHTML = `<div style="background:var(--blanco); border-radius:20px; padding:24px; color:var(--texto-900); text-align:center; font-weight:800;">Cargando datos para administrar el álbum...</div>`;
+
+    try {
+      const res = await api(`/linkvideo/collections/${colId}`);
+      if (!res || !res.collection) throw new Error('No se pudo obtener la colección');
+
+      const col = res.collection;
+      const videos = col.videos || [];
+
+      modal.innerHTML = `
+        <div style="background:var(--blanco); border-radius:24px; width:100%; max-width:520px; max-height:90vh; overflow-y:auto; padding:20px; box-shadow:0 12px 32px rgba(0,0,0,0.3); position:relative; color:var(--texto-900);">
+          <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--linea); padding-bottom:12px; margin-bottom:16px;">
+            <div style="font-size:18px; font-weight:900; color:var(--morado-700);">⚙️ Administrar Álbum</div>
+            <button onclick="LinkVideo.cerrarModalAdminAlbum()" style="background:var(--hueso); border:none; width:32px; height:32px; border-radius:50%; font-size:18px; font-weight:bold; cursor:pointer;">&times;</button>
+          </div>
+
+          <!-- Modificar Álbum -->
+          <div style="background:var(--hueso); border-radius:16px; padding:14px; margin-bottom:16px; border:1px solid var(--linea);">
+            <div style="font-size:13px; font-weight:800; color:var(--morado-700); margin-bottom:8px;">Datos del Álbum</div>
+            <div class="campo" style="margin-bottom:8px;">
+              <label>Nombre del Álbum</label>
+              <input type="text" id="adminAlbumNameInput" value="${escapeHTMLLinkVideo(col.name)}">
+            </div>
+            <div class="campo" style="margin-bottom:8px;">
+              <label>URL de Portada</label>
+              <input type="text" id="adminAlbumCoverInput" value="${escapeHTMLLinkVideo(col.cover_url || '')}">
+            </div>
+            <div style="display:flex; gap:8px;">
+              <button class="btn btn-primario mini-btn" style="flex:1;" onclick="LinkVideo.guardarCambiosAlbum('${col.id}')">💾 Guardar Álbum</button>
+              <button class="btn btn-secundario mini-btn peligro" onclick="LinkVideo.eliminarAlbumDirecto('${col.id}')">🗑️ Eliminar</button>
+            </div>
+          </div>
+
+          <!-- Agregar Nuevo Video -->
+          <div style="background:var(--hueso); border-radius:16px; padding:14px; margin-bottom:16px; border:1px solid var(--linea);">
+            <div style="font-size:13px; font-weight:800; color:var(--morado-700); margin-bottom:8px;">➕ Agregar Video de YouTube</div>
+            <div class="campo" style="margin-bottom:8px;">
+              <label>URL de YouTube (watch, youtu.be o shorts)</label>
+              <input type="text" id="adminAlbumVideoUrlInput" placeholder="https://www.youtube.com/watch?v=..." oninput="LinkVideo.vistaPreviaVideoInput(this.value)">
+            </div>
+            <div id="adminAlbumPreviewContainer" style="display:none; margin-bottom:8px; text-align:center;">
+              <img id="adminAlbumPreviewThumb" src="" style="width:120px; height:70px; object-fit:cover; border-radius:8px; margin-bottom:4px;">
+              <div id="adminAlbumPreviewId" style="font-size:11px; font-weight:700; color:var(--morado-700);"></div>
+            </div>
+            <div class="campo" style="margin-bottom:8px;">
+              <label>Título del Video (Opcional - Autodetectado)</label>
+              <input type="text" id="adminAlbumVideoTitleInput" placeholder="Título personalizado">
+            </div>
+            <button class="btn btn-primario mini-btn" style="width:100%;" onclick="LinkVideo.agregarVideoAAlbum('${col.id}')">✨ Agregar Video al Álbum</button>
+          </div>
+
+          <!-- Lista de Videos -->
+          <div style="font-size:13px; font-weight:800; color:var(--texto-900); margin-bottom:8px;">Vídeos del Álbum (${videos.length})</div>
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            ${videos.length === 0 ? `<div style="font-size:12px; color:var(--texto-500); text-align:center; padding:12px;">No hay vídeos en este álbum.</div>` : videos.map((v) => `
+              <div style="display:flex; align-items:center; gap:10px; background:var(--blanco); border:1px solid var(--linea); border-radius:12px; padding:8px;">
+                <img src="${v.thumbnail_url || 'https://img.youtube.com/vi/' + v.video_id + '/hqdefault.jpg'}" style="width:48px; height:36px; border-radius:6px; object-fit:cover; flex-shrink:0;">
+                <div style="flex:1; min-width:0;">
+                  <input type="text" id="vidTitle_${v.id}" value="${escapeHTMLLinkVideo(v.title)}" style="width:100%; font-size:12px; font-weight:700; border:1px solid var(--linea); border-radius:6px; padding:4px 6px;">
+                </div>
+                <div style="display:flex; gap:4px; flex-shrink:0;">
+                  <button class="mini-btn primario" onclick="LinkVideo.guardarTituloVideo('${v.id}')" title="Guardar título">💾</button>
+                  <button class="mini-btn peligro" onclick="LinkVideo.eliminarVideoDeAlbum('${col.id}', '${v.id}')" title="Eliminar video">🗑️</button>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    } catch (err) {
+      modal.innerHTML = `<div style="background:var(--blanco); border-radius:20px; padding:20px; color:var(--peligro); text-align:center;">Error al cargar datos del álbum: ${err.message}<br><br><button class="btn btn-secundario mini-btn" onclick="LinkVideo.cerrarModalAdminAlbum()">Cerrar</button></div>`;
+    }
+  },
+
+  cerrarModalAdminAlbum() {
+    const modal = document.getElementById('modalAdminAlbumLinkVideo');
+    if (modal) modal.style.display = 'none';
+  },
+
+  extractYouTubeIdLocal(url) {
+    if (!url || typeof url !== 'string') return null;
+    const trimmed = url.trim();
+    const regExp = /^(?:https?:\/\/)?(?:www\.)?(?:m\.)?(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})(?:[?&].*)?$/;
+    const match = trimmed.match(regExp);
+    return (match && match[1]) ? match[1] : null;
+  },
+
+  vistaPreviaVideoInput(url) {
+    const videoId = this.extractYouTubeIdLocal(url);
+    const container = document.getElementById('adminAlbumPreviewContainer');
+    const thumb = document.getElementById('adminAlbumPreviewThumb');
+    const badge = document.getElementById('adminAlbumPreviewId');
+
+    if (videoId && container && thumb && badge) {
+      thumb.src = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+      badge.textContent = 'Video ID: ' + videoId;
+      container.style.display = 'block';
+    } else if (container) {
+      container.style.display = 'none';
+    }
+  },
+
+  async guardarCambiosAlbum(colId) {
+    const name = document.getElementById('adminAlbumNameInput')?.value.trim();
+    const cover_url = document.getElementById('adminAlbumCoverInput')?.value.trim();
+
+    if (!name) {
+      if (window.mostrarToast) window.mostrarToast('Ingresa un nombre para el álbum.');
+      return;
+    }
+
+    try {
+      await api(`/linkvideo/admin/collections/${colId}`, { method: 'PUT', body: { name, cover_url } });
+      if (window.mostrarToast) window.mostrarToast('Álbum actualizado');
+      this.cerrarModalAdminAlbum();
+      await this.cargarCatalogo();
+      await this.abrirColeccion(colId);
+    } catch (err) {
+      if (window.mostrarToast) window.mostrarToast(err.message || 'Error al actualizar el álbum.');
+    }
+  },
+
+  async eliminarAlbumDirecto(colId) {
+    if (!confirm('¿Seguro que deseas eliminar este álbum y todos sus vídeos?')) return;
+    try {
+      await api(`/linkvideo/admin/collections/${colId}`, { method: 'DELETE' });
+      if (window.mostrarToast) window.mostrarToast('Álbum eliminado');
+      this.cerrarModalAdminAlbum();
+      await this.cargarCatalogo();
+    } catch (err) {
+      if (window.mostrarToast) window.mostrarToast(err.message || 'Error al eliminar el álbum.');
+    }
+  },
+
+  async agregarVideoAAlbum(colId) {
+    const url = document.getElementById('adminAlbumVideoUrlInput')?.value.trim();
+    const title = document.getElementById('adminAlbumVideoTitleInput')?.value.trim();
+
+    if (!url) {
+      if (window.mostrarToast) window.mostrarToast('Ingresa una URL de YouTube.');
+      return;
+    }
+
+    try {
+      await api(`/linkvideo/admin/collections/${colId}/videos`, { method: 'POST', body: { url, title } });
+      if (window.mostrarToast) window.mostrarToast('¡Video agregado con éxito!');
+      await this.abrirModalAdminAlbum(colId);
+      const res = await api(`/linkvideo/collections/${colId}`);
+      if (res && res.collection) {
+        this.currentCollection = res.collection;
+        this.currentVideos = res.collection.videos || [];
+        this.renderizarDetalleColeccion(this.currentCollection);
+      }
+    } catch (err) {
+      if (window.mostrarToast) window.mostrarToast(err.message || 'Error al agregar el video.');
+    }
+  },
+
+  async guardarTituloVideo(videoId) {
+    const input = document.getElementById(`vidTitle_${videoId}`);
+    const title = input ? input.value.trim() : '';
+    if (!title) return;
+
+    try {
+      await api(`/linkvideo/admin/videos/${videoId}`, { method: 'PUT', body: { title } });
+      if (window.mostrarToast) window.mostrarToast('Título actualizado');
+      if (this.currentCollection) {
+        const res = await api(`/linkvideo/collections/${this.currentCollection.id}`);
+        if (res && res.collection) {
+          this.currentCollection = res.collection;
+          this.currentVideos = res.collection.videos || [];
+          this.renderizarDetalleColeccion(this.currentCollection);
+        }
+      }
+    } catch (err) {
+      if (window.mostrarToast) window.mostrarToast('Error al actualizar título.');
+    }
+  },
+
+  async eliminarVideoDeAlbum(colId, videoId) {
+    if (!confirm('¿Eliminar este vídeo del álbum?')) return;
+    try {
+      await api(`/linkvideo/admin/videos/${videoId}`, { method: 'DELETE' });
+      if (window.mostrarToast) window.mostrarToast('Video eliminado');
+      await this.abrirModalAdminAlbum(colId);
+      const res = await api(`/linkvideo/collections/${colId}`);
+      if (res && res.collection) {
+        this.currentCollection = res.collection;
+        this.currentVideos = res.collection.videos || [];
+        this.renderizarDetalleColeccion(this.currentCollection);
+      }
+    } catch (err) {
+      if (window.mostrarToast) window.mostrarToast(err.message || 'Error al eliminar el video.');
+    }
+  },
+
   volverAColecciones() {
     this.renderizarColecciones(this.collections);
   },
@@ -295,7 +510,7 @@ window.LinkVideo = {
     if (!modal) {
       modal = document.createElement('div');
       modal.id = 'modalPlayerLinkVideo';
-      modal.style.cssText = 'position:fixed; inset:0; z-index:100000; background:#000; display:flex; flex-direction:column; color:#fff;';
+      modal.style.cssText = 'position:fixed; inset:0; z-index:100000; background:#000; display:flex; flex-direction:column; color:#fff; overflow:hidden;';
       document.body.appendChild(modal);
     }
 
@@ -308,10 +523,12 @@ window.LinkVideo = {
 
     const params = [
       'autoplay=1',
+      'controls=1',
+      'fs=1',
+      'playsinline=1',
       'enablejsapi=1',
       'rel=0',
       'modestbranding=1',
-      'controls=1',
       'widget_referrer=' + encodeURIComponent(window.location.href)
     ];
     if (rawOrigin && !rawOrigin.startsWith('file://') && rawOrigin !== 'null') {
@@ -320,36 +537,43 @@ window.LinkVideo = {
 
     const embedUrl = `https://www.youtube.com/embed/${video.video_id}?${params.join('&')}`;
 
+    const totalVideos = this.currentVideos ? this.currentVideos.length : 1;
+    const currentNum = this.currentVideoIndex >= 0 ? this.currentVideoIndex + 1 : 1;
+
     modal.innerHTML = `
-      <!-- Header -->
-      <div style="position:absolute; top:0; left:0; right:0; z-index:20; padding:12px 16px; background:linear-gradient(to bottom, rgba(0,0,0,0.85), transparent); display:flex; justify-content:space-between; align-items:center;">
-        <button onclick="LinkVideo.cerrarReproductorLinkVideo()" style="background:rgba(255,255,255,0.2); border:none; color:#fff; width:36px; height:36px; border-radius:50%; font-size:20px; font-weight:bold; cursor:pointer; display:flex; align-items:center; justify-content:center;">&times;</button>
-        <div style="text-align:center; flex:1; min-width:0; padding:0 12px;">
-          <div style="font-weight:800; font-size:14px; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHTMLLinkVideo(video.title)}</div>
-          <div style="font-size:11px; color:rgba(255,255,255,0.7);">${this.currentCollection ? escapeHTMLLinkVideo(this.currentCollection.name) : 'Link Video'}</div>
+      <!-- Sleek Modern Header Overlay -->
+      <div style="position:absolute; top:0; left:0; right:0; z-index:20; padding:12px 16px; background:linear-gradient(to bottom, rgba(0,0,0,0.85), rgba(0,0,0,0)); display:flex; justify-content:space-between; align-items:center; gap:12px; pointer-events:auto;">
+        <button onclick="LinkVideo.cerrarReproductorLinkVideo()" style="background:rgba(255,255,255,0.18); backdrop-filter:blur(10px); border:none; color:#fff; width:38px; height:38px; border-radius:50%; font-size:22px; font-weight:bold; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 10px rgba(0,0,0,0.3); transition:transform 0.15s ease;" onmouseenter="this.style.transform='scale(1.08)'" onmouseleave="this.style.transform='scale(1)'" title="Cerrar">&times;</button>
+
+        <div style="text-align:center; flex:1; min-width:0; padding:0 8px;">
+          <div style="font-weight:800; font-size:14px; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-shadow:0 2px 4px rgba(0,0,0,0.8);">${escapeHTMLLinkVideo(video.title)}</div>
+          <div style="font-size:11px; color:rgba(255,255,255,0.75); text-shadow:0 1px 3px rgba(0,0,0,0.8);">${this.currentCollection ? escapeHTMLLinkVideo(this.currentCollection.name) : 'Link Video'}</div>
         </div>
-        <button onclick="LinkVideo.toggleFullscreenPlayer()" style="background:rgba(255,255,255,0.2); border:none; color:#fff; width:36px; height:36px; border-radius:50%; font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center;" title="Pantalla completa">⛶</button>
+
+        <button onclick="LinkVideo.toggleFullscreenPlayer()" style="background:rgba(255,255,255,0.18); backdrop-filter:blur(10px); border:none; color:#fff; width:38px; height:38px; border-radius:50%; font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 10px rgba(0,0,0,0.3); transition:transform 0.15s ease;" onmouseenter="this.style.transform='scale(1.08)'" onmouseleave="this.style.transform='scale(1)'" title="Pantalla completa">⛶</button>
       </div>
 
-      <!-- Video Stage -->
+      <!-- Video Stage Maximized -->
       <div id="linkVideoIframeContainer" style="flex:1; position:relative; width:100%; height:100%; display:flex; align-items:center; justify-content:center; background:#000;">
-        <iframe id="linkVideoIframePlayer" src="${embedUrl}" style="width:100%; height:100%; border:none;" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen" allowfullscreen></iframe>
+        <iframe id="linkVideoIframePlayer" src="${embedUrl}" style="width:100%; height:100%; border:none; position:absolute; inset:0;" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen" allowfullscreen></iframe>
       </div>
 
-      <!-- Controls & Queue Footer -->
-      <div style="position:absolute; bottom:0; left:0; right:0; z-index:20; padding:12px 16px; background:linear-gradient(to top, rgba(0,0,0,0.85), transparent); display:flex; align-items:center; justify-content:space-between; gap:12px;">
-        <button onclick="LinkVideo.reproducirAnteriorVideo()" ${this.currentVideoIndex <= 0 ? 'disabled style="opacity:0.4; cursor:not-allowed;"' : ''} class="btn btn-secundario mini-btn" style="padding:8px 14px; font-weight:800; border-radius:12px;">
-          ⏮ Anterior
-        </button>
+      <!-- Discreet Floating Queue Control Bar -->
+      ${totalVideos > 1 ? `
+        <div style="position:absolute; bottom:16px; left:50%; transform:translateX(-50%); z-index:20; padding:6px 14px; background:rgba(0,0,0,0.65); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border:1px solid rgba(255,255,255,0.2); border-radius:30px; display:flex; align-items:center; gap:14px; box-shadow:0 8px 24px rgba(0,0,0,0.5);">
+          <button onclick="LinkVideo.reproducirAnteriorVideo()" ${this.currentVideoIndex <= 0 ? 'disabled style="opacity:0.3; cursor:not-allowed;"' : 'style="cursor:pointer;"'} style="background:none; border:none; color:#fff; font-size:16px; padding:4px 8px; border-radius:12px; display:flex; align-items:center; justify-content:center;" title="Anterior">
+            ⏮
+          </button>
 
-        <span style="font-size:12px; font-weight:700; color:rgba(255,255,255,0.8);">
-          ${this.currentVideoIndex + 1} de ${this.currentVideos.length}
-        </span>
+          <span style="font-size:12px; font-weight:800; color:rgba(255,255,255,0.9); letter-spacing:0.5px;">
+            ${currentNum} / ${totalVideos}
+          </span>
 
-        <button onclick="LinkVideo.reproducirSiguienteVideo()" ${this.currentVideoIndex >= this.currentVideos.length - 1 ? 'disabled style="opacity:0.4; cursor:not-allowed;"' : ''} class="btn btn-primario mini-btn" style="padding:8px 14px; font-weight:800; border-radius:12px;">
-          Siguiente ⏭
-        </button>
-      </div>
+          <button onclick="LinkVideo.reproducirSiguienteVideo()" ${this.currentVideoIndex >= totalVideos - 1 ? 'disabled style="opacity:0.3; cursor:not-allowed;"' : 'style="cursor:pointer;"'} style="background:none; border:none; color:#fff; font-size:16px; padding:4px 8px; border-radius:12px; display:flex; align-items:center; justify-content:center;" title="Siguiente">
+            ⏭
+          </button>
+        </div>
+      ` : ''}
     `;
 
     // Configurar MediaSession API para reproducción en segundo plano e integración multimedia
@@ -384,6 +608,10 @@ window.LinkVideo = {
   cerrarReproductorLinkVideo() {
     const modal = document.getElementById('modalPlayerLinkVideo');
     if (modal) {
+      const iframe = modal.querySelector('iframe');
+      if (iframe) {
+        iframe.src = 'about:blank';
+      }
       modal.style.display = 'none';
       modal.innerHTML = '';
     }

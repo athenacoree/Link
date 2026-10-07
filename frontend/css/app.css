@@ -1055,8 +1055,9 @@ img:hover {
   opacity: 1 !important;
 }
 
-/* Pausar/Reanudar animaciones con interacción */
-body.animaciones-pausadas * {
+/* Pausar/Reanudar animaciones en interacción (Solo para animaciones pesadas o de fondo decorativo) */
+body.animaciones-pausadas .constelacion-login-bg,
+body.animaciones-pausadas .splash-mascot {
   animation-play-state: paused !important;
 }
 
@@ -2424,7 +2425,7 @@ html[data-tema="oscuro"] .cuadrado-chat-burbuja {
   box-shadow: 0 0 12px #ec4899, 0 0 20px #8b5cf6;
 }
 
-/* ================= OVERLAY BORDES NEÓN ENTRADA MENSAJE ================= */
+/* ================= OVERLAY BORDES NEÓN ENTRADA MENSAJE (Luz Única Continua) ================= */
 .neon-border-overlay {
   position: fixed;
   inset: 0;
@@ -2440,70 +2441,33 @@ html[data-tema="oscuro"] .cuadrado-chat-burbuja {
   opacity: 1;
 }
 
-.neon-top, .neon-bottom, .neon-left, .neon-right {
+.neon-border-overlay::before {
+  content: '';
   position: absolute;
-  pointer-events: none !important;
-  box-shadow: 0 0 16px #7c3aed, 0 0 28px #dc2626, 0 0 36px #2563eb;
-  filter: saturate(200%);
+  inset: 0;
+  border: var(--neon-border-width, 5px) solid transparent;
+  border-radius: 0px;
+  background: conic-gradient(from var(--neon-angle, 0deg), #ec4899 0deg, #8b5cf6 90deg, #3b82f6 180deg, #10b981 270deg, #ec4899 360deg) border-box;
+  -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  box-shadow: inset 0 0 16px rgba(139, 92, 246, 0.6), 0 0 20px rgba(236, 72, 153, 0.6);
+  filter: saturate(180%);
 }
 
-.neon-top {
-  top: 0; left: -100%; width: 100%; height: var(--neon-border-width, 6px);
-  background: linear-gradient(90deg, transparent, #dc2626, #7c3aed, #2563eb, #059669, #dc2626, transparent);
-  animation: neonRunTop var(--neon-spin-speed, 1.8s) linear infinite;
+.neon-border-overlay.activo::before {
+  animation: spinContinuousNeon var(--neon-spin-speed, 1.8s) linear infinite;
 }
 
-.neon-right {
-  top: -100%; right: 0; width: var(--neon-border-width, 6px); height: 100%;
-  background: linear-gradient(180deg, transparent, #dc2626, #7c3aed, #2563eb, #059669, #dc2626, transparent);
-  animation: neonRunRight var(--neon-spin-speed, 1.8s) linear infinite;
-  animation-delay: calc(var(--neon-spin-speed, 1.8s) * 0.25);
+@property --neon-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
 }
 
-.neon-bottom {
-  bottom: 0; right: -100%; width: 100%; height: var(--neon-border-width, 6px);
-  background: linear-gradient(270deg, transparent, #dc2626, #7c3aed, #2563eb, #059669, #dc2626, transparent);
-  animation: neonRunBottom var(--neon-spin-speed, 1.8s) linear infinite;
-  animation-delay: calc(var(--neon-spin-speed, 1.8s) * 0.5);
-}
-
-.neon-left {
-  bottom: -100%; left: 0; width: var(--neon-border-width, 6px); height: 100%;
-  background: linear-gradient(0deg, transparent, #dc2626, #7c3aed, #2563eb, #059669, #dc2626, transparent);
-  animation: neonRunLeft var(--neon-spin-speed, 1.8s) linear infinite;
-  animation-delay: calc(var(--neon-spin-speed, 1.8s) * 0.75);
-}
-
-html[data-tema="claro"] .neon-top,
-html[data-tema="claro"] .neon-bottom,
-html[data-tema="claro"] .neon-left,
-html[data-tema="claro"] .neon-right,
-[data-theme="light"] .neon-top,
-[data-theme="light"] .neon-bottom,
-[data-theme="light"] .neon-left,
-[data-theme="light"] .neon-right {
-  box-shadow: 0 0 18px #6d28d9, 0 0 32px #b91c1c, 0 0 40px #1d4ed8;
-  filter: contrast(180%) brightness(1.2) saturate(220%);
-}
-
-@keyframes neonRunTop {
-  0% { left: -100%; }
-  100% { left: 100%; }
-}
-
-@keyframes neonRunRight {
-  0% { top: -100%; }
-  100% { top: 100%; }
-}
-
-@keyframes neonRunBottom {
-  0% { right: -100%; }
-  100% { right: 100%; }
-}
-
-@keyframes neonRunLeft {
-  0% { bottom: -100%; }
-  100% { bottom: 100%; }
+@keyframes spinContinuousNeon {
+  0% { --neon-angle: 0deg; }
+  100% { --neon-angle: 360deg; }
 }
 
 /* ================= LINK VIDEO GRID DE COLECCIONES / TARJETAS CUADRADAS ================= */
