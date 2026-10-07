@@ -10,6 +10,16 @@ function escapeHTMLLinkVideo(str) {
     .replace(/'/g, '&#039;');
 }
 
+function normalizarTextoBusquedaLV(str) {
+  if (!str) return '';
+  return String(str)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .trim();
+}
+
 window.LinkVideo = {
   initialized: false,
   collections: [],
@@ -224,8 +234,17 @@ window.LinkVideo = {
     }
 
     if (this.searchQuery) {
-      const q = this.searchQuery.toLowerCase();
-      filtradas = filtradas.filter(c => (c.name || '').toLowerCase().includes(q) || (c.category || '').toLowerCase().includes(q));
+      const qNorm = normalizarTextoBusquedaLV(this.searchQuery);
+      const qTokens = qNorm.split(/\s+/).filter(Boolean);
+      if (qTokens.length > 0) {
+        filtradas = filtradas.filter(c => {
+          const cNameNorm = normalizarTextoBusquedaLV(c.name);
+          const cCatNorm = normalizarTextoBusquedaLV(c.category);
+          const fullText = `${cNameNorm} ${cCatNorm}`;
+          return qTokens.every(tok => fullText.includes(tok)) ||
+                 qTokens.some(tok => tok.length >= 3 && fullText.includes(tok));
+        });
+      }
     }
 
     if (!filtradas || filtradas.length === 0) {
@@ -235,7 +254,6 @@ window.LinkVideo = {
 
     gridEl.innerHTML = filtradas.map(col => {
       const cover = col.cover_url || 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=600';
-      const count = col.video_count || (col.videos ? col.videos.length : 0);
       const categoryTag = col.category || 'General';
 
       return `
@@ -244,7 +262,6 @@ window.LinkVideo = {
           <div class="linkvideo-card-overlay-gradient">
             <div style="font-size:10px; font-weight:800; background:rgba(0,0,0,0.6); color:#ddd6fe; padding:2px 6px; border-radius:6px; width:fit-content; margin-bottom:4px;">🏷️ ${escapeHTMLLinkVideo(categoryTag)}</div>
             <div class="linkvideo-card-title">${escapeHTMLLinkVideo(col.name)}</div>
-            <div class="linkvideo-card-badge-count">🎬 ${count} video${count === 1 ? '' : 's'}</div>
           </div>
         </div>
       `;
@@ -294,8 +311,17 @@ window.LinkVideo = {
 
     let videos = col.videos || [];
     if (this.searchQuery) {
-      const q = this.searchQuery.toLowerCase();
-      videos = videos.filter(v => (v.title || '').toLowerCase().includes(q));
+      const qNorm = normalizarTextoBusquedaLV(this.searchQuery);
+      const qTokens = qNorm.split(/\s+/).filter(Boolean);
+      if (qTokens.length > 0) {
+        videos = videos.filter(v => {
+          const vTitleNorm = normalizarTextoBusquedaLV(v.title);
+          const vDescNorm = normalizarTextoBusquedaLV(v.audio_description);
+          const fullText = `${vTitleNorm} ${vDescNorm}`;
+          return qTokens.every(tok => fullText.includes(tok)) ||
+                 qTokens.some(tok => tok.length >= 3 && fullText.includes(tok));
+        });
+      }
     }
 
     const cover = col.cover_url || 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=600';
@@ -411,9 +437,21 @@ window.LinkVideo = {
             </div>
           </div>
 
+          <!-- Importar Lista de Reproducción de YouTube -->
+          <div style="background:var(--hueso); border-radius:16px; padding:14px; margin-bottom:16px; border:1px solid var(--linea);">
+            <div style="font-size:13px; font-weight:800; color:var(--morado-700); margin-bottom:8px;">📥 Importar Lista de Reproducción de YouTube</div>
+            <div class="campo" style="margin-bottom:8px;">
+              <label>URL o ID de la Playlist de YouTube</label>
+              <input type="text" id="adminPlaylistUrlInput" placeholder="https://www.youtube.com/playlist?list=...">
+            </div>
+            <button class="btn btn-primario mini-btn" style="width:100%; background:linear-gradient(135deg, #2563eb, #7c3aed);" onclick="LinkVideo.importarPlaylistYouTube('${col.id}')">
+              🚀 Importar todos los vídeos de la Playlist
+            </button>
+          </div>
+
           <!-- Agregar Nuevo Video -->
           <div style="background:var(--hueso); border-radius:16px; padding:14px; margin-bottom:16px; border:1px solid var(--linea);">
-            <div style="font-size:13px; font-weight:800; color:var(--morado-700); margin-bottom:8px;">➕ Agregar Video de YouTube</div>
+            <div style="font-size:13px; font-weight:800; color:var(--morado-700); margin-bottom:8px;">➕ Agregar Video Único de YouTube</div>
             <div class="campo" style="margin-bottom:8px;">
               <label>URL de YouTube (watch, youtu.be o shorts)</label>
               <input type="text" id="adminAlbumVideoUrlInput" placeholder="https://www.youtube.com/watch?v=..." oninput="LinkVideo.vistaPreviaVideoInput(this.value)">
@@ -486,6 +524,38 @@ window.LinkVideo = {
       container.style.display = 'block';
     } else if (container) {
       container.style.display = 'none';
+    }
+  },
+
+  async importarPlaylistYouTube(colId) {
+    const url = document.getElementById('adminPlaylistUrlInput')?.value.trim();
+    if (!url) {
+      if (window.mostrarToast) window.mostrarToast('Ingresa la URL o ID de la lista de reproducción de YouTube.');
+      return;
+    }
+
+    if (window.mostrarToast) window.mostrarToast('📥 Importando vídeos de la playlist... Espere un momento.');
+
+    try {
+      const res = await api('/linkvideo/admin/collections/import-playlist', {
+        method: 'POST',
+        body: { url, collectionId: colId }
+      });
+
+      if (res && res.ok) {
+        if (window.mostrarToast) window.mostrarToast(res.mensaje || '¡Lista de reproducción importada con éxito!');
+        await this.abrirModalAdminAlbum(colId);
+        const colRes = await api(`/linkvideo/collections/${colId}`);
+        if (colRes && colRes.collection) {
+          this.currentCollection = colRes.collection;
+          this.currentVideos = colRes.collection.videos || [];
+          this.renderizarDetalleColeccion(this.currentCollection);
+        }
+      } else {
+        throw new Error(res.error || 'Fallo al importar la lista.');
+      }
+    } catch (err) {
+      if (window.mostrarToast) window.mostrarToast(err.message || 'Error al importar lista de reproducción.');
     }
   },
 
@@ -600,7 +670,7 @@ window.LinkVideo = {
     this.abrirReproductorLinkVideo(video);
   },
 
-  abrirReproductorLinkVideo(video) {
+  async abrirReproductorLinkVideo(video) {
     if (!video || !video.video_id) return;
 
     let modal = document.getElementById('modalPlayerLinkVideo');
@@ -639,23 +709,22 @@ window.LinkVideo = {
     const categoryTag = (this.currentCollection && this.currentCollection.category) || 'General';
     const videoAudioDesc = video.audio_description || (this.currentCollection && this.currentCollection.audio_description) || '';
 
-    // Letras/fragmentos flotantes basados en el título o descripción sin recuadros ni etiquetas
-    const lyricsLines = [
+    // Subtítulos iniciales de respaldo limpios sin etiquetas ni recuadros
+    let lyricsLines = [
       `${escapeHTMLLinkVideo(video.title)}`,
-      videoAudioDesc ? `${escapeHTMLLinkVideo(videoAudioDesc)}` : `${escapeHTMLLinkVideo(colName)}`,
-      `${escapeHTMLLinkVideo(colName)} • ${escapeHTMLLinkVideo(categoryTag)}`
+      videoAudioDesc ? `${escapeHTMLLinkVideo(videoAudioDesc)}` : `${escapeHTMLLinkVideo(colName)}`
     ].filter(Boolean);
 
     modal.innerHTML = `
       <!-- Botón flotante para cerrar -->
       <button onclick="LinkVideo.cerrarReproductorLinkVideo()" class="hitv-close-btn" title="Cerrar reproductor">&times;</button>
 
-      <!-- Zona de Video Limpia -->
+      <!-- Zona de Video Agrandada Responsiva estilo Cristal -->
       <div class="hitv-video-container" id="linkVideoIframeContainer">
         <iframe id="linkVideoIframePlayer" src="${embedUrl}" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen" allowfullscreen></iframe>
       </div>
 
-      <!-- Área de Letras Flotantes Limpia sin Recuadros -->
+      <!-- Área de Subtítulos Karaoke Flotante Limpia sin Recuadros -->
       <div class="hitv-info-panel">
         <div class="hitv-floating-lyrics-area">
           <div id="hitvSubtitlesText" class="hitv-subtitle-line">
@@ -665,23 +734,44 @@ window.LinkVideo = {
       </div>
     `;
 
-    // Ciclo de letras flotantes suave
-    if (this.lyricsInterval) clearInterval(this.lyricsInterval);
-    let lineIdx = 0;
-    this.lyricsInterval = setInterval(() => {
-      if (lyricsLines.length <= 1) return;
-      lineIdx = (lineIdx + 1) % lyricsLines.length;
+    // Función de actualización de texto en pantalla estilo karaoke
+    const updateSubtitleDisplay = (text) => {
       const subEl = document.getElementById('hitvSubtitlesText');
-      if (subEl) {
+      if (subEl && text) {
         subEl.style.opacity = '0';
         subEl.style.transform = 'translateY(6px)';
         setTimeout(() => {
-          subEl.innerHTML = lyricsLines[lineIdx];
+          subEl.innerHTML = escapeHTMLLinkVideo(text);
           subEl.style.opacity = '1';
           subEl.style.transform = 'translateY(0)';
-        }, 300);
+        }, 250);
       }
-    }, 4000);
+    };
+
+    // Ciclo de animación
+    if (this.lyricsInterval) clearInterval(this.lyricsInterval);
+    let lineIdx = 0;
+
+    // Obtener subtítulos reales de YouTube desde el servidor
+    try {
+      const subRes = await api(`/linkvideo/subtitles/${video.video_id}`);
+      if (subRes && subRes.ok && Array.isArray(subRes.subtitles) && subRes.subtitles.length > 0) {
+        const ytSubLines = subRes.subtitles.map(s => s.text).filter(Boolean);
+        if (ytSubLines.length > 0) {
+          lyricsLines = ytSubLines;
+        }
+      }
+    } catch (e) {
+      console.warn('[LinkVideo Subtitles] Error o sin subtítulos:', e.message);
+    }
+
+    updateSubtitleDisplay(lyricsLines[0]);
+
+    this.lyricsInterval = setInterval(() => {
+      if (lyricsLines.length <= 1) return;
+      lineIdx = (lineIdx + 1) % lyricsLines.length;
+      updateSubtitleDisplay(lyricsLines[lineIdx]);
+    }, 3800);
 
     // Emitir actividad multimedia en tiempo real
     if (window.socket) {

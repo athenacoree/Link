@@ -2557,6 +2557,17 @@ html[data-tema="oscuro"] .cuadrado-chat-burbuja {
 }
 
 /* ================= LINK VIDEO GRID DE COLECCIONES / TARJETAS CUADRADAS ================= */
+@property --aurora-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes spinAuroraSegment {
+  0% { --aurora-angle: 0deg; }
+  100% { --aurora-angle: 360deg; }
+}
+
 .grid-cuadrados-linkvideo {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2579,9 +2590,11 @@ html[data-tema="oscuro"] .cuadrado-chat-burbuja {
   overflow: hidden;
   cursor: pointer;
   box-shadow: 0 8px 24px rgba(91, 33, 182, 0.12);
-  border: 1.5px solid rgba(139, 92, 246, 0.25);
-  background: var(--blanco);
-  transition: transform 0.22s cubic-bezier(0.2, 0.85, 0.2, 1), box-shadow 0.22s ease, border-color 0.22s ease;
+  border: 2px solid transparent;
+  background: linear-gradient(var(--blanco), var(--blanco)) padding-box,
+              conic-gradient(from var(--aurora-angle, 0deg), transparent 0deg, transparent 270deg, rgba(255, 255, 255, 0.95) 305deg, rgba(167, 139, 250, 0.85) 330deg, transparent 360deg) border-box;
+  animation: spinAuroraSegment 4s linear infinite;
+  transition: transform 0.22s cubic-bezier(0.2, 0.85, 0.2, 1), box-shadow 0.22s ease;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
@@ -2589,8 +2602,8 @@ html[data-tema="oscuro"] .cuadrado-chat-burbuja {
 }
 
 html[data-tema="oscuro"] .linkvideo-square-card {
-  background: var(--fondo-tarjeta, #181824);
-  border-color: rgba(139, 92, 246, 0.35);
+  background: linear-gradient(var(--fondo-tarjeta, #181824), var(--fondo-tarjeta, #181824)) padding-box,
+              conic-gradient(from var(--aurora-angle, 0deg), transparent 0deg, transparent 270deg, rgba(255, 255, 255, 0.9) 305deg, rgba(192, 132, 252, 0.85) 330deg, transparent 360deg) border-box;
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
 }
 
@@ -2691,7 +2704,9 @@ html[data-tema="oscuro"] .linkvideo-square-card {
   position: fixed;
   inset: 0;
   z-index: 100000;
-  background: linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 35%, #e0c3fc 70%, #fbc2eb 100%);
+  background: rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(35px) saturate(200%);
+  -webkit-backdrop-filter: blur(35px) saturate(200%);
   display: flex;
   flex-direction: column;
   color: var(--texto-900);
@@ -2699,7 +2714,9 @@ html[data-tema="oscuro"] .linkvideo-square-card {
 }
 
 html[data-tema="oscuro"] .hitv-player-modal {
-  background: radial-gradient(120% 60% at 50% -10%, #241a3d 0%, #120d18 55%);
+  background: rgba(18, 13, 28, 0.65);
+  backdrop-filter: blur(35px) saturate(200%);
+  -webkit-backdrop-filter: blur(35px) saturate(200%);
   color: #ffffff;
 }
 
@@ -2731,13 +2748,16 @@ html[data-tema="oscuro"] .hitv-player-modal {
 }
 
 .hitv-video-container {
-  width: 100%;
-  height: 56.25vw;
-  max-height: 60vh;
+  width: calc(100% - 24px);
+  height: 50vh;
+  max-height: 50vh;
+  margin: 12px auto 0;
   position: relative;
   background: #000;
   flex-shrink: 0;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35);
 }
 
 .hitv-video-container iframe {
@@ -2751,7 +2771,7 @@ html[data-tema="oscuro"] .hitv-player-modal {
 .hitv-info-panel {
   flex: 1;
   background: transparent;
-  padding: 24px 20px;
+  padding: 20px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2771,10 +2791,11 @@ html[data-tema="oscuro"] .hitv-player-modal {
 }
 
 .hitv-subtitle-line {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 800;
   color: var(--morado-950);
   line-height: 1.5;
+  text-align: center;
   text-shadow: 0 2px 10px rgba(255, 255, 255, 0.8);
   transition: opacity 0.3s ease, transform 0.3s ease;
   letter-spacing: 0.2px;
@@ -2782,5 +2803,5 @@ html[data-tema="oscuro"] .hitv-player-modal {
 
 html[data-tema="oscuro"] .hitv-subtitle-line {
   color: #f3e8ff;
-  text-shadow: 0 2px 12px rgba(139, 92, 246, 0.6);
+  text-shadow: 0 2px 14px rgba(139, 92, 246, 0.7);
 }
