@@ -9,25 +9,79 @@ const realtime = require('../utils/realtime');
 const router = express.Router();
 
 /**
- * GET /api/linkvideo/catalog - Obtener el catálogo de streaming y canales
+ * GET /api/linkvideo/catalog - Obtener el catálogo de streaming, colecciones y canales
  */
 router.get('/catalog', requireAuth, async (req, res) => {
   try {
     const forceRefresh = req.query.refresh === 'true';
-    const collections = await linkVideoService.getCollections(req.userId);
+    const collections = await linkVideoService.getCollections(req.userId, { includeVideos: true });
     const catalog = await linkVideoService.getCatalog(forceRefresh);
     const activeLives = await linkVideoService.getActiveLiveSessions();
     const ytChannels = await youtubeService.getChannels();
+    const recommendations = await linkVideoService.getTopRecommendations(req.userId);
+    const reels = await linkVideoService.getReelsCatalog(req.userId);
+
     res.json({
       base_url: linkVideoService.getLinkVideoBaseUrl(),
       collections,
       catalog,
       lives: activeLives,
-      youtubeChannels: ytChannels
+      youtubeChannels: ytChannels,
+      recommendations,
+      reels
     });
   } catch (err) {
     console.error('Error al obtener catálogo de Link Video:', err);
     res.status(500).json({ error: 'No se pudo obtener el catálogo de Link Video.' });
+  }
+});
+
+/**
+ * POST /api/linkvideo/view - Registrar interacción/reproducción para el algoritmo de recomendación
+ */
+router.post('/view', requireAuth, async (req, res) => {
+  try {
+    const { videoId, collectionId, tags, isReel } = req.body;
+    if (!videoId) {
+      return res.status(400).json({ error: 'Falta videoId para registrar reproducción.' });
+    }
+    const result = await linkVideoService.recordUserView({
+      userId: req.userId,
+      videoId,
+      collectionId,
+      tags,
+      isReel: !!isReel
+    });
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    console.error('Error al registrar reproducción:', err);
+    res.status(500).json({ error: 'Error registrando reproducción.' });
+  }
+});
+
+/**
+ * GET /api/linkvideo/recommendations - Obtener items recomendados para el usuario
+ */
+router.get('/recommendations', requireAuth, async (req, res) => {
+  try {
+    const recommendations = await linkVideoService.getTopRecommendations(req.userId);
+    res.json({ ok: true, ...recommendations });
+  } catch (err) {
+    console.error('Error al obtener recomendaciones:', err);
+    res.status(500).json({ error: 'Error al consultar recomendaciones.' });
+  }
+});
+
+/**
+ * GET /api/linkvideo/reels - Obtener lista de Reels/Shorts desduplicados y priorizados
+ */
+router.get('/reels', requireAuth, async (req, res) => {
+  try {
+    const reels = await linkVideoService.getReelsCatalog(req.userId);
+    res.json({ ok: true, reels });
+  } catch (err) {
+    console.error('Error al obtener reels:', err);
+    res.status(500).json({ error: 'Error al consultar catálogo de Reels.' });
   }
 });
 
