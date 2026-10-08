@@ -115,21 +115,37 @@ function parseSubtitleTime(timeStr) {
 
 function parseSubtitleContent(content) {
   if (!content) return [];
+
   if (Array.isArray(content)) {
-    return content.map(item => ({
-      start: typeof item.start === 'number' ? item.start : parseSubtitleTime(item.start),
-      dur: typeof item.dur === 'number' ? item.dur : (item.end ? (parseSubtitleTime(item.end) - parseSubtitleTime(item.start)) : 3),
-      text: String(item.text || '').replace(/<[^>]*>/g, '').trim()
-    })).filter(c => c.text);
+    return content.map(item => {
+      let start = 0;
+      if (typeof item.start === 'number') start = item.start;
+      else if (typeof item.offset === 'number') start = item.offset / 1000;
+      else if (item.start) start = parseSubtitleTime(item.start);
+
+      let dur = 3;
+      if (typeof item.dur === 'number') dur = item.dur;
+      else if (typeof item.duration === 'number') dur = item.duration > 100 ? item.duration / 1000 : item.duration;
+      else if (item.end) dur = Math.max(0.5, parseSubtitleTime(item.end) - start);
+
+      const rawText = String(item.text || item.line || '').replace(/<[^>]*>/g, '').trim();
+      return {
+        start: Math.max(0, parseFloat(start.toFixed(2)) || 0),
+        dur: Math.max(0.5, parseFloat(dur.toFixed(2)) || 3),
+        text: rawText
+      };
+    }).filter(c => c.text);
   }
 
-  const str = String(content);
+  const str = String(content).trim();
 
   // XML YouTube captions
   if (str.includes('<text')) {
     const cues = [];
-    const textMatches = [...str.matchAll(/<text start="([\d\.]+)" dur="([\d\.]+)".*?>(.*?)<\/text>/g)];
+    const textMatches = [...str.matchAll(/<text start="([\d\.]+)"(?: dur="([\d\.]+)")?.*?>(.*?)<\/text>/gi)];
     for (const m of textMatches) {
+      const start = parseFloat(m[1]) || 0;
+      const dur = parseFloat(m[2]) || 3;
       const rawText = m[3]
         .replace(/&amp;/g, '&')
         .replace(/&lt;/g, '<')
@@ -140,13 +156,13 @@ function parseSubtitleContent(content) {
         .trim();
       if (rawText) {
         cues.push({
-          start: parseFloat(m[1]),
-          dur: parseFloat(m[2]),
+          start: parseFloat(start.toFixed(2)),
+          dur: parseFloat(dur.toFixed(2)),
           text: rawText
         });
       }
     }
-    return cues;
+    if (cues.length > 0) return cues;
   }
 
   // VTT o SRT
@@ -166,95 +182,118 @@ function parseSubtitleContent(content) {
           .filter(Boolean)
           .join(' ');
         if (textLines) {
-          cues.push({ start, dur, text: textLines });
+          cues.push({
+            start: parseFloat(start.toFixed(2)),
+            dur: parseFloat(dur.toFixed(2)),
+            text: textLines
+          });
         }
       }
     }
-    return cues;
+    if (cues.length > 0) return cues;
   }
 
   // JSON string
   try {
     const json = JSON.parse(str);
-    if (Array.isArray(json)) {
-      return parseSubtitleContent(json);
-    }
+    const result = parseSubtitleContent(json.transcript || json.lines || json.subtitles || json.cues || json);
+    if (result.length > 0) return result;
   } catch (e) {}
 
   return [];
 }
 
 /**
- * Obtiene los subtítulos reales de un video de YouTube en formato Karaoke / Cues.
- * @param {string} videoId
- * @returns {Promise<{cues: Array<{start: number, dur: number, text: string}>, languageCode: string}>}
+ * Arquitectura SubtitleProviderManager con proveedores independientes
  */
-async function fetchYouTubeSubtitles(videoId) {
-  if (!videoId || typeof videoId !== 'string') return { cues: [], languageCode: 'es' };
-  const cleanId = extractYouTubeId(videoId) || videoId.trim();
+class YouTubeCaptionTracksProvider {
+  constructor() {
+    this.name = 'YouTubeCaptionTracksProvider';
+  }
 
-  // Estrategia 1: YouTube captionTracks en página de watch
-  try {
+  async fetchSubtitles(videoId, requestedLang = 'es') {
+    const cleanId = extractYouTubeId(videoId) || videoId.trim();
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 6000);
     const watchRes = await fetch(`https://www.youtube.com/watch?v=${cleanId}`, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8'
+        'Accept-Language': `${requestedLang},es;q=0.9,en;q=0.8`
       },
       signal: controller.signal
     });
     clearTimeout(timeout);
-    if (watchRes.ok) {
-      const html = await watchRes.text();
-      const match = html.match(/"captionTracks":\s*(\[.*?\])/);
-      if (match) {
-        const tracks = JSON.parse(match[1]);
-        if (tracks && tracks.length) {
-          const targetTrack = tracks.find(t => t.languageCode?.startsWith('es')) ||
-                              tracks.find(t => t.languageCode?.startsWith('en')) ||
-                              tracks[0];
-          if (targetTrack && targetTrack.baseUrl) {
-            const langCode = targetTrack.languageCode || 'es';
-            const capController = new AbortController();
-            const capTimeout = setTimeout(() => capController.abort(), 6000);
-            const capRes = await fetch(targetTrack.baseUrl, { signal: capController.signal });
-            clearTimeout(capTimeout);
-            const xml = await capRes.text();
-            const cues = parseSubtitleContent(xml);
-            if (cues.length > 0) {
-              return { cues, languageCode: langCode };
-            }
+
+    if (!watchRes.ok) return null;
+    const html = await watchRes.text();
+    const match = html.match(/"captionTracks":\s*(\[.*?\])/);
+    if (!match) return null;
+
+    const tracks = JSON.parse(match[1]);
+    if (!tracks || !tracks.length) return null;
+
+    const targetTrack = tracks.find(t => t.languageCode?.startsWith(requestedLang.substring(0, 2))) ||
+                        tracks.find(t => t.languageCode?.startsWith('es')) ||
+                        tracks.find(t => t.languageCode?.startsWith('en')) ||
+                        tracks[0];
+
+    if (!targetTrack || !targetTrack.baseUrl) return null;
+
+    const langCode = targetTrack.languageCode || requestedLang;
+    const capController = new AbortController();
+    const capTimeout = setTimeout(() => capController.abort(), 6000);
+    const capRes = await fetch(targetTrack.baseUrl, { signal: capController.signal });
+    clearTimeout(capTimeout);
+
+    if (!capRes.ok) return null;
+    const xml = await capRes.text();
+    const cues = parseSubtitleContent(xml);
+
+    if (cues.length > 0) {
+      return { cues, languageCode: langCode };
+    }
+    return null;
+  }
+}
+
+class YouTubeTimedTextProvider {
+  constructor() {
+    this.name = 'YouTubeTimedTextProvider';
+  }
+
+  async fetchSubtitles(videoId, requestedLang = 'es') {
+    const cleanId = extractYouTubeId(videoId) || videoId.trim();
+    const langsToTry = [requestedLang, 'es', 'en'];
+
+    for (const lang of langsToTry) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 5000);
+        const timedRes = await fetch(`https://www.youtube.com/api/timedtext?v=${cleanId}&lang=${lang}&fmt=vtt`, {
+          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+          signal: controller.signal
+        });
+        clearTimeout(timeout);
+        if (timedRes.ok) {
+          const text = await timedRes.text();
+          const cues = parseSubtitleContent(text);
+          if (cues.length > 0) {
+            return { cues, languageCode: lang };
           }
         }
-      }
+      } catch (e) {}
     }
-  } catch (err) {
-    console.warn(`[YouTube CaptionTracks Strategy] error for ${cleanId}:`, err.message);
+    return null;
+  }
+}
+
+class PublicTranscriptProvider1 {
+  constructor() {
+    this.name = 'PublicTranscriptProvider1';
   }
 
-  // Estrategia 2: YouTube API Direct Timedtext Endpoint (es, en)
-  for (const lang of ['es', 'en']) {
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 5000);
-      const timedRes = await fetch(`https://www.youtube.com/api/timedtext?v=${cleanId}&lang=${lang}&fmt=vtt`, {
-        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
-        signal: controller.signal
-      });
-      clearTimeout(timeout);
-      if (timedRes.ok) {
-        const text = await timedRes.text();
-        const cues = parseSubtitleContent(text);
-        if (cues.length > 0) {
-          return { cues, languageCode: lang };
-        }
-      }
-    } catch (e) {}
-  }
-
-  // Estrategia 3: Servicio público/gratuito de transcripción
-  try {
+  async fetchSubtitles(videoId, requestedLang = 'es') {
+    const cleanId = extractYouTubeId(videoId) || videoId.trim();
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 7000);
     const apiRes = await fetch(`https://youtube-transcriptor.vercel.app/api/transcript?url=https://www.youtube.com/watch?v=${cleanId}`, {
@@ -262,17 +301,89 @@ async function fetchYouTubeSubtitles(videoId) {
       signal: controller.signal
     });
     clearTimeout(timeout);
+
     if (apiRes.ok) {
       const data = await apiRes.json();
       const content = data.transcript || data.lines || data;
       const cues = parseSubtitleContent(content);
       if (cues.length > 0) {
-        return { cues, languageCode: 'es' };
+        return { cues, languageCode: data.language || requestedLang };
       }
     }
-  } catch (e) {}
+    return null;
+  }
+}
 
-  return { cues: [], languageCode: 'es' };
+class PublicTranscriptProvider2 {
+  constructor() {
+    this.name = 'PublicTranscriptProvider2';
+  }
+
+  async fetchSubtitles(videoId, requestedLang = 'es') {
+    const cleanId = extractYouTubeId(videoId) || videoId.trim();
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 7000);
+    const apiRes = await fetch(`https://subtitles-youtube.vercel.app/api/transcript?videoId=${cleanId}`, {
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+      signal: controller.signal
+    });
+    clearTimeout(timeout);
+
+    if (apiRes.ok) {
+      const data = await apiRes.json();
+      const content = data.transcript || data.lines || data.subtitles || data;
+      const cues = parseSubtitleContent(content);
+      if (cues.length > 0) {
+        return { cues, languageCode: data.languageCode || requestedLang };
+      }
+    }
+    return null;
+  }
+}
+
+class SubtitleProviderManager {
+  constructor() {
+    this.providers = [
+      new YouTubeCaptionTracksProvider(),
+      new YouTubeTimedTextProvider(),
+      new PublicTranscriptProvider1(),
+      new PublicTranscriptProvider2()
+    ];
+  }
+
+  async fetchSubtitlesSequential(videoId, requestedLang = 'es') {
+    const cleanId = extractYouTubeId(videoId) || (videoId ? String(videoId).trim() : '');
+    if (!cleanId) return { cues: [], languageCode: requestedLang, source: 'none' };
+
+    for (const provider of this.providers) {
+      try {
+        const result = await provider.fetchSubtitles(cleanId, requestedLang);
+        if (result && Array.isArray(result.cues) && result.cues.length > 0) {
+          return {
+            cues: result.cues,
+            languageCode: result.languageCode || requestedLang,
+            source: provider.name
+          };
+        }
+      } catch (err) {
+        console.warn(`[SubtitleProviderManager] ${provider.name} falló para ${cleanId}:`, err.message);
+      }
+    }
+
+    return { cues: [], languageCode: requestedLang, source: 'none' };
+  }
+}
+
+const subtitleProviderManager = new SubtitleProviderManager();
+
+/**
+ * Obtiene los subtítulos reales de un video de YouTube en formato Karaoke / Cues.
+ * @param {string} videoId
+ * @param {string} [requestedLang='es']
+ * @returns {Promise<{cues: Array<{start: number, dur: number, text: string}>, languageCode: string, source: string}>}
+ */
+async function fetchYouTubeSubtitles(videoId, requestedLang = 'es') {
+  return await subtitleProviderManager.fetchSubtitlesSequential(videoId, requestedLang);
 }
 
 /**

@@ -257,11 +257,13 @@ window.LinkVideo = {
       const cover = col.cover_url || 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=600';
       const categoryTag = col.category || 'General';
 
+      const svgTag = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; margin-right:3px;"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>`;
+
       return `
         <div class="linkvideo-square-card" onclick="LinkVideo.abrirColeccion('${col.id}')">
           <img class="linkvideo-card-thumb-img" src="${cover}" alt="${escapeHTMLLinkVideo(col.name)}" onerror="this.src='https://images.pexels.com/photos/2506923/pexels-photo-2506923.jpeg?auto=compress&cs=tinysrgb&w=600'">
           <div class="linkvideo-card-overlay-gradient">
-            <div style="font-size:10px; font-weight:800; background:rgba(0,0,0,0.6); color:#ddd6fe; padding:2px 6px; border-radius:6px; width:fit-content; margin-bottom:4px;">🏷️ ${escapeHTMLLinkVideo(categoryTag)}</div>
+            <div style="font-size:10px; font-weight:800; background:rgba(0,0,0,0.6); color:#ddd6fe; padding:2px 6px; border-radius:6px; width:fit-content; margin-bottom:4px; display:inline-flex; align-items:center;">${svgTag}${escapeHTMLLinkVideo(categoryTag)}</div>
             <div class="linkvideo-card-title">${escapeHTMLLinkVideo(col.name)}</div>
           </div>
         </div>
@@ -331,6 +333,11 @@ window.LinkVideo = {
 
     const colAudioDesc = col.audio_description || '';
 
+    const svgTagDetail = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; margin-right:3px;"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>`;
+    const svgVideoClap = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; margin-right:3px;"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect><line x1="7" y1="2" x2="7" y2="22"></line><line x1="17" y1="2" x2="17" y2="22"></line><line x1="2" y1="12" x2="22" y2="12"></line><line x1="2" y1="7" x2="7" y2="7"></line><line x1="2" y1="17" x2="7" y2="17"></line><line x1="17" y1="17" x2="22" y2="17"></line><line x1="17" y1="7" x2="22" y2="7"></line></svg>`;
+    const svgMic = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; margin-right:3px;"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>`;
+    const svgPlayIcon = `<svg width="24" height="24" viewBox="0 0 24 24" fill="#ffffff"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>`;
+
     detailView.innerHTML = `
       <div style="margin-bottom:18px;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
@@ -338,8 +345,9 @@ window.LinkVideo = {
             ‹ Volver a Álbumes
           </button>
           ${esAdmin ? `
-            <button class="btn btn-primario mini-btn" onclick="LinkVideo.abrirModalAdminAlbum('${col.id}')" style="padding:8px 14px; font-weight:800; border-radius:14px; background:linear-gradient(135deg, #7c3aed, #ec4899);">
-              ⚙️ Administrar álbum
+            <button class="btn btn-primario mini-btn" onclick="LinkVideo.abrirModalAdminAlbum('${col.id}')" style="padding:8px 14px; font-weight:800; border-radius:14px; background:linear-gradient(135deg, #7c3aed, #ec4899); display:inline-flex; align-items:center; gap:6px;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"></path></svg>
+              Administrar álbum
             </button>
           ` : ''}
         </div>
@@ -351,12 +359,12 @@ window.LinkVideo = {
             <div style="flex:1; min-width:0;">
               <div style="font-weight:900; font-size:18px; color:var(--texto-900); margin-bottom:4px; line-height:1.2;">${escapeHTMLLinkVideo(col.name)}</div>
               <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:6px;">
-                <span style="font-size:11px; font-weight:800; background:var(--morado-600); color:#ffffff; padding:3px 10px; border-radius:10px;">🏷️ ${escapeHTMLLinkVideo(categoryTag)}</span>
-                <span style="font-size:12px; color:var(--morado-700); font-weight:800;">🎬 ${videos.length} video${videos.length === 1 ? '' : 's'}</span>
+                <span style="font-size:11px; font-weight:800; background:var(--morado-600); color:#ffffff; padding:3px 10px; border-radius:10px; display:inline-flex; align-items:center;">${svgTagDetail}${escapeHTMLLinkVideo(categoryTag)}</span>
+                <span style="font-size:12px; color:var(--morado-700); font-weight:800; display:inline-flex; align-items:center;">${svgVideoClap}${videos.length} video${videos.length === 1 ? '' : 's'}</span>
               </div>
               ${colAudioDesc ? `
                 <div class="linkvideo-album-desc-truncated" onclick="LinkVideo.toggleAlbumDesc(this)" title="Toca para expandir / contraer">
-                  🎙️ ${escapeHTMLLinkVideo(colAudioDesc)}
+                  ${svgMic}${escapeHTMLLinkVideo(colAudioDesc)}
                 </div>
               ` : ''}
             </div>
@@ -371,11 +379,11 @@ window.LinkVideo = {
             <div class="linkvideo-square-card" onclick="LinkVideo.reproducirVideoColeccion(${idx})">
               <img class="linkvideo-card-thumb-img" src="${v.thumbnail_url || 'https://img.youtube.com/vi/' + v.video_id + '/hqdefault.jpg'}" alt="${escapeHTMLLinkVideo(v.title)}">
               <div class="linkvideo-card-overlay-gradient">
-                <div style="font-size:28px; text-align:center; margin:auto; filter:drop-shadow(0 2px 8px rgba(0,0,0,0.6));">▶</div>
+                <div style="display:flex; align-items:center; justify-content:center; margin:auto; filter:drop-shadow(0 2px 8px rgba(0,0,0,0.6));">${svgPlayIcon}</div>
               </div>
             </div>
             <div class="linkvideo-video-title-below" title="${escapeHTMLLinkVideo(v.title)}">${escapeHTMLLinkVideo(v.title)}</div>
-            ${v.audio_description ? `<div style="font-size:10.5px; color:var(--texto-500); text-align:center; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">🎙️ ${escapeHTMLLinkVideo(v.audio_description)}</div>` : ''}
+            ${v.audio_description ? `<div style="font-size:10.5px; color:var(--texto-500); text-align:center; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${svgMic}${escapeHTMLLinkVideo(v.audio_description)}</div>` : ''}
           </div>
         `).join('')}
       </div>
@@ -401,6 +409,12 @@ window.LinkVideo = {
 
       const col = res.collection;
       const videos = col.videos || [];
+
+      setTimeout(() => {
+        if (videos && videos.length) {
+          videos.forEach(v => this.consultarEstadoSubtitulosBadge(v.video_id, v.id));
+        }
+      }, 100);
 
       modal.innerHTML = `
         <div style="background:var(--blanco); border-radius:24px; width:100%; max-width:520px; max-height:90vh; overflow-y:auto; padding:20px; box-shadow:0 12px 32px rgba(0,0,0,0.3); position:relative; color:var(--texto-900);">
@@ -472,6 +486,20 @@ window.LinkVideo = {
             <button class="btn btn-primario mini-btn" style="width:100%;" onclick="LinkVideo.agregarVideoAAlbum('${col.id}')">✨ Agregar Video al Álbum</button>
           </div>
 
+          <!-- Precarga e Información de Subtítulos -->
+          <div style="background:var(--hueso); border-radius:16px; padding:14px; margin-bottom:16px; border:1px solid var(--linea);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+              <div style="font-size:13px; font-weight:800; color:var(--morado-700);">💬 Subtítulos de los Vídeos</div>
+              <button class="mini-btn primario" onclick="LinkVideo.precargarSubtitulosAlbum('${col.id}')" style="padding:6px 12px; font-size:11.5px; font-weight:800;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="vertical-align:middle; margin-right:4px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                Precargar subtítulos
+              </button>
+            </div>
+            <div id="adminSubPreloadProgress_${col.id}" style="display:none; font-size:11.5px; color:var(--morado-700); background:var(--blanco); padding:8px 12px; border-radius:10px; border:1px solid var(--linea); margin-bottom:8px;">
+              Procesando subtítulos...
+            </div>
+          </div>
+
           <!-- Lista de Videos -->
           <div style="font-size:13px; font-weight:800; color:var(--texto-900); margin-bottom:8px;">Vídeos del Álbum (${videos.length})</div>
           <div style="display:flex; flex-direction:column; gap:8px;">
@@ -483,9 +511,16 @@ window.LinkVideo = {
                     <input type="text" id="vidTitle_${v.id}" value="${escapeHTMLLinkVideo(v.title)}" style="width:100%; font-size:12px; font-weight:700; border:1px solid var(--linea); border-radius:6px; padding:4px 6px;">
                   </div>
                   <div style="display:flex; gap:4px; flex-shrink:0;">
-                    <button class="mini-btn primario" onclick="LinkVideo.guardarTituloVideo('${v.id}')" title="Guardar cambios">💾</button>
-                    <button class="mini-btn peligro" onclick="LinkVideo.eliminarVideoDeAlbum('${col.id}', '${v.id}')" title="Eliminar video">🗑️</button>
+                    <button class="mini-btn secundario" onclick="LinkVideo.obtenerSubtitulosVideo('${v.video_id}', '${v.id}')" title="Obtener / actualizar subtítulos" style="padding:6px 8px; font-weight:800; font-size:11px;">
+                      💬 Subtítulos
+                    </button>
+                    <button class="mini-btn primario" onclick="LinkVideo.guardarTituloVideo('${v.id}')" title="Guardar cambios" style="padding:6px 8px;">💾</button>
+                    <button class="mini-btn peligro" onclick="LinkVideo.eliminarVideoDeAlbum('${col.id}', '${v.id}')" title="Eliminar video" style="padding:6px 8px;">🗑️</button>
                   </div>
+                </div>
+                <div id="subStatus_${v.id}" style="font-size:10.5px; color:var(--texto-500); display:flex; align-items:center; gap:6px; padding-left:2px;">
+                  <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#94a3b8;"></span>
+                  <span>Verificando subtítulos...</span>
                 </div>
                 <div style="margin-top:2px;">
                   <textarea id="vidAudioDesc_${v.id}" rows="1" style="width:100%; font-size:11px; border:1px solid var(--linea); border-radius:6px; padding:4px 6px;" placeholder="Descripción de audio del video...">${escapeHTMLLinkVideo(v.audio_description || '')}</textarea>
@@ -640,6 +675,96 @@ window.LinkVideo = {
       }
     } catch (err) {
       if (window.mostrarToast) window.mostrarToast('Error al actualizar video.');
+    }
+  },
+
+  async consultarEstadoSubtitulosBadge(videoId, elementVidId) {
+    const badgeEl = document.getElementById(`subStatus_${elementVidId}`);
+    if (!badgeEl || !videoId) return;
+
+    try {
+      const res = await api(`/linkvideo/subtitles/${videoId}`);
+      if (res && res.ok && res.status === 'ready' && Array.isArray(res.subtitles) && res.subtitles.length > 0) {
+        badgeEl.innerHTML = `
+          <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#22c55e;"></span>
+          <span style="color:#15803d; font-weight:700;">Subtítulos disponibles (${res.subtitles.length} cues | ${res.languageCode || 'es'})</span>
+        `;
+      } else {
+        badgeEl.innerHTML = `
+          <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#f59e0b;"></span>
+          <span style="color:#b45309; font-weight:600;">Sin subtítulos cargados</span>
+        `;
+      }
+    } catch (e) {
+      badgeEl.innerHTML = `
+        <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#ef4444;"></span>
+        <span style="color:#b91c1c;">Error al consultar subtítulos</span>
+      `;
+    }
+  },
+
+  async obtenerSubtitulosVideo(videoId, elementVidId) {
+    const badgeEl = document.getElementById(`subStatus_${elementVidId}`);
+    if (badgeEl) {
+      badgeEl.innerHTML = `
+        <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#3b82f6;"></span>
+        <span style="color:#1d4ed8; font-weight:700;">Consultando proveedores...</span>
+      `;
+    }
+
+    try {
+      const res = await api(`/linkvideo/admin/subtitles/fetch/${videoId}`, { method: 'POST' });
+      if (res && res.ok && res.status === 'ready' && Array.isArray(res.subtitles) && res.subtitles.length > 0) {
+        if (window.mostrarToast) window.mostrarToast('¡Subtítulos obtenidos y guardados en PostgreSQL!');
+        if (badgeEl) {
+          badgeEl.innerHTML = `
+            <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#22c55e;"></span>
+            <span style="color:#15803d; font-weight:700;">● Subtítulos disponibles (${res.subtitles.length} cues | Idioma: ${res.languageCode || 'ES'})</span>
+          `;
+        }
+      } else {
+        if (window.mostrarToast) window.mostrarToast('No se encontraron subtítulos disponibles para este vídeo.');
+        if (badgeEl) {
+          badgeEl.innerHTML = `
+            <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#ef4444;"></span>
+            <span style="color:#b91c1c; font-weight:700;">Sin subtítulos disponibles</span>
+          `;
+        }
+      }
+    } catch (err) {
+      if (window.mostrarToast) window.mostrarToast('No se encontraron subtítulos disponibles para este vídeo.');
+      if (badgeEl) {
+        badgeEl.innerHTML = `
+          <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#ef4444;"></span>
+          <span style="color:#b91c1c;">Sin subtítulos disponibles</span>
+        `;
+      }
+    }
+  },
+
+  async precargarSubtitulosAlbum(colId) {
+    const progressEl = document.getElementById(`adminSubPreloadProgress_${colId}`);
+    if (progressEl) {
+      progressEl.style.display = 'block';
+      progressEl.innerHTML = `<strong>Iniciando precarga de subtítulos...</strong>`;
+    }
+
+    try {
+      const res = await api('/linkvideo/admin/subtitles/preload', { method: 'POST', body: { collectionId: colId } });
+      if (res && res.ok) {
+        if (progressEl) {
+          progressEl.innerHTML = `
+            <div style="font-weight:800; margin-bottom:2px;">Subtítulos precargados exitosamente:</div>
+            <div>Procesados: <strong>${res.processed} / ${res.total}</strong> | Disponibles: <strong style="color:#15803d;">${res.available}</strong> | Sin subtítulos: <strong style="color:#b91c1c;">${res.unavailable}</strong></div>
+          `;
+        }
+        if (window.mostrarToast) window.mostrarToast(`Precarga finalizada. Disponibles: ${res.available}/${res.total}`);
+        await this.abrirModalAdminAlbum(colId);
+      }
+    } catch (err) {
+      if (progressEl) {
+        progressEl.innerHTML = `<span style="color:#b91c1c; font-weight:700;">Error al ejecutar la precarga de subtítulos.</span>`;
+      }
     }
   },
 
@@ -861,6 +986,11 @@ window.LinkVideo = {
               } else if (window.YT && event.data === YT.PlayerState.PAUSED) {
                 this.isPlayingAudioBackground = false;
                 this.actualizarAudioBannerTop();
+              } else if (window.YT && event.data === YT.PlayerState.ENDED) {
+                this.isPlayingAudioBackground = false;
+                this.detenerSincronizacionSubtitulos();
+                this.actualizarAudioBannerTop();
+                this.reproducirSiguienteVideo();
               } else {
                 this.detenerSincronizacionSubtitulos();
               }
@@ -945,6 +1075,12 @@ window.LinkVideo = {
         <polygon points="5 3 19 12 5 21 5 3"></polygon>
       </svg>
     `;
+    const svgPlayingBadge = `
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="display:inline-block; vertical-align:middle; margin-right:4px;">
+        <polygon points="5 3 19 12 5 21 5 3"></polygon>
+      </svg>
+    `;
+    const svgMicSmall = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; margin-right:3px;"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>`;
 
     container.innerHTML = videos.map((v, idx) => {
       const isCurrent = idx === this.currentVideoIndex;
@@ -959,14 +1095,14 @@ window.LinkVideo = {
               </div>
             </div>
             ${isCurrent ? `
-              <div style="position:absolute; top:10px; right:10px; background:#7c3aed; color:#fff; font-size:11px; font-weight:900; padding:4px 10px; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.4);">
-                ▶ Reproduciendo
+              <div style="position:absolute; top:10px; right:10px; background:#7c3aed; color:#fff; font-size:11px; font-weight:900; padding:4px 10px; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.4); display:inline-flex; align-items:center;">
+                ${svgPlayingBadge}Reproduciendo
               </div>
             ` : ''}
           </div>
           <div class="hitv-folder-card-info">
             <div class="hitv-folder-card-title">${escapeHTMLLinkVideo(v.title)}</div>
-            ${v.audio_description ? `<div style="font-size:11px; color:rgba(255,255,255,0.6);">🎙️ ${escapeHTMLLinkVideo(v.audio_description)}</div>` : ''}
+            ${v.audio_description ? `<div style="font-size:11px; color:rgba(255,255,255,0.6);">${svgMicSmall}${escapeHTMLLinkVideo(v.audio_description)}</div>` : ''}
           </div>
         </div>
       `;
@@ -1053,25 +1189,47 @@ window.LinkVideo = {
       banner = document.createElement('div');
       banner.id = 'topAudioBanner';
       banner.className = 'top-audio-banner oculto';
-      banner.onclick = () => this.reabrirReproductorModal();
 
-      const vectorMusicNote = `
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle; color:var(--morado-600, #8b5cf6);">
-          <path d="M9 18V5l12-2v13"></path>
-          <circle cx="6" cy="18" r="3"></circle>
-          <circle cx="18" cy="16" r="3"></circle>
-        </svg>
-      `;
+      const vectorPlay = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>`;
+      const vectorPause = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"></rect><rect x="14" y="4" width="4" height="16" rx="1"></rect></svg>`;
+      const vectorPrev = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="19 20 9 12 19 4 19 20"></polygon><line x1="5" y1="19" x2="5" y2="5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"></line></svg>`;
+      const vectorNext = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 4 15 12 5 20 5 4"></polygon><line x1="19" y1="5" x2="19" y2="19" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"></line></svg>`;
+      const vectorExpand = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>`;
+      const vectorClose = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
 
       banner.innerHTML = `
-        <div style="display:flex; align-items:center; justify-content:space-between; width:100%; font-size:11.5px; font-weight:800; letter-spacing:0.2px;">
-          <div style="display:flex; align-items:center; gap:6px; min-width:0;">
-            ${vectorMusicNote}
-            <span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--morado-600, #8b5cf6); animation:pulse 1.5s infinite;"></span>
-            <span id="topAudioTimeText" style="color:var(--morado-700, #7c3aed); font-family:monospace; font-weight:800;">00:00 / 00:00</span>
+        <div style="display:flex; flex-direction:column; width:100%; gap:4px; padding:4px 0;">
+          <div style="display:flex; align-items:center; justify-content:space-between; width:100%; gap:10px;">
+            <div style="display:flex; align-items:center; gap:10px; min-width:0; flex:1; cursor:pointer;" onclick="LinkVideo.reabrirReproductorModal()">
+              <img id="topAudioThumb" src="" style="width:36px; height:36px; border-radius:10px; object-fit:cover; flex-shrink:0; box-shadow:0 2px 8px rgba(0,0,0,0.2);">
+              <div style="display:flex; flex-direction:column; min-width:0; flex:1;">
+                <div id="topAudioMiniTitle" style="font-size:12px; font-weight:800; color:var(--texto-900); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Link Video</div>
+                <div style="display:flex; align-items:center; gap:6px; font-size:10.5px; color:var(--texto-500); font-weight:700;">
+                  <span id="topAudioTimeText">00:00 / 00:00</span>
+                </div>
+              </div>
+            </div>
+
+            <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
+              <button onclick="LinkVideo.reproducirAnteriorVideo()" style="background:none; border:none; color:var(--texto-800); cursor:pointer; padding:6px; display:flex; align-items:center;" title="Anterior">
+                ${vectorPrev}
+              </button>
+              <button id="topAudioBtnTogglePlay" onclick="LinkVideo.togglePlayPauseAudioBanner()" style="background:var(--morado-600); border:none; color:#ffffff; width:32px; height:32px; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 3px 10px rgba(124,58,237,0.3);" title="Play / Pausa">
+                ${vectorPause}
+              </button>
+              <button onclick="LinkVideo.reproducirSiguienteVideo()" style="background:none; border:none; color:var(--texto-800); cursor:pointer; padding:6px; display:flex; align-items:center;" title="Siguiente">
+                ${vectorNext}
+              </button>
+              <button onclick="LinkVideo.reabrirReproductorModal()" style="background:none; border:none; color:var(--texto-800); cursor:pointer; padding:6px; display:flex; align-items:center;" title="Expandir reproductor">
+                ${vectorExpand}
+              </button>
+              <button onclick="LinkVideo.cerrarReproductorLinkVideo()" style="background:none; border:none; color:var(--peligro); cursor:pointer; padding:6px; display:flex; align-items:center;" title="Cerrar">
+                ${vectorClose}
+              </button>
+            </div>
           </div>
-          <div style="font-size:11px; font-weight:800; color:var(--texto-800); text-transform:uppercase; text-overflow:ellipsis; overflow:hidden; white-space:nowrap; max-width:220px;" id="topAudioMiniTitle">
-            Link Video
+          <div style="width:100%; background:var(--borde); height:3px; border-radius:2px; overflow:hidden; cursor:pointer;" onclick="LinkVideo.seekAudioBanner(event)">
+            <div id="topAudioProgressBar" style="width:0%; height:100%; background:linear-gradient(90deg, var(--morado-600), #ec4899); transition:width 0.3s linear;"></div>
           </div>
         </div>
       `;
@@ -1083,11 +1241,22 @@ window.LinkVideo = {
       }
     }
 
-    if (this.activeVideoData && this.isPlayingAudioBackground) {
+    if (this.activeVideoData) {
       banner.classList.remove('oculto');
       const titleEl = document.getElementById('topAudioMiniTitle');
+      const thumbEl = document.getElementById('topAudioThumb');
+      const toggleBtn = document.getElementById('topAudioBtnTogglePlay');
+
       if (titleEl && this.activeVideoData.title) {
         titleEl.textContent = this.activeVideoData.title;
+      }
+      if (thumbEl) {
+        thumbEl.src = this.activeVideoData.thumbnail_url || `https://img.youtube.com/vi/${this.activeVideoData.video_id}/hqdefault.jpg`;
+      }
+      if (toggleBtn) {
+        const vectorPlay = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>`;
+        const vectorPause = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"></rect><rect x="14" y="4" width="4" height="16" rx="1"></rect></svg>`;
+        toggleBtn.innerHTML = this.isPlayingAudioBackground ? vectorPause : vectorPlay;
       }
       this.iniciarTimerBannerAudio();
     } else {
@@ -1096,12 +1265,23 @@ window.LinkVideo = {
     }
   },
 
+  seekAudioBanner(e) {
+    if (!this.ytPlayer || typeof this.ytPlayer.getDuration !== 'function' || typeof this.ytPlayer.seekTo !== 'function') return;
+    const bar = e.currentTarget;
+    const rect = bar.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const pct = Math.max(0, Math.min(1, clickX / rect.width));
+    const duration = this.ytPlayer.getDuration() || 0;
+    this.ytPlayer.seekTo(pct * duration, true);
+  },
+
   bannerTimerInterval: null,
 
   iniciarTimerBannerAudio() {
     this.detenerTimerBannerAudio();
     this.bannerTimerInterval = setInterval(() => {
       const timeEl = document.getElementById('topAudioTimeText');
+      const progressEl = document.getElementById('topAudioProgressBar');
       if (!timeEl || !this.ytPlayer) return;
 
       try {
@@ -1111,6 +1291,9 @@ window.LinkVideo = {
           const remaining = Math.max(0, duration - current);
 
           timeEl.textContent = `${this.formatTimeSeconds(current)} / -${this.formatTimeSeconds(remaining)}`;
+          if (progressEl && duration > 0) {
+            progressEl.style.width = `${Math.min(100, (current / duration) * 100)}%`;
+          }
         }
       } catch (e) {}
     }, 500);

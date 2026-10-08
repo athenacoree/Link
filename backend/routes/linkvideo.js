@@ -55,6 +55,118 @@ router.get('/subtitles/:videoId', requireAuth, async (req, res) => {
   }
 });
 
+/**
+ * POST /api/linkvideo/admin/subtitles/fetch/:videoId - Obtener / actualizar subtítulos individuales (Admin)
+ */
+router.post('/admin/subtitles/fetch/:videoId', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const rawParam = req.params.videoId || req.body.videoId || req.body.url || '';
+    const cleanVideoId = extractYouTubeId(rawParam) || rawParam;
+    const lang = req.body.lang || req.query.lang || 'es';
+
+    const subResult = await linkVideoService.getOrFetchSubtitles(cleanVideoId, lang, true);
+    res.json({
+      ok: true,
+      videoId: cleanVideoId,
+      subtitles: subResult.cues || [],
+      status: subResult.status || 'no_subtitles',
+      languageCode: subResult.languageCode || lang,
+      source: subResult.source || 'youtube_extractor',
+      cueCount: (subResult.cues || []).length
+    });
+  } catch (err) {
+    console.error('Error al solicitar subtítulos desde admin:', err);
+    res.status(500).json({ error: 'No se pudieron obtener los subtítulos para este video.' });
+  }
+});
+
+/**
+ * POST /api/linkvideo/admin/subtitles/preload - Precargar subtítulos para múltiples videos sin bloqueo (Admin)
+ */
+router.post('/admin/subtitles/preload', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { videoIds, collectionId, lang = 'es' } = req.body;
+    let targetVideoIds = [];
+
+    if (Array.isArray(videoIds) && videoIds.length > 0) {
+      targetVideoIds = videoIds.map(v => extractYouTubeId(v) || v).filter(Boolean);
+    } else if (collectionId) {
+      const col = await linkVideoService.getCollectionById(collectionId);
+      if (col && Array.isArray(col.videos)) {
+        targetVideoIds = col.videos.map(v => v.video_id).filter(Boolean);
+      }
+    } else {
+      // Obtener todos los vídeos activos de todas las colecciones
+      const collections = await linkVideoService.getCollections(req.userId, { includeVideos: true });
+      const idSet = new Set();
+      for (const col of collections) {
+        if (col.videos && Array.isArray(col.videos)) {
+          for (const v of col.videos) {
+            if (v.video_id) idSet.add(v.video_id);
+          }
+        }
+      }
+      targetVideoIds = Array.from(idSet);
+    }
+
+    if (targetVideoIds.length === 0) {
+      return res.json({
+        ok: true,
+        mensaje: 'No se encontraron vídeos para procesar.',
+        total: 0,
+        processed: 0,
+        available: 0,
+        unavailable: 0,
+        results: []
+      });
+    }
+
+    // Procesar en cola controlada con pausas breves para respetar límites
+    const results = [];
+    let availableCount = 0;
+    let unavailableCount = 0;
+
+    for (let i = 0; i < targetVideoIds.length; i++) {
+      const vid = targetVideoIds[i];
+      try {
+        const subRes = await linkVideoService.getOrFetchSubtitles(vid, lang, false);
+        const count = (subRes.cues || []).length;
+        const isReady = subRes.status === 'ready' && count > 0;
+        if (isReady) availableCount++;
+        else unavailableCount++;
+
+        results.push({
+          videoId: vid,
+          status: isReady ? 'ready' : (subRes.status || 'no_subtitles'),
+          cuesCount: count,
+          languageCode: subRes.languageCode || lang,
+          source: subRes.source || 'none'
+        });
+      } catch (err) {
+        unavailableCount++;
+        results.push({ videoId: vid, status: 'failed', cuesCount: 0, error: err.message });
+      }
+
+      // Pausa discreta entre peticiones (150ms)
+      if (i < targetVideoIds.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 150));
+      }
+    }
+
+    res.json({
+      ok: true,
+      total: targetVideoIds.length,
+      processed: results.length,
+      available: availableCount,
+      unavailable: unavailableCount,
+      results
+    });
+  } catch (err) {
+    console.error('Error al precargar subtítulos:', err);
+    res.status(500).json({ error: 'Error al ejecutar precarga de subtítulos.' });
+  }
+});
+
 // ---------------- RUTAS DE COLECCIONES / ÁLBUMES DE LINK VIDEO ----------------
 
 /**
