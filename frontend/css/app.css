@@ -3151,6 +3151,12 @@ body[data-tema="oscuro"] .hitv-aurora-notice {
   transition: filter 0.3s ease !important;
 }
 
+.contenido-privado-oculto-temporal {
+  visibility: hidden !important;
+  opacity: 0 !important;
+  transition: opacity 0.25s ease, visibility 0.25s ease !important;
+}
+
 .icono-candado-candadito {
   display: inline-flex;
   align-items: center;

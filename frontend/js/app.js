@@ -6316,6 +6316,11 @@ let camaraSeguridadVideo = null;
 let timerDeteccionCamara = null;
 let camaraSeguridadDesactivadaManual = false;
 
+// Variables de estado para detección acumulativa de mirada y tolerancia (histéresis)
+let contadorFramesMiradaSegundaPersona = 0;
+let contadorFramesSinMiradaSegundaPersona = 0;
+let estadoProteccionActivaPorMirada = false;
+
 window.toggleProteccionExtrema = function(activo) {
   localStorage.setItem('cfg_proteccion_extrema', activo ? 'true' : 'false');
   if (activo) {
@@ -6324,6 +6329,14 @@ window.toggleProteccionExtrema = function(activo) {
     detenerCamaraSeguridad();
     quitarDifuminadoProteccion();
   }
+};
+
+window.actualizarConfiguracionPrivacidadFisica = function() {
+  const nivel = $('cfgPrivacidadFisicaNivel')?.value || 'privacidad';
+  const sensibilidad = $('cfgPrivacidadFisicaSensibilidad')?.value || 'media';
+  localStorage.setItem('cfg_privacidad_fisica_nivel', nivel);
+  localStorage.setItem('cfg_privacidad_fisica_sensibilidad', sensibilidad);
+  evaluarProteccionYCamara();
 };
 
 window.actualizarSeccionesLibresProteccion = function() {
@@ -6356,19 +6369,59 @@ function esSeccionProtegidaActual() {
   return true;
 }
 
+function hayContenidoSensibleVisible() {
+  if (!esSeccionProtegidaActual()) return false;
+
+  // Buscar elementos sensibles en la vista actual
+  const candidatos = document.querySelectorAll(
+    '.burbuja-modo-seguro, .contenido-privado, .elemento-sensible, [data-sensible="true"]'
+  );
+
+  if (candidatos.length === 0) return false;
+
+  const winHeight = window.innerHeight || document.documentElement.clientHeight;
+  const winWidth = window.innerWidth || document.documentElement.clientWidth;
+
+  for (let i = 0; i < candidatos.length; i++) {
+    const el = candidatos[i];
+    // Verificar si el elemento está desplegado y visible
+    if (el.offsetWidth === 0 && el.offsetHeight === 0) continue;
+
+    const rect = el.getBoundingClientRect();
+    const estaEnViewport = (
+      rect.top < winHeight &&
+      rect.bottom > 0 &&
+      rect.left < winWidth &&
+      rect.right > 0
+    );
+
+    if (estaEnViewport) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 window.evaluarProteccionYCamara = function() {
   const proteccionActiva = localStorage.getItem('cfg_proteccion_extrema') === 'true';
+  const nivel = localStorage.getItem('cfg_privacidad_fisica_nivel') || 'privacidad';
 
-  // Sincronizar checkboxes UI en configuraciones
+  // Sincronizar UI en configuraciones
   const toggle = $('cfgProteccionExtremaToggle');
   if (toggle) toggle.checked = proteccionActiva;
+
+  if ($('cfgPrivacidadFisicaNivel')) $('cfgPrivacidadFisicaNivel').value = nivel;
+  if ($('cfgPrivacidadFisicaSensibilidad')) {
+    $('cfgPrivacidadFisicaSensibilidad').value = localStorage.getItem('cfg_privacidad_fisica_sensibilidad') || 'media';
+  }
 
   const seccionesLibres = obtenerSeccionesLibres();
   document.querySelectorAll('.chk-seccion-libre').forEach(chk => {
     chk.checked = seccionesLibres.includes(chk.value);
   });
 
-  if (!proteccionActiva) {
+  if (!proteccionActiva || nivel === 'normal') {
     if (window.AppBridge && typeof window.AppBridge.setScreenProtection === 'function') {
       window.AppBridge.setScreenProtection(false);
     }
@@ -6379,18 +6432,35 @@ window.evaluarProteccionYCamara = function() {
 
   const esProtegida = esSeccionProtegidaActual();
 
-  // Activar FLAG_SECURE en la APK si estamos en zona protegida
+  // En nivel Extrema o zona protegida, activar FLAG_SECURE si la app lo soporta
+  const aplicarFlagSecure = esProtegida && (nivel === 'extrema');
   if (window.AppBridge && typeof window.AppBridge.setScreenProtection === 'function') {
-    window.AppBridge.setScreenProtection(esProtegida);
+    window.AppBridge.setScreenProtection(aplicarFlagSecure);
   }
 
-  if (esProtegida && !camaraSeguridadDesactivadaManual) {
+  // La cámara SOLO se activa si hay contenido marcado como privado/sensible VISIBLE en pantalla
+  const tieneContenidoSensible = hayContenidoSensibleVisible();
+
+  if (esProtegida && tieneContenidoSensible && !camaraSeguridadDesactivadaManual) {
     iniciarCamaraSeguridad();
   } else {
     detenerCamaraSeguridad();
     quitarDifuminadoProteccion();
   }
 };
+
+// Escuchar scroll y resize para activar/desactivar la cámara según visibilidad del contenido sensible
+window.addEventListener('scroll', () => {
+  if (localStorage.getItem('cfg_proteccion_extrema') === 'true') {
+    evaluarProteccionYCamara();
+  }
+}, { passive: true });
+
+window.addEventListener('resize', () => {
+  if (localStorage.getItem('cfg_proteccion_extrema') === 'true') {
+    evaluarProteccionYCamara();
+  }
+}, { passive: true });
 
 async function iniciarCamaraSeguridad() {
   if (camaraSeguridadStream || timerDeteccionCamara) return;
@@ -6413,9 +6483,17 @@ async function iniciarCamaraSeguridad() {
 
     await camaraSeguridadVideo.play().catch(() => {});
 
-    timerDeteccionCamara = setInterval(procesarFrameCamaraSeguridad, 1800);
+    // Ajustar intervalo de análisis según la sensibilidad configurada
+    const sensibilidad = localStorage.getItem('cfg_privacidad_fisica_sensibilidad') || 'media';
+    const intervaloMs = sensibilidad === 'alta' ? 400 : (sensibilidad === 'baja' ? 600 : 500);
+
+    contadorFramesMiradaSegundaPersona = 0;
+    contadorFramesSinMiradaSegundaPersona = 0;
+    estadoProteccionActivaPorMirada = false;
+
+    timerDeteccionCamara = setInterval(procesarFrameCamaraSeguridad, intervaloMs);
   } catch (err) {
-    console.warn('[Protección Extrema] No se pudo acceder a la cámara frontal:', err.message);
+    console.warn('[Privacidad Física] No se pudo acceder a la cámara frontal:', err.message);
   }
 }
 
@@ -6434,6 +6512,9 @@ function detenerCamaraSeguridad() {
     }
     camaraSeguridadVideo = null;
   }
+  contadorFramesMiradaSegundaPersona = 0;
+  contadorFramesSinMiradaSegundaPersona = 0;
+  estadoProteccionActivaPorMirada = false;
 }
 
 function procesarFrameCamaraSeguridad() {
@@ -6451,34 +6532,115 @@ function procesarFrameCamaraSeguridad() {
   const imgData = ctx.getImageData(0, 0, w, h);
   const data = imgData.data;
 
-  // Detección heurística de tonos de piel / rostros en canvas
-  let skinPixels = 0;
+  // Detección facial y de mirada completamente local en canvas de 160x120
+  let totalSkinPixels = 0;
   let leftSkin = 0;
   let rightSkin = 0;
+  let topSkin = 0;
+  let bottomSkin = 0;
 
-  for (let i = 0; i < data.length; i += 16) {
-    const r = data[i];
-    const g = data[i + 1];
-    const b = data[i + 2];
+  // Análisis por cuadrantes
+  for (let y = 0; y < h; y += 2) {
+    for (let x = 0; x < w; x += 2) {
+      const idx = (y * w + x) * 4;
+      const r = data[idx];
+      const g = data[idx + 1];
+      const b = data[idx + 2];
 
-    if (r > 60 && g > 35 && b > 20 && r > g && r > b && (Math.max(r, g, b) - Math.min(r, g, b)) > 15) {
-      skinPixels++;
-      const pixelIdx = i / 4;
-      const x = pixelIdx % w;
-      if (x < w / 2) leftSkin++; else rightSkin++;
+      // Filtro RGB de tono de piel en espacio de color
+      if (r > 60 && g > 35 && b > 20 && r > g && r > b && (Math.max(r, g, b) - Math.min(r, g, b)) > 15) {
+        totalSkinPixels++;
+        if (x < w / 2) leftSkin++; else rightSkin++;
+        if (y < h / 2) topSkin++; else bottomSkin++;
+      }
     }
   }
 
-  // Detectar si hay más de 1 persona en la escena (presencia simultánea en costados distantes o alta densidad)
-  const masDeUnaPersona = skinPixels > 240 && (leftSkin > 80 && rightSkin > 80);
+  // Estimar presencia de segunda persona (cluster secundario distinto al rostro del usuario principal)
+  // El usuario principal suele ocupar la zona central/superior. Una segunda persona aparece a los lados.
+  const haySegundaPersonaPresencia = totalSkinPixels > 220 && (leftSkin > 80 && rightSkin > 80);
 
-  if (masDeUnaPersona) {
+  // Análisis de orientación / mirada de la segunda persona:
+  // Estimar si la cara secundaria está orientada hacia la pantalla verificando simetría de luminancia
+  let segundaPersonaMirando = false;
+  if (haySegundaPersonaPresencia) {
+    let diffLuminance = Math.abs(leftSkin - rightSkin);
+    // Si la masa facial lateral está bien distribuida (baja asimetría), la cara se encuentra mirando hacia el frente / pantalla
+    segundaPersonaMirando = diffLuminance < (totalSkinPixels * 0.35);
+  }
+
+  const nivel = localStorage.getItem('cfg_privacidad_fisica_nivel') || 'privacidad';
+  const sensibilidad = localStorage.getItem('cfg_privacidad_fisica_sensibilidad') || 'media';
+
+  // Configurar umbral de tiempo (frames continuos para ~1.5 - 2 segundos)
+  // Con intervalo de 500ms: 3-4 frames equivalen a ~1.5s - 2.0s
+  const framesRequeridosMirada = sensibilidad === 'alta' ? 2 : (sensibilidad === 'baja' ? 4 : 3);
+  const framesRequeridosRestauracion = 3; // ~1.5 segundos de tolerancia sin mirada para restaurar
+
+  if (segundaPersonaMirando) {
+    contadorFramesMiradaSegundaPersona++;
+    contadorFramesSinMiradaSegundaPersona = 0;
+  } else {
+    contadorFramesSinMiradaSegundaPersona++;
+    contadorFramesMiradaSegundaPersona = 0;
+  }
+
+  // Determinar si debemos activar o desactivar la protección progresiva
+  if (!estadoProteccionActivaPorMirada && contadorFramesMiradaSegundaPersona >= framesRequeridosMirada) {
+    estadoProteccionActivaPorMirada = true;
+  } else if (estadoProteccionActivaPorMirada && contadorFramesSinMiradaSegundaPersona >= framesRequeridosRestauracion) {
+    estadoProteccionActivaPorMirada = false;
+  }
+
+  // Aplicar protección progresiva
+  if (estadoProteccionActivaPorMirada && nivel !== 'normal') {
     aplicarDifuminadoProteccion();
-    mostrarAlertaSeguridad("Hay alguien más viendo la pantalla");
+    if (nivel === 'extrema') {
+      ocultarContenidoPrivadoTemporal();
+      mostrarAlertaSeguridad("🔒 Privacidad Extrema: Segunda persona mirando la pantalla");
+    } else {
+      mostrarAlertaSeguridad("🔒 Se detectó otra mirada sobre la pantalla");
+    }
   } else {
     quitarDifuminadoProteccion();
+    restaurarContenidoPrivadoTemporal();
     ocultarAlertaSeguridad();
   }
+}
+
+async function obtenerDispositivosAudio() {
+  if (window.AppBridge && typeof window.AppBridge.getAudioDevices === 'function') {
+    try {
+      const json = window.AppBridge.getAudioDevices();
+      return JSON.parse(json || '[]');
+    } catch (e) {
+      return [];
+    }
+  }
+
+  if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      return devices
+        .filter(d => d.kind === 'audiooutput' || d.kind === 'audioinput')
+        .map(d => ({ type: 'web', name: d.label || 'Dispositivo de audio' }));
+    } catch (e) {
+      return [];
+    }
+  }
+
+  return [];
+}
+window.obtenerDispositivosAudio = obtenerDispositivosAudio;
+
+function ocultarContenidoPrivadoTemporal() {
+  const elementos = document.querySelectorAll('.burbuja-modo-seguro, .contenido-privado, .elemento-sensible');
+  elementos.forEach(el => el.classList.add('contenido-privado-oculto-temporal'));
+}
+
+function restaurarContenidoPrivadoTemporal() {
+  const elementos = document.querySelectorAll('.contenido-privado-oculto-temporal');
+  elementos.forEach(el => el.classList.remove('contenido-privado-oculto-temporal'));
 }
 
 function aplicarDifuminadoProteccion() {

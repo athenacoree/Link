@@ -5,24 +5,24 @@
    con fallback a cache cuando no hay conexión.
    "Network-Only" para llamadas API y WebSockets.
    ========================================================= */
-const CACHE_NAME = 'enlace-shell-v35';
+const CACHE_NAME = 'enlace-shell-v36';
 const ARCHIVOS_SHELL = [
   '/',
-  '/index.html?v=35',
-  '/css/app.css?v=35',
-  '/css/call.css?v=35',
-  '/css/features.css?v=35',
-  '/css/ailab.css?v=35',
-  '/js/api.js?v=35',
-  '/js/app.js?v=35',
-  '/js/chat.js?v=35',
-  '/js/call.js?v=35',
-  '/js/features.js?v=35',
-  '/js/i18n.js?v=35',
-  '/js/linkvideo.js?v=35',
-  '/js/ailab.js?v=35',
-  '/js/monetization.js?v=35',
-  '/js/paises.js?v=35',
+  '/index.html?v=36',
+  '/css/app.css?v=36',
+  '/css/call.css?v=36',
+  '/css/features.css?v=36',
+  '/css/ailab.css?v=36',
+  '/js/api.js?v=36',
+  '/js/app.js?v=36',
+  '/js/chat.js?v=36',
+  '/js/call.js?v=36',
+  '/js/features.js?v=36',
+  '/js/i18n.js?v=36',
+  '/js/linkvideo.js?v=36',
+  '/js/ailab.js?v=36',
+  '/js/monetization.js?v=36',
+  '/js/paises.js?v=36',
   '/manifest.json',
   '/favicon.ico',
   '/icons/icon-192.png',
@@ -85,7 +85,7 @@ self.addEventListener('fetch', (event) => {
           if (cachedResponse) return cachedResponse;
           // Fallback para navegación de SPA si está sin conexión
           if (event.request.mode === 'navigate') {
-            return caches.match('/index.html') || caches.match('/index.html?v=35') || caches.match('/');
+            return caches.match('/index.html') || caches.match('/index.html?v=36') || caches.match('/');
           }
           return null;
         });

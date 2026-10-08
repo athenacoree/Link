@@ -9,10 +9,10 @@
 <link rel="manifest" id="manifestLink" href="/manifest.json">
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <link rel="icon" href="/icons/icon-192.png">
-  <link rel="stylesheet" href="/css/app.css?v=35">
-  <link rel="stylesheet" href="/css/call.css?v=35">
-  <link rel="stylesheet" href="/css/features.css?v=35">
-  <link rel="stylesheet" href="/css/ailab.css?v=35">
+  <link rel="stylesheet" href="/css/app.css?v=36">
+  <link rel="stylesheet" href="/css/call.css?v=36">
+  <link rel="stylesheet" href="/css/features.css?v=36">
+  <link rel="stylesheet" href="/css/ailab.css?v=36">
 </head>
 <body>
 
@@ -945,13 +945,32 @@
         <div class="panel-body">
           <div class="campo" style="display:flex; justify-content:space-between; align-items:center;">
             <div>
-              <div style="font-size:13px; font-weight:700;">Activar Protección Extrema</div>
-              <div style="font-size:11px; color:var(--texto-500);">Difumina contenido sensible si hay más personas o al tomar capturas</div>
+              <div style="font-size:13px; font-weight:700;">Privacidad Física</div>
+              <div style="font-size:11px; color:var(--texto-500);">Detección local de presencia y mirada sobre la pantalla</div>
             </div>
             <input type="checkbox" id="cfgProteccionExtremaToggle" style="width:20px; height:20px; cursor:pointer;" onchange="window.toggleProteccionExtrema(this.checked)">
           </div>
-          <div class="campo">
-            <label>Secciones de la web sin protección (sin difuminado)</label>
+
+          <div class="campo" style="margin-top:8px;">
+            <label style="font-size:12px; font-weight:700;">Nivel de Protección</label>
+            <select id="cfgPrivacidadFisicaNivel" style="width:100%; margin-top:4px; padding:7px; border-radius:8px; border:1px solid var(--borde);" onchange="window.actualizarConfiguracionPrivacidadFisica()">
+              <option value="normal">Normal (Sin protección por miradas)</option>
+              <option value="privacidad" selected>Privacidad (Difuminar y aviso discreto)</option>
+              <option value="extrema">Extrema (Difuminar, ocultar, alerta clara y FLAG_SECURE)</option>
+            </select>
+          </div>
+
+          <div class="campo" style="margin-top:8px;">
+            <label style="font-size:12px; font-weight:700;">Sensibilidad de Detección</label>
+            <select id="cfgPrivacidadFisicaSensibilidad" style="width:100%; margin-top:4px; padding:7px; border-radius:8px; border:1px solid var(--borde);" onchange="window.actualizarConfiguracionPrivacidadFisica()">
+              <option value="baja">Baja (Exige mirada firme continua)</option>
+              <option value="media" selected>Media (Recomendado)</option>
+              <option value="alta">Alta (Respuesta más rápida)</option>
+            </select>
+          </div>
+
+          <div class="campo" style="margin-top:10px;">
+            <label style="font-size:12px; font-weight:700;">Secciones de la web sin protección (sin difuminado)</label>
             <div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:8px; margin-top:6px;">
               <label style="font-size:12px; font-weight:600; display:flex; align-items:center; gap:6px;"><input type="checkbox" class="chk-seccion-libre" value="feed" onchange="window.actualizarSeccionesLibresProteccion()"> Inicio / Feed</label>
               <label style="font-size:12px; font-weight:600; display:flex; align-items:center; gap:6px;"><input type="checkbox" class="chk-seccion-libre" value="contactos" onchange="window.actualizarSeccionesLibresProteccion()"> Contactos</label>
@@ -959,8 +978,8 @@
               <label style="font-size:12px; font-weight:600; display:flex; align-items:center; gap:6px;"><input type="checkbox" class="chk-seccion-libre" value="ailab" onchange="window.actualizarSeccionesLibresProteccion()"> Link Video</label>
             </div>
           </div>
-          <div class="campo" style="font-size:11.5px; color:var(--texto-600); background:var(--hueso); padding:10px; border-radius:10px; border:1px solid var(--borde);">
-            🔒 En chats, mantén presionado un mensaje o el botón enviar para enviarlo en <strong>Modo Seguro</strong> con el candadito. Si la cámara detecta más de 1 persona mirando, el contenido protegido se difuminará automáticamente.
+          <div class="campo" style="font-size:11.5px; color:var(--texto-600); background:var(--hueso); padding:10px; border-radius:10px; border:1px solid var(--borde); margin-top:8px;">
+            🔒 La cámara procesa todo 100% de forma local en tu dispositivo y solo se activa cuando hay contenido marcado como privado visible en tu pantalla. No se envían fotos ni vídeo a ningún servidor.
           </div>
         </div>
       </div>
@@ -2437,16 +2456,16 @@
 </div>
 
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-  <script src="/js/api.js?v=35"></script>
-  <script src="/js/paises.js?v=35"></script>
-  <script src="/js/i18n.js?v=35"></script>
-  <script src="/js/call.js?v=35"></script>
-  <script src="/js/chat.js?v=35"></script>
-  <script src="/js/features.js?v=35"></script>
-  <script src="/js/linkvideo.js?v=35"></script>
-  <script src="/js/ailab.js?v=35"></script>
-  <script src="/js/monetization.js?v=35"></script>
-  <script src="/js/app.js?v=35"></script>
+  <script src="/js/api.js?v=36"></script>
+  <script src="/js/paises.js?v=36"></script>
+  <script src="/js/i18n.js?v=36"></script>
+  <script src="/js/call.js?v=36"></script>
+  <script src="/js/chat.js?v=36"></script>
+  <script src="/js/features.js?v=36"></script>
+  <script src="/js/linkvideo.js?v=36"></script>
+  <script src="/js/ailab.js?v=36"></script>
+  <script src="/js/monetization.js?v=36"></script>
+  <script src="/js/app.js?v=36"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
