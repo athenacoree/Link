@@ -389,6 +389,54 @@ class MainActivity : AppCompatActivity() {
         fun isNativeBridge(): Boolean {
             return true
         }
+
+        @JavascriptInterface
+        fun getAudioDevices(): String {
+            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? android.media.AudioManager
+                ?: return "[]"
+
+            val devicesList = mutableListOf<Map<String, String>>()
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                val devices = audioManager.getDevices(android.media.AudioManager.GET_DEVICES_OUTPUTS)
+                for (device in devices) {
+                    val typeStr = when (device.type) {
+                        android.media.AudioDeviceInfo.TYPE_BLUETOOTH_A2DP,
+                        android.media.AudioDeviceInfo.TYPE_BLUETOOTH_SCO -> "bluetooth"
+                        android.media.AudioDeviceInfo.TYPE_WIRED_HEADSET,
+                        android.media.AudioDeviceInfo.TYPE_WIRED_HEADPHONES -> "wired"
+                        android.media.AudioDeviceInfo.TYPE_USB_DEVICE,
+                        android.media.AudioDeviceInfo.TYPE_USB_HEADSET -> "usb"
+                        else -> null
+                    }
+                    if (typeStr != null) {
+                        devicesList.add(
+                            mapOf(
+                                "type" to typeStr,
+                                "name" to (device.productName?.toString() ?: "Auricular")
+                            )
+                        )
+                    }
+                }
+            } else {
+                @Suppress("DEPRECATION")
+                if (audioManager.isWiredHeadsetOn) {
+                    devicesList.add(mapOf("type" to "wired", "name" to "Auriculares de cable"))
+                }
+                @Suppress("DEPRECATION")
+                if (audioManager.isBluetoothA2dpOn || audioManager.isBluetoothScoOn) {
+                    devicesList.add(mapOf("type" to "bluetooth", "name" to "Auriculares Bluetooth"))
+                }
+            }
+
+            return com.google.gson.Gson().toJson(devicesList)
+        }
+
+        @JavascriptInterface
+        fun isHeadphonesConnected(): Boolean {
+            val json = getAudioDevices()
+            return json != "[]" && json.isNotEmpty()
+        }
     }
 
     companion object {
