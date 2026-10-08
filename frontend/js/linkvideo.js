@@ -1,4 +1,4 @@
-/* Lógica para Link Video (Streaming de Películas, Video y Audio) y Link Live (Transmisiones Persistentes) */
+/* Lógica para Link Video (Streaming de Películas, Video y Audio), Algoritmo de Recomendación y Reels Verticales */
 
 function escapeHTMLLinkVideo(str) {
   if (!str) return '';
@@ -20,17 +20,29 @@ function normalizarTextoBusquedaLV(str) {
     .trim();
 }
 
+function esReelOShort(url = '', title = '') {
+  const normUrl = (url || '').toLowerCase();
+  const normTitle = (title || '').toLowerCase();
+  return normUrl.includes('/shorts/') || normUrl.includes('#shorts') || normTitle.includes('#shorts') || normTitle.includes('reel') || normTitle.includes('short');
+}
+
 window.LinkVideo = {
   initialized: false,
   collections: [],
   catalog: [],
   activeLives: [],
+  recommendations: null,
+  reels: [],
   baseUrl: '',
 
   // Colección actual seleccionada y cola de reproductor
   currentCollection: null,
   currentVideos: [],
   currentVideoIndex: -1,
+
+  // Estado de Reels
+  currentReelsIndex: 0,
+  activeReelsList: [],
 
   // Estado del Streamer (Host)
   isHost: false,
@@ -161,6 +173,8 @@ window.LinkVideo = {
         this.collections = res.collections || [];
         this.catalog = res.catalog || [];
         this.activeLives = res.lives || [];
+        this.recommendations = res.recommendations || null;
+        this.reels = res.reels || [];
         this.baseUrl = res.base_url || '';
         this.setupUIControls();
         this.renderizarColecciones(this.collections);
@@ -187,6 +201,30 @@ window.LinkVideo = {
     }
   },
 
+  /**
+   * Envia la información de reproducción al algoritmo de recomendación
+   */
+  async registrarVisualizacionVideo(video) {
+    if (!video || (!video.video_id && !video.id)) return;
+
+    const vid = video.video_id || video.id;
+    const isReel = esReelOShort(video.original_url, video.title);
+
+    try {
+      await api('/linkvideo/view', {
+        method: 'POST',
+        body: {
+          videoId: vid,
+          collectionId: video.collection_id || null,
+          tags: video.hidden_tags || [],
+          isReel
+        }
+      });
+    } catch (e) {
+      console.warn('[LinkVideo Algorithm] Error registrando reproducción:', e.message);
+    }
+  },
+
   renderizarColecciones(colecciones) {
     const gridEl = document.getElementById('linkVideoCollectionsGrid');
     const detailView = document.getElementById('linkVideoCollectionDetailView');
@@ -200,7 +238,7 @@ window.LinkVideo = {
     this.currentCollection = null;
 
     // Extraer categorías únicas
-    const catSet = new Set(['Todas']);
+    const catSet = new Set(['Todas', '🔥 Recomendados', '📱 Reels / Shorts']);
     (colecciones || []).forEach(c => {
       if (c.category) {
         c.category.split(',').forEach(subCat => {
@@ -229,7 +267,16 @@ window.LinkVideo = {
 
     let filtradas = colecciones || [];
 
-    if (this.selectedCategory && this.selectedCategory !== 'Todas') {
+    if (this.selectedCategory === '📱 Reels / Shorts') {
+      this.renderizarSeccionReels();
+      return;
+    }
+
+    if (this.selectedCategory === '🔥 Recomendados') {
+      if (this.recommendations && Array.isArray(this.recommendations.collections) && this.recommendations.collections.length > 0) {
+        filtradas = this.recommendations.collections;
+      }
+    } else if (this.selectedCategory && this.selectedCategory !== 'Todas') {
       const sel = this.selectedCategory.toLowerCase();
       filtradas = filtradas.filter(c => (c.category || '').toLowerCase().includes(sel));
     }
@@ -253,9 +300,36 @@ window.LinkVideo = {
       return;
     }
 
-    gridEl.innerHTML = filtradas.map(col => {
+    // Renderizar sección superior de "Recomendados para ti" (Spotify / YouTube style) si hay recomendaciones
+    let topRecHtml = '';
+    if (this.selectedCategory === 'Todas' && !this.searchQuery && this.recommendations && Array.isArray(this.recommendations.videos) && this.recommendations.videos.length > 0) {
+      const recVids = this.recommendations.videos.slice(0, 4);
+      topRecHtml = `
+        <div style="grid-column: 1 / -1; margin-bottom: 12px;">
+          <div style="font-size:15px; font-weight:900; color:var(--texto-900); margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+            <span style="background:linear-gradient(135deg, #7c3aed, #ec4899); color:#fff; padding:2px 8px; border-radius:10px; font-size:11px;">RECOMENDADO</span>
+            Para ti según tus gustos
+          </div>
+          <div style="display:flex; gap:12px; overflow-x:auto; padding-bottom:8px; scrollbar-width:none;">
+            ${recVids.map((v) => `
+              <div style="width:140px; flex-shrink:0; cursor:pointer;" onclick="LinkVideo.abrirRecomendadoIndividual('${v.id || v.video_id}')">
+                <div style="position:relative; width:140px; height:90px; border-radius:14px; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.2);">
+                  <img src="${v.thumbnail_url || 'https://img.youtube.com/vi/' + v.video_id + '/hqdefault.jpg'}" style="width:100%; height:100%; object-fit:cover;">
+                  <div style="position:absolute; inset:0; background:linear-gradient(to top, rgba(0,0,0,0.8), transparent); display:flex; align-items:flex-end; padding:6px;">
+                    <span style="font-size:10px; font-weight:800; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHTMLLinkVideo(v.title)}</span>
+                  </div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    gridEl.innerHTML = topRecHtml + filtradas.map(col => {
       const cover = col.cover_url || 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=600';
       const categoryTag = col.category || 'General';
+      const badgeRec = col.is_recommended ? `<span style="font-size:9px; font-weight:900; background:#ec4899; color:#fff; padding:1px 5px; border-radius:4px; margin-left:4px;">RECOMENDADO</span>` : '';
 
       const svgTag = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; margin-right:3px;"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>`;
 
@@ -263,12 +337,257 @@ window.LinkVideo = {
         <div class="linkvideo-square-card" onclick="LinkVideo.abrirColeccion('${col.id}')">
           <img class="linkvideo-card-thumb-img" src="${cover}" alt="${escapeHTMLLinkVideo(col.name)}" onerror="this.src='https://images.pexels.com/photos/2506923/pexels-photo-2506923.jpeg?auto=compress&cs=tinysrgb&w=600'">
           <div class="linkvideo-card-overlay-gradient">
-            <div style="font-size:10px; font-weight:800; background:rgba(0,0,0,0.6); color:#ddd6fe; padding:2px 6px; border-radius:6px; width:fit-content; margin-bottom:4px; display:inline-flex; align-items:center;">${svgTag}${escapeHTMLLinkVideo(categoryTag)}</div>
+            <div style="font-size:10px; font-weight:800; background:rgba(0,0,0,0.6); color:#ddd6fe; padding:2px 6px; border-radius:6px; width:fit-content; margin-bottom:4px; display:inline-flex; align-items:center;">${svgTag}${escapeHTMLLinkVideo(categoryTag)}${badgeRec}</div>
             <div class="linkvideo-card-title">${escapeHTMLLinkVideo(col.name)}</div>
           </div>
         </div>
       `;
     }).join('');
+  },
+
+  abrirRecomendadoIndividual(vidOrId) {
+    let foundVid = null;
+    for (const c of this.collections) {
+      if (Array.isArray(c.videos)) {
+        const match = c.videos.find(v => v.id === vidOrId || v.video_id === vidOrId);
+        if (match) {
+          foundVid = match;
+          this.currentCollection = c;
+          this.currentVideos = c.videos;
+          break;
+        }
+      }
+    }
+
+    if (foundVid) {
+      if (esReelOShort(foundVid.original_url, foundVid.title)) {
+        this.abrirReproductorReels(foundVid);
+      } else {
+        this.abrirReproductorLinkVideo(foundVid);
+      }
+    }
+  },
+
+  renderizarSeccionReels() {
+    const gridEl = document.getElementById('linkVideoCollectionsGrid');
+    if (!gridEl) return;
+
+    if (!this.reels || this.reels.length === 0) {
+      gridEl.innerHTML = `<div class="aviso-vacio" style="grid-column: 1 / -1; padding:30px;">No hay Reels/Shorts disponibles en este momento.</div>`;
+      return;
+    }
+
+    gridEl.innerHTML = `
+      <div style="grid-column: 1 / -1; margin-bottom:12px;">
+        <div style="font-size:16px; font-weight:900; color:var(--texto-900); margin-bottom:4px; display:flex; align-items:center; gap:8px;">
+          <span style="background:linear-gradient(135deg, #ef4444, #f59e0b); color:#fff; padding:3px 10px; border-radius:12px; font-size:12px; font-weight:900;">REELS & SHORTS</span>
+          Deslizamiento Vertical Pantalla Completa
+        </div>
+        <div style="font-size:12px; color:var(--texto-500); font-weight:600;">Los Reels no vistos aparecen primero para que nunca se repitan.</div>
+      </div>
+      ${this.reels.map((reel, idx) => `
+        <div class="linkvideo-square-card" onclick="LinkVideo.abrirReproductorReelsPorIndice(${idx})">
+          <img class="linkvideo-card-thumb-img" src="${reel.thumbnail_url || 'https://img.youtube.com/vi/' + reel.video_id + '/hqdefault.jpg'}" alt="${escapeHTMLLinkVideo(reel.title)}">
+          <div class="linkvideo-card-overlay-gradient">
+            <span class="reel-priority-badge ${reel.seen ? 'seen' : 'new'}" style="position:absolute; top:8px; left:8px;">
+              ${reel.seen ? '🔴 Visto' : '🟢 Nuevo'}
+            </span>
+            <div class="linkvideo-card-title">${escapeHTMLLinkVideo(reel.title)}</div>
+          </div>
+        </div>
+      `).join('')}
+    `;
+  },
+
+  abrirReproductorReelsPorIndice(index) {
+    if (this.reels && this.reels[index]) {
+      this.abrirReproductorReels(this.reels[index], this.reels, index);
+    }
+  },
+
+  // ---------------- REPRODUCTOR FULLSCREEN VERTICAL DE REELS / SHORTS ----------------
+  abrirReproductorReels(video, reelsList = null, initialIndex = 0) {
+    if (!video) return;
+
+    this.activeReelsList = (Array.isArray(reelsList) && reelsList.length > 0) ? reelsList : (this.reels.length > 0 ? this.reels : [video]);
+    this.currentReelsIndex = initialIndex >= 0 ? initialIndex : this.activeReelsList.findIndex(r => (r.video_id || r.id) === (video.video_id || video.id));
+    if (this.currentReelsIndex < 0) this.currentReelsIndex = 0;
+
+    let modal = document.getElementById('modalReelsPlayer');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'modalReelsPlayer';
+      modal.className = 'modal-reels-container';
+      document.body.appendChild(modal);
+    }
+
+    modal.style.display = 'flex';
+    this.renderizarFeedReelsFullscreen();
+
+    // Registrar reproducción para el algoritmo
+    this.registrarVisualizacionVideo(this.activeReelsList[this.currentReelsIndex]);
+  },
+
+  renderizarFeedReelsFullscreen() {
+    const modal = document.getElementById('modalReelsPlayer');
+    if (!modal) return;
+
+    const list = this.activeReelsList || [];
+
+    const vectorClose = `
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="6" x2="6" y2="18"></line>
+        <line x1="6" y1="6" x2="18" y2="18"></line>
+      </svg>
+    `;
+
+    const vectorHeart = `
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l8.78-8.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+      </svg>
+    `;
+
+    const vectorShare = `
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="18" cy="5" r="3"></circle>
+        <circle cx="6" cy="12" r="3"></circle>
+        <circle cx="18" cy="19" r="3"></circle>
+        <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+        <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+      </svg>
+    `;
+
+    const vectorUp = `
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="18 15 12 9 6 15"></polyline>
+      </svg>
+    `;
+
+    const vectorDown = `
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="6 9 12 15 18 9"></polyline>
+      </svg>
+    `;
+
+    modal.innerHTML = `
+      <div class="reels-vertical-scroll" id="reelsVerticalScrollContainer">
+        ${list.map((r, idx) => {
+          const isCurrent = idx === this.currentReelsIndex;
+          const vidId = r.video_id || r.id;
+          return `
+            <div class="reel-item-card" id="reelCardItem_${idx}" data-index="${idx}">
+              <div class="reel-top-bar">
+                <button class="reel-close-btn" onclick="LinkVideo.cerrarReproductorReels()" title="Cerrar Reels">
+                  ${vectorClose}
+                </button>
+                <span class="reel-priority-badge ${r.seen ? 'seen' : 'new'}">
+                  ${r.seen ? '🔴 Visto' : '🟢 Nuevo Reel'}
+                </span>
+              </div>
+
+              ${isCurrent ? `
+                <iframe class="reel-video-iframe" src="https://www.youtube.com/embed/${vidId}?autoplay=1&controls=1&fs=1&playsinline=1&enablejsapi=1&rel=0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
+              ` : `
+                <div style="background:#111; width:100%; height:100%; display:flex; align-items:center; justify-content:center;">
+                  <img src="${r.thumbnail_url || 'https://img.youtube.com/vi/' + vidId + '/hqdefault.jpg'}" style="width:100%; height:100%; object-fit:cover; opacity:0.6;">
+                </div>
+              `}
+
+              <!-- Overlay de información del Reel -->
+              <div class="reel-overlay-info">
+                <div style="font-size:16px; font-weight:900; color:#fff; margin-bottom:4px;">${escapeHTMLLinkVideo(r.title)}</div>
+                <div style="font-size:12px; font-weight:700; color:#ddd6fe;">${escapeHTMLLinkVideo(r.collection_name || 'Link Video')}</div>
+              </div>
+
+              <!-- Botones de Acción flotantes a la derecha -->
+              <div class="reel-overlay-actions">
+                <button class="reel-action-btn" onclick="LinkVideo.reproducirAnteriorReel()" title="Reel Anterior">
+                  ${vectorUp}
+                </button>
+
+                <button class="reel-action-btn" onclick="LinkVideo.darMeGustaReel(this)" title="Me Gusta">
+                  ${vectorHeart}
+                </button>
+
+                <button class="reel-action-btn" onclick="LinkVideo.compartirReel('${vidId}')" title="Compartir">
+                  ${vectorShare}
+                </button>
+
+                <button class="reel-action-btn" onclick="LinkVideo.reproducirSiguienteReel()" title="Siguiente Reel">
+                  ${vectorDown}
+                </button>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+
+    // Hacer scroll suave hasta el elemento actual
+    const targetCard = document.getElementById(`reelCardItem_${this.currentReelsIndex}`);
+    if (targetCard) {
+      targetCard.scrollIntoView({ behavior: 'auto' });
+    }
+
+    // Escuchar scroll para actualizar el índice activo y registrar la vista
+    const scrollContainer = document.getElementById('reelsVerticalScrollContainer');
+    if (scrollContainer) {
+      let scrollTimeout;
+      scrollContainer.onscroll = () => {
+        clearTimeout(scrollTimeout);
+        scrollTimeout = setTimeout(() => {
+          const index = Math.round(scrollContainer.scrollTop / window.innerHeight);
+          if (index !== this.currentReelsIndex && index >= 0 && index < list.length) {
+            this.currentReelsIndex = index;
+            this.renderizarFeedReelsFullscreen();
+            this.registrarVisualizacionVideo(list[index]);
+          }
+        }, 150);
+      };
+    }
+  },
+
+  reproducirSiguienteReel() {
+    if (this.currentReelsIndex < (this.activeReelsList || []).length - 1) {
+      this.currentReelsIndex += 1;
+      this.renderizarFeedReelsFullscreen();
+      this.registrarVisualizacionVideo(this.activeReelsList[this.currentReelsIndex]);
+    }
+  },
+
+  reproducirAnteriorReel() {
+    if (this.currentReelsIndex > 0) {
+      this.currentReelsIndex -= 1;
+      this.renderizarFeedReelsFullscreen();
+      this.registrarVisualizacionVideo(this.activeReelsList[this.currentReelsIndex]);
+    }
+  },
+
+  darMeGustaReel(btn) {
+    if (btn) {
+      btn.style.background = '#ef4444';
+      if (window.mostrarToast) window.mostrarToast('¡Guardado en tus reels favoritos!');
+    }
+  },
+
+  compartirReel(videoId) {
+    const url = `https://www.youtube.com/shorts/${videoId}`;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(url).then(() => {
+        if (window.mostrarToast) window.mostrarToast('¡Enlace del Reel copiado al portapapeles!');
+      });
+    } else if (window.mostrarToast) {
+      window.mostrarToast(`Reel: ${url}`);
+    }
+  },
+
+  cerrarReproductorReels() {
+    const modal = document.getElementById('modalReelsPlayer');
+    if (modal) {
+      modal.style.display = 'none';
+      modal.innerHTML = '';
+    }
+    this.cargarCatalogo();
   },
 
   toggleAlbumDesc(el) {
@@ -793,7 +1112,13 @@ window.LinkVideo = {
     if (!this.currentVideos || !this.currentVideos[index]) return;
     this.currentVideoIndex = index;
     const video = this.currentVideos[index];
-    this.abrirReproductorLinkVideo(video);
+
+    // Verificar si es un YouTube Short / Reel
+    if (esReelOShort(video.original_url, video.title)) {
+      this.abrirReproductorReels(video, this.currentVideos, index);
+    } else {
+      this.abrirReproductorLinkVideo(video);
+    }
   },
 
   activarVolumenProteccion() {
@@ -857,6 +1182,9 @@ window.LinkVideo = {
 
     this.activeVideoData = video;
     this.isPlayingAudioBackground = true;
+
+    // Registrar reproducción para el algoritmo
+    this.registrarVisualizacionVideo(video);
 
     let modal = document.getElementById('modalPlayerLinkVideo');
     if (!modal) {

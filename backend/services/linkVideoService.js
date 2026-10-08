@@ -1,11 +1,13 @@
 /**
- * Servicio Backend para Link Video (Colecciones, Álbumes y Videos) y Transmisiones Persistentes en Vivo (Link Live)
+ * Servicio Backend para Link Video (Colecciones, Álbumes y Videos),
+ * Algoritmo de Recomendaciones Inteligente (Spotify/YouTube/Instagram Style)
+ * y Transmisiones Persistentes en Vivo (Link Live).
  */
 
 const { query } = require('../db/postgres');
 const videoStreamTool = require('../tools/videoStreamTool');
 const { fetchYouTubeInfo, extractYouTubeId, fetchYouTubeSubtitles } = require('../utils/youtube');
-const { crypto } = require('crypto');
+const { extractHiddenTags, isReelUrlOrTitle } = require('../utils/tagExtractor');
 
 // Lista estática y predefinida de categorías para la plataforma Link Video
 const PREDEFINED_CATEGORIES = [
@@ -31,6 +33,7 @@ const inMemoryLiveSessions = new Map();
 const inMemoryCollections = new Map(); // id -> collection object
 const inMemoryVideos = new Map(); // id -> video object
 const inMemorySubtitles = new Map(); // videoId_lang -> subtitle object
+const inMemoryUserViews = new Map(); // userId -> array of view records
 
 // Colecciones por defecto en memoria
 const DEFAULT_MEM_COLLECTIONS = [
@@ -40,6 +43,7 @@ const DEFAULT_MEM_COLLECTIONS = [
     cover_url: 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=600',
     category: 'Música',
     audio_description: 'Colección oficial de éxitos musicales y clips de video en alta definición.',
+    hidden_tags: ['musica', 'hit', 'pop', 'r&b', 'the weeknd', 'rick astley'],
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   },
@@ -49,6 +53,7 @@ const DEFAULT_MEM_COLLECTIONS = [
     cover_url: 'https://images.pexels.com/photos/2506923/pexels-photo-2506923.jpeg?auto=compress&cs=tinysrgb&w=600',
     category: 'Películas',
     audio_description: 'Tráilers cinematográficos, películas destacadas y estrenos mundiales.',
+    hidden_tags: ['peliculas', 'cine', 'trailer', 'estreno', 'hollywood'],
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   }
@@ -65,6 +70,35 @@ const DEFAULT_MEM_VIDEOS = [
     position: 0,
     status: 'active',
     audio_description: 'Hit musical de los 80s interpretado por Rick Astley.',
+    hidden_tags: ['rick astley', 'pop', '80s', 'musica', 'classic'],
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  },
+  {
+    id: 'vid_default_2',
+    collection_id: 'col_musica_destacada',
+    title: 'The Weeknd - Blinding Lights (Official Music Video)',
+    video_id: '4NRXx6U8ABQ',
+    original_url: 'https://www.youtube.com/watch?v=4NRXx6U8ABQ',
+    thumbnail_url: 'https://img.youtube.com/vi/4NRXx6U8ABQ/hqdefault.jpg',
+    position: 1,
+    status: 'active',
+    audio_description: 'Tema icónico de synthpop y R&B de The Weeknd.',
+    hidden_tags: ['the weeknd', 'r&b', 'pop', 'synthpop', 'blinding lights', 'musica'],
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  },
+  {
+    id: 'vid_default_reel_1',
+    collection_id: 'col_musica_destacada',
+    title: 'The Weeknd Live Short #shorts',
+    video_id: '34Na4j8AVgA',
+    original_url: 'https://www.youtube.com/shorts/34Na4j8AVgA',
+    thumbnail_url: 'https://img.youtube.com/vi/34Na4j8AVgA/hqdefault.jpg',
+    position: 2,
+    status: 'active',
+    audio_description: 'Reel/Short de The Weeknd en vivo.',
+    hidden_tags: ['the weeknd', 'reel', 'short', 'live', 'r&b', 'pop'],
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   }
@@ -78,26 +112,181 @@ for (const vid of DEFAULT_MEM_VIDEOS) {
   inMemoryVideos.set(vid.id, vid);
 }
 
+// ---------------- ALGORITMO DE RECOMENDACIÓN Y ETIQUETAS OCULTAS ----------------
+
+/**
+ * Registra la visualización de un video o reel por parte de un usuario.
+ */
+async function recordUserView({ userId, videoId, collectionId = null, tags = [], isReel = false }) {
+  if (!userId || !videoId) return { ok: false };
+
+  const cleanUserId = String(userId).trim();
+  const cleanVideoId = String(videoId).trim();
+
+  // Asegurar array de etiquetas
+  let extractedTags = Array.isArray(tags) ? tags : [];
+  if (extractedTags.length === 0) {
+    const vidObj = Array.from(inMemoryVideos.values()).find(v => v.video_id === cleanVideoId || v.id === cleanVideoId);
+    if (vidObj) {
+      extractedTags = vidObj.hidden_tags || extractHiddenTags(vidObj);
+    }
+  }
+
+  const nowIso = new Date().toISOString();
+
+  // 1. Guardar en PostgreSQL
+  try {
+    await query(
+      `INSERT INTO user_video_views (user_id, video_id, collection_id, is_reel, tags, view_count, last_viewed_at, created_at)
+       VALUES ($1, $2, $3, $4, $5::jsonb, 1, now(), now())
+       ON CONFLICT (user_id, video_id) DO UPDATE SET
+         view_count = user_video_views.view_count + 1,
+         last_viewed_at = now(),
+         tags = COALESCE(user_video_views.tags, '[]'::jsonb) || EXCLUDED.tags`,
+      [cleanUserId, cleanVideoId, collectionId, isReel, JSON.stringify(extractedTags)]
+    );
+  } catch (err) {
+    // Si la tabla no soporta el constraint único directo, ejecutar SELECT/UPDATE/INSERT estándar
+    try {
+      const existing = await query(
+        `SELECT id, view_count FROM user_video_views WHERE user_id = $1 AND video_id = $2`,
+        [cleanUserId, cleanVideoId]
+      );
+      if (existing.rows && existing.rows.length > 0) {
+        await query(
+          `UPDATE user_video_views
+           SET view_count = view_count + 1, last_viewed_at = now()
+           WHERE id = $1`,
+          [existing.rows[0].id]
+        );
+      } else {
+        await query(
+          `INSERT INTO user_video_views (user_id, video_id, collection_id, is_reel, tags, view_count, last_viewed_at, created_at)
+           VALUES ($1, $2, $3, $4, $5::jsonb, 1, now(), now())`,
+          [cleanUserId, cleanVideoId, collectionId, isReel, JSON.stringify(extractedTags)]
+        );
+      }
+    } catch (e) {}
+  }
+
+  // 2. Almacén en memoria de respaldo
+  if (!inMemoryUserViews.has(cleanUserId)) {
+    inMemoryUserViews.set(cleanUserId, []);
+  }
+  const userViews = inMemoryUserViews.get(cleanUserId);
+  const existingIndex = userViews.findIndex(v => v.videoId === cleanVideoId);
+  if (existingIndex >= 0) {
+    userViews[existingIndex].viewCount += 1;
+    userViews[existingIndex].lastViewedAt = nowIso;
+    userViews[existingIndex].tags = Array.from(new Set([...userViews[existingIndex].tags, ...extractedTags]));
+  } else {
+    userViews.push({
+      videoId: cleanVideoId,
+      collectionId,
+      isReel,
+      tags: extractedTags,
+      viewCount: 1,
+      lastViewedAt: nowIso
+    });
+  }
+
+  return { ok: true, userId: cleanUserId, videoId: cleanVideoId, tags: extractedTags };
+}
+
+/**
+ * Calcula el mapa de ponderación de etiquetas del usuario utilizando
+ * decaimiento exponencial con respecto al tiempo (no condenatorio y dinámico).
+ */
+async function getUserRecommendationWeights(userId) {
+  if (!userId) return {};
+
+  const cleanUserId = String(userId).trim();
+  let views = [];
+
+  // Intentar desde PostgreSQL
+  try {
+    const { rows } = await query(
+      `SELECT video_id, collection_id, is_reel, tags, view_count, last_viewed_at
+       FROM user_video_views
+       WHERE user_id = $1
+       ORDER BY last_viewed_at DESC
+       LIMIT 100`,
+      [cleanUserId]
+    );
+    if (rows && rows.length > 0) {
+      views = rows.map(r => ({
+        videoId: r.video_id,
+        collectionId: r.collection_id,
+        isReel: r.is_reel,
+        tags: Array.isArray(r.tags) ? r.tags : (typeof r.tags === 'string' ? JSON.parse(r.tags || '[]') : []),
+        viewCount: r.view_count || 1,
+        lastViewedAt: r.last_viewed_at
+      }));
+    }
+  } catch (e) {}
+
+  // Fallback a memoria si no hay resultados en DB
+  if (views.length === 0 && inMemoryUserViews.has(cleanUserId)) {
+    views = inMemoryUserViews.get(cleanUserId);
+  }
+
+  const weights = {};
+  const now = Date.now();
+  const DECAY_LAMBDA = 0.2; // Factor de atenuación diaria
+
+  for (const v of views) {
+    const timeMs = new Date(v.lastViewedAt).getTime();
+    const daysAgo = Math.max(0, (now - timeMs) / (1000 * 60 * 60 * 24));
+    const timeWeight = Math.exp(-DECAY_LAMBDA * daysAgo);
+    const scoreDelta = (v.viewCount || 1) * timeWeight;
+
+    for (const tag of (v.tags || [])) {
+      const cleanTag = String(tag).toLowerCase().trim();
+      if (cleanTag) {
+        weights[cleanTag] = (weights[cleanTag] || 0) + scoreDelta;
+      }
+    }
+  }
+
+  return weights;
+}
+
+/**
+ * Pondera un ítem (colección o video) asignándole una puntuación de recomendación basada en sus etiquetas ocultas.
+ */
+function calculateItemRecommendationScore(item, userWeights = {}) {
+  const tags = item.hidden_tags || extractHiddenTags(item);
+  let totalScore = 0;
+
+  for (const t of tags) {
+    const cleanTag = String(t).toLowerCase().trim();
+    if (userWeights[cleanTag]) {
+      totalScore += userWeights[cleanTag];
+    }
+  }
+
+  // Factor de categoría coincidente
+  if (item.category && userWeights[item.category.toLowerCase()]) {
+    totalScore += userWeights[item.category.toLowerCase()] * 1.5;
+  }
+
+  return totalScore;
+}
+
 // ---------------- GESTIÓN DE COLECCIONES Y VIDEOS ----------------
 
 async function getCollections(userId = null, options = {}) {
   const includeVideos = typeof options === 'boolean' ? options : !!options.includeVideos;
-  let userInterests = [];
+  let userWeights = {};
   if (userId) {
-    try {
-      const uRes = await query(`SELECT interests, hobbies FROM users WHERE id = $1`, [userId]);
-      if (uRes.rows && uRes.rows[0]) {
-        const raw = [...(uRes.rows[0].interests || []), ...(uRes.rows[0].hobbies || [])];
-        userInterests = raw.map(i => String(i).toLowerCase().trim()).filter(Boolean);
-      }
-    } catch (e) {}
+    userWeights = await getUserRecommendationWeights(userId);
   }
 
   let collections = [];
 
   try {
     const selectQuery = includeVideos
-      ? `SELECT c.id, c.name, c.cover_url, c.category, c.audio_description, c.created_at, c.updated_at,
+      ? `SELECT c.id, c.name, c.cover_url, c.category, c.audio_description, c.hidden_tags, c.created_at, c.updated_at,
                 COUNT(v.id)::int AS video_count,
                 COALESCE(
                   json_agg(
@@ -110,7 +299,8 @@ async function getCollections(userId = null, options = {}) {
                       'thumbnail_url', v.thumbnail_url,
                       'position', v.position,
                       'status', v.status,
-                      'audio_description', v.audio_description
+                      'audio_description', v.audio_description,
+                      'hidden_tags', v.hidden_tags
                     ) ORDER BY v.position ASC, v.created_at ASC
                   ) FILTER (WHERE v.id IS NOT NULL AND v.status = 'active'),
                   '[]'::json
@@ -119,7 +309,7 @@ async function getCollections(userId = null, options = {}) {
          LEFT JOIN linkvideo_videos v ON c.id = v.collection_id AND v.status = 'active'
          GROUP BY c.id
          ORDER BY c.created_at DESC`
-      : `SELECT c.id, c.name, c.cover_url, c.category, c.audio_description, c.created_at, c.updated_at,
+      : `SELECT c.id, c.name, c.cover_url, c.category, c.audio_description, c.hidden_tags, c.created_at, c.updated_at,
                 COUNT(v.id)::int AS video_count
          FROM linkvideo_collections c
          LEFT JOIN linkvideo_videos v ON c.id = v.collection_id AND v.status = 'active'
@@ -128,7 +318,16 @@ async function getCollections(userId = null, options = {}) {
 
     const { rows } = await query(selectQuery);
     if (rows && rows.length > 0) {
-      collections = rows.map(col => ({ ...col, category: sanitizeCategory(col.category) }));
+      collections = rows.map(col => {
+        const hTags = Array.isArray(col.hidden_tags) && col.hidden_tags.length > 0
+          ? col.hidden_tags
+          : extractHiddenTags(col);
+        return {
+          ...col,
+          category: sanitizeCategory(col.category),
+          hidden_tags: hTags
+        };
+      });
     }
   } catch (err) {
     // Fallback in-memory
@@ -137,28 +336,37 @@ async function getCollections(userId = null, options = {}) {
   if (!collections.length) {
     collections = Array.from(inMemoryCollections.values()).map(col => {
       const memVideos = Array.from(inMemoryVideos.values()).filter(v => v.collection_id === col.id && v.status === 'active');
+      const hTags = Array.isArray(col.hidden_tags) && col.hidden_tags.length > 0
+        ? col.hidden_tags
+        : extractHiddenTags(col);
       const item = {
         ...col,
         category: col.category || 'General',
+        hidden_tags: hTags,
         video_count: memVideos.length
       };
       if (includeVideos) {
-        item.videos = memVideos.sort((a, b) => (a.position - b.position));
+        item.videos = memVideos.map(v => ({
+          ...v,
+          hidden_tags: Array.isArray(v.hidden_tags) && v.hidden_tags.length > 0 ? v.hidden_tags : extractHiddenTags(v)
+        })).sort((a, b) => (a.position - b.position));
       }
       return item;
     });
   }
 
-  if (userInterests.length > 0) {
-    // Alimentar el algoritmo: ordenar o ponderar según coincidencia con las categorías de la colección
-    collections.sort((a, b) => {
-      const catA = (a.category || '').toLowerCase();
-      const catB = (b.category || '').toLowerCase();
-      const matchA = userInterests.some(interest => catA.includes(interest) || interest.includes(catA)) ? 1 : 0;
-      const matchB = userInterests.some(interest => catB.includes(interest) || interest.includes(catB)) ? 1 : 0;
-      return matchB - matchA;
-    });
-  }
+  // Alimentar el algoritmo de recomendación personalizado
+  collections = collections.map(col => {
+    const score = calculateItemRecommendationScore(col, userWeights);
+    return {
+      ...col,
+      recommendation_score: parseFloat(score.toFixed(2)),
+      is_recommended: score > 0
+    };
+  });
+
+  // Ordenar dinámicamente según la puntuación de recomendación del usuario
+  collections.sort((a, b) => (b.recommendation_score - a.recommendation_score));
 
   return collections;
 }
@@ -169,7 +377,7 @@ async function getCollectionById(collectionId) {
 
   try {
     const colRes = await query(
-      `SELECT id, name, cover_url, category, audio_description, created_at, updated_at
+      `SELECT id, name, cover_url, category, audio_description, hidden_tags, created_at, updated_at
        FROM linkvideo_collections
        WHERE id::text = $1::text`,
       [collectionId]
@@ -177,15 +385,19 @@ async function getCollectionById(collectionId) {
     if (colRes.rows && colRes.rows.length > 0) {
       collection = colRes.rows[0];
       const vidRes = await query(
-        `SELECT id, collection_id, title, video_id, original_url, thumbnail_url, position, status, audio_description, created_at, updated_at
+        `SELECT id, collection_id, title, video_id, original_url, thumbnail_url, position, status, audio_description, hidden_tags, created_at, updated_at
          FROM linkvideo_videos
          WHERE collection_id::text = $1::text AND status = 'active'
          ORDER BY position ASC, created_at ASC`,
         [collectionId]
       );
-      videos = vidRes.rows || [];
+      videos = (vidRes.rows || []).map(v => ({
+        ...v,
+        hidden_tags: Array.isArray(v.hidden_tags) && v.hidden_tags.length > 0 ? v.hidden_tags : extractHiddenTags(v)
+      }));
       return {
         ...collection,
+        hidden_tags: Array.isArray(collection.hidden_tags) && collection.hidden_tags.length > 0 ? collection.hidden_tags : extractHiddenTags(collection),
         videos
       };
     }
@@ -197,9 +409,14 @@ async function getCollectionById(collectionId) {
     collection = inMemoryCollections.get(collectionId);
     videos = Array.from(inMemoryVideos.values())
       .filter(v => v.collection_id === collectionId && v.status === 'active')
+      .map(v => ({
+        ...v,
+        hidden_tags: Array.isArray(v.hidden_tags) && v.hidden_tags.length > 0 ? v.hidden_tags : extractHiddenTags(v)
+      }))
       .sort((a, b) => (a.position - b.position));
     return {
       ...collection,
+      hidden_tags: Array.isArray(collection.hidden_tags) && collection.hidden_tags.length > 0 ? collection.hidden_tags : extractHiddenTags(collection),
       videos
     };
   }
@@ -216,14 +433,15 @@ async function createCollection({ name, cover_url, category, audio_description }
   const cleanCover = cover_url || null;
   const cleanCategory = sanitizeCategory(category);
   const cleanAudioDesc = audio_description ? audio_description.trim() : null;
+  const hiddenTags = extractHiddenTags({ name: cleanName, category: cleanCategory, audio_description: cleanAudioDesc });
   const nowIso = new Date().toISOString();
 
   try {
     const { rows } = await query(
-      `INSERT INTO linkvideo_collections (name, cover_url, category, audio_description, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, now(), now())
-       RETURNING id, name, cover_url, category, audio_description, created_at, updated_at`,
-      [cleanName, cleanCover, cleanCategory, cleanAudioDesc]
+      `INSERT INTO linkvideo_collections (name, cover_url, category, audio_description, hidden_tags, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5::jsonb, now(), now())
+       RETURNING id, name, cover_url, category, audio_description, hidden_tags, created_at, updated_at`,
+      [cleanName, cleanCover, cleanCategory, cleanAudioDesc, JSON.stringify(hiddenTags)]
     );
     if (rows && rows.length > 0) {
       const created = { ...rows[0], video_count: 0, videos: [] };
@@ -241,6 +459,7 @@ async function createCollection({ name, cover_url, category, audio_description }
     cover_url: cleanCover,
     category: cleanCategory,
     audio_description: cleanAudioDesc,
+    hidden_tags: hiddenTags,
     created_at: nowIso,
     updated_at: nowIso,
     video_count: 0,
@@ -254,6 +473,7 @@ async function updateCollection(collectionId, { name, cover_url, category, audio
   const cleanName = name ? name.trim() : undefined;
   const cleanCategory = category ? sanitizeCategory(category) : undefined;
   const cleanAudioDesc = audio_description !== undefined ? (audio_description ? audio_description.trim() : null) : undefined;
+  const hiddenTags = extractHiddenTags({ name: cleanName, category: cleanCategory, audio_description: cleanAudioDesc });
   const nowIso = new Date().toISOString();
 
   try {
@@ -278,16 +498,18 @@ async function updateCollection(collectionId, { name, cover_url, category, audio
       values.push(cleanAudioDesc);
     }
 
-    if (fields.length > 0) {
-      fields.push(`updated_at = now()`);
-      values.push(collectionId);
-      const queryStr = `UPDATE linkvideo_collections SET ${fields.join(', ')} WHERE id::text = $${idx} RETURNING id, name, cover_url, category, audio_description, created_at, updated_at`;
-      const { rows } = await query(queryStr, values);
-      if (rows && rows.length > 0) {
-        const updated = rows[0];
-        inMemoryCollections.set(collectionId, updated);
-        return await getCollectionById(collectionId);
-      }
+    fields.push(`hidden_tags = $${idx++}::jsonb`);
+    values.push(JSON.stringify(hiddenTags));
+
+    fields.push(`updated_at = now()`);
+    values.push(collectionId);
+
+    const queryStr = `UPDATE linkvideo_collections SET ${fields.join(', ')} WHERE id::text = $${idx} RETURNING id, name, cover_url, category, audio_description, hidden_tags, created_at, updated_at`;
+    const { rows } = await query(queryStr, values);
+    if (rows && rows.length > 0) {
+      const updated = rows[0];
+      inMemoryCollections.set(collectionId, updated);
+      return await getCollectionById(collectionId);
     }
   } catch (err) {
     // Memory fallback
@@ -299,6 +521,7 @@ async function updateCollection(collectionId, { name, cover_url, category, audio
     if (cover_url !== undefined) col.cover_url = cover_url;
     if (cleanCategory !== undefined) col.category = cleanCategory;
     if (cleanAudioDesc !== undefined) col.audio_description = cleanAudioDesc;
+    col.hidden_tags = hiddenTags;
     col.updated_at = nowIso;
     inMemoryCollections.set(collectionId, col);
     return await getCollectionById(collectionId);
@@ -330,6 +553,7 @@ async function addVideoToCollection(collectionId, { url, title, audio_descriptio
 
   const ytInfo = await fetchYouTubeInfo(url, title);
   const cleanAudioDesc = audio_description ? audio_description.trim() : null;
+  const hiddenTags = extractHiddenTags({ title: ytInfo.title, original_url: ytInfo.original_url, audio_description: cleanAudioDesc, category: collection.category });
   const nowIso = new Date().toISOString();
 
   // Calcular siguiente posición
@@ -338,10 +562,10 @@ async function addVideoToCollection(collectionId, { url, title, audio_descriptio
 
   try {
     const { rows } = await query(
-      `INSERT INTO linkvideo_videos (collection_id, title, video_id, original_url, thumbnail_url, position, status, audio_description, created_at, updated_at)
-       VALUES ($1::uuid, $2, $3, $4, $5, $6, 'active', $7, now(), now())
-       RETURNING id, collection_id, title, video_id, original_url, thumbnail_url, position, status, audio_description, created_at, updated_at`,
-      [collectionId, ytInfo.title, ytInfo.videoId, ytInfo.original_url, ytInfo.thumbnail_url, nextPos, cleanAudioDesc]
+      `INSERT INTO linkvideo_videos (collection_id, title, video_id, original_url, thumbnail_url, position, status, audio_description, hidden_tags, created_at, updated_at)
+       VALUES ($1::uuid, $2, $3, $4, $5, $6, 'active', $7, $8::jsonb, now(), now())
+       RETURNING id, collection_id, title, video_id, original_url, thumbnail_url, position, status, audio_description, hidden_tags, created_at, updated_at`,
+      [collectionId, ytInfo.title, ytInfo.videoId, ytInfo.original_url, ytInfo.thumbnail_url, nextPos, cleanAudioDesc, JSON.stringify(hiddenTags)]
     );
     if (rows && rows.length > 0) {
       const createdVid = rows[0];
@@ -363,6 +587,7 @@ async function addVideoToCollection(collectionId, { url, title, audio_descriptio
     position: nextPos,
     status: 'active',
     audio_description: cleanAudioDesc,
+    hidden_tags: hiddenTags,
     created_at: nowIso,
     updated_at: nowIso
   };
@@ -396,7 +621,7 @@ async function updateVideo(videoId, { title, position, audio_description }) {
     if (fields.length > 0) {
       fields.push(`updated_at = now()`);
       values.push(videoId);
-      const queryStr = `UPDATE linkvideo_videos SET ${fields.join(', ')} WHERE id::text = $${idx} RETURNING id, collection_id, title, video_id, original_url, thumbnail_url, position, status, audio_description, created_at, updated_at`;
+      const queryStr = `UPDATE linkvideo_videos SET ${fields.join(', ')} WHERE id::text = $${idx} RETURNING id, collection_id, title, video_id, original_url, thumbnail_url, position, status, audio_description, hidden_tags, created_at, updated_at`;
       const { rows } = await query(queryStr, values);
       if (rows && rows.length > 0) {
         const updated = rows[0];
@@ -439,6 +664,108 @@ async function reorderVideos(collectionId, orderedVideoIds) {
   }
 
   return await getCollectionById(collectionId);
+}
+
+/**
+ * Obtiene las recomendaciones principales personalizadas para un usuario (Spotify/YouTube style).
+ */
+async function getTopRecommendations(userId, limit = 6) {
+  const collections = await getCollections(userId, { includeVideos: true });
+  const userWeights = await getUserRecommendationWeights(userId);
+
+  // Extraer todos los videos individuales
+  const allVideos = [];
+  for (const col of collections) {
+    if (Array.isArray(col.videos)) {
+      for (const vid of col.videos) {
+        const score = calculateItemRecommendationScore(vid, userWeights);
+        allVideos.push({
+          ...vid,
+          collection_name: col.name,
+          category: col.category,
+          recommendation_score: parseFloat(score.toFixed(2))
+        });
+      }
+    }
+  }
+
+  allVideos.sort((a, b) => b.recommendation_score - a.recommendation_score);
+
+  return {
+    collections: collections.slice(0, limit),
+    videos: allVideos.slice(0, limit)
+  };
+}
+
+/**
+ * Obtiene el catálogo de Reels/Shorts con sistema de desduplicación y priorización por usuario.
+ */
+async function getReelsCatalog(userId) {
+  const collections = await getCollections(userId, { includeVideos: true });
+  const allVideos = [];
+
+  for (const col of collections) {
+    if (Array.isArray(col.videos)) {
+      for (const vid of col.videos) {
+        if (isReelUrlOrTitle(vid.original_url, vid.title) || (vid.hidden_tags && vid.hidden_tags.includes('reel'))) {
+          allVideos.push({
+            ...vid,
+            collection_name: col.name,
+            category: col.category
+          });
+        }
+      }
+    }
+  }
+
+  // Obtener historial de Reels vistos por el usuario
+  const cleanUserId = userId ? String(userId).trim() : null;
+  const viewedMap = new Map(); // videoId -> viewCount
+
+  if (cleanUserId) {
+    try {
+      const { rows } = await query(
+        `SELECT video_id, view_count FROM user_video_views WHERE user_id = $1 AND is_reel = true`,
+        [cleanUserId]
+      );
+      if (rows && rows.length > 0) {
+        for (const r of rows) {
+          viewedMap.set(r.video_id, r.view_count || 1);
+        }
+      }
+    } catch (e) {}
+
+    if (viewedMap.size === 0 && inMemoryUserViews.has(cleanUserId)) {
+      const views = inMemoryUserViews.get(cleanUserId);
+      for (const v of views) {
+        if (v.isReel) {
+          viewedMap.set(v.videoId, v.viewCount || 1);
+        }
+      }
+    }
+  }
+
+  // Asignar nivel de prioridad y puntuación
+  const reelsWithPriority = allVideos.map(reel => {
+    const viewCount = viewedMap.get(reel.video_id) || viewedMap.get(reel.id) || 0;
+    const isSeen = viewCount > 0;
+    // Los reels no vistos reciben máxima prioridad (100 puntos), los vistos sufren penalización en base a visualizaciones
+    const priorityScore = isSeen ? Math.max(-100, 10 - viewCount * 30) : 100;
+
+    return {
+      ...reel,
+      is_reel: true,
+      seen: isSeen,
+      view_count: viewCount,
+      priority_score: priorityScore,
+      priority_badge: isSeen ? 'Visto (Prioridad Baja)' : 'Nuevo (Prioridad Alta)'
+    };
+  });
+
+  // Ordenar para que los Reels NUNCA VISTOS salgan primero
+  reelsWithPriority.sort((a, b) => b.priority_score - a.priority_score);
+
+  return reelsWithPriority;
 }
 
 // ---------------- SERVICIOS ORIGINALES REUTILIZADOS ----------------
@@ -838,6 +1165,12 @@ async function getOrFetchSubtitles(videoId, requestedLang = 'es', forceRefresh =
 
 module.exports = {
   PREDEFINED_CATEGORIES,
+  // Recomendaciones & Etiquetas Ocultas
+  recordUserView,
+  getUserRecommendationWeights,
+  getTopRecommendations,
+  getReelsCatalog,
+
   // Subtítulos
   getOrFetchSubtitles,
 
