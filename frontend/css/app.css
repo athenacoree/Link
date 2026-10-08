@@ -2770,47 +2770,57 @@ html[data-tema="oscuro"] .linkvideo-square-card {
   text-align: center;
 }
 
-/* ================= REPRODUCTOR ESTILO HITV (LINK VIDEO) ================= */
+/* ================= REPRODUCTOR ESTILO iOS GLASS / LINK VIDEO ================= */
 .hitv-player-modal {
   position: fixed;
   inset: 0;
   z-index: 100000;
-  background: var(--fondo-app, #faf8ff);
+  background: radial-gradient(circle at 50% 0%, rgba(237, 231, 255, 0.9) 0%, rgba(245, 243, 255, 0.95) 50%, rgba(250, 248, 255, 0.98) 100%);
+  backdrop-filter: blur(28px) saturate(190%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  padding: 8px 16px 20px;
+  padding: calc(env(safe-area-inset-top) + 8px) 16px calc(env(safe-area-inset-bottom) + 16px);
   color: var(--texto-900);
   overflow-y: auto;
+  box-sizing: border-box;
 }
 
+html[data-tema="oscuro"] .hitv-player-modal,
 body[data-tema="oscuro"] .hitv-player-modal {
-  background: #0f0c29;
-  color: #ffffff;
+  background: radial-gradient(circle at 50% 0%, rgba(46, 26, 82, 0.85) 0%, rgba(20, 14, 38, 0.95) 55%, rgba(10, 7, 20, 0.98) 100%);
+  color: #f3f0ff;
 }
 
 .hitv-close-btn {
   position: absolute;
-  top: 16px;
+  top: calc(env(safe-area-inset-top) + 12px);
   right: 16px;
   z-index: 40;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  color: #ffffff;
-  width: 42px;
-  height: 42px;
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  color: var(--morado-950, #241539);
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
-  font-size: 24px;
-  font-weight: bold;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 4px 16px rgba(91, 33, 182, 0.15);
+  transition: transform 0.18s ease, background 0.18s ease;
+}
+
+html[data-tema="oscuro"] .hitv-close-btn,
+body[data-tema="oscuro"] .hitv-close-btn {
+  background: rgba(36, 26, 61, 0.65);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-  transition: transform 0.15s ease, background 0.15s ease;
 }
 
 .hitv-close-btn:active {
@@ -2819,11 +2829,12 @@ body[data-tema="oscuro"] .hitv-player-modal {
 
 .hitv-player-wrapper {
   width: 100%;
-  max-width: 920px;
+  max-width: 840px;
   display: flex;
   flex-direction: column;
   align-items: center;
   position: relative;
+  margin-top: 4px;
 }
 
 .hitv-video-container {
@@ -2831,9 +2842,14 @@ body[data-tema="oscuro"] .hitv-player-modal {
   aspect-ratio: 16 / 9;
   position: relative;
   background: #000000;
-  border-radius: 20px;
+  border-radius: 24px;
   overflow: hidden;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  box-shadow: 0 18px 40px -10px rgba(91, 33, 182, 0.22), 0 0 0 1px rgba(255, 255, 255, 0.6);
+}
+
+html[data-tema="oscuro"] .hitv-video-container,
+body[data-tema="oscuro"] .hitv-video-container {
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.12);
 }
 
 .hitv-video-container iframe,
@@ -2845,74 +2861,125 @@ body[data-tema="oscuro"] .hitv-player-modal {
   inset: 0;
 }
 
-/* Subtítulos y Animación debajo del reproductor de video */
+/* Área Flotante de Subtítulos Karaoke / Ondas Aurora (Bajo el video, NUNCA sobre el iframe) */
 .hitv-subtitle-area {
   width: 100%;
-  padding: 10px 14px;
-  min-height: 50px;
+  padding: 12px 16px;
+  min-height: 56px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  margin-top: 10px;
-  border-radius: 16px;
-  background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  margin-top: 12px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 8px 24px -6px rgba(91, 33, 182, 0.1);
+  box-sizing: border-box;
 }
 
-.hitv-folder-toggle-btn {
-  background: rgba(124, 58, 237, 0.35);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(139, 92, 246, 0.5);
+html[data-tema="oscuro"] .hitv-subtitle-area,
+body[data-tema="oscuro"] .hitv-subtitle-area {
+  background: rgba(26, 18, 48, 0.65);
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.4);
+}
+
+.hitv-subtitle-line {
+  font-size: clamp(15px, 4vw, 22px);
+  font-weight: 800;
+  color: var(--texto-900, #1e1338);
+  text-align: center;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+  padding: 6px 14px;
+  border-radius: 14px;
+  max-width: 96%;
+  transition: opacity 0.22s ease, transform 0.22s ease;
+  word-wrap: break-word;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+}
+
+html[data-tema="oscuro"] .hitv-subtitle-line,
+body[data-tema="oscuro"] .hitv-subtitle-line {
   color: #ffffff;
-  width: 40px;
-  height: 40px;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8), 0 0 14px rgba(167, 139, 250, 0.5);
+}
+
+.hitv-subtitle-line.hitv-subtitle-hidden {
+  opacity: 0;
+  transform: translateY(6px);
+  pointer-events: none;
+  display: none !important;
+}
+
+/* Desplegable de Vídeos de Carpeta en Reproductor */
+.hitv-folder-toggle-btn {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  color: var(--morado-700, #6d28d9);
+  width: 38px;
+  height: 38px;
   border-radius: 12px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 14px rgba(91, 33, 182, 0.12);
   transition: transform 0.18s ease, background 0.18s ease;
 }
 
+html[data-tema="oscuro"] .hitv-folder-toggle-btn,
+body[data-tema="oscuro"] .hitv-folder-toggle-btn {
+  background: rgba(36, 26, 61, 0.7);
+  border-color: rgba(167, 139, 250, 0.3);
+  color: #ddd6fe;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
 .hitv-folder-toggle-btn:hover {
-  background: rgba(124, 58, 237, 0.6);
   transform: scale(1.05);
 }
 
 .hitv-folder-videos-container {
   width: 100%;
-  margin-top: 12px;
+  margin-top: 14px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
+  box-sizing: border-box;
 }
 
 .hitv-folder-video-card-item {
   display: flex;
   flex-direction: column;
-  background: var(--blanco);
-  border: 1.5px solid var(--borde);
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.8);
   border-radius: 20px;
   overflow: hidden;
   cursor: pointer;
   transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 6px 20px rgba(91, 33, 182, 0.08);
+  box-sizing: border-box;
 }
 
+html[data-tema="oscuro"] .hitv-folder-video-card-item,
 body[data-tema="oscuro"] .hitv-folder-video-card-item {
-  background: var(--fondo-tarjeta);
-  border-color: var(--borde);
+  background: rgba(24, 18, 44, 0.75);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.35);
 }
 
 .hitv-folder-video-card-item:hover, .hitv-folder-video-card-item.active {
-  border-color: var(--morado-600, #8b5cf6);
+  border-color: var(--morado-600, #7c3aed);
   transform: translateY(-2px);
-  box-shadow: 0 12px 32px rgba(124, 58, 237, 0.2);
+  box-shadow: 0 10px 28px rgba(124, 58, 237, 0.25);
 }
 
 .hitv-folder-card-thumb-wrap {
@@ -2939,54 +3006,35 @@ body[data-tema="oscuro"] .hitv-folder-video-card-item {
 }
 
 .hitv-folder-card-play-icon {
-  width: 52px;
-  height: 52px;
+  width: 48px;
+  height: 48px;
   background: rgba(124, 58, 237, 0.85);
   backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
 }
 
 .hitv-folder-card-info {
-  padding: 12px 16px;
+  padding: 12px 14px;
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
 .hitv-folder-card-title {
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 800;
-  color: #ffffff;
+  color: var(--texto-900, #1e1338);
   line-height: 1.3;
 }
 
-.hitv-subtitle-line {
-  font-size: clamp(14px, 3.6vw, 20px);
-  font-weight: 800;
+html[data-tema="oscuro"] .hitv-folder-card-title,
+body[data-tema="oscuro"] .hitv-folder-card-title {
   color: #ffffff;
-  text-align: center;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9), 0 0 12px rgba(139, 92, 246, 0.6);
-  line-height: 1.35;
-  letter-spacing: 0.2px;
-  padding: 6px 14px;
-  border-radius: 12px;
-  background: rgba(0, 0, 0, 0.45);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  max-width: 90%;
-  transition: opacity 0.2s ease, transform 0.2s ease;
-  word-wrap: break-word;
-}
-
-.hitv-subtitle-line.hitv-subtitle-hidden {
-  opacity: 0;
-  transform: translateY(6px);
-  pointer-events: none;
-  display: none;
 }
 
 /* Animación Esfera Luminosa Link + Ondas Aurora */
@@ -2995,15 +3043,15 @@ body[data-tema="oscuro"] .hitv-folder-video-card-item {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  transition: opacity 0.4s ease, transform 0.4s ease;
+  gap: 6px;
+  transition: opacity 0.35s ease, transform 0.35s ease;
 }
 
 .hitv-aurora-container.hitv-aurora-hidden {
   opacity: 0;
   transform: scale(0.85);
   pointer-events: none;
-  display: none;
+  display: none !important;
 }
 
 .hitv-aurora-sphere {
@@ -3019,7 +3067,7 @@ body[data-tema="oscuro"] .hitv-folder-video-card-item {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: radial-gradient(circle, #ffffff 0%, #c084fc 60%, #8b5cf6 100%);
+  background: radial-gradient(circle, #ffffff 0%, #c084fc 60%, #7c3aed 100%);
   box-shadow: 0 0 12px #a855f7, 0 0 24px #ec4899;
   z-index: 2;
   animation: auroraCorePulse 2s infinite ease-in-out;
@@ -3064,7 +3112,7 @@ body[data-tema="oscuro"] .hitv-folder-video-card-item {
     width: 60px;
     height: 60px;
     opacity: 0;
-    border-color: rgba(139, 92, 246, 0.2);
+    border-color: rgba(124, 58, 237, 0.2);
     transform: scale(1.6);
   }
 }
@@ -3081,10 +3129,15 @@ body[data-tema="oscuro"] .hitv-folder-video-card-item {
 }
 
 .hitv-aurora-notice {
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 700;
+  color: var(--texto-500, #7a6f92);
+  letter-spacing: 0.3px;
+}
+
+html[data-tema="oscuro"] .hitv-aurora-notice,
+body[data-tema="oscuro"] .hitv-aurora-notice {
   color: rgba(255, 255, 255, 0.8);
-  letter-spacing: 0.4px;
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
 }
 
