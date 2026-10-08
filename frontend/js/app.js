@@ -3799,28 +3799,236 @@ async function abrirPerfil(personaId) {
   } catch (e) { mostrarToast(e.message); }
 }
 
+let filtroCategoriaContenidoPerfilActual = 'todos';
+
 function cambiarTabPerfil(tabName) {
   const tabPub = $('tabPerfilPublicaciones');
+  const tabCont = $('tabPerfilContenido');
   const tabPanel = $('tabPerfilPanel');
+
   const secPub = $('p-publicaciones');
+  const secCont = $('seccionContenidoPerfil');
   const secPanel = $('seccionMiPanelPerfil');
   const comp = $('p-compositor');
 
   if (tabPub) tabPub.classList.toggle('activo', tabName === 'publicaciones');
+  if (tabCont) tabCont.classList.toggle('activo', tabName === 'contenido');
   if (tabPanel) tabPanel.classList.toggle('activo', tabName === 'panel');
 
   if (tabName === 'panel') {
     if (secPub) secPub.classList.add('oculto');
+    if (secCont) secCont.classList.add('oculto');
     if (comp) comp.classList.add('oculto');
     if (secPanel) secPanel.classList.remove('oculto');
     cargarMiPanelMetricas();
+  } else if (tabName === 'contenido') {
+    if (secPub) secPub.classList.add('oculto');
+    if (secPanel) secPanel.classList.add('oculto');
+    if (comp) comp.classList.add('oculto');
+    if (secCont) secCont.classList.remove('oculto');
+    cargarContenidoPerfil(perfilActualId);
   } else {
     if (secPub) secPub.classList.remove('oculto');
     if (comp && perfilActualId === Sesion.usuario()?.id) comp.classList.remove('oculto');
     if (secPanel) secPanel.classList.add('oculto');
+    if (secCont) secCont.classList.add('oculto');
   }
 }
 window.cambiarTabPerfil = cambiarTabPerfil;
+
+function filtrarContenidoPerfil(cat, btn) {
+  filtroCategoriaContenidoPerfilActual = cat;
+  if (btn) {
+    const parent = btn.parentNode;
+    if (parent) {
+      parent.querySelectorAll('.sub-tab').forEach(t => t.classList.remove('activo'));
+      btn.classList.add('activo');
+    }
+  }
+  cargarContenidoPerfil(perfilActualId);
+}
+window.filtrarContenidoPerfil = filtrarContenidoPerfil;
+
+async function cargarContenidoPerfil(userId) {
+  const grid = $('gridContenidoPerfil');
+  const btnAdd = $('btnPerfilAddContenido');
+  const nombreTxt = $('txtNombreContenidoPerfil');
+
+  if (!grid) return;
+
+  const yo = Sesion.usuario();
+  const esMiPerfil = yo && (userId === yo.id);
+
+  if (btnAdd) {
+    btnAdd.style.display = esMiPerfil ? 'inline-flex' : 'none';
+  }
+
+  if (nombreTxt && personaActualGlobal) {
+    nombreTxt.textContent = personaActualGlobal.name || 'usuario';
+  }
+
+  grid.innerHTML = '<div style="text-align:center; padding:20px; color:var(--texto-500); grid-column:1/-1;">Cargando contenido...</div>';
+
+  try {
+    const catQuery = filtroCategoriaContenidoPerfilActual && filtroCategoriaContenidoPerfilActual !== 'todos'
+      ? `?category=${encodeURIComponent(filtroCategoriaContenidoPerfilActual)}`
+      : '';
+    const res = await api(`/linkvideo/external-content/user/${userId}${catQuery}`);
+    const items = (res && res.items) ? res.items : [];
+
+    if (!items || items.length === 0) {
+      grid.innerHTML = `
+        <div style="text-align:center; padding:30px 16px; color:var(--texto-500); grid-column:1/-1; background:var(--blanco); border:1px solid var(--borde); border-radius:18px;">
+          <div style="font-size:32px; margin-bottom:8px;">🎬</div>
+          <div style="font-weight:700; font-size:14px; color:var(--texto-800);">Sin contenido multimedia</div>
+          <div style="font-size:12px; margin-top:4px;">${esMiPerfil ? 'Toca "+ Añadir contenido" para guardar videos, reels o música en tu perfil.' : 'Este usuario aún no ha agregado contenido.'}</div>
+        </div>
+      `;
+      return;
+    }
+
+    grid.innerHTML = items.map(item => {
+      const cover = item.thumbnail || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600&auto=format&fit=crop';
+      const isOwner = yo && (item.user_id === yo.id || yo.is_admin);
+
+      return `
+        <div class="linkvideo-square-card" onclick="window.reproducirContenidoEmbed(${JSON.stringify(item).replace(/"/g, '&quot;')})" style="position:relative; cursor:pointer;">
+          <img class="linkvideo-card-thumb-img" src="${cover}" alt="${escaparHTMLGlobal(item.title)}" onerror="this.src='https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600&auto=format&fit=crop'">
+          <div class="linkvideo-card-overlay-gradient">
+            <div style="display:flex; justify-content:space-between; align-items:center; width:100%; font-size:10.5px; font-weight:800;">
+              <span style="background:var(--morado-600); color:#fff; padding:2px 8px; border-radius:8px; text-transform:uppercase;">${escaparHTMLGlobal(item.provider)}</span>
+              <span style="background:rgba(0,0,0,0.6); color:#fff; padding:2px 6px; border-radius:6px;">${escaparHTMLGlobal(item.category)}</span>
+            </div>
+            <div class="linkvideo-card-title">${escaparHTMLGlobal(item.title)}</div>
+          </div>
+          ${isOwner ? `
+            <button class="mini-btn peligro" onclick="event.stopPropagation(); window.eliminarContenidoPerfil('${item.id}')" style="position:absolute; top:8px; right:8px; z-index:10; padding:4px 8px; font-size:11px; border-radius:8px; box-shadow:0 4px 10px rgba(0,0,0,0.3);" title="Eliminar">
+              🗑️
+            </button>
+          ` : ''}
+        </div>
+      `;
+    }).join('');
+  } catch (err) {
+    grid.innerHTML = `<div style="text-align:center; padding:20px; color:var(--peligro); grid-column:1/-1;">Error al cargar contenido: ${err.message}</div>`;
+  }
+}
+window.cargarContenidoPerfil = cargarContenidoPerfil;
+
+window.abrirModalAddContenidoPerfil = function() {
+  if ($('inputAddContenidoUrl')) $('inputAddContenidoUrl').value = '';
+  if ($('inputAddContenidoTitle')) $('inputAddContenidoTitle').value = '';
+  if ($('inputAddContenidoDesc')) $('inputAddContenidoDesc').value = '';
+  $('veloAddContenidoPerfil')?.classList.add('activo');
+  $('hojaAddContenidoPerfil')?.classList.add('activo');
+};
+
+window.cerrarModalAddContenidoPerfil = function() {
+  $('veloAddContenidoPerfil')?.classList.remove('activo');
+  $('hojaAddContenidoPerfil')?.classList.remove('activo');
+};
+
+window.guardarAddContenidoPerfil = async function() {
+  const url = ($('inputAddContenidoUrl')?.value || '').trim();
+  const category = $('selectAddContenidoCategory')?.value || 'Vídeos';
+  const title = ($('inputAddContenidoTitle')?.value || '').trim();
+  const description = ($('inputAddContenidoDesc')?.value || '').trim();
+
+  if (!url) {
+    mostrarToast('Ingresa la URL del contenido.');
+    return;
+  }
+
+  try {
+    const res = await api('/linkvideo/external-content', {
+      method: 'POST',
+      body: { url, category, title, description }
+    });
+
+    if (res && res.ok) {
+      mostrarToast('¡Contenido añadido correctamente a tu perfil!');
+      window.cerrarModalAddContenidoPerfil();
+      window.cargarContenidoPerfil(perfilActualId);
+      if (window.LinkVideo) window.LinkVideo.cargarCatalogo();
+    }
+  } catch (err) {
+    mostrarToast(err.message || 'No se pudo añadir el contenido.');
+  }
+};
+
+window.eliminarContenidoPerfil = async function(contentId) {
+  if (!confirm('¿Deseas eliminar este contenido de tu perfil?')) return;
+  try {
+    const res = await api(`/linkvideo/external-content/${contentId}`, { method: 'DELETE' });
+    if (res && res.ok) {
+      mostrarToast('Contenido eliminado.');
+      window.cargarContenidoPerfil(perfilActualId);
+      if (window.LinkVideo) window.LinkVideo.cargarCatalogo();
+    }
+  } catch (err) {
+    mostrarToast(err.message || 'No se pudo eliminar el contenido.');
+  }
+};
+
+window.reproducirContenidoEmbed = function(item) {
+  if (!item || !item.embed_url) {
+    mostrarToast('No se puede reproducir este contenido.');
+    return;
+  }
+
+  const iframe = $('iframeEmbedPlayer');
+  const titleEl = $('embedPlayerTitle');
+  const badgeEl = $('embedPlayerBadge');
+  const modal = $('modalEmbedPlayer');
+  const velo = $('veloEmbedPlayer');
+
+  if (iframe) iframe.src = item.embed_url;
+  if (titleEl) titleEl.textContent = item.title || 'Contenido';
+  if (badgeEl) badgeEl.textContent = (item.provider || 'Oficial').toUpperCase();
+
+  if (velo) velo.classList.add('activo');
+  if (modal) modal.style.display = 'flex';
+};
+
+window.cerrarModalEmbedPlayer = function() {
+  const iframe = $('iframeEmbedPlayer');
+  const modal = $('modalEmbedPlayer');
+  const velo = $('veloEmbedPlayer');
+
+  if (iframe) iframe.src = '';
+  if (velo) velo.classList.remove('activo');
+  if (modal) modal.style.display = 'none';
+};
+
+async function cargarAdminProveedoresContenido() {
+  const grid = $('adminGridProvidersStatus');
+  if (!grid) return;
+
+  grid.innerHTML = '<div style="text-align:center; padding:16px; color:var(--texto-500);">Cargando proveedores...</div>';
+
+  try {
+    const res = await api('/linkvideo/admin/providers');
+    const providers = (res && res.providers) ? res.providers : [];
+
+    if (!providers.length) {
+      grid.innerHTML = '<div style="text-align:center; padding:16px; color:var(--texto-500);">No hay proveedores.</div>';
+      return;
+    }
+
+    grid.innerHTML = providers.map(p => `
+      <div style="background:var(--blanco); border:1px solid var(--borde); border-radius:14px; padding:14px; display:flex; flex-direction:column; gap:6px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-weight:800; font-size:14px; color:var(--texto-900);">${escaparHTMLGlobal(p.name)}</span>
+          <span style="font-size:18px;">${p.icon}</span>
+        </div>
+        <div style="font-size:11.5px; color:var(--texto-600); line-height:1.4;">${escaparHTMLGlobal(p.note)}</div>
+      </div>
+    `).join('');
+  } catch (err) {
+    grid.innerHTML = `<div style="text-align:center; padding:16px; color:var(--peligro);">Error al cargar proveedores: ${err.message}</div>`;
+  }
+}
+window.cargarAdminProveedoresContenido = cargarAdminProveedoresContenido;
 
 async function cargarMiPanelMetricas() {
   const contVisitantes = $('listaVisitantesPerfil');
@@ -4482,10 +4690,12 @@ document.querySelectorAll('#vistaAdmin .admin-card-cuadrado[data-admintab], #vis
     $('adminVistaYouTube')?.classList.toggle('oculto', target !== 'youtube-gestion');
     $('adminVistaColeccionesLinkVideo')?.classList.toggle('oculto', target !== 'colecciones-linkvideo');
     $('adminVistaMonetizacion')?.classList.toggle('oculto', target !== 'monetizacion');
+    $('adminVistaProveedoresContenido')?.classList.toggle('oculto', target !== 'proveedores-contenido');
     if (target === 'apk-gestion') cargarAdminGestionAPK();
     if (target === 'videos-gestion') cargarAdminPlatformVideos();
     if (target === 'colecciones-linkvideo') cargarAdminColeccionesLinkVideo();
     if (target === 'youtube-gestion') cargarAdminCanalesYouTube();
+    if (target === 'proveedores-contenido') cargarAdminProveedoresContenido();
     if (target === 'reportes') cargarAdminReportes('pendiente');
     if (target === 'anuncios') cargarAdminAnuncios();
     if (target === 'ai-config') { cargarAdminAIConfig(); adminCargarExperienciasYEventos(); }
