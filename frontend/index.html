@@ -9,10 +9,10 @@
 <link rel="manifest" id="manifestLink" href="/manifest.json">
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <link rel="icon" href="/icons/icon-192.png">
-  <link rel="stylesheet" href="/css/app.css?v=37">
-  <link rel="stylesheet" href="/css/call.css?v=37">
-  <link rel="stylesheet" href="/css/features.css?v=37">
-  <link rel="stylesheet" href="/css/ailab.css?v=37">
+  <link rel="stylesheet" href="/css/app.css?v=38">
+  <link rel="stylesheet" href="/css/call.css?v=38">
+  <link rel="stylesheet" href="/css/features.css?v=38">
+  <link rel="stylesheet" href="/css/ailab.css?v=38">
 </head>
 <body>
 
@@ -532,9 +532,10 @@
     <div id="p-reputacion" style="margin:-4px 0 14px;"></div>
   </div>
 
-  <!-- Navegación por pestañas dentro del perfil (Publicaciones, Mi Panel, Detalles) -->
+  <!-- Navegación por pestañas dentro del perfil (Publicaciones, Contenido, Mi Panel) -->
   <div class="sub-tabs perfil-tabs-nav" style="margin: 0 20px 16px; display: flex; gap: 6px;">
     <div class="sub-tab activo" id="tabPerfilPublicaciones" onclick="window.cambiarTabPerfil('publicaciones')">Publicaciones</div>
+    <div class="sub-tab" id="tabPerfilContenido" onclick="window.cambiarTabPerfil('contenido')">🎬 Contenido</div>
     <div class="sub-tab" id="tabPerfilPanel" onclick="window.cambiarTabPerfil('panel')">📊 Mi Panel</div>
   </div>
 
@@ -610,6 +611,28 @@
       <div id="listaVisitantesPerfil" style="display:flex; flex-direction:column; gap:8px;">
         <div style="text-align:center; padding:16px; color:var(--texto-500); font-size:12.5px;">Cargando visitantes...</div>
       </div>
+    </div>
+  </div>
+
+  <!-- SECCIÓN "CONTENIDO" (Contenido multimedia externo añadido por el usuario) -->
+  <div id="seccionContenidoPerfil" class="seccion-contenido-perfil oculto" style="padding: 0 20px 24px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <div style="font-weight:800; font-size:15px; color:var(--texto-900);">Contenido multimedia de <span id="txtNombreContenidoPerfil">usuario</span></div>
+      <button class="btn btn-primario mini-btn" id="btnPerfilAddContenido" onclick="window.abrirModalAddContenidoPerfil()" style="padding:7px 14px; font-weight:800; font-size:12.5px;">
+        + Añadir contenido
+      </button>
+    </div>
+
+    <div class="sub-tabs" style="margin-bottom:12px;" id="perfilContenidoSubTabs">
+      <div class="sub-tab activo" onclick="window.filtrarContenidoPerfil('todos', this)">Todos</div>
+      <div class="sub-tab" onclick="window.filtrarContenidoPerfil('Reels', this)">📱 Reels</div>
+      <div class="sub-tab" onclick="window.filtrarContenidoPerfil('Vídeos', this)">▶️ Vídeos</div>
+      <div class="sub-tab" onclick="window.filtrarContenidoPerfil('Música', this)">🎵 Música</div>
+      <div class="sub-tab" onclick="window.filtrarContenidoPerfil('Otros', this)">📂 Otros</div>
+    </div>
+
+    <div id="gridContenidoPerfil" class="grid-cuadrados-linkvideo">
+      <div style="text-align:center; padding:20px; color:var(--texto-500); grid-column: 1/-1;">Cargando contenido...</div>
     </div>
   </div>
 
@@ -827,6 +850,14 @@
         </div>
         <div class="admin-card-title">Monetización</div>
         <div class="admin-card-sub">Verificaciones y QvaPay</div>
+      </div>
+
+      <div class="admin-card-cuadrado" data-admintab="proveedores-contenido">
+        <div class="admin-card-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+        </div>
+        <div class="admin-card-title">Proveedores Contenido</div>
+        <div class="admin-card-sub">Estado de las 10 plataformas</div>
       </div>
     </div>
 
@@ -1429,6 +1460,81 @@
 
     <!-- SECCIÓN ADMINISTRATIVA DE MONETIZACIÓN -->
     <div id="adminVistaMonetizacion" class="oculto" style="margin-top:16px;"></div>
+
+    <!-- SECCIÓN ADMINISTRATIVA DE PROVEEDORES DE CONTENIDO -->
+    <div id="adminVistaProveedoresContenido" class="oculto" style="margin-top:16px;">
+      <p style="font-size:13.5px; color:var(--texto-600); margin-bottom:14px;">
+        Estado en tiempo real de las 10 plataformas de contenido externo integradas en Link Video. Revisa qué configuraciones o variables de entorno están activas.
+      </p>
+
+      <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:12px; margin-bottom:18px;" id="adminGridProvidersStatus">
+        <div style="text-align:center; padding:16px; color:var(--texto-500);">Cargando estado de proveedores...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ---------- Modal Añadir Contenido desde Perfil ---------- -->
+<div class="velo" id="veloAddContenidoPerfil"></div>
+<div class="hoja" id="hojaAddContenidoPerfil" style="bottom:20px; max-height:85vh;">
+  <div class="hoja-grupo">
+    <div class="hoja-persona"><span style="font-weight:800; color:var(--morado-700); font-size:16px;">➕ Añadir contenido a mi perfil</span></div>
+    <div class="hoja-form" style="padding:10px 4px;">
+      <div class="campo">
+        <label>URL del contenido</label>
+        <input type="url" id="inputAddContenidoUrl" placeholder="https://youtube.com/watch?v=... o instagram.com/reel/...">
+        <div style="font-size:11.5px; color:var(--texto-500); margin-top:2px;">
+          Soportados: YouTube, Instagram Reel, Vimeo, Dailymotion, Twitch, PeerTube, Internet Archive, TED, SoundCloud, Mixcloud.
+        </div>
+      </div>
+      <div class="campo">
+        <label>Categoría</label>
+        <select id="selectAddContenidoCategory">
+          <option value="Vídeos">▶️ Vídeos</option>
+          <option value="Reels">📱 Reels</option>
+          <option value="Música">🎵 Música</option>
+          <option value="Podcasts">🎙️ Podcasts</option>
+          <option value="Películas / documentales">🎬 Películas / documentales</option>
+          <option value="Vimeo">🎥 Vimeo</option>
+          <option value="Directos">🔴 Directos</option>
+          <option value="Twitch">🎮 Twitch</option>
+          <option value="PeerTube">🌐 PeerTube</option>
+          <option value="Charlas">🎤 Charlas</option>
+          <option value="Otros">📂 Otros</option>
+        </select>
+      </div>
+      <div class="campo">
+        <label>Título (opcional)</label>
+        <input type="text" id="inputAddContenidoTitle" placeholder="Ej: Mi Reel favorito o Mi canción preferida">
+      </div>
+      <div class="campo">
+        <label>Descripción / Nota (opcional)</label>
+        <textarea id="inputAddContenidoDesc" rows="2" placeholder="Comentario u observación sobre el contenido..."></textarea>
+      </div>
+      <div style="display:flex; gap:10px; margin-top:12px;">
+        <button class="btn btn-secundario" onclick="window.cerrarModalAddContenidoPerfil()" style="flex:1;">Cancelar</button>
+        <button class="btn btn-primario" onclick="window.guardarAddContenidoPerfil()" style="flex:2; font-weight:800;">
+          Guardar contenido
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ---------- Modal Reproductor de Embed Oficial (Fullscreen) ---------- -->
+<div class="velo" id="veloEmbedPlayer" style="z-index:99998;"></div>
+<div id="modalEmbedPlayer" style="display:none; position:fixed; inset:0; z-index:99999; background:rgba(0,0,0,0.92); flex-direction:column; align-items:center; justify-content:center; padding:12px;">
+  <div style="position:absolute; top:16px; right:16px; display:flex; gap:10px; z-index:1001;">
+    <button onclick="window.cerrarModalEmbedPlayer()" style="color:#fff; font-size:24px; font-weight:700; cursor:pointer; background:rgba(255,255,255,0.2); width:38px; height:38px; border-radius:50%; border:none; display:flex; align-items:center; justify-content:center;">&times;</button>
+  </div>
+  <div style="width:100%; max-width:850px; height:80vh; display:flex; flex-direction:column; background:#000; border-radius:18px; overflow:hidden; box-shadow:0 12px 32px rgba(0,0,0,0.7); position:relative;">
+    <div style="padding:10px 16px; background:var(--morado-900, #1e1b4b); color:#fff; font-weight:700; font-size:13.5px; display:flex; justify-content:space-between; align-items:center;">
+      <span id="embedPlayerTitle">Reproduciendo Contenido</span>
+      <span id="embedPlayerBadge" style="font-size:11px; background:var(--morado-600); padding:3px 8px; border-radius:10px;">Plataforma Oficial</span>
+    </div>
+    <div style="flex:1; width:100%; height:100%; position:relative; background:#000;" id="embedPlayerIframeContainer">
+      <iframe id="iframeEmbedPlayer" src="" style="width:100%; height:100%; border:none;" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+    </div>
   </div>
 </div>
 
@@ -2456,16 +2562,16 @@
 </div>
 
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-  <script src="/js/api.js?v=37"></script>
-  <script src="/js/paises.js?v=37"></script>
-  <script src="/js/i18n.js?v=37"></script>
-  <script src="/js/call.js?v=37"></script>
-  <script src="/js/chat.js?v=37"></script>
-  <script src="/js/features.js?v=37"></script>
-  <script src="/js/linkvideo.js?v=37"></script>
-  <script src="/js/ailab.js?v=37"></script>
-  <script src="/js/monetization.js?v=37"></script>
-  <script src="/js/app.js?v=37"></script>
+  <script src="/js/api.js?v=38"></script>
+  <script src="/js/paises.js?v=38"></script>
+  <script src="/js/i18n.js?v=38"></script>
+  <script src="/js/call.js?v=38"></script>
+  <script src="/js/chat.js?v=38"></script>
+  <script src="/js/features.js?v=38"></script>
+  <script src="/js/linkvideo.js?v=38"></script>
+  <script src="/js/ailab.js?v=38"></script>
+  <script src="/js/monetization.js?v=38"></script>
+  <script src="/js/app.js?v=38"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {

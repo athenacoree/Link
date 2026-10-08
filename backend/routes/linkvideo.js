@@ -9,7 +9,7 @@ const realtime = require('../utils/realtime');
 const router = express.Router();
 
 /**
- * GET /api/linkvideo/catalog - Obtener el catálogo de streaming, colecciones y canales
+ * GET /api/linkvideo/catalog - Obtener el catálogo de streaming, colecciones, canales y contenido externo
  */
 router.get('/catalog', requireAuth, async (req, res) => {
   try {
@@ -20,6 +20,7 @@ router.get('/catalog', requireAuth, async (req, res) => {
     const ytChannels = await youtubeService.getChannels();
     const recommendations = await linkVideoService.getTopRecommendations(req.userId);
     const reels = await linkVideoService.getReelsCatalog(req.userId);
+    const externalContent = await linkVideoService.getExternalContent({ status: 'active', limit: 100 });
 
     res.json({
       base_url: linkVideoService.getLinkVideoBaseUrl(),
@@ -28,11 +29,141 @@ router.get('/catalog', requireAuth, async (req, res) => {
       lives: activeLives,
       youtubeChannels: ytChannels,
       recommendations,
-      reels
+      reels,
+      externalContent
     });
   } catch (err) {
     console.error('Error al obtener catálogo de Link Video:', err);
     res.status(500).json({ error: 'No se pudo obtener el catálogo de Link Video.' });
+  }
+});
+
+// ---------------- RUTAS DE CONTENIDO EXTERNO UNIFICADO ----------------
+
+/**
+ * POST /api/linkvideo/external-content - Añadir contenido externo (Usuario desde perfil o Admin)
+ */
+router.post('/external-content', requireAuth, async (req, res) => {
+  try {
+    const { url, category, title, description, collectionId, visibility } = req.body;
+    const created = await linkVideoService.addExternalContent({
+      userId: req.userId,
+      url,
+      category,
+      title,
+      description,
+      collectionId,
+      visibility,
+      hostHeader: req.headers.host
+    });
+
+    res.json({ ok: true, content: created });
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'Error al añadir contenido externo.' });
+  }
+});
+
+/**
+ * GET /api/linkvideo/external-content - Consultar catálogo de contenido externo
+ */
+router.get('/external-content', requireAuth, async (req, res) => {
+  try {
+    const { category, provider, userId, collectionId, status } = req.query;
+    const items = await linkVideoService.getExternalContent({
+      category,
+      provider,
+      userId,
+      collectionId,
+      status: status || 'active'
+    });
+    res.json({ ok: true, items });
+  } catch (err) {
+    res.status(500).json({ error: 'Error al obtener contenido externo.' });
+  }
+});
+
+/**
+ * GET /api/linkvideo/external-content/user/:userId - Obtener contenido externo añadido por un usuario concreto
+ */
+router.get('/external-content/user/:userId', requireAuth, async (req, res) => {
+  try {
+    const categoryFilter = req.query.category || null;
+    const items = await linkVideoService.getUserExternalContent(req.params.userId, categoryFilter);
+    res.json({ ok: true, items });
+  } catch (err) {
+    res.status(500).json({ error: 'Error al consultar contenido del perfil del usuario.' });
+  }
+});
+
+/**
+ * PUT /api/linkvideo/external-content/:id - Editar metadatos de un contenido externo (Dueño o Admin)
+ */
+router.put('/external-content/:id', requireAuth, async (req, res) => {
+  try {
+    const { title, description, category, collectionId } = req.body;
+    const updated = await linkVideoService.updateExternalContent(req.params.id, {
+      title,
+      description,
+      category,
+      collectionId
+    });
+    res.json({ ok: true, content: updated });
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'Error al actualizar contenido.' });
+  }
+});
+
+/**
+ * DELETE /api/linkvideo/external-content/:id - Eliminar contenido externo (Propietario o Admin)
+ */
+router.delete('/external-content/:id', requireAuth, async (req, res) => {
+  try {
+    const result = await linkVideoService.deleteExternalContent(req.params.id, req.userId, req.user?.is_admin);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'No se pudo eliminar el contenido.' });
+  }
+});
+
+/**
+ * POST /api/linkvideo/external-content/:id/report - Reportar contenido externo
+ */
+router.post('/external-content/:id/report', requireAuth, async (req, res) => {
+  try {
+    const { reason } = req.body;
+    const result = await linkVideoService.reportExternalContent(req.params.id, req.userId, reason);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'Error al reportar el contenido.' });
+  }
+});
+
+/**
+ * GET /api/linkvideo/admin/providers - Estado de configuración real de proveedores (Admin)
+ */
+router.get('/admin/providers', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const providers = linkVideoService.getProvidersStatus();
+    res.json({ ok: true, providers });
+  } catch (err) {
+    res.status(500).json({ error: 'Error al consultar estado de proveedores de contenido.' });
+  }
+});
+
+/**
+ * PUT /api/linkvideo/admin/external-content/:id/status - Moderar contenido externo (Admin)
+ */
+router.put('/admin/external-content/:id/status', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { status, visibility, collectionId } = req.body;
+    const updated = await linkVideoService.updateExternalContent(req.params.id, {
+      status,
+      visibility,
+      collectionId
+    });
+    res.json({ ok: true, content: updated });
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'Error al moderar contenido.' });
   }
 });
 
@@ -150,7 +281,6 @@ router.post('/admin/subtitles/preload', requireAuth, requireAdmin, async (req, r
         targetVideoIds = col.videos.map(v => v.video_id).filter(Boolean);
       }
     } else {
-      // Obtener todos los vídeos activos de todas las colecciones
       const collections = await linkVideoService.getCollections(req.userId, { includeVideos: true });
       const idSet = new Set();
       for (const col of collections) {
@@ -175,7 +305,6 @@ router.post('/admin/subtitles/preload', requireAuth, requireAdmin, async (req, r
       });
     }
 
-    // Procesar en cola controlada con pausas breves para respetar límites
     const results = [];
     let availableCount = 0;
     let unavailableCount = 0;
@@ -201,7 +330,6 @@ router.post('/admin/subtitles/preload', requireAuth, requireAdmin, async (req, r
         results.push({ videoId: vid, status: 'failed', cuesCount: 0, error: err.message });
       }
 
-      // Pausa discreta entre peticiones (150ms)
       if (i < targetVideoIds.length - 1) {
         await new Promise(resolve => setTimeout(resolve, 150));
       }
@@ -469,7 +597,6 @@ router.post('/youtube/admin/publish', requireAuth, requireAdmin, async (req, res
 
     const channel = await youtubeService.setChannelVideo({ channelId, url, title });
 
-    // Notificar en tiempo real
     const io = realtime.getIO();
     if (io) {
       io.emit('youtube:channel_updated', { channel });

@@ -1,24 +1,28 @@
 /**
  * Servicio Backend para Link Video (Colecciones, Álbumes y Videos),
- * Algoritmo de Recomendaciones Inteligente (Spotify/YouTube/Instagram Style)
- * y Transmisiones Persistentes en Vivo (Link Live).
+ * Adaptadores de Contenido Externo Unificado (YouTube, Instagram, Vimeo, Dailymotion, Twitch, PeerTube, etc.),
+ * Algoritmo de Recomendaciones Inteligente y Transmisiones Persistentes en Vivo (Link Live).
  */
 
 const { query } = require('../db/postgres');
 const videoStreamTool = require('../tools/videoStreamTool');
 const { fetchYouTubeInfo, extractYouTubeId, fetchYouTubeSubtitles } = require('../utils/youtube');
 const { extractHiddenTags, isReelUrlOrTitle } = require('../utils/tagExtractor');
+const { detectExternalProvider, getAdapter, getProvidersStatus } = require('./videoProviders');
 
 // Lista estática y predefinida de categorías para la plataforma Link Video
 const PREDEFINED_CATEGORIES = [
   'General',
+  'Películas / documentales',
+  'Reels',
+  'Vídeos',
+  'Vimeo',
+  'Directos',
+  'Twitch',
+  'PeerTube',
+  'Charlas',
   'Música',
-  'Álbumes',
-  'Películas',
-  'Series',
-  'Telenovelas',
-  'Documentales',
-  'Animes'
+  'Podcasts'
 ];
 
 function sanitizeCategory(cat) {
@@ -34,6 +38,7 @@ const inMemoryCollections = new Map(); // id -> collection object
 const inMemoryVideos = new Map(); // id -> video object
 const inMemorySubtitles = new Map(); // videoId_lang -> subtitle object
 const inMemoryUserViews = new Map(); // userId -> array of view records
+const inMemoryExternalContent = new Map(); // id -> external content record
 
 // Colecciones por defecto en memoria
 const DEFAULT_MEM_COLLECTIONS = [
@@ -51,7 +56,7 @@ const DEFAULT_MEM_COLLECTIONS = [
     id: 'col_cine_trailers',
     name: 'Cine & Estrenos',
     cover_url: 'https://images.pexels.com/photos/2506923/pexels-photo-2506923.jpeg?auto=compress&cs=tinysrgb&w=600',
-    category: 'Películas',
+    category: 'Películas / documentales',
     audio_description: 'Tráilers cinematográficos, películas destacadas y estrenos mundiales.',
     hidden_tags: ['peliculas', 'cine', 'trailer', 'estreno', 'hollywood'],
     created_at: new Date().toISOString(),
@@ -112,6 +117,282 @@ for (const vid of DEFAULT_MEM_VIDEOS) {
   inMemoryVideos.set(vid.id, vid);
 }
 
+// ---------------- GESTIÓN UNIFICADA DE CONTENIDO EXTERNO ----------------
+
+/**
+ * Agrega contenido externo detectando automáticamente el proveedor
+ */
+async function addExternalContent({ userId, url, category, title, description, collectionId, status = 'active', visibility = 'public', hostHeader = null }) {
+  if (!url || typeof url !== 'string') {
+    throw new Error('La URL del contenido es obligatoria.');
+  }
+
+  const cleanUrl = url.trim();
+  const providerName = detectExternalProvider(cleanUrl);
+  if (!providerName) {
+    throw new Error('La URL ingresada no pertenece a ninguna plataforma de contenido soportada. Soportadas: YouTube, Instagram, Vimeo, Dailymotion, Twitch, PeerTube, Internet Archive, TED, SoundCloud, Mixcloud.');
+  }
+
+  const adapter = getAdapter(providerName);
+  if (!adapter) {
+    throw new Error(`Adaptador de proveedor para ${providerName} no disponible.`);
+  }
+
+  // Parsear URL mediante adaptador
+  const parsed = adapter.parseUrl(cleanUrl, {
+    title: title ? title.trim() : null,
+    category: category ? sanitizeCategory(category) : null,
+    host: hostHeader || 'localhost'
+  });
+
+  const cleanCategory = parsed.category || sanitizeCategory(category);
+  const cleanTitle = (title && title.trim()) || parsed.title || `${adapter.name} Content`;
+  const cleanDesc = description ? description.trim() : null;
+  const nowIso = new Date().toISOString();
+
+  // Verificar duplicados en contenido activo
+  const existingDuplicate = await checkDuplicateExternalContent(cleanUrl, providerName, parsed.content_id);
+  if (existingDuplicate) {
+    throw new Error('Este contenido ya ha sido añadido previamente a Link Video.');
+  }
+
+  // Intentar guardar en PostgreSQL
+  try {
+    const { rows } = await query(
+      `INSERT INTO external_content (user_id, provider, url, content_id, embed_url, category, title, description, thumbnail, collection_id, status, visibility, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, now(), now())
+       RETURNING id, user_id, provider, url, content_id, embed_url, category, title, description, thumbnail, collection_id, status, visibility, created_at, updated_at`,
+      [userId, providerName, cleanUrl, parsed.content_id, parsed.embed_url, cleanCategory, cleanTitle, cleanDesc, parsed.thumbnail, collectionId || null, status, visibility]
+    );
+
+    if (rows && rows.length > 0) {
+      const created = {
+        ...rows[0],
+        capabilities: parsed.capabilities
+      };
+      inMemoryExternalContent.set(created.id, created);
+      return created;
+    }
+  } catch (err) {
+    // Memory fallback
+  }
+
+  const id = 'ext_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+  const created = {
+    id,
+    user_id: userId,
+    provider: providerName,
+    url: cleanUrl,
+    content_id: parsed.content_id,
+    embed_url: parsed.embed_url,
+    category: cleanCategory,
+    title: cleanTitle,
+    description: cleanDesc,
+    thumbnail: parsed.thumbnail,
+    collection_id: collectionId || null,
+    status,
+    visibility,
+    created_at: nowIso,
+    updated_at: nowIso,
+    capabilities: parsed.capabilities
+  };
+  inMemoryExternalContent.set(id, created);
+  return created;
+}
+
+/**
+ * Comprueba si una URL o ID de contenido ya existe activo
+ */
+async function checkDuplicateExternalContent(url, provider, contentId) {
+  try {
+    const { rows } = await query(
+      `SELECT id FROM external_content
+       WHERE status = 'active' AND (url = $1 OR (provider = $2 AND content_id = $3))
+       LIMIT 1`,
+      [url, provider, contentId]
+    );
+    if (rows && rows.length > 0) return true;
+  } catch (e) {}
+
+  for (const item of inMemoryExternalContent.values()) {
+    if (item.status === 'active' && (item.url === url || (item.provider === provider && item.content_id === contentId))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Obtiene el catálogo de contenido externo con información del autor y capacidades
+ */
+async function getExternalContent({ category, provider, userId, collectionId, status = 'active', limit = 50 } = {}) {
+  let list = [];
+
+  try {
+    let whereClauses = ['ec.status = $1'];
+    let params = [status];
+    let idx = 2;
+
+    if (category) {
+      whereClauses.push(`ec.category ILIKE $${idx++}`);
+      params.push(`%${category.trim()}%`);
+    }
+    if (provider) {
+      whereClauses.push(`ec.provider = $${idx++}`);
+      params.push(provider.trim().toLowerCase());
+    }
+    if (userId) {
+      whereClauses.push(`ec.user_id = $${idx++}`);
+      params.push(userId);
+    }
+    if (collectionId) {
+      whereClauses.push(`ec.collection_id = $${idx++}`);
+      params.push(collectionId);
+    }
+
+    const { rows } = await query(
+      `SELECT ec.*, u.name AS author_name, u.avatar_data AS author_avatar
+       FROM external_content ec
+       LEFT JOIN users u ON ec.user_id = u.id
+       WHERE ${whereClauses.join(' AND ')}
+       ORDER BY ec.created_at DESC
+       LIMIT $${idx}`,
+      [...params, limit]
+    );
+
+    if (rows && rows.length > 0) {
+      list = rows.map(item => {
+        const adapter = getAdapter(item.provider);
+        return {
+          ...item,
+          capabilities: adapter ? adapter.getCapabilities() : {}
+        };
+      });
+      return list;
+    }
+  } catch (err) {
+    // Memory fallback
+  }
+
+  const memList = Array.from(inMemoryExternalContent.values()).filter(item => {
+    if (status && item.status !== status) return false;
+    if (category && item.category.toLowerCase() !== category.toLowerCase()) return false;
+    if (provider && item.provider.toLowerCase() !== provider.toLowerCase()) return false;
+    if (userId && item.user_id !== userId) return false;
+    if (collectionId && item.collection_id !== collectionId) return false;
+    return true;
+  });
+
+  return memList.map(item => {
+    const adapter = getAdapter(item.provider);
+    return {
+      ...item,
+      capabilities: adapter ? adapter.getCapabilities() : {}
+    };
+  });
+}
+
+/**
+ * Obtiene el contenido añadido por un usuario concreto para su perfil público
+ */
+async function getUserExternalContent(userId, filterCategory = null) {
+  if (!userId) return [];
+  return await getExternalContent({ userId, category: filterCategory, status: 'active' });
+}
+
+/**
+ * Actualiza el estado o metadatos de un contenido externo (Moderación / Usuario)
+ */
+async function updateExternalContent(id, { status, visibility, collectionId, category, title, description }) {
+  try {
+    const fields = [];
+    const values = [];
+    let idx = 1;
+
+    if (status) { fields.push(`status = $${idx++}`); values.push(status); }
+    if (visibility) { fields.push(`visibility = $${idx++}`); values.push(visibility); }
+    if (collectionId !== undefined) { fields.push(`collection_id = $${idx++}`); values.push(collectionId); }
+    if (category) { fields.push(`category = $${idx++}`); values.push(sanitizeCategory(category)); }
+    if (title) { fields.push(`title = $${idx++}`); values.push(title.trim()); }
+    if (description !== undefined) { fields.push(`description = $${idx++}`); values.push(description ? description.trim() : null); }
+
+    if (fields.length > 0) {
+      fields.push(`updated_at = now()`);
+      values.push(id);
+      const queryStr = `UPDATE external_content SET ${fields.join(', ')} WHERE id::text = $${idx} RETURNING *`;
+      const { rows } = await query(queryStr, values);
+      if (rows && rows.length > 0) {
+        const updated = rows[0];
+        inMemoryExternalContent.set(id, updated);
+        return updated;
+      }
+    }
+  } catch (err) {}
+
+  if (inMemoryExternalContent.has(id)) {
+    const item = inMemoryExternalContent.get(id);
+    if (status) item.status = status;
+    if (visibility) item.visibility = visibility;
+    if (collectionId !== undefined) item.collection_id = collectionId;
+    if (category) item.category = sanitizeCategory(category);
+    if (title) item.title = title.trim();
+    if (description !== undefined) item.description = description ? description.trim() : null;
+    item.updated_at = new Date().toISOString();
+    return item;
+  }
+
+  throw new Error('Contenido no encontrado.');
+}
+
+/**
+ * Elimina un contenido externo
+ */
+async function deleteExternalContent(id, requestingUserId, isAdmin = false) {
+  let target = null;
+  try {
+    const { rows } = await query(`SELECT * FROM external_content WHERE id::text = $1::text`, [id]);
+    if (rows && rows.length > 0) target = rows[0];
+  } catch (e) {}
+
+  if (!target && inMemoryExternalContent.has(id)) {
+    target = inMemoryExternalContent.get(id);
+  }
+
+  if (!target) {
+    throw new Error('El contenido especificado no existe.');
+  }
+
+  if (!isAdmin && target.user_id !== requestingUserId) {
+    throw new Error('No tienes permisos para eliminar este contenido.');
+  }
+
+  try {
+    await query(`DELETE FROM external_content WHERE id::text = $1::text`, [id]);
+  } catch (e) {}
+
+  inMemoryExternalContent.delete(id);
+  return { ok: true, id };
+}
+
+/**
+ * Reporta un contenido externo
+ */
+async function reportExternalContent(id, reporterUserId, reason) {
+  try {
+    await query(
+      `UPDATE external_content SET status = 'reported', updated_at = now() WHERE id::text = $1::text`,
+      [id]
+    );
+  } catch (e) {}
+
+  if (inMemoryExternalContent.has(id)) {
+    const item = inMemoryExternalContent.get(id);
+    item.status = 'reported';
+  }
+
+  return { ok: true, id, status: 'reported' };
+}
+
 // ---------------- ALGORITMO DE RECOMENDACIÓN Y ETIQUETAS OCULTAS ----------------
 
 /**
@@ -123,7 +404,6 @@ async function recordUserView({ userId, videoId, collectionId = null, tags = [],
   const cleanUserId = String(userId).trim();
   const cleanVideoId = String(videoId).trim();
 
-  // Asegurar array de etiquetas
   let extractedTags = Array.isArray(tags) ? tags : [];
   if (extractedTags.length === 0) {
     const vidObj = Array.from(inMemoryVideos.values()).find(v => v.video_id === cleanVideoId || v.id === cleanVideoId);
@@ -134,7 +414,6 @@ async function recordUserView({ userId, videoId, collectionId = null, tags = [],
 
   const nowIso = new Date().toISOString();
 
-  // 1. Guardar en PostgreSQL
   try {
     await query(
       `INSERT INTO user_video_views (user_id, video_id, collection_id, is_reel, tags, view_count, last_viewed_at, created_at)
@@ -146,7 +425,6 @@ async function recordUserView({ userId, videoId, collectionId = null, tags = [],
       [cleanUserId, cleanVideoId, collectionId, isReel, JSON.stringify(extractedTags)]
     );
   } catch (err) {
-    // Si la tabla no soporta el constraint único directo, ejecutar SELECT/UPDATE/INSERT estándar
     try {
       const existing = await query(
         `SELECT id, view_count FROM user_video_views WHERE user_id = $1 AND video_id = $2`,
@@ -169,7 +447,6 @@ async function recordUserView({ userId, videoId, collectionId = null, tags = [],
     } catch (e) {}
   }
 
-  // 2. Almacén en memoria de respaldo
   if (!inMemoryUserViews.has(cleanUserId)) {
     inMemoryUserViews.set(cleanUserId, []);
   }
@@ -194,8 +471,7 @@ async function recordUserView({ userId, videoId, collectionId = null, tags = [],
 }
 
 /**
- * Calcula el mapa de ponderación de etiquetas del usuario utilizando
- * decaimiento exponencial con respecto al tiempo (no condenatorio y dinámico).
+ * Calcula el mapa de ponderación de etiquetas del usuario
  */
 async function getUserRecommendationWeights(userId) {
   if (!userId) return {};
@@ -203,7 +479,6 @@ async function getUserRecommendationWeights(userId) {
   const cleanUserId = String(userId).trim();
   let views = [];
 
-  // Intentar desde PostgreSQL
   try {
     const { rows } = await query(
       `SELECT video_id, collection_id, is_reel, tags, view_count, last_viewed_at
@@ -225,14 +500,13 @@ async function getUserRecommendationWeights(userId) {
     }
   } catch (e) {}
 
-  // Fallback a memoria si no hay resultados en DB
   if (views.length === 0 && inMemoryUserViews.has(cleanUserId)) {
     views = inMemoryUserViews.get(cleanUserId);
   }
 
   const weights = {};
   const now = Date.now();
-  const DECAY_LAMBDA = 0.2; // Factor de atenuación diaria
+  const DECAY_LAMBDA = 0.2;
 
   for (const v of views) {
     const timeMs = new Date(v.lastViewedAt).getTime();
@@ -252,7 +526,7 @@ async function getUserRecommendationWeights(userId) {
 }
 
 /**
- * Pondera un ítem (colección o video) asignándole una puntuación de recomendación basada en sus etiquetas ocultas.
+ * Pondera un ítem asignándole una puntuación de recomendación
  */
 function calculateItemRecommendationScore(item, userWeights = {}) {
   const tags = item.hidden_tags || extractHiddenTags(item);
@@ -265,7 +539,6 @@ function calculateItemRecommendationScore(item, userWeights = {}) {
     }
   }
 
-  // Factor de categoría coincidente
   if (item.category && userWeights[item.category.toLowerCase()]) {
     totalScore += userWeights[item.category.toLowerCase()] * 1.5;
   }
@@ -329,9 +602,7 @@ async function getCollections(userId = null, options = {}) {
         };
       });
     }
-  } catch (err) {
-    // Fallback in-memory
-  }
+  } catch (err) {}
 
   if (!collections.length) {
     collections = Array.from(inMemoryCollections.values()).map(col => {
@@ -355,7 +626,6 @@ async function getCollections(userId = null, options = {}) {
     });
   }
 
-  // Alimentar el algoritmo de recomendación personalizado
   collections = collections.map(col => {
     const score = calculateItemRecommendationScore(col, userWeights);
     return {
@@ -365,7 +635,6 @@ async function getCollections(userId = null, options = {}) {
     };
   });
 
-  // Ordenar dinámicamente según la puntuación de recomendación del usuario
   collections.sort((a, b) => (b.recommendation_score - a.recommendation_score));
 
   return collections;
@@ -401,9 +670,7 @@ async function getCollectionById(collectionId) {
         videos
       };
     }
-  } catch (err) {
-    // Fallback in-memory
-  }
+  } catch (err) {}
 
   if (inMemoryCollections.has(collectionId)) {
     collection = inMemoryCollections.get(collectionId);
@@ -448,9 +715,7 @@ async function createCollection({ name, cover_url, category, audio_description }
       inMemoryCollections.set(created.id, created);
       return created;
     }
-  } catch (err) {
-    // Memory fallback
-  }
+  } catch (err) {}
 
   const id = 'col_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
   const created = {
@@ -511,9 +776,7 @@ async function updateCollection(collectionId, { name, cover_url, category, audio
       inMemoryCollections.set(collectionId, updated);
       return await getCollectionById(collectionId);
     }
-  } catch (err) {
-    // Memory fallback
-  }
+  } catch (err) {}
 
   if (inMemoryCollections.has(collectionId)) {
     const col = inMemoryCollections.get(collectionId);
@@ -556,7 +819,6 @@ async function addVideoToCollection(collectionId, { url, title, audio_descriptio
   const hiddenTags = extractHiddenTags({ title: ytInfo.title, original_url: ytInfo.original_url, audio_description: cleanAudioDesc, category: collection.category });
   const nowIso = new Date().toISOString();
 
-  // Calcular siguiente posición
   const currentCount = collection.videos ? collection.videos.length : 0;
   const nextPos = currentCount;
 
@@ -572,9 +834,7 @@ async function addVideoToCollection(collectionId, { url, title, audio_descriptio
       inMemoryVideos.set(createdVid.id, createdVid);
       return createdVid;
     }
-  } catch (err) {
-    // Fallback memory
-  }
+  } catch (err) {}
 
   const id = 'vid_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
   const createdVid = {
@@ -629,9 +889,7 @@ async function updateVideo(videoId, { title, position, audio_description }) {
         return updated;
       }
     }
-  } catch (err) {
-    // Memory fallback
-  }
+  } catch (err) {}
 
   if (inMemoryVideos.has(videoId)) {
     const vid = inMemoryVideos.get(videoId);
@@ -673,7 +931,6 @@ async function getTopRecommendations(userId, limit = 6) {
   const collections = await getCollections(userId, { includeVideos: true });
   const userWeights = await getUserRecommendationWeights(userId);
 
-  // Extraer todos los videos individuales
   const allVideos = [];
   for (const col of collections) {
     if (Array.isArray(col.videos)) {
@@ -718,9 +975,24 @@ async function getReelsCatalog(userId) {
     }
   }
 
-  // Obtener historial de Reels vistos por el usuario
+  // Incluir también los Reels de external_content
+  const extReels = await getExternalContent({ category: 'Reels', status: 'active' });
+  for (const ext of extReels) {
+    allVideos.push({
+      id: ext.id,
+      video_id: ext.content_id,
+      original_url: ext.url,
+      thumbnail_url: ext.thumbnail,
+      title: ext.title,
+      category: ext.category,
+      provider: ext.provider,
+      embed_url: ext.embed_url,
+      capabilities: ext.capabilities
+    });
+  }
+
   const cleanUserId = userId ? String(userId).trim() : null;
-  const viewedMap = new Map(); // videoId -> viewCount
+  const viewedMap = new Map();
 
   if (cleanUserId) {
     try {
@@ -745,11 +1017,9 @@ async function getReelsCatalog(userId) {
     }
   }
 
-  // Asignar nivel de prioridad y puntuación
   const reelsWithPriority = allVideos.map(reel => {
     const viewCount = viewedMap.get(reel.video_id) || viewedMap.get(reel.id) || 0;
     const isSeen = viewCount > 0;
-    // Los reels no vistos reciben máxima prioridad (100 puntos), los vistos sufren penalización en base a visualizaciones
     const priorityScore = isSeen ? Math.max(-100, 10 - viewCount * 30) : 100;
 
     return {
@@ -762,7 +1032,6 @@ async function getReelsCatalog(userId) {
     };
   });
 
-  // Ordenar para que los Reels NUNCA VISTOS salgan primero
   reelsWithPriority.sort((a, b) => b.priority_score - a.priority_score);
 
   return reelsWithPriority;
@@ -779,7 +1048,6 @@ async function getStreamById(streamId) {
   const found = catalog.find(s => s.id === streamId);
   if (found) return found;
 
-  // Buscar en live_sessions persistentes activas
   return await getLiveSessionById(streamId);
 }
 
@@ -805,7 +1073,6 @@ async function createLiveSession({ hostId, hostName, title, description, categor
     inMemoryLiveSessions.set(session.id, session);
     return session;
   } catch (err) {
-    // Memory fallback
     const id = 'live_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
     const session = {
       id,
@@ -851,7 +1118,7 @@ async function getLiveSessionById(sessionId) {
 }
 
 /**
- * Obtiene el listado de transmisiones activas (LIVE, RECONNECTING, INTERMISSION).
+ * Obtiene el listado de transmisiones activas.
  */
 async function getActiveLiveSessions() {
   let dbSessions = [];
@@ -1048,7 +1315,6 @@ async function getOrFetchSubtitles(videoId, requestedLang = 'es', forceRefresh =
   const ONE_HOUR_MS = 60 * 60 * 1000;
 
   if (!forceRefresh) {
-    // 1. Intentar consultar en base de datos PostgreSQL
     try {
       const { rows } = await query(
         `SELECT id, video_id, language_code, status, cues, source, created_at, updated_at
@@ -1064,7 +1330,6 @@ async function getOrFetchSubtitles(videoId, requestedLang = 'es', forceRefresh =
         const updatedAt = new Date(cached.updated_at);
         const isRecent = (now - updatedAt) < ONE_HOUR_MS;
 
-        // Si están completos ('ready'), devolver directamente desde la BD
         if (cached.status === 'ready' && Array.isArray(cached.cues) && cached.cues.length > 0) {
           return {
             videoId: cached.video_id,
@@ -1076,7 +1341,6 @@ async function getOrFetchSubtitles(videoId, requestedLang = 'es', forceRefresh =
           };
         }
 
-        // Si previamente falló o no tenía subtítulos y la consulta es reciente, devolver estado de la BD sin repetir peticiones
         if ((cached.status === 'no_subtitles' || cached.status === 'failed') && isRecent) {
           return {
             videoId: cached.video_id,
@@ -1088,11 +1352,8 @@ async function getOrFetchSubtitles(videoId, requestedLang = 'es', forceRefresh =
           };
         }
       }
-    } catch (err) {
-      // Fallback si la BD no está disponible
-    }
+    } catch (err) {}
 
-    // 2. Verificar en almacén en memoria
     const memKey = `${cleanVideoId}_${cleanLang}`;
     if (inMemorySubtitles.has(memKey)) {
       const cachedMem = inMemorySubtitles.get(memKey);
@@ -1108,7 +1369,6 @@ async function getOrFetchSubtitles(videoId, requestedLang = 'es', forceRefresh =
 
   const memKey = `${cleanVideoId}_${cleanLang}`;
 
-  // 3. Obtener subtítulos mediante extractor
   let extractedCues = [];
   let langCode = cleanLang;
   let source = 'youtube_extractor';
@@ -1130,7 +1390,6 @@ async function getOrFetchSubtitles(videoId, requestedLang = 'es', forceRefresh =
     status = 'failed';
   }
 
-  // 4. Guardar o actualizar en BD (UPSERT)
   const resultObj = {
     videoId: cleanVideoId,
     languageCode: langCode,
@@ -1153,9 +1412,7 @@ async function getOrFetchSubtitles(videoId, requestedLang = 'es', forceRefresh =
          updated_at = now()`,
       [cleanVideoId, langCode, status, JSON.stringify(extractedCues), source]
     );
-  } catch (err) {
-    // Memoria fallback
-  }
+  } catch (err) {}
 
   inMemorySubtitles.set(memKey, resultObj);
   inMemorySubtitles.set(`${cleanVideoId}_${langCode}`, resultObj);
@@ -1165,6 +1422,15 @@ async function getOrFetchSubtitles(videoId, requestedLang = 'es', forceRefresh =
 
 module.exports = {
   PREDEFINED_CATEGORIES,
+  // Contenido Externo Unificado
+  addExternalContent,
+  getExternalContent,
+  getUserExternalContent,
+  updateExternalContent,
+  deleteExternalContent,
+  reportExternalContent,
+  getProvidersStatus,
+
   // Recomendaciones & Etiquetas Ocultas
   recordUserView,
   getUserRecommendationWeights,
