@@ -2220,6 +2220,10 @@ function cambiarVista(nombre) {
   });
   document.querySelectorAll('nav.tabbar .tab').forEach((t) => t.classList.toggle('activo', t.dataset.tab === nombre));
 
+  if (typeof window.evaluarProteccionYCamara === 'function') {
+    window.evaluarProteccionYCamara();
+  }
+
   // Refrescar siempre desde la API al cambiar de pestaña
   if (nombre === 'feed') {
     if (!$('inputBuscar').value.trim()) {
@@ -6305,6 +6309,218 @@ window.reclamarMision = async function(key) {
     if (window.toast) toast(e.message || 'Error al reclamar la misión');
   }
 };
+
+/* ================= SISTEMA DE PROTECCIÓN EXTREMA & DETECCIÓN DE PERSONAS ================= */
+let camaraSeguridadStream = null;
+let camaraSeguridadVideo = null;
+let timerDeteccionCamara = null;
+let camaraSeguridadDesactivadaManual = false;
+
+window.toggleProteccionExtrema = function(activo) {
+  localStorage.setItem('cfg_proteccion_extrema', activo ? 'true' : 'false');
+  if (activo) {
+    evaluarProteccionYCamara();
+  } else {
+    detenerCamaraSeguridad();
+    quitarDifuminadoProteccion();
+  }
+};
+
+window.actualizarSeccionesLibresProteccion = function() {
+  const libres = [];
+  document.querySelectorAll('.chk-seccion-libre').forEach(chk => {
+    if (chk.checked) libres.push(chk.value);
+  });
+  localStorage.setItem('cfg_secciones_libres', JSON.stringify(libres));
+  evaluarProteccionYCamara();
+};
+
+function obtenerSeccionesLibres() {
+  try {
+    return JSON.parse(localStorage.getItem('cfg_secciones_libres') || '[]') || [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function esSeccionProtegidaActual() {
+  const proteccionActiva = localStorage.getItem('cfg_proteccion_extrema') === 'true';
+  if (!proteccionActiva) return false;
+
+  const vistaActiva = document.querySelector('.vista-app.activo')?.dataset?.vista || 'feed';
+  const seccionesLibres = obtenerSeccionesLibres();
+
+  if (seccionesLibres.includes(vistaActiva)) {
+    return false;
+  }
+  return true;
+}
+
+window.evaluarProteccionYCamara = function() {
+  const proteccionActiva = localStorage.getItem('cfg_proteccion_extrema') === 'true';
+
+  // Sincronizar checkboxes UI en configuraciones
+  const toggle = $('cfgProteccionExtremaToggle');
+  if (toggle) toggle.checked = proteccionActiva;
+
+  const seccionesLibres = obtenerSeccionesLibres();
+  document.querySelectorAll('.chk-seccion-libre').forEach(chk => {
+    chk.checked = seccionesLibres.includes(chk.value);
+  });
+
+  if (!proteccionActiva) {
+    if (window.AppBridge && typeof window.AppBridge.setScreenProtection === 'function') {
+      window.AppBridge.setScreenProtection(false);
+    }
+    detenerCamaraSeguridad();
+    quitarDifuminadoProteccion();
+    return;
+  }
+
+  const esProtegida = esSeccionProtegidaActual();
+
+  // Activar FLAG_SECURE en la APK si estamos en zona protegida
+  if (window.AppBridge && typeof window.AppBridge.setScreenProtection === 'function') {
+    window.AppBridge.setScreenProtection(esProtegida);
+  }
+
+  if (esProtegida && !camaraSeguridadDesactivadaManual) {
+    iniciarCamaraSeguridad();
+  } else {
+    detenerCamaraSeguridad();
+    quitarDifuminadoProteccion();
+  }
+};
+
+async function iniciarCamaraSeguridad() {
+  if (camaraSeguridadStream || timerDeteccionCamara) return;
+
+  try {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+
+    camaraSeguridadStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user', width: { ideal: 320 }, height: { ideal: 240 } },
+      audio: false
+    });
+
+    camaraSeguridadVideo = document.createElement('video');
+    camaraSeguridadVideo.autoplay = true;
+    camaraSeguridadVideo.muted = true;
+    camaraSeguridadVideo.playsInline = true;
+    camaraSeguridadVideo.srcObject = camaraSeguridadStream;
+    camaraSeguridadVideo.style.display = 'none';
+    document.body.appendChild(camaraSeguridadVideo);
+
+    await camaraSeguridadVideo.play().catch(() => {});
+
+    timerDeteccionCamara = setInterval(procesarFrameCamaraSeguridad, 1800);
+  } catch (err) {
+    console.warn('[Protección Extrema] No se pudo acceder a la cámara frontal:', err.message);
+  }
+}
+
+function detenerCamaraSeguridad() {
+  if (timerDeteccionCamara) {
+    clearInterval(timerDeteccionCamara);
+    timerDeteccionCamara = null;
+  }
+  if (camaraSeguridadStream) {
+    camaraSeguridadStream.getTracks().forEach(track => track.stop());
+    camaraSeguridadStream = null;
+  }
+  if (camaraSeguridadVideo) {
+    if (camaraSeguridadVideo.parentNode) {
+      camaraSeguridadVideo.parentNode.removeChild(camaraSeguridadVideo);
+    }
+    camaraSeguridadVideo = null;
+  }
+}
+
+function procesarFrameCamaraSeguridad() {
+  if (!camaraSeguridadVideo || !camaraSeguridadVideo.videoWidth) return;
+
+  const canvas = document.createElement('canvas');
+  const w = 160;
+  const h = 120;
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  ctx.drawImage(camaraSeguridadVideo, 0, 0, w, h);
+  const imgData = ctx.getImageData(0, 0, w, h);
+  const data = imgData.data;
+
+  // Detección heurística de tonos de piel / rostros en canvas
+  let skinPixels = 0;
+  let leftSkin = 0;
+  let rightSkin = 0;
+
+  for (let i = 0; i < data.length; i += 16) {
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
+
+    if (r > 60 && g > 35 && b > 20 && r > g && r > b && (Math.max(r, g, b) - Math.min(r, g, b)) > 15) {
+      skinPixels++;
+      const pixelIdx = i / 4;
+      const x = pixelIdx % w;
+      if (x < w / 2) leftSkin++; else rightSkin++;
+    }
+  }
+
+  // Detectar si hay más de 1 persona en la escena (presencia simultánea en costados distantes o alta densidad)
+  const masDeUnaPersona = skinPixels > 240 && (leftSkin > 80 && rightSkin > 80);
+
+  if (masDeUnaPersona) {
+    aplicarDifuminadoProteccion();
+    mostrarAlertaSeguridad("Hay alguien más viendo la pantalla");
+  } else {
+    quitarDifuminadoProteccion();
+    ocultarAlertaSeguridad();
+  }
+}
+
+function aplicarDifuminadoProteccion() {
+  // Aplicar difuminado exclusivamente sobre mensajes en modo seguro o contenido de chats/perfiles protegidos
+  const elementos = document.querySelectorAll('.burbuja-modo-seguro, .vista-chat, .vista-perfil, #listaConversaciones');
+  elementos.forEach(el => el.classList.add('elemento-protegido-difuminado'));
+}
+
+function quitarDifuminadoProteccion() {
+  const elementos = document.querySelectorAll('.elemento-protegido-difuminado');
+  elementos.forEach(el => el.classList.remove('elemento-protegido-difuminado'));
+}
+
+function mostrarAlertaSeguridad(mensaje) {
+  let banner = $('alertaSeguridadBanner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'alertaSeguridadBanner';
+    banner.className = 'alerta-seguridad-banner';
+    banner.onclick = window.desactivarTemporalCamaraSeguridad;
+    document.body.appendChild(banner);
+  }
+  banner.innerHTML = `🔒 <span>${escaparHTMLGlobal(mensaje)}</span>`;
+  banner.style.display = 'flex';
+}
+
+function ocultarAlertaSeguridad() {
+  const banner = $('alertaSeguridadBanner');
+  if (banner) banner.style.display = 'none';
+}
+
+window.desactivarTemporalCamaraSeguridad = function() {
+  camaraSeguridadDesactivadaManual = true;
+  detenerCamaraSeguridad();
+  quitarDifuminadoProteccion();
+  ocultarAlertaSeguridad();
+  mostrarToast('Protección por cámara desactivada temporalmente.');
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+  window.evaluarProteccionYCamara();
+});
 
 /* ================= FUNCION STANDALONE LATIDO APP ================= */
 /* ================= FUNCIONES ADMINISTRACIÓN YOUTUBE ================= */
