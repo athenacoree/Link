@@ -3,7 +3,7 @@ const { requireAuth, requireAdmin } = require('../middleware/auth');
 const videoStreamTool = require('../tools/videoStreamTool');
 const linkVideoService = require('../services/linkVideoService');
 const youtubeService = require('../services/youtubeService');
-const { extractYouTubeId, fetchYouTubeInfo, fetchYouTubePlaylist, fetchYouTubeSubtitles } = require('../utils/youtube');
+const { extractYouTubeId, fetchYouTubeInfo, fetchYouTubePlaylist } = require('../utils/youtube');
 const realtime = require('../utils/realtime');
 
 const router = express.Router();
@@ -14,13 +14,24 @@ const router = express.Router();
 router.get('/catalog', requireAuth, async (req, res) => {
   try {
     const forceRefresh = req.query.refresh === 'true';
-    const collections = await linkVideoService.getCollections(req.userId, { includeVideos: true });
+    const page = parseInt(req.query.page || 1, 10);
+    const limit = parseInt(req.query.limit || 20, 10);
+    const category = req.query.category || null;
+    const search = req.query.search || req.query.q || null;
+
+    const collections = await linkVideoService.getCollections(req.userId, {
+      includeVideos: false,
+      page,
+      limit,
+      category,
+      search
+    });
     const catalog = await linkVideoService.getCatalog(forceRefresh);
     const activeLives = await linkVideoService.getActiveLiveSessions();
     const ytChannels = await youtubeService.getChannels();
     const recommendations = await linkVideoService.getTopRecommendations(req.userId);
     const reels = await linkVideoService.getReelsCatalog(req.userId);
-    const externalContent = await linkVideoService.getExternalContent({ status: 'active', limit: 100 });
+    const externalContent = await linkVideoService.getExternalContent({ status: 'active', limit: 30 });
 
     res.json({
       base_url: linkVideoService.getLinkVideoBaseUrl(),
@@ -101,12 +112,12 @@ router.get('/external-content/user/:userId', requireAuth, async (req, res) => {
 router.put('/external-content/:id', requireAuth, async (req, res) => {
   try {
     const { title, description, category, collectionId } = req.body;
-    const updated = await linkVideoService.updateExternalContent(req.params.id, {
-      title,
-      description,
-      category,
-      collectionId
-    });
+    const updated = await linkVideoService.updateExternalContent(
+      req.params.id,
+      { title, description, category, collectionId },
+      req.userId,
+      req.user?.is_admin
+    );
     res.json({ ok: true, content: updated });
   } catch (err) {
     res.status(400).json({ error: err.message || 'Error al actualizar contenido.' });
@@ -216,149 +227,35 @@ router.get('/reels', requireAuth, async (req, res) => {
   }
 });
 
-/**
- * GET /api/linkvideo/subtitles/:videoId - Obtener subtítulos reales de YouTube (desde BD / Caché persistente)
- */
-router.get('/subtitles/:videoId', requireAuth, async (req, res) => {
-  try {
-    const rawParam = req.params.videoId || req.query.url || req.query.link || '';
-    const cleanVideoId = extractYouTubeId(rawParam) || rawParam;
-    const lang = req.query.lang || 'es';
-    const subResult = await linkVideoService.getOrFetchSubtitles(cleanVideoId, lang);
-    res.json({
-      ok: true,
-      videoId: cleanVideoId,
-      subtitles: subResult.cues || [],
-      status: subResult.status || 'no_subtitles',
-      languageCode: subResult.languageCode || lang,
-      source: subResult.source || 'youtube_extractor',
-      cached: !!subResult.cached
-    });
-  } catch (err) {
-    console.error('Error al obtener subtítulos:', err);
-    res.json({ ok: true, videoId: req.params.videoId, subtitles: [], status: 'failed' });
-  }
-});
-
-/**
- * POST /api/linkvideo/admin/subtitles/fetch/:videoId - Obtener / actualizar subtítulos individuales (Admin)
- */
-router.post('/admin/subtitles/fetch/:videoId', requireAuth, requireAdmin, async (req, res) => {
-  try {
-    const rawParam = req.params.videoId || req.body.videoId || req.body.url || '';
-    const cleanVideoId = extractYouTubeId(rawParam) || rawParam;
-    const lang = req.body.lang || req.query.lang || 'es';
-
-    const subResult = await linkVideoService.getOrFetchSubtitles(cleanVideoId, lang, true);
-    res.json({
-      ok: true,
-      videoId: cleanVideoId,
-      subtitles: subResult.cues || [],
-      status: subResult.status || 'no_subtitles',
-      languageCode: subResult.languageCode || lang,
-      source: subResult.source || 'youtube_extractor',
-      cueCount: (subResult.cues || []).length
-    });
-  } catch (err) {
-    console.error('Error al solicitar subtítulos desde admin:', err);
-    res.status(500).json({ error: 'No se pudieron obtener los subtítulos para este video.' });
-  }
-});
-
-/**
- * POST /api/linkvideo/admin/subtitles/preload - Precargar subtítulos para múltiples videos sin bloqueo (Admin)
- */
-router.post('/admin/subtitles/preload', requireAuth, requireAdmin, async (req, res) => {
-  try {
-    const { videoIds, collectionId, lang = 'es' } = req.body;
-    let targetVideoIds = [];
-
-    if (Array.isArray(videoIds) && videoIds.length > 0) {
-      targetVideoIds = videoIds.map(v => extractYouTubeId(v) || v).filter(Boolean);
-    } else if (collectionId) {
-      const col = await linkVideoService.getCollectionById(collectionId);
-      if (col && Array.isArray(col.videos)) {
-        targetVideoIds = col.videos.map(v => v.video_id).filter(Boolean);
-      }
-    } else {
-      const collections = await linkVideoService.getCollections(req.userId, { includeVideos: true });
-      const idSet = new Set();
-      for (const col of collections) {
-        if (col.videos && Array.isArray(col.videos)) {
-          for (const v of col.videos) {
-            if (v.video_id) idSet.add(v.video_id);
-          }
-        }
-      }
-      targetVideoIds = Array.from(idSet);
-    }
-
-    if (targetVideoIds.length === 0) {
-      return res.json({
-        ok: true,
-        mensaje: 'No se encontraron vídeos para procesar.',
-        total: 0,
-        processed: 0,
-        available: 0,
-        unavailable: 0,
-        results: []
-      });
-    }
-
-    const results = [];
-    let availableCount = 0;
-    let unavailableCount = 0;
-
-    for (let i = 0; i < targetVideoIds.length; i++) {
-      const vid = targetVideoIds[i];
-      try {
-        const subRes = await linkVideoService.getOrFetchSubtitles(vid, lang, false);
-        const count = (subRes.cues || []).length;
-        const isReady = subRes.status === 'ready' && count > 0;
-        if (isReady) availableCount++;
-        else unavailableCount++;
-
-        results.push({
-          videoId: vid,
-          status: isReady ? 'ready' : (subRes.status || 'no_subtitles'),
-          cuesCount: count,
-          languageCode: subRes.languageCode || lang,
-          source: subRes.source || 'none'
-        });
-      } catch (err) {
-        unavailableCount++;
-        results.push({ videoId: vid, status: 'failed', cuesCount: 0, error: err.message });
-      }
-
-      if (i < targetVideoIds.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, 150));
-      }
-    }
-
-    res.json({
-      ok: true,
-      total: targetVideoIds.length,
-      processed: results.length,
-      available: availableCount,
-      unavailable: unavailableCount,
-      results
-    });
-  } catch (err) {
-    console.error('Error al precargar subtítulos:', err);
-    res.status(500).json({ error: 'Error al ejecutar precarga de subtítulos.' });
-  }
-});
 
 // ---------------- RUTAS DE COLECCIONES / ÁLBUMES DE LINK VIDEO ----------------
 
 /**
- * GET /api/linkvideo/collections - Listar todas las colecciones/álbumes
+ * GET /api/linkvideo/collections - Listar colecciones/álbumes paginados
  */
 router.get('/collections', requireAuth, async (req, res) => {
   try {
     const includeVideos = req.query.include_videos === 'true' || req.query.includeVideos === 'true';
-    const collections = await linkVideoService.getCollections(req.userId, { includeVideos });
-    res.json({ ok: true, collections });
+    const page = parseInt(req.query.page || 1, 10);
+    const limit = parseInt(req.query.limit || 20, 10);
+    const category = req.query.category || null;
+    const search = req.query.search || req.query.q || null;
+    const paginate = req.query.paginate === 'true';
+
+    const result = await linkVideoService.getCollections(req.userId, {
+      includeVideos,
+      page,
+      limit,
+      category,
+      search,
+      paginate
+    });
+
+    if (paginate) {
+      res.json({ ok: true, ...result });
+    } else {
+      res.json({ ok: true, collections: result });
+    }
   } catch (err) {
     console.error('Error al obtener colecciones:', err);
     res.status(500).json({ error: 'Error al consultar colecciones.' });

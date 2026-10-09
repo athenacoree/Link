@@ -126,6 +126,24 @@ async function testExternalContentSystem() {
   }
   console.log('   ✅ Prevención de duplicados verificada.');
 
+  // 6b. Probando auditoría de permisos de modificación
+  console.log('\n6b. Probando permisos de modificación y eliminación para no propietarios...');
+  const unauthorizedUserId = 'usr_unauthorized_99999';
+  try {
+    await linkVideoService.updateExternalContent(createdContent.id, { title: 'Hack' }, unauthorizedUserId, false);
+    assert.fail('Usuario no propietario no debió poder editar');
+  } catch (err) {
+    assert.ok(err.message.includes('No tienes permisos'), 'Error de permisos al editar');
+  }
+
+  try {
+    await linkVideoService.deleteExternalContent(createdContent.id, unauthorizedUserId, false);
+    assert.fail('Usuario no propietario no debió poder eliminar');
+  } catch (err) {
+    assert.ok(err.message.includes('No tienes permisos'), 'Error de permisos al eliminar');
+  }
+  console.log('   ✅ Auditoría de permisos de modificación y eliminación verificada.');
+
   // 7. Eliminación de Contenido por Propietario
   console.log('\n7. Probando eliminación de contenido por su propietario...');
   const deleteRes = await linkVideoService.deleteExternalContent(createdContent.id, testUserId, false);

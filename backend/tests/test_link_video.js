@@ -174,18 +174,10 @@ async function runLinkVideoTests() {
   assert.strictEqual(checkedEndedSession.status, 'ENDED');
   console.log('   ✅ Finalización explícita validada.');
 
-  // 10. Probando Caché Persistente de Subtítulos de Link Video
-  console.log('10. Probando caché persistente de subtítulos...');
-  const testVideoId = 'dQw4w9WgXcQ';
-  const subResultFirst = await linkVideoService.getOrFetchSubtitles(testVideoId, 'es');
-  assert.ok(subResultFirst, 'Debe devolver un objeto de subtítulos');
-  assert.strictEqual(subResultFirst.videoId, testVideoId);
-  assert.strictEqual(subResultFirst.cached, false, 'La primera consulta no proviene de caché');
-
-  const subResultSecond = await linkVideoService.getOrFetchSubtitles(testVideoId, 'es');
-  assert.ok(subResultSecond, 'Debe devolver un objeto de subtítulos');
-  assert.strictEqual(subResultSecond.cached, true, 'La segunda consulta proviene de la caché');
-  console.log('   ✅ Caché de subtítulos validado correctamente.');
+  // 10. Confirmando que los subtítulos obsoletos fueron retirados del servicio
+  console.log('10. Verificando retiro de la funcionalidad de subtítulos...');
+  assert.strictEqual(typeof linkVideoService.getOrFetchSubtitles, 'undefined', 'getOrFetchSubtitles debe estar eliminado');
+  console.log('   ✅ Funcionalidad de subtítulos retirada correctamente.');
 
   global.fetch = origFetch;
   console.log('\n=== TODAS LAS PRUEBAS DE LINK VIDEO Y LINK LIVE PASARON EXITOSAMENTE ===\n');
