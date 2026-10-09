@@ -33,6 +33,7 @@ import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.Spinner
@@ -44,15 +45,21 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.enlace.bridge.adapters.ContactosAdapter
+import com.enlace.bridge.adapters.ConversacionesAdapter
 import com.enlace.bridge.adapters.FeedAdapter
+import com.enlace.bridge.adapters.LinkVideoCollectionsAdapter
 import com.enlace.bridge.adapters.StoriesAdapter
 import com.enlace.bridge.api.FeedApiClient
 import com.enlace.bridge.auth.DeviceIdentityManager
 import com.enlace.bridge.calls.CallBridgeManager
+import com.enlace.bridge.models.ConversacionItem
+import com.enlace.bridge.models.LinkVideoCollectionItem
 import com.enlace.bridge.models.UserPerson
-import com.enlace.bridge.models.UserStory
+import com.enlace.bridge.utils.ImageUtils
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import kotlinx.coroutines.launch
 
@@ -64,8 +71,15 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
     private lateinit var progressBarTop: ProgressBar
-    private lateinit var containerNativeFeed: LinearLayout
 
+    // Native Containers
+    private lateinit var containerNativeFeed: LinearLayout
+    private lateinit var containerNativeContactos: View
+    private lateinit var containerNativeMensajes: View
+    private lateinit var containerNativeLinkVideo: View
+    private lateinit var containerNativeAjustes: View
+
+    // Feed Views
     private lateinit var rvStoriesBar: RecyclerView
     private lateinit var rvNativeFeed: RecyclerView
     private lateinit var etSearchInput: EditText
@@ -73,9 +87,32 @@ class MainActivity : AppCompatActivity() {
     private lateinit var spOnlineFilter: Spinner
     private lateinit var pbFeedLoading: ProgressBar
     private lateinit var tvFeedEmpty: TextView
-
     private lateinit var storiesAdapter: StoriesAdapter
     private lateinit var feedAdapter: FeedAdapter
+
+    // Contactos Views
+    private lateinit var rvContactosList: RecyclerView
+    private lateinit var pbContactosLoading: ProgressBar
+    private lateinit var tvContactosEmpty: TextView
+    private lateinit var btnSubAmigos: Button
+    private lateinit var btnSubSolicitudes: Button
+    private lateinit var contactosAdapter: ContactosAdapter
+
+    // Mensajes Views
+    private lateinit var rvConversacionesList: RecyclerView
+    private lateinit var pbMensajesLoading: ProgressBar
+    private lateinit var tvMensajesEmpty: TextView
+    private lateinit var conversacionesAdapter: ConversacionesAdapter
+
+    // Link Video Views
+    private lateinit var rvLinkVideoGrid: RecyclerView
+    private lateinit var pbLinkVideoLoading: ProgressBar
+    private lateinit var tvLinkVideoEmpty: TextView
+    private lateinit var linkVideoAdapter: LinkVideoCollectionsAdapter
+
+    // Ajustes Views
+    private lateinit var ivAjustesUserAvatar: ImageView
+    private lateinit var tvAjustesUserName: TextView
 
     // Bottom Navigation Bar items
     private lateinit var tabFeed: View
@@ -143,14 +180,19 @@ class MainActivity : AppCompatActivity() {
 
         // Default to Native Feed tab
         selectTab("feed")
-        loadNativeFeedData()
 
         // Handle Back button
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 if (customView != null) {
                     hideCustomView()
-                } else if (containerNativeFeed.visibility == View.GONE && ::webView.isInitialized && webView.canGoBack()) {
+                } else if (containerNativeFeed.visibility == View.GONE &&
+                    containerNativeContactos.visibility == View.GONE &&
+                    containerNativeMensajes.visibility == View.GONE &&
+                    containerNativeLinkVideo.visibility == View.GONE &&
+                    containerNativeAjustes.visibility == View.GONE &&
+                    ::webView.isInitialized && webView.canGoBack()
+                ) {
                     webView.goBack()
                 } else if (containerNativeFeed.visibility == View.GONE) {
                     selectTab("feed")
@@ -194,8 +236,15 @@ class MainActivity : AppCompatActivity() {
     private fun bindViews() {
         webView = findViewById(R.id.mainWebView)
         progressBarTop = findViewById(R.id.progressBarTop)
-        containerNativeFeed = findViewById(R.id.containerNativeFeed)
 
+        // Native Containers
+        containerNativeFeed = findViewById(R.id.containerNativeFeed)
+        containerNativeContactos = findViewById(R.id.containerNativeContactos)
+        containerNativeMensajes = findViewById(R.id.containerNativeMensajes)
+        containerNativeLinkVideo = findViewById(R.id.containerNativeLinkVideo)
+        containerNativeAjustes = findViewById(R.id.containerNativeAjustes)
+
+        // Feed
         rvStoriesBar = findViewById(R.id.rvStoriesBar)
         rvNativeFeed = findViewById(R.id.rvNativeFeed)
         etSearchInput = findViewById(R.id.etSearchInput)
@@ -204,6 +253,28 @@ class MainActivity : AppCompatActivity() {
         pbFeedLoading = findViewById(R.id.pbFeedLoading)
         tvFeedEmpty = findViewById(R.id.tvFeedEmpty)
 
+        // Contactos
+        rvContactosList = findViewById(R.id.rvContactosList)
+        pbContactosLoading = findViewById(R.id.pbContactosLoading)
+        tvContactosEmpty = findViewById(R.id.tvContactosEmpty)
+        btnSubAmigos = findViewById(R.id.btnSubAmigos)
+        btnSubSolicitudes = findViewById(R.id.btnSubSolicitudes)
+
+        // Mensajes
+        rvConversacionesList = findViewById(R.id.rvConversacionesList)
+        pbMensajesLoading = findViewById(R.id.pbMensajesLoading)
+        tvMensajesEmpty = findViewById(R.id.tvMensajesEmpty)
+
+        // Link Video
+        rvLinkVideoGrid = findViewById(R.id.rvLinkVideoGrid)
+        pbLinkVideoLoading = findViewById(R.id.pbLinkVideoLoading)
+        tvLinkVideoEmpty = findViewById(R.id.tvLinkVideoEmpty)
+
+        // Ajustes
+        ivAjustesUserAvatar = findViewById(R.id.ivAjustesUserAvatar)
+        tvAjustesUserName = findViewById(R.id.tvAjustesUserName)
+
+        // Bottom Navigation Tabs
         tabFeed = findViewById(R.id.tabFeed)
         tabContactos = findViewById(R.id.tabContactos)
         tabMensajes = findViewById(R.id.tabMensajes)
@@ -218,6 +289,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupAdapters() {
+        // Feed & Stories
         storiesAdapter = StoriesAdapter(emptyList()) { story ->
             if (story != null) {
                 Toast.makeText(this, "Estado de ${story.autorNombre}", Toast.LENGTH_SHORT).show()
@@ -232,18 +304,10 @@ class MainActivity : AppCompatActivity() {
             personas = emptyList(),
             apiClient = feedApiClient,
             scope = lifecycleScope,
-            onOpenProfile = { userId ->
-                openProfileInWebView(userId)
-            },
-            onOpenReactionDialog = { user ->
-                showReactionDialog(user)
-            },
-            onConnectFriend = { user ->
-                showReactionDialog(user)
-            },
-            onMoreOptions = { user ->
-                Toast.makeText(this, "Opciones de ${user.name}", Toast.LENGTH_SHORT).show()
-            },
+            onOpenProfile = { userId -> openProfileInWebView(userId) },
+            onOpenReactionDialog = { user -> showReactionDialog(user) },
+            onConnectFriend = { user -> showReactionDialog(user) },
+            onMoreOptions = { user -> Toast.makeText(this, "Opciones de ${user.name}", Toast.LENGTH_SHORT).show() },
             onCall = { user, isVideo ->
                 val type = if (isVideo) "video" else "audio"
                 Toast.makeText(this, "Llamada $type a ${user.name}", Toast.LENGTH_SHORT).show()
@@ -251,6 +315,46 @@ class MainActivity : AppCompatActivity() {
         )
         rvNativeFeed.layoutManager = LinearLayoutManager(this)
         rvNativeFeed.adapter = feedAdapter
+
+        // Contactos Adapter
+        contactosAdapter = ContactosAdapter(
+            contactos = emptyList(),
+            onMensajeClick = { user -> openChatInWebView(user.id) },
+            onLlamarClick = { user -> Toast.makeText(this, "Llamando a ${user.name}", Toast.LENGTH_SHORT).show() }
+        )
+        rvContactosList.layoutManager = LinearLayoutManager(this)
+        rvContactosList.adapter = contactosAdapter
+
+        btnSubAmigos.setOnClickListener { loadContactosData(isSolicitudes = false) }
+        btnSubSolicitudes.setOnClickListener { loadContactosData(isSolicitudes = true) }
+
+        // Conversaciones Adapter
+        conversacionesAdapter = ConversacionesAdapter(
+            conversaciones = emptyList(),
+            onConversacionClick = { item -> item.otroUsuario?.id?.let { openChatInWebView(it) } }
+        )
+        rvConversacionesList.layoutManager = LinearLayoutManager(this)
+        rvConversacionesList.adapter = conversacionesAdapter
+
+        // Link Video Adapter
+        linkVideoAdapter = LinkVideoCollectionsAdapter(
+            collections = emptyList(),
+            onCollectionClick = { item -> openRouteInWebView("ailab") }
+        )
+        rvLinkVideoGrid.layoutManager = GridLayoutManager(this, 2)
+        rvLinkVideoGrid.adapter = linkVideoAdapter
+
+        // Ajustes Buttons
+        findViewById<Button>(R.id.btnAjustesVerPerfil)?.setOnClickListener { openRouteInWebView("profile") }
+        findViewById<Button>(R.id.btnAjustesEditarPerfil)?.setOnClickListener { openRouteInWebView("settings") }
+        findViewById<Button>(R.id.btnAjustesMisiones)?.setOnClickListener { openRouteInWebView("misiones") }
+        findViewById<Button>(R.id.btnAjustesMonetizacion)?.setOnClickListener { openRouteInWebView("payment") }
+        findViewById<Button>(R.id.btnAjustesConfig)?.setOnClickListener { openRouteInWebView("settings") }
+        findViewById<Button>(R.id.btnAjustesLinkAI)?.setOnClickListener { openRouteInWebView("ailab") }
+        findViewById<Button>(R.id.btnAjustesCerrarSesion)?.setOnClickListener {
+            Toast.makeText(this, "Cerrando sesión…", Toast.LENGTH_SHORT).show()
+            openRouteInWebView("home")
+        }
     }
 
     private fun setupFiltersAndSearch() {
@@ -292,6 +396,15 @@ class MainActivity : AppCompatActivity() {
         tabAjustes.setOnClickListener { selectTab("ajustes") }
     }
 
+    private fun hideAllContainers() {
+        containerNativeFeed.visibility = View.GONE
+        containerNativeContactos.visibility = View.GONE
+        containerNativeMensajes.visibility = View.GONE
+        containerNativeLinkVideo.visibility = View.GONE
+        containerNativeAjustes.visibility = View.GONE
+        webView.visibility = View.GONE
+    }
+
     private fun selectTab(tabKey: String) {
         val purpleColor = Color.parseColor("#5B21B6")
         val grayColor = Color.parseColor("#6B7280")
@@ -302,18 +415,32 @@ class MainActivity : AppCompatActivity() {
         lblLinkVideo.setTextColor(if (tabKey == "linkvideo") purpleColor else grayColor)
         lblAjustes.setTextColor(if (tabKey == "ajustes") purpleColor else grayColor)
 
-        if (tabKey == "feed") {
-            containerNativeFeed.visibility = View.VISIBLE
-            webView.visibility = View.GONE
-            loadNativeFeedData()
-        } else {
-            containerNativeFeed.visibility = View.GONE
-            webView.visibility = View.VISIBLE
+        hideAllContainers()
 
-            val serverUrl = identityManager.getServerUrl().trimEnd('/')
-            val routeUrl = "$serverUrl/app/#$tabKey"
-            if (webView.url != routeUrl) {
-                webView.loadUrl(routeUrl)
+        when (tabKey) {
+            "feed" -> {
+                containerNativeFeed.visibility = View.VISIBLE
+                loadNativeFeedData()
+            }
+            "contactos" -> {
+                containerNativeContactos.visibility = View.VISIBLE
+                loadContactosData(isSolicitudes = false)
+            }
+            "mensajes" -> {
+                containerNativeMensajes.visibility = View.VISIBLE
+                loadMensajesData()
+            }
+            "linkvideo" -> {
+                containerNativeLinkVideo.visibility = View.VISIBLE
+                loadLinkVideoData()
+            }
+            "ajustes" -> {
+                containerNativeAjustes.visibility = View.VISIBLE
+                loadAjustesData()
+            }
+            else -> {
+                webView.visibility = View.VISIBLE
+                openRouteInWebView(tabKey)
             }
         }
     }
@@ -333,6 +460,68 @@ class MainActivity : AppCompatActivity() {
             allUsersList = usersList
 
             applyLocalFilters()
+        }
+    }
+
+    private fun loadContactosData(isSolicitudes: Boolean) {
+        pbContactosLoading.visibility = View.VISIBLE
+        tvContactosEmpty.visibility = View.GONE
+
+        if (isSolicitudes) {
+            btnSubAmigos.setBackgroundResource(R.drawable.bg_btn_secondary)
+            btnSubAmigos.setTextColor(Color.parseColor("#1F2937"))
+            btnSubSolicitudes.setBackgroundResource(R.drawable.bg_btn_primary)
+            btnSubSolicitudes.setTextColor(Color.WHITE)
+        } else {
+            btnSubAmigos.setBackgroundResource(R.drawable.bg_btn_primary)
+            btnSubAmigos.setTextColor(Color.WHITE)
+            btnSubSolicitudes.setBackgroundResource(R.drawable.bg_btn_secondary)
+            btnSubSolicitudes.setTextColor(Color.parseColor("#1F2937"))
+        }
+
+        lifecycleScope.launch {
+            val res = if (isSolicitudes) feedApiClient.getSolicitudes() else feedApiClient.getAmigos()
+            pbContactosLoading.visibility = View.GONE
+            val list = res.getOrDefault(emptyList())
+            contactosAdapter.updateContactos(list)
+            tvContactosEmpty.visibility = if (list.isEmpty()) View.VISIBLE else View.GONE
+        }
+    }
+
+    private fun loadMensajesData() {
+        pbMensajesLoading.visibility = View.VISIBLE
+        tvMensajesEmpty.visibility = View.GONE
+
+        lifecycleScope.launch {
+            val res = feedApiClient.getConversaciones()
+            pbMensajesLoading.visibility = View.GONE
+            val list = res.getOrDefault(emptyList())
+            conversacionesAdapter.updateConversaciones(list)
+            tvMensajesEmpty.visibility = if (list.isEmpty()) View.VISIBLE else View.GONE
+        }
+    }
+
+    private fun loadLinkVideoData() {
+        pbLinkVideoLoading.visibility = View.VISIBLE
+        tvLinkVideoEmpty.visibility = View.GONE
+
+        lifecycleScope.launch {
+            val res = feedApiClient.getLinkVideoCollections()
+            pbLinkVideoLoading.visibility = View.GONE
+            val list = res.getOrDefault(emptyList())
+            linkVideoAdapter.updateCollections(list)
+            tvLinkVideoEmpty.visibility = if (list.isEmpty()) View.VISIBLE else View.GONE
+        }
+    }
+
+    private fun loadAjustesData() {
+        lifecycleScope.launch {
+            val res = feedApiClient.getPerfilActual()
+            val user = res.getOrNull()
+            if (user != null) {
+                tvAjustesUserName.text = user.name ?: "@${user.username}"
+                ImageUtils.loadBase64OrPlaceholder(ivAjustesUserAvatar, user.avatarData, user.name ?: "Yo")
+            }
         }
     }
 
@@ -419,11 +608,41 @@ class MainActivity : AppCompatActivity() {
         dialog.show()
     }
 
-    private fun openProfileInWebView(userId: String) {
-        containerNativeFeed.visibility = View.GONE
+    private fun openRouteInWebView(routeKey: String) {
+        hideAllContainers()
         webView.visibility = View.VISIBLE
         val serverUrl = identityManager.getServerUrl().trimEnd('/')
-        webView.loadUrl("$serverUrl/#perfil-$userId")
+        val webViewUrl = webView.url
+        if (webViewUrl != null && webViewUrl.startsWith(serverUrl)) {
+            val jsKey = if (routeKey == "linkvideo") "ailab" else routeKey
+            webView.evaluateJavascript("if(typeof cambiarVista === 'function') { cambiarVista('$jsKey'); } else { window.location.hash = '$jsKey'; }", null)
+        } else {
+            webView.loadUrl("$serverUrl/#$routeKey")
+        }
+    }
+
+    private fun openProfileInWebView(userId: String) {
+        hideAllContainers()
+        webView.visibility = View.VISIBLE
+        val serverUrl = identityManager.getServerUrl().trimEnd('/')
+        val webViewUrl = webView.url
+        if (webViewUrl != null && webViewUrl.startsWith(serverUrl)) {
+            webView.evaluateJavascript("if(typeof abrirPerfil === 'function') { abrirPerfil('$userId'); } else { window.location.hash = 'perfil-$userId'; }", null)
+        } else {
+            webView.loadUrl("$serverUrl/#perfil-$userId")
+        }
+    }
+
+    private fun openChatInWebView(userId: String) {
+        hideAllContainers()
+        webView.visibility = View.VISIBLE
+        val serverUrl = identityManager.getServerUrl().trimEnd('/')
+        val webViewUrl = webView.url
+        if (webViewUrl != null && webViewUrl.startsWith(serverUrl)) {
+            webView.evaluateJavascript("if(window.Chat && typeof window.Chat.abrirConversacion === 'function') { window.Chat.abrirConversacion({id: '$userId', name: 'Usuario'}); } else { window.location.hash = 'chat-$userId'; }", null)
+        } else {
+            webView.loadUrl("$serverUrl/#chat-$userId")
+        }
     }
 
     private fun hideCustomView() {

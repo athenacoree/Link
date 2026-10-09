@@ -118,7 +118,43 @@
         </FrameLayout>
     </LinearLayout>
 
-    <!-- WEBVIEW CONTAINER (When switching to other tabs) -->
+    <!-- NATIVE CONTACTOS CONTAINER -->
+    <include
+        android:id="@+id/containerNativeContactos"
+        layout="@layout/container_contactos"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_above="@id/nativeBottomBar"
+        android:visibility="gone" />
+
+    <!-- NATIVE MENSAJES CONTAINER -->
+    <include
+        android:id="@+id/containerNativeMensajes"
+        layout="@layout/container_mensajes"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_above="@id/nativeBottomBar"
+        android:visibility="gone" />
+
+    <!-- NATIVE LINK VIDEO CONTAINER -->
+    <include
+        android:id="@+id/containerNativeLinkVideo"
+        layout="@layout/container_linkvideo"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_above="@id/nativeBottomBar"
+        android:visibility="gone" />
+
+    <!-- NATIVE AJUSTES CONTAINER -->
+    <include
+        android:id="@+id/containerNativeAjustes"
+        layout="@layout/container_ajustes"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_above="@id/nativeBottomBar"
+        android:visibility="gone" />
+
+    <!-- WEBVIEW CONTAINER (Fallback / Custom Web Views) -->
     <WebView
         android:id="@+id/mainWebView"
         android:layout_width="match_parent"
