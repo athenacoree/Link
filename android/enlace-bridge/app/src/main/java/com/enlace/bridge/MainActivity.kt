@@ -1,15 +1,21 @@
 package com.enlace.bridge
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Color
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Vibrator
 import android.os.VibratorManager
+import android.text.Editable
+import android.text.TextWatcher
+import android.view.LayoutInflater
+import android.view.View
 import android.view.WindowManager
 import android.webkit.CookieManager
 import android.webkit.GeolocationPermissions
@@ -22,26 +28,72 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
+import android.widget.Button
+import android.widget.EditText
 import android.widget.FrameLayout
+import android.widget.LinearLayout
 import android.widget.ProgressBar
+import android.widget.Spinner
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import com.enlace.bridge.adapters.FeedAdapter
+import com.enlace.bridge.adapters.StoriesAdapter
+import com.enlace.bridge.api.FeedApiClient
 import com.enlace.bridge.auth.DeviceIdentityManager
 import com.enlace.bridge.calls.CallBridgeManager
+import com.enlace.bridge.models.UserPerson
+import com.enlace.bridge.models.UserStory
+import com.google.android.material.bottomsheet.BottomSheetDialog
+import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var identityManager: DeviceIdentityManager
     private lateinit var callManager: CallBridgeManager
+    private lateinit var feedApiClient: FeedApiClient
+
     private lateinit var webView: WebView
-    private lateinit var progressBar: ProgressBar
+    private lateinit var progressBarTop: ProgressBar
+    private lateinit var containerNativeFeed: LinearLayout
+
+    private lateinit var rvStoriesBar: RecyclerView
+    private lateinit var rvNativeFeed: RecyclerView
+    private lateinit var etSearchInput: EditText
+    private lateinit var spGenderFilter: Spinner
+    private lateinit var spOnlineFilter: Spinner
+    private lateinit var pbFeedLoading: ProgressBar
+    private lateinit var tvFeedEmpty: TextView
+
+    private lateinit var storiesAdapter: StoriesAdapter
+    private lateinit var feedAdapter: FeedAdapter
+
+    // Bottom Navigation Bar items
+    private lateinit var tabFeed: View
+    private lateinit var tabContactos: View
+    private lateinit var tabMensajes: View
+    private lateinit var tabLinkVideo: View
+    private lateinit var tabAjustes: View
+
+    private lateinit var lblFeed: TextView
+    private lateinit var lblContactos: TextView
+    private lateinit var lblMensajes: TextView
+    private lateinit var lblLinkVideo: TextView
+    private lateinit var lblAjustes: TextView
+
+    private var allUsersList: List<UserPerson> = emptyList()
 
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
-    private var customView: android.view.View? = null
+    private var customView: View? = null
     private var customViewCallback: WebChromeClient.CustomViewCallback? = null
 
     private val filePickerLauncher = registerForActivityResult(
@@ -71,8 +123,14 @@ class MainActivity : AppCompatActivity() {
 
         identityManager = DeviceIdentityManager(this)
         callManager = CallBridgeManager(this)
+        feedApiClient = FeedApiClient(identityManager)
 
-        setupUI()
+        setContentView(R.layout.activity_main)
+
+        bindViews()
+        setupAdapters()
+        setupFiltersAndSearch()
+        setupBottomNavigation()
         configureWebView()
         requestInitialPermissions()
 
@@ -83,13 +141,19 @@ class MainActivity : AppCompatActivity() {
             webView.restoreState(savedInstanceState)
         }
 
-        // Handle Back button to navigate back in WebView history or exit fullscreen custom view
+        // Default to Native Feed tab
+        selectTab("feed")
+        loadNativeFeedData()
+
+        // Handle Back button
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 if (customView != null) {
                     hideCustomView()
-                } else if (::webView.isInitialized && webView.canGoBack()) {
+                } else if (containerNativeFeed.visibility == View.GONE && ::webView.isInitialized && webView.canGoBack()) {
                     webView.goBack()
+                } else if (containerNativeFeed.visibility == View.GONE) {
+                    selectTab("feed")
                 } else {
                     finish()
                 }
@@ -127,6 +191,241 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
     }
 
+    private fun bindViews() {
+        webView = findViewById(R.id.mainWebView)
+        progressBarTop = findViewById(R.id.progressBarTop)
+        containerNativeFeed = findViewById(R.id.containerNativeFeed)
+
+        rvStoriesBar = findViewById(R.id.rvStoriesBar)
+        rvNativeFeed = findViewById(R.id.rvNativeFeed)
+        etSearchInput = findViewById(R.id.etSearchInput)
+        spGenderFilter = findViewById(R.id.spGenderFilter)
+        spOnlineFilter = findViewById(R.id.spOnlineFilter)
+        pbFeedLoading = findViewById(R.id.pbFeedLoading)
+        tvFeedEmpty = findViewById(R.id.tvFeedEmpty)
+
+        tabFeed = findViewById(R.id.tabFeed)
+        tabContactos = findViewById(R.id.tabContactos)
+        tabMensajes = findViewById(R.id.tabMensajes)
+        tabLinkVideo = findViewById(R.id.tabLinkVideo)
+        tabAjustes = findViewById(R.id.tabAjustes)
+
+        lblFeed = findViewById(R.id.lblFeed)
+        lblContactos = findViewById(R.id.lblContactos)
+        lblMensajes = findViewById(R.id.lblMensajes)
+        lblLinkVideo = findViewById(R.id.lblLinkVideo)
+        lblAjustes = findViewById(R.id.lblAjustes)
+    }
+
+    private fun setupAdapters() {
+        storiesAdapter = StoriesAdapter(emptyList()) { story ->
+            if (story != null) {
+                Toast.makeText(this, "Estado de ${story.autorNombre}", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this, "Publicar nuevo estado", Toast.LENGTH_SHORT).show()
+            }
+        }
+        rvStoriesBar.layoutManager = LinearLayoutManager(this, RecyclerView.HORIZONTAL, false)
+        rvStoriesBar.adapter = storiesAdapter
+
+        feedAdapter = FeedAdapter(
+            personas = emptyList(),
+            apiClient = feedApiClient,
+            scope = lifecycleScope,
+            onOpenProfile = { userId ->
+                openProfileInWebView(userId)
+            },
+            onOpenReactionDialog = { user ->
+                showReactionDialog(user)
+            },
+            onConnectFriend = { user ->
+                showReactionDialog(user)
+            },
+            onMoreOptions = { user ->
+                Toast.makeText(this, "Opciones de ${user.name}", Toast.LENGTH_SHORT).show()
+            },
+            onCall = { user, isVideo ->
+                val type = if (isVideo) "video" else "audio"
+                Toast.makeText(this, "Llamada $type a ${user.name}", Toast.LENGTH_SHORT).show()
+            }
+        )
+        rvNativeFeed.layoutManager = LinearLayoutManager(this)
+        rvNativeFeed.adapter = feedAdapter
+    }
+
+    private fun setupFiltersAndSearch() {
+        val genderOptions = arrayOf("Todos los géneros", "Mujer", "Hombre", "Otro")
+        val onlineOptions = arrayOf("Todos los estados", "En línea ahora")
+
+        spGenderFilter.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, genderOptions)
+        spOnlineFilter.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, onlineOptions)
+
+        val filterListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                applyLocalFilters()
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+
+        spGenderFilter.onItemSelectedListener = filterListener
+        spOnlineFilter.onItemSelectedListener = filterListener
+
+        etSearchInput.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                val q = s?.toString()?.trim() ?: ""
+                if (q.length >= 2) {
+                    performSearch(q)
+                } else if (q.isEmpty()) {
+                    applyLocalFilters()
+                }
+            }
+            override fun afterTextChanged(s: Editable?) {}
+        })
+    }
+
+    private fun setupBottomNavigation() {
+        tabFeed.setOnClickListener { selectTab("feed") }
+        tabContactos.setOnClickListener { selectTab("contactos") }
+        tabMensajes.setOnClickListener { selectTab("mensajes") }
+        tabLinkVideo.setOnClickListener { selectTab("linkvideo") }
+        tabAjustes.setOnClickListener { selectTab("ajustes") }
+    }
+
+    private fun selectTab(tabKey: String) {
+        val purpleColor = Color.parseColor("#5B21B6")
+        val grayColor = Color.parseColor("#6B7280")
+
+        lblFeed.setTextColor(if (tabKey == "feed") purpleColor else grayColor)
+        lblContactos.setTextColor(if (tabKey == "contactos") purpleColor else grayColor)
+        lblMensajes.setTextColor(if (tabKey == "mensajes") purpleColor else grayColor)
+        lblLinkVideo.setTextColor(if (tabKey == "linkvideo") purpleColor else grayColor)
+        lblAjustes.setTextColor(if (tabKey == "ajustes") purpleColor else grayColor)
+
+        if (tabKey == "feed") {
+            containerNativeFeed.visibility = View.VISIBLE
+            webView.visibility = View.GONE
+            loadNativeFeedData()
+        } else {
+            containerNativeFeed.visibility = View.GONE
+            webView.visibility = View.VISIBLE
+
+            val serverUrl = identityManager.getServerUrl().trimEnd('/')
+            val routeUrl = "$serverUrl/app/#$tabKey"
+            if (webView.url != routeUrl) {
+                webView.loadUrl(routeUrl)
+            }
+        }
+    }
+
+    private fun loadNativeFeedData() {
+        pbFeedLoading.visibility = View.VISIBLE
+        tvFeedEmpty.visibility = View.GONE
+
+        lifecycleScope.launch {
+            val storiesRes = feedApiClient.getStories()
+            val storiesList = storiesRes.getOrDefault(emptyList())
+            storiesAdapter.updateStories(storiesList)
+
+            val usersRes = feedApiClient.getFeedUsers()
+            pbFeedLoading.visibility = View.GONE
+            val usersList = usersRes.getOrDefault(emptyList())
+            allUsersList = usersList
+
+            applyLocalFilters()
+        }
+    }
+
+    private fun performSearch(query: String) {
+        pbFeedLoading.visibility = View.VISIBLE
+        lifecycleScope.launch {
+            val searchRes = feedApiClient.searchUsers(query)
+            pbFeedLoading.visibility = View.GONE
+            val searchList = searchRes.getOrDefault(emptyList())
+            feedAdapter.updatePersonas(searchList)
+            tvFeedEmpty.visibility = if (searchList.isEmpty()) View.VISIBLE else View.GONE
+        }
+    }
+
+    private fun applyLocalFilters() {
+        val genderSel = spGenderFilter.selectedItem?.toString() ?: ""
+        val onlineSel = spOnlineFilter.selectedItem?.toString() ?: ""
+
+        var filtered = allUsersList
+        if (genderSel != "Todos los géneros" && genderSel.isNotBlank()) {
+            filtered = filtered.filter { it.gender.equals(genderSel, ignoreCase = true) }
+        }
+        if (onlineSel == "En línea ahora") {
+            filtered = filtered.filter { it.isOnline }
+        }
+
+        feedAdapter.updatePersonas(filtered)
+        tvFeedEmpty.visibility = if (filtered.isEmpty()) View.VISIBLE else View.GONE
+    }
+
+    private fun showReactionDialog(user: UserPerson) {
+        val dialog = BottomSheetDialog(this)
+        val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_reaccion, null)
+        dialog.setContentView(dialogView)
+
+        val tvTitle = dialogView.findViewById<TextView>(R.id.tvDialogTitle)
+        val container = dialogView.findViewById<LinearLayout>(R.id.llReactionContainer)
+        val btnClose = dialogView.findViewById<Button>(R.id.btnCerrarReaccion)
+
+        val firstName = user.name?.split(" ")?.firstOrNull() ?: "esta persona"
+        tvTitle.text = "Tocaste dos veces a $firstName — ¿qué te pareció? (opcional)"
+
+        val options = listOf(
+            "atrae" to "😍 Me atrae / interesa",
+            "cae_bien" to "😊 Me cae bien",
+            "interesante" to "🧠 Interesante",
+            "estilo" to "🎨 Me gusta su estilo",
+            "divertido" to "😂 Divertido",
+            "quiero_hablarle" to "💬 Quiero hablarle",
+            "buena_persona" to "🤝 Parece buena persona",
+            "desconfianza" to "⚠️ Me genera desconfianza",
+            "no_interesa" to "👎 No me interesa"
+        )
+
+        options.forEach { (tipoKey, labelText) ->
+            val btn = Button(this).apply {
+                text = labelText
+                setBackgroundResource(R.drawable.bg_btn_secondary)
+                setTextColor(Color.parseColor("#1F2937"))
+                textSize = 11f
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { setMargins(0, 4, 0, 4) }
+
+                setOnClickListener {
+                    lifecycleScope.launch {
+                        val res = feedApiClient.postReaction(user.id, tipoKey)
+                        if (res.isSuccess) {
+                            user.miReaccion = tipoKey
+                            feedAdapter.notifyDataSetChanged()
+                            Toast.makeText(this@MainActivity, "Guardado — esto es privado, solo tú lo ves", Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(this@MainActivity, "No se pudo guardar la reacción", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                    dialog.dismiss()
+                }
+            }
+            container.addView(btn)
+        }
+
+        btnClose.setOnClickListener { dialog.dismiss() }
+        dialog.show()
+    }
+
+    private fun openProfileInWebView(userId: String) {
+        containerNativeFeed.visibility = View.GONE
+        webView.visibility = View.VISIBLE
+        val serverUrl = identityManager.getServerUrl().trimEnd('/')
+        webView.loadUrl("$serverUrl/#perfil-$userId")
+    }
+
     private fun hideCustomView() {
         if (customView == null) return
         val root = window.decorView as FrameLayout
@@ -135,31 +434,8 @@ class MainActivity : AppCompatActivity() {
         customViewCallback?.onCustomViewHidden()
         customViewCallback = null
         if (::webView.isInitialized) {
-            webView.visibility = android.view.View.VISIBLE
+            webView.visibility = View.VISIBLE
         }
-    }
-
-    private fun setupUI() {
-        val rootLayout = FrameLayout(this)
-
-        webView = WebView(this).apply {
-            layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT
-            )
-        }
-        rootLayout.addView(webView)
-
-        progressBar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
-            layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                12
-            )
-            max = 100
-        }
-        rootLayout.addView(progressBar)
-
-        setContentView(rootLayout)
     }
 
     private fun configureWebView() {
@@ -177,25 +453,21 @@ class MainActivity : AppCompatActivity() {
         settings.setSupportZoom(true)
         settings.builtInZoomControls = false
 
-        // Custom User Agent suffix to identify Link App
-        settings.userAgentString = settings.userAgentString + " LinkApp/1.0 (Android)"
+        settings.userAgentString = settings.userAgentString + " LinkApp/1.0 (Android Native Feed)"
 
-        // Cookie Manager Persistence
         val cookieManager = CookieManager.getInstance()
         cookieManager.setAcceptCookie(true)
         cookieManager.setAcceptThirdPartyCookies(webView, true)
 
-        // JavaScript Interface for Native Bridge
         webView.addJavascriptInterface(WebAppBridge(this), "AppBridge")
 
-        // WebViewClient
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                 val url = request?.url?.toString() ?: return false
                 val defaultHost = Uri.parse(identityManager.getServerUrl()).host ?: "link-axlc.onrender.com"
 
                 return if (url.contains(defaultHost) || url.startsWith("file://") || url.startsWith("data:")) {
-                    false // Open within WebView
+                    false
                 } else {
                     try {
                         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
@@ -209,37 +481,35 @@ class MainActivity : AppCompatActivity() {
 
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
-                progressBar.visibility = android.view.View.GONE
+                progressBarTop.visibility = View.GONE
                 CookieManager.getInstance().flush()
             }
 
             override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
                 if (request?.isForMainFrame == true) {
-                    // Show a toast or gentle alert on connection error
                     Toast.makeText(this@MainActivity, "Comprueba tu conexión a Internet.", Toast.LENGTH_SHORT).show()
                 }
             }
         }
 
-        // WebChromeClient
         webView.webChromeClient = object : WebChromeClient() {
             override fun onProgressChanged(view: WebView?, newProgress: Int) {
                 if (newProgress < 100) {
-                    progressBar.visibility = android.view.View.VISIBLE
-                    progressBar.progress = newProgress
+                    progressBarTop.visibility = View.VISIBLE
+                    progressBarTop.progress = newProgress
                 } else {
-                    progressBar.visibility = android.view.View.GONE
+                    progressBarTop.visibility = View.GONE
                 }
             }
 
-            override fun onShowCustomView(view: android.view.View?, callback: CustomViewCallback?) {
+            override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
                 if (customView != null) {
                     onHideCustomView()
                     return
                 }
                 customView = view
                 customViewCallback = callback
-                webView.visibility = android.view.View.GONE
+                webView.visibility = View.GONE
                 val root = window.decorView as FrameLayout
                 root.addView(customView, FrameLayout.LayoutParams(
                     FrameLayout.LayoutParams.MATCH_PARENT,
