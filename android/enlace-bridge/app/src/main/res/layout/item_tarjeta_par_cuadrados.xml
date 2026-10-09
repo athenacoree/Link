@@ -1,0 +1,401 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:paddingStart="6dp"
+    android:paddingEnd="6dp"
+    android:paddingTop="6dp"
+    android:paddingBottom="6dp">
+
+    <!-- CUADRADO IZQUIERDA -->
+    <FrameLayout
+        android:id="@+id/cuadradoIzq"
+        android:layout_width="0dp"
+        android:layout_height="175dp"
+        android:layout_weight="1"
+        android:layout_marginEnd="4dp"
+        android:background="@drawable/bg_card_cuadrado"
+        android:padding="6dp">
+
+        <!-- Dot Indicators (Izq) -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|center_horizontal"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:layout_marginTop="2dp">
+
+            <View
+                android:id="@+id/dotIzq1"
+                android:layout_width="6dp"
+                android:layout_height="6dp"
+                android:layout_margin="2dp"
+                android:background="@drawable/bg_dot_active" />
+
+            <View
+                android:id="@+id/dotIzq2"
+                android:layout_width="6dp"
+                android:layout_height="6dp"
+                android:layout_margin="2dp"
+                android:background="@drawable/bg_dot_inactive" />
+
+            <View
+                android:id="@+id/dotIzq3"
+                android:layout_width="6dp"
+                android:layout_height="6dp"
+                android:layout_margin="2dp"
+                android:background="@drawable/bg_dot_inactive" />
+        </LinearLayout>
+
+        <!-- SUBVISTA IZQ 1: Foto Full & Burbuja -->
+        <FrameLayout
+            android:id="@+id/subvistaIzq1"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_marginTop="12dp"
+            android:visibility="visible">
+
+            <ImageView
+                android:id="@+id/ivPhotoFull"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="centerCrop"
+                android:background="#E5E7EB"
+                android:contentDescription="Foto de perfil" />
+
+            <TextView
+                android:id="@+id/tvStatusBubble"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="top|center_horizontal"
+                android:layout_marginTop="4dp"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="4dp"
+                android:background="@drawable/bg_burbuja_pensamiento"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
+                android:paddingTop="3dp"
+                android:paddingBottom="3dp"
+                android:textColor="#374151"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:ellipsize="end"
+                android:maxLines="2"
+                android:visibility="gone" />
+
+            <View
+                android:id="@+id/vOnlineBadge"
+                android:layout_width="12dp"
+                android:layout_height="12dp"
+                android:layout_gravity="bottom|end"
+                android:layout_margin="6dp"
+                android:background="@drawable/bg_online_badge"
+                android:visibility="gone" />
+        </FrameLayout>
+
+        <!-- SUBVISTA IZQ 2: Acciones Rápidas -->
+        <LinearLayout
+            android:id="@+id/subvistaIzq2"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_marginTop="12dp"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Acciones"
+                android:textColor="#6B21A8"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="4dp" />
+
+            <GridLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:columnCount="2"
+                android:rowCount="2">
+
+                <Button
+                    android:id="@+id/btnPerfilIzq"
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    android:layout_columnWeight="1"
+                    android:layout_rowWeight="1"
+                    android:layout_margin="2dp"
+                    android:background="@drawable/bg_btn_primary"
+                    android:text="Perfil"
+                    android:textColor="#FFFFFF"
+                    android:textSize="10sp" />
+
+                <Button
+                    android:id="@+id/btnReaccionarIzq"
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    android:layout_columnWeight="1"
+                    android:layout_rowWeight="1"
+                    android:layout_margin="2dp"
+                    android:background="@drawable/bg_btn_secondary"
+                    android:text="💗"
+                    android:textColor="#1F2937"
+                    android:textSize="12sp" />
+
+                <Button
+                    android:id="@+id/btnConectarIzq"
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    android:layout_columnWeight="1"
+                    android:layout_rowWeight="1"
+                    android:layout_margin="2dp"
+                    android:background="@drawable/bg_btn_secondary"
+                    android:text="Conectar"
+                    android:textColor="#1F2937"
+                    android:textSize="9sp" />
+
+                <Button
+                    android:id="@+id/btnMasIzq"
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    android:layout_columnWeight="1"
+                    android:layout_rowWeight="1"
+                    android:layout_margin="2dp"
+                    android:background="@drawable/bg_btn_secondary"
+                    android:text="Más"
+                    android:textColor="#1F2937"
+                    android:textSize="10sp" />
+            </GridLayout>
+        </LinearLayout>
+
+        <!-- SUBVISTA IZQ 3: Redes & Llamadas -->
+        <LinearLayout
+            android:id="@+id/subvistaIzq3"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_marginTop="12dp"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Redes &amp; Contacto"
+                android:textColor="#6B21A8"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="2dp" />
+
+            <TextView
+                android:id="@+id/tvRedesSummary"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:text="Tocá para ver redes"
+                android:textColor="#4B5563"
+                android:textSize="10sp"
+                android:ellipsize="end"
+                android:maxLines="3" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="2dp">
+
+                <Button
+                    android:id="@+id/btnAudioIzq"
+                    android:layout_width="0dp"
+                    android:layout_height="32dp"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="2dp"
+                    android:background="@drawable/bg_btn_secondary"
+                    android:text="📞 Audio"
+                    android:textColor="#1F2937"
+                    android:textSize="9sp" />
+
+                <Button
+                    android:id="@+id/btnVideoIzq"
+                    android:layout_width="0dp"
+                    android:layout_height="32dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="2dp"
+                    android:background="@drawable/bg_btn_secondary"
+                    android:text="📹 Video"
+                    android:textColor="#1F2937"
+                    android:textSize="9sp" />
+            </LinearLayout>
+        </LinearLayout>
+    </FrameLayout>
+
+    <!-- CUADRADO DERECHA -->
+    <FrameLayout
+        android:id="@+id/cuadradoDer"
+        android:layout_width="0dp"
+        android:layout_height="175dp"
+        android:layout_weight="1"
+        android:layout_marginStart="4dp"
+        android:background="@drawable/bg_card_cuadrado"
+        android:padding="6dp">
+
+        <!-- Dot Indicators (Der) -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|center_horizontal"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:layout_marginTop="2dp">
+
+            <View
+                android:id="@+id/dotDer1"
+                android:layout_width="6dp"
+                android:layout_height="6dp"
+                android:layout_margin="2dp"
+                android:background="@drawable/bg_dot_active" />
+
+            <View
+                android:id="@+id/dotDer2"
+                android:layout_width="6dp"
+                android:layout_height="6dp"
+                android:layout_margin="2dp"
+                android:background="@drawable/bg_dot_inactive" />
+        </LinearLayout>
+
+        <!-- SUBVISTA DER 1: Perfil, Similitud, Nombre -->
+        <LinearLayout
+            android:id="@+id/subvistaDer1"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_marginTop="12dp"
+            android:orientation="vertical"
+            android:visibility="visible">
+
+            <TextView
+                android:id="@+id/tvSimilitudBadge"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_badge_similitud"
+                android:paddingStart="6dp"
+                android:paddingEnd="6dp"
+                android:paddingTop="3dp"
+                android:paddingBottom="3dp"
+                android:text="🎯 85% similitud"
+                android:textColor="#6B21A8"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:gravity="center" />
+
+            <TextView
+                android:id="@+id/tvNameVerified"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="#111827"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvLocation"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="#4B5563"
+                android:textSize="10sp" />
+
+            <TextView
+                android:id="@+id/tvOrigenTag"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:textColor="#9CA3AF"
+                android:textSize="9sp"
+                android:visibility="gone" />
+
+            <Button
+                android:id="@+id/btnVerPerfilDer"
+                android:layout_width="match_parent"
+                android:layout_height="32dp"
+                android:layout_gravity="bottom"
+                android:layout_marginTop="4dp"
+                android:background="@drawable/bg_btn_primary"
+                android:text="Ver Perfil"
+                android:textColor="#FFFFFF"
+                android:textSize="10sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- SUBVISTA DER 2: Chat Preview -->
+        <LinearLayout
+            android:id="@+id/subvistaDer2"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_marginTop="12dp"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Chat reciente"
+                android:textColor="#6B21A8"
+                android:textSize="10sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvChatPreviewText"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:layout_marginTop="2dp"
+                android:background="@drawable/bg_burbuja_pensamiento"
+                android:padding="6dp"
+                android:text="Cargando chat…"
+                android:textColor="#374151"
+                android:textSize="10sp"
+                android:ellipsize="end" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="28dp"
+                android:orientation="horizontal"
+                android:gravity="center">
+
+                <TextView
+                    android:id="@+id/btnChatPrev"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:background="@drawable/bg_btn_secondary"
+                    android:text="‹"
+                    android:textColor="#1F2937"
+                    android:textSize="14sp"
+                    android:gravity="center" />
+
+                <TextView
+                    android:id="@+id/tvChatPag"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:layout_marginEnd="8dp"
+                    android:text="1/1"
+                    android:textColor="#6B7280"
+                    android:textSize="9sp" />
+
+                <TextView
+                    android:id="@+id/btnChatNext"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:background="@drawable/bg_btn_secondary"
+                    android:text="›"
+                    android:textColor="#1F2937"
+                    android:textSize="14sp"
+                    android:gravity="center" />
+            </LinearLayout>
+        </LinearLayout>
+    </FrameLayout>
+</LinearLayout>
