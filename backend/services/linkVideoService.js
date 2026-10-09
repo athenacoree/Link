@@ -6,7 +6,7 @@
 
 const { query } = require('../db/postgres');
 const videoStreamTool = require('../tools/videoStreamTool');
-const { fetchYouTubeInfo, extractYouTubeId, fetchYouTubeSubtitles } = require('../utils/youtube');
+const { fetchYouTubeInfo, extractYouTubeId } = require('../utils/youtube');
 const { extractHiddenTags, isReelUrlOrTitle } = require('../utils/tagExtractor');
 const { detectExternalProvider, getAdapter, getProvidersStatus } = require('./videoProviders');
 
@@ -36,7 +36,6 @@ function sanitizeCategory(cat) {
 const inMemoryLiveSessions = new Map();
 const inMemoryCollections = new Map(); // id -> collection object
 const inMemoryVideos = new Map(); // id -> video object
-const inMemorySubtitles = new Map(); // videoId_lang -> subtitle object
 const inMemoryUserViews = new Map(); // userId -> array of view records
 const inMemoryExternalContent = new Map(); // id -> external content record
 
@@ -303,7 +302,25 @@ async function getUserExternalContent(userId, filterCategory = null) {
 /**
  * Actualiza el estado o metadatos de un contenido externo (Moderación / Usuario)
  */
-async function updateExternalContent(id, { status, visibility, collectionId, category, title, description }) {
+async function updateExternalContent(id, { status, visibility, collectionId, category, title, description }, requestingUserId = null, isAdmin = false) {
+  let target = null;
+  try {
+    const { rows } = await query(`SELECT * FROM external_content WHERE id::text = $1::text`, [id]);
+    if (rows && rows.length > 0) target = rows[0];
+  } catch (e) {}
+
+  if (!target && inMemoryExternalContent.has(id)) {
+    target = inMemoryExternalContent.get(id);
+  }
+
+  if (!target) {
+    throw new Error('Contenido no encontrado.');
+  }
+
+  if (requestingUserId && !isAdmin && target.user_id !== requestingUserId) {
+    throw new Error('No tienes permisos para modificar este contenido.');
+  }
+
   try {
     const fields = [];
     const values = [];
@@ -550,6 +567,12 @@ function calculateItemRecommendationScore(item, userWeights = {}) {
 
 async function getCollections(userId = null, options = {}) {
   const includeVideos = typeof options === 'boolean' ? options : !!options.includeVideos;
+  const page = Math.max(1, parseInt(options.page || 1, 10));
+  const limit = Math.max(1, Math.min(100, parseInt(options.limit || 20, 10)));
+  const offset = (page - 1) * limit;
+  const categoryFilter = options.category ? String(options.category).trim() : null;
+  const searchFilter = (options.search || options.q) ? String(options.search || options.q).trim() : null;
+
   let userWeights = {};
   if (userId) {
     userWeights = await getUserRecommendationWeights(userId);
@@ -558,6 +581,22 @@ async function getCollections(userId = null, options = {}) {
   let collections = [];
 
   try {
+    let whereClauses = [];
+    let params = [];
+    let idx = 1;
+
+    if (categoryFilter && categoryFilter.toLowerCase() !== 'todas') {
+      whereClauses.push(`c.category ILIKE $${idx++}`);
+      params.push(`%${categoryFilter}%`);
+    }
+    if (searchFilter) {
+      whereClauses.push(`(c.name ILIKE $${idx} OR c.category ILIKE $${idx} OR c.audio_description ILIKE $${idx})`);
+      idx++;
+      params.push(`%${searchFilter}%`);
+    }
+
+    const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+
     const selectQuery = includeVideos
       ? `SELECT c.id, c.name, c.cover_url, c.category, c.audio_description, c.hidden_tags, c.created_at, c.updated_at,
                 COUNT(v.id)::int AS video_count,
@@ -580,16 +619,18 @@ async function getCollections(userId = null, options = {}) {
                 ) AS videos
          FROM linkvideo_collections c
          LEFT JOIN linkvideo_videos v ON c.id = v.collection_id AND v.status = 'active'
+         ${whereSql}
          GROUP BY c.id
          ORDER BY c.created_at DESC`
       : `SELECT c.id, c.name, c.cover_url, c.category, c.audio_description, c.hidden_tags, c.created_at, c.updated_at,
                 COUNT(v.id)::int AS video_count
          FROM linkvideo_collections c
          LEFT JOIN linkvideo_videos v ON c.id = v.collection_id AND v.status = 'active'
+         ${whereSql}
          GROUP BY c.id
          ORDER BY c.created_at DESC`;
 
-    const { rows } = await query(selectQuery);
+    const { rows } = await query(selectQuery, params);
     if (rows && rows.length > 0) {
       collections = rows.map(col => {
         const hTags = Array.isArray(col.hidden_tags) && col.hidden_tags.length > 0
@@ -605,7 +646,16 @@ async function getCollections(userId = null, options = {}) {
   } catch (err) {}
 
   if (!collections.length) {
-    collections = Array.from(inMemoryCollections.values()).map(col => {
+    collections = Array.from(inMemoryCollections.values()).filter(col => {
+      if (categoryFilter && categoryFilter.toLowerCase() !== 'todas' && !col.category.toLowerCase().includes(categoryFilter.toLowerCase())) {
+        return false;
+      }
+      if (searchFilter) {
+        const fullText = `${col.name} ${col.category} ${col.audio_description || ''}`.toLowerCase();
+        if (!fullText.includes(searchFilter.toLowerCase())) return false;
+      }
+      return true;
+    }).map(col => {
       const memVideos = Array.from(inMemoryVideos.values()).filter(v => v.collection_id === col.id && v.status === 'active');
       const hTags = Array.isArray(col.hidden_tags) && col.hidden_tags.length > 0
         ? col.hidden_tags
@@ -636,6 +686,17 @@ async function getCollections(userId = null, options = {}) {
   });
 
   collections.sort((a, b) => (b.recommendation_score - a.recommendation_score));
+
+  if (options.paginate) {
+    const paginated = collections.slice(offset, offset + limit);
+    return {
+      collections: paginated,
+      total: collections.length,
+      page,
+      limit,
+      hasMore: offset + limit < collections.length
+    };
+  }
 
   return collections;
 }
@@ -928,18 +989,41 @@ async function reorderVideos(collectionId, orderedVideoIds) {
  * Obtiene las recomendaciones principales personalizadas para un usuario (Spotify/YouTube style).
  */
 async function getTopRecommendations(userId, limit = 6) {
-  const collections = await getCollections(userId, { includeVideos: true });
+  const collections = await getCollections(userId, { includeVideos: false });
   const userWeights = await getUserRecommendationWeights(userId);
 
-  const allVideos = [];
-  for (const col of collections) {
-    if (Array.isArray(col.videos)) {
-      for (const vid of col.videos) {
+  let allVideos = [];
+  try {
+    const { rows } = await query(
+      `SELECT v.id, v.collection_id, v.title, v.video_id, v.original_url, v.thumbnail_url,
+              v.position, v.status, v.audio_description, v.hidden_tags,
+              c.name AS collection_name, c.category
+       FROM linkvideo_videos v
+       JOIN linkvideo_collections c ON v.collection_id = c.id
+       WHERE v.status = 'active'
+       LIMIT 100`
+    );
+    if (rows && rows.length > 0) {
+      allVideos = rows.map(vid => {
+        const score = calculateItemRecommendationScore(vid, userWeights);
+        return {
+          ...vid,
+          hidden_tags: Array.isArray(vid.hidden_tags) ? vid.hidden_tags : extractHiddenTags(vid),
+          recommendation_score: parseFloat(score.toFixed(2))
+        };
+      });
+    }
+  } catch (err) {}
+
+  if (allVideos.length === 0) {
+    for (const vid of inMemoryVideos.values()) {
+      if (vid.status === 'active') {
+        const col = inMemoryCollections.get(vid.collection_id);
         const score = calculateItemRecommendationScore(vid, userWeights);
         allVideos.push({
           ...vid,
-          collection_name: col.name,
-          category: col.category,
+          collection_name: col ? col.name : 'Link Video',
+          category: col ? col.category : 'General',
           recommendation_score: parseFloat(score.toFixed(2))
         });
       }
@@ -958,19 +1042,35 @@ async function getTopRecommendations(userId, limit = 6) {
  * Obtiene el catálogo de Reels/Shorts con sistema de desduplicación y priorización por usuario.
  */
 async function getReelsCatalog(userId) {
-  const collections = await getCollections(userId, { includeVideos: true });
-  const allVideos = [];
+  let allVideos = [];
 
-  for (const col of collections) {
-    if (Array.isArray(col.videos)) {
-      for (const vid of col.videos) {
-        if (isReelUrlOrTitle(vid.original_url, vid.title) || (vid.hidden_tags && vid.hidden_tags.includes('reel'))) {
-          allVideos.push({
-            ...vid,
-            collection_name: col.name,
-            category: col.category
-          });
-        }
+  try {
+    const { rows } = await query(
+      `SELECT v.id, v.collection_id, v.title, v.video_id, v.original_url, v.thumbnail_url,
+              v.position, v.status, v.audio_description, v.hidden_tags,
+              c.name AS collection_name, c.category
+       FROM linkvideo_videos v
+       JOIN linkvideo_collections c ON v.collection_id = c.id
+       WHERE v.status = 'active'
+         AND (v.original_url ILIKE '%/shorts/%' OR v.title ILIKE '%#shorts%' OR v.title ILIKE '%reel%' OR v.original_url ILIKE '%reel%')`
+    );
+    if (rows && rows.length > 0) {
+      allVideos = rows.map(vid => ({
+        ...vid,
+        hidden_tags: Array.isArray(vid.hidden_tags) ? vid.hidden_tags : extractHiddenTags(vid)
+      }));
+    }
+  } catch (err) {}
+
+  if (allVideos.length === 0) {
+    for (const vid of inMemoryVideos.values()) {
+      if (vid.status === 'active' && isReelUrlOrTitle(vid.original_url, vid.title)) {
+        const col = inMemoryCollections.get(vid.collection_id);
+        allVideos.push({
+          ...vid,
+          collection_name: col ? col.name : 'Link Video',
+          category: col ? col.category : 'General'
+        });
       }
     }
   }
@@ -978,17 +1078,19 @@ async function getReelsCatalog(userId) {
   // Incluir también los Reels de external_content
   const extReels = await getExternalContent({ category: 'Reels', status: 'active' });
   for (const ext of extReels) {
-    allVideos.push({
-      id: ext.id,
-      video_id: ext.content_id,
-      original_url: ext.url,
-      thumbnail_url: ext.thumbnail,
-      title: ext.title,
-      category: ext.category,
-      provider: ext.provider,
-      embed_url: ext.embed_url,
-      capabilities: ext.capabilities
-    });
+    if (!allVideos.some(v => v.video_id === ext.content_id || v.id === ext.id)) {
+      allVideos.push({
+        id: ext.id,
+        video_id: ext.content_id,
+        original_url: ext.url,
+        thumbnail_url: ext.thumbnail,
+        title: ext.title,
+        category: ext.category,
+        provider: ext.provider,
+        embed_url: ext.embed_url,
+        capabilities: ext.capabilities
+      });
+    }
   }
 
   const cleanUserId = userId ? String(userId).trim() : null;
@@ -1027,8 +1129,7 @@ async function getReelsCatalog(userId) {
       is_reel: true,
       seen: isSeen,
       view_count: viewCount,
-      priority_score: priorityScore,
-      priority_badge: isSeen ? 'Visto (Prioridad Baja)' : 'Nuevo (Prioridad Alta)'
+      priority_score: priorityScore
     };
   });
 
@@ -1301,125 +1402,6 @@ async function cleanupAbandonedSessions(timeoutSeconds = 180) {
   }
 }
 
-/**
- * Obtiene subtítulos desde la BD (caché persistente) o mediante el extractor si no existen.
- */
-async function getOrFetchSubtitles(videoId, requestedLang = 'es', forceRefresh = false) {
-  if (!videoId || typeof videoId !== 'string') {
-    return { videoId: '', languageCode: requestedLang, cues: [], status: 'no_subtitles', source: 'none' };
-  }
-
-  const cleanVideoId = videoId.trim();
-  const cleanLang = (requestedLang || 'es').trim().toLowerCase();
-  const now = new Date();
-  const ONE_HOUR_MS = 60 * 60 * 1000;
-
-  if (!forceRefresh) {
-    try {
-      const { rows } = await query(
-        `SELECT id, video_id, language_code, status, cues, source, created_at, updated_at
-         FROM video_subtitles
-         WHERE video_id = $1 AND (language_code = $2 OR language_code LIKE $3)
-         ORDER BY (language_code = $2) DESC, updated_at DESC
-         LIMIT 1`,
-        [cleanVideoId, cleanLang, `${cleanLang.substring(0, 2)}%`]
-      );
-
-      if (rows && rows.length > 0) {
-        const cached = rows[0];
-        const updatedAt = new Date(cached.updated_at);
-        const isRecent = (now - updatedAt) < ONE_HOUR_MS;
-
-        if (cached.status === 'ready' && Array.isArray(cached.cues) && cached.cues.length > 0) {
-          return {
-            videoId: cached.video_id,
-            languageCode: cached.language_code,
-            cues: cached.cues,
-            source: cached.source || 'db_cache',
-            status: 'ready',
-            cached: true
-          };
-        }
-
-        if ((cached.status === 'no_subtitles' || cached.status === 'failed') && isRecent) {
-          return {
-            videoId: cached.video_id,
-            languageCode: cached.language_code,
-            cues: [],
-            source: cached.source || 'db_cache',
-            status: cached.status,
-            cached: true
-          };
-        }
-      }
-    } catch (err) {}
-
-    const memKey = `${cleanVideoId}_${cleanLang}`;
-    if (inMemorySubtitles.has(memKey)) {
-      const cachedMem = inMemorySubtitles.get(memKey);
-      const isRecent = (now - new Date(cachedMem.updated_at)) < ONE_HOUR_MS;
-      if (cachedMem.status === 'ready' && cachedMem.cues.length > 0) {
-        return { ...cachedMem, cached: true };
-      }
-      if (isRecent && (cachedMem.status === 'no_subtitles' || cachedMem.status === 'failed')) {
-        return { ...cachedMem, cached: true };
-      }
-    }
-  }
-
-  const memKey = `${cleanVideoId}_${cleanLang}`;
-
-  let extractedCues = [];
-  let langCode = cleanLang;
-  let source = 'youtube_extractor';
-  let status = 'ready';
-
-  try {
-    const ytSub = await fetchYouTubeSubtitles(cleanVideoId, cleanLang);
-    if (ytSub && Array.isArray(ytSub.cues) && ytSub.cues.length > 0) {
-      extractedCues = ytSub.cues;
-      langCode = ytSub.languageCode || cleanLang;
-      source = ytSub.source || 'youtube_extractor';
-      status = 'ready';
-    } else {
-      status = 'no_subtitles';
-      source = ytSub?.source || 'none';
-    }
-  } catch (err) {
-    console.error(`[LinkVideo Subtitles] Error al extraer subtítulos para ${cleanVideoId}:`, err.message);
-    status = 'failed';
-  }
-
-  const resultObj = {
-    videoId: cleanVideoId,
-    languageCode: langCode,
-    cues: extractedCues,
-    source,
-    status,
-    updated_at: now.toISOString(),
-    cached: false
-  };
-
-  try {
-    await query(
-      `INSERT INTO video_subtitles (video_id, language_code, status, cues, source, created_at, updated_at)
-       VALUES ($1, $2, $3, $4::jsonb, $5, now(), now())
-       ON CONFLICT (video_id, language_code)
-       DO UPDATE SET
-         status = EXCLUDED.status,
-         cues = EXCLUDED.cues,
-         source = EXCLUDED.source,
-         updated_at = now()`,
-      [cleanVideoId, langCode, status, JSON.stringify(extractedCues), source]
-    );
-  } catch (err) {}
-
-  inMemorySubtitles.set(memKey, resultObj);
-  inMemorySubtitles.set(`${cleanVideoId}_${langCode}`, resultObj);
-
-  return resultObj;
-}
-
 module.exports = {
   PREDEFINED_CATEGORIES,
   // Contenido Externo Unificado
@@ -1436,9 +1418,6 @@ module.exports = {
   getUserRecommendationWeights,
   getTopRecommendations,
   getReelsCatalog,
-
-  // Subtítulos
-  getOrFetchSubtitles,
 
   // Colecciones & Videos
   getCollections,

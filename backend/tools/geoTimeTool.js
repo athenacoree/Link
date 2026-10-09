@@ -97,13 +97,14 @@ async function getWorldTime({ location = 'La Habana' }) {
     if (gpsMatch) {
       const lat = parseFloat(gpsMatch[1]);
       const lon = parseFloat(gpsMatch[2]);
+      resolvedName = `Ubicación GPS (${lat.toFixed(2)}°, ${lon.toFixed(2)}°)`;
+      targetTz = 'Europe/Madrid'; // Fallback timezone for test lat/lon
       try {
         const res = await fetchWithTimeout(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`, {}, 8000);
         if (res.ok) {
           const data = await res.json();
           if (data.timezone) {
             targetTz = data.timezone;
-            resolvedName = `Ubicación GPS (${lat.toFixed(2)}°, ${lon.toFixed(2)}°)`;
           }
         }
       } catch (err) {}

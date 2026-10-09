@@ -26,6 +26,52 @@ function esReelOShort(url = '', title = '') {
   return normUrl.includes('/shorts/') || normUrl.includes('#shorts') || normTitle.includes('#shorts') || normTitle.includes('reel') || normTitle.includes('short');
 }
 
+// ---------------- GESTOR DE CACHÉ LOCAL PERSISTENTE PARA PORTADAS ----------------
+const CoverCache = {
+  CACHE_NAME: 'link-covers-v1',
+  memoryMap: new Map(),
+
+  async obtenerPortada(url, id = '') {
+    if (!url || typeof url !== 'string') {
+      return 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=600';
+    }
+
+    if (this.memoryMap.has(url)) {
+      return this.memoryMap.get(url);
+    }
+
+    if (!('caches' in window)) {
+      return url;
+    }
+
+    try {
+      const cache = await caches.open(this.CACHE_NAME);
+      const cachedRes = await cache.match(url);
+      if (cachedRes) {
+        const blob = await cachedRes.blob();
+        const objectUrl = URL.createObjectURL(blob);
+        this.memoryMap.set(url, objectUrl);
+        return objectUrl;
+      }
+
+      // Descargar y guardar en caché si es nueva o cambió
+      fetch(url, { mode: 'cors' }).then(async (res) => {
+        if (res.ok) {
+          const resToCache = res.clone();
+          await cache.put(url, resToCache);
+          const blob = await res.blob();
+          const objectUrl = URL.createObjectURL(blob);
+          this.memoryMap.set(url, objectUrl);
+        }
+      }).catch(() => {});
+
+      return url;
+    } catch (e) {
+      return url;
+    }
+  }
+};
+
 window.LinkVideo = {
   initialized: false,
   collections: [],
@@ -167,7 +213,12 @@ window.LinkVideo = {
     gridEl.innerHTML = `<div style="grid-column: 1 / -1; text-align:center; padding:30px; color:var(--texto-500); font-weight:700;">Cargando colecciones de Link Video...</div>`;
 
     try {
-      const url = forceRefresh ? '/linkvideo/catalog?refresh=true' : '/linkvideo/catalog';
+      const queryParams = new URLSearchParams();
+      if (forceRefresh) queryParams.set('refresh', 'true');
+      if (this.searchQuery) queryParams.set('search', this.searchQuery);
+      if (this.selectedCategory && this.selectedCategory !== 'Todas') queryParams.set('category', this.selectedCategory);
+
+      const url = '/linkvideo/catalog?' + queryParams.toString();
       const res = await api(url);
       if (res) {
         this.collections = res.collections || [];
@@ -177,7 +228,7 @@ window.LinkVideo = {
         this.reels = res.reels || [];
         this.baseUrl = res.base_url || '';
         this.setupUIControls();
-        this.renderizarColecciones(this.collections);
+        await this.renderizarColecciones(this.collections);
       } else {
         gridEl.innerHTML = `<div class="aviso-vacio" style="grid-column: 1 / -1;">No hay colecciones disponibles en este momento.</div>`;
       }
@@ -190,13 +241,17 @@ window.LinkVideo = {
   setupUIControls() {
     const searchInput = document.getElementById('linkVideoSearchInput');
     if (searchInput) {
+      let searchTimeout;
       searchInput.oninput = (e) => {
+        clearTimeout(searchTimeout);
         this.searchQuery = (e.target.value || '').trim().toLowerCase();
-        if (this.currentCollection) {
-          this.renderizarDetalleColeccion(this.currentCollection);
-        } else {
-          this.renderizarColecciones(this.collections);
-        }
+        searchTimeout = setTimeout(() => {
+          if (this.currentCollection) {
+            this.renderizarDetalleColeccion(this.currentCollection);
+          } else {
+            this.cargarCatalogo(false);
+          }
+        }, 300);
       };
     }
   },
@@ -225,7 +280,7 @@ window.LinkVideo = {
     }
   },
 
-  renderizarColecciones(colecciones) {
+  async renderizarColecciones(colecciones) {
     const gridEl = document.getElementById('linkVideoCollectionsGrid');
     const detailView = document.getElementById('linkVideoCollectionDetailView');
     if (!gridEl) return;
@@ -300,36 +355,11 @@ window.LinkVideo = {
       return;
     }
 
-    // Renderizar sección superior de "Recomendados para ti" (Spotify / YouTube style) si hay recomendaciones
-    let topRecHtml = '';
-    if (this.selectedCategory === 'Todas' && !this.searchQuery && this.recommendations && Array.isArray(this.recommendations.videos) && this.recommendations.videos.length > 0) {
-      const recVids = this.recommendations.videos.slice(0, 4);
-      topRecHtml = `
-        <div style="grid-column: 1 / -1; margin-bottom: 12px;">
-          <div style="font-size:15px; font-weight:900; color:var(--texto-900); margin-bottom:8px; display:flex; align-items:center; gap:6px;">
-            <span style="background:linear-gradient(135deg, #7c3aed, #ec4899); color:#fff; padding:2px 8px; border-radius:10px; font-size:11px;">RECOMENDADO</span>
-            Para ti según tus gustos
-          </div>
-          <div style="display:flex; gap:12px; overflow-x:auto; padding-bottom:8px; scrollbar-width:none;">
-            ${recVids.map((v) => `
-              <div style="width:140px; flex-shrink:0; cursor:pointer;" onclick="LinkVideo.abrirRecomendadoIndividual('${v.id || v.video_id}')">
-                <div style="position:relative; width:140px; height:90px; border-radius:14px; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.2);">
-                  <img src="${v.thumbnail_url || 'https://img.youtube.com/vi/' + v.video_id + '/hqdefault.jpg'}" style="width:100%; height:100%; object-fit:cover;">
-                  <div style="position:absolute; inset:0; background:linear-gradient(to top, rgba(0,0,0,0.8), transparent); display:flex; align-items:flex-end; padding:6px;">
-                    <span style="font-size:10px; font-weight:800; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHTMLLinkVideo(v.title)}</span>
-                  </div>
-                </div>
-              </div>
-            `).join('')}
-          </div>
-        </div>
-      `;
-    }
-
-    gridEl.innerHTML = topRecHtml + filtradas.map(col => {
-      const cover = col.cover_url || 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=600';
+    // Cargar portadas desde caché local persistente
+    const colCardsHtml = await Promise.all(filtradas.map(async col => {
+      const rawCover = col.cover_url || 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=600';
+      const cover = await CoverCache.obtenerPortada(rawCover, col.id);
       const categoryTag = col.category || 'General';
-      const badgeRec = col.is_recommended ? `<span style="font-size:9px; font-weight:900; background:#ec4899; color:#fff; padding:1px 5px; border-radius:4px; margin-left:4px;">RECOMENDADO</span>` : '';
 
       const svgTag = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; margin-right:3px;"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>`;
 
@@ -337,12 +367,14 @@ window.LinkVideo = {
         <div class="linkvideo-square-card" onclick="LinkVideo.abrirColeccion('${col.id}')">
           <img class="linkvideo-card-thumb-img" src="${cover}" alt="${escapeHTMLLinkVideo(col.name)}" onerror="this.src='https://images.pexels.com/photos/2506923/pexels-photo-2506923.jpeg?auto=compress&cs=tinysrgb&w=600'">
           <div class="linkvideo-card-overlay-gradient">
-            <div style="font-size:10px; font-weight:800; background:rgba(0,0,0,0.6); color:#ddd6fe; padding:2px 6px; border-radius:6px; width:fit-content; margin-bottom:4px; display:inline-flex; align-items:center;">${svgTag}${escapeHTMLLinkVideo(categoryTag)}${badgeRec}</div>
+            <div style="font-size:10px; font-weight:800; background:rgba(0,0,0,0.6); color:#ddd6fe; padding:2px 6px; border-radius:6px; width:fit-content; margin-bottom:4px; display:inline-flex; align-items:center;">${svgTag}${escapeHTMLLinkVideo(categoryTag)}</div>
             <div class="linkvideo-card-title">${escapeHTMLLinkVideo(col.name)}</div>
           </div>
         </div>
       `;
-    }).join('');
+    }));
+
+    gridEl.innerHTML = colCardsHtml.join('');
   },
 
   abrirRecomendadoIndividual(vidOrId) {
@@ -383,15 +415,11 @@ window.LinkVideo = {
           <span style="background:linear-gradient(135deg, #ef4444, #f59e0b); color:#fff; padding:3px 10px; border-radius:12px; font-size:12px; font-weight:900;">REELS & SHORTS</span>
           Deslizamiento Vertical Pantalla Completa
         </div>
-        <div style="font-size:12px; color:var(--texto-500); font-weight:600;">Los Reels no vistos aparecen primero para que nunca se repitan.</div>
       </div>
       ${this.reels.map((reel, idx) => `
         <div class="linkvideo-square-card" onclick="LinkVideo.abrirReproductorReelsPorIndice(${idx})">
           <img class="linkvideo-card-thumb-img" src="${reel.thumbnail_url || 'https://img.youtube.com/vi/' + reel.video_id + '/hqdefault.jpg'}" alt="${escapeHTMLLinkVideo(reel.title)}">
           <div class="linkvideo-card-overlay-gradient">
-            <span class="reel-priority-badge ${reel.seen ? 'seen' : 'new'}" style="position:absolute; top:8px; left:8px;">
-              ${reel.seen ? '🔴 Visto' : '🟢 Nuevo'}
-            </span>
             <div class="linkvideo-card-title">${escapeHTMLLinkVideo(reel.title)}</div>
           </div>
         </div>
@@ -474,19 +502,21 @@ window.LinkVideo = {
         ${list.map((r, idx) => {
           const isCurrent = idx === this.currentReelsIndex;
           const vidId = r.video_id || r.id;
+          const isInstagram = r.provider === 'instagram' || (r.original_url && r.original_url.includes('instagram.com/reel'));
+          const embedSrc = isInstagram
+            ? (r.embed_url || `https://www.instagram.com/reel/${vidId}/embed`)
+            : `https://www.youtube.com/embed/${vidId}?autoplay=1&controls=1&fs=1&playsinline=1&enablejsapi=1&rel=0`;
+
           return `
-            <div class="reel-item-card" id="reelCardItem_${idx}" data-index="${idx}">
+            <div class="reel-item-card ${isInstagram ? 'instagram-reel-aspect' : ''}" id="reelCardItem_${idx}" data-index="${idx}">
               <div class="reel-top-bar">
                 <button class="reel-close-btn" onclick="LinkVideo.cerrarReproductorReels()" title="Cerrar Reels">
                   ${vectorClose}
                 </button>
-                <span class="reel-priority-badge ${r.seen ? 'seen' : 'new'}">
-                  ${r.seen ? '🔴 Visto' : '🟢 Nuevo Reel'}
-                </span>
               </div>
 
               ${isCurrent ? `
-                <iframe class="reel-video-iframe" src="https://www.youtube.com/embed/${vidId}?autoplay=1&controls=1&fs=1&playsinline=1&enablejsapi=1&rel=0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
+                <iframe class="reel-video-iframe" src="${embedSrc}" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
               ` : `
                 <div style="background:#111; width:100%; height:100%; display:flex; align-items:center; justify-content:center;">
                   <img src="${r.thumbnail_url || 'https://img.youtube.com/vi/' + vidId + '/hqdefault.jpg'}" style="width:100%; height:100%; object-fit:cover; opacity:0.6;">
@@ -598,7 +628,7 @@ window.LinkVideo = {
 
   filtrarPorCategoria(cat) {
     this.selectedCategory = cat;
-    this.renderizarColecciones(this.collections);
+    this.cargarCatalogo(false);
   },
 
   async abrirColeccion(collectionId) {
@@ -615,7 +645,7 @@ window.LinkVideo = {
       if (res && res.collection) {
         this.currentCollection = res.collection;
         this.currentVideos = res.collection.videos || [];
-        this.renderizarDetalleColeccion(this.currentCollection);
+        await this.renderizarDetalleColeccion(this.currentCollection);
       } else {
         detailView.innerHTML = `<div class="aviso-vacio">No se pudo cargar la colección.</div>`;
       }
@@ -624,7 +654,7 @@ window.LinkVideo = {
     }
   },
 
-  renderizarDetalleColeccion(col) {
+  async renderizarDetalleColeccion(col) {
     const detailView = document.getElementById('linkVideoCollectionDetailView');
     const catBar = document.getElementById('linkVideoCategoryBar');
     if (catBar) catBar.style.display = 'none';
@@ -646,7 +676,8 @@ window.LinkVideo = {
       }
     }
 
-    const cover = col.cover_url || 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=600';
+    const rawCover = col.cover_url || 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=600';
+    const cover = await CoverCache.obtenerPortada(rawCover, col.id);
     const categoryTag = col.category || 'General';
     const esAdmin = !!(window.currentUser?.is_admin || window.MI_ES_ADMIN);
 
@@ -729,12 +760,6 @@ window.LinkVideo = {
       const col = res.collection;
       const videos = col.videos || [];
 
-      setTimeout(() => {
-        if (videos && videos.length) {
-          videos.forEach(v => this.consultarEstadoSubtitulosBadge(v.video_id, v.id));
-        }
-      }, 100);
-
       modal.innerHTML = `
         <div style="background:var(--blanco); border-radius:24px; width:100%; max-width:520px; max-height:90vh; overflow-y:auto; padding:20px; box-shadow:0 12px 32px rgba(0,0,0,0.3); position:relative; color:var(--texto-900);">
           <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--linea); padding-bottom:12px; margin-bottom:16px;">
@@ -805,20 +830,6 @@ window.LinkVideo = {
             <button class="btn btn-primario mini-btn" style="width:100%;" onclick="LinkVideo.agregarVideoAAlbum('${col.id}')">✨ Agregar Video al Álbum</button>
           </div>
 
-          <!-- Precarga e Información de Subtítulos -->
-          <div style="background:var(--hueso); border-radius:16px; padding:14px; margin-bottom:16px; border:1px solid var(--linea);">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-              <div style="font-size:13px; font-weight:800; color:var(--morado-700);">💬 Subtítulos de los Vídeos</div>
-              <button class="mini-btn primario" onclick="LinkVideo.precargarSubtitulosAlbum('${col.id}')" style="padding:6px 12px; font-size:11.5px; font-weight:800;">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="vertical-align:middle; margin-right:4px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                Precargar subtítulos
-              </button>
-            </div>
-            <div id="adminSubPreloadProgress_${col.id}" style="display:none; font-size:11.5px; color:var(--morado-700); background:var(--blanco); padding:8px 12px; border-radius:10px; border:1px solid var(--linea); margin-bottom:8px;">
-              Procesando subtítulos...
-            </div>
-          </div>
-
           <!-- Lista de Videos -->
           <div style="font-size:13px; font-weight:800; color:var(--texto-900); margin-bottom:8px;">Vídeos del Álbum (${videos.length})</div>
           <div style="display:flex; flex-direction:column; gap:8px;">
@@ -830,16 +841,9 @@ window.LinkVideo = {
                     <input type="text" id="vidTitle_${v.id}" value="${escapeHTMLLinkVideo(v.title)}" style="width:100%; font-size:12px; font-weight:700; border:1px solid var(--linea); border-radius:6px; padding:4px 6px;">
                   </div>
                   <div style="display:flex; gap:4px; flex-shrink:0;">
-                    <button class="mini-btn secundario" onclick="LinkVideo.obtenerSubtitulosVideo('${v.video_id}', '${v.id}')" title="Obtener / actualizar subtítulos" style="padding:6px 8px; font-weight:800; font-size:11px;">
-                      💬 Subtítulos
-                    </button>
                     <button class="mini-btn primario" onclick="LinkVideo.guardarTituloVideo('${v.id}')" title="Guardar cambios" style="padding:6px 8px;">💾</button>
                     <button class="mini-btn peligro" onclick="LinkVideo.eliminarVideoDeAlbum('${col.id}', '${v.id}')" title="Eliminar video" style="padding:6px 8px;">🗑️</button>
                   </div>
-                </div>
-                <div id="subStatus_${v.id}" style="font-size:10.5px; color:var(--texto-500); display:flex; align-items:center; gap:6px; padding-left:2px;">
-                  <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#94a3b8;"></span>
-                  <span>Verificando subtítulos...</span>
                 </div>
                 <div style="margin-top:2px;">
                   <textarea id="vidAudioDesc_${v.id}" rows="1" style="width:100%; font-size:11px; border:1px solid var(--linea); border-radius:6px; padding:4px 6px;" placeholder="Descripción de audio del video...">${escapeHTMLLinkVideo(v.audio_description || '')}</textarea>
@@ -997,96 +1001,6 @@ window.LinkVideo = {
     }
   },
 
-  async consultarEstadoSubtitulosBadge(videoId, elementVidId) {
-    const badgeEl = document.getElementById(`subStatus_${elementVidId}`);
-    if (!badgeEl || !videoId) return;
-
-    try {
-      const res = await api(`/linkvideo/subtitles/${videoId}`);
-      if (res && res.ok && res.status === 'ready' && Array.isArray(res.subtitles) && res.subtitles.length > 0) {
-        badgeEl.innerHTML = `
-          <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#22c55e;"></span>
-          <span style="color:#15803d; font-weight:700;">Subtítulos disponibles (${res.subtitles.length} cues | ${res.languageCode || 'es'})</span>
-        `;
-      } else {
-        badgeEl.innerHTML = `
-          <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#f59e0b;"></span>
-          <span style="color:#b45309; font-weight:600;">Sin subtítulos cargados</span>
-        `;
-      }
-    } catch (e) {
-      badgeEl.innerHTML = `
-        <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#ef4444;"></span>
-        <span style="color:#b91c1c;">Error al consultar subtítulos</span>
-      `;
-    }
-  },
-
-  async obtenerSubtitulosVideo(videoId, elementVidId) {
-    const badgeEl = document.getElementById(`subStatus_${elementVidId}`);
-    if (badgeEl) {
-      badgeEl.innerHTML = `
-        <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#3b82f6;"></span>
-        <span style="color:#1d4ed8; font-weight:700;">Consultando proveedores...</span>
-      `;
-    }
-
-    try {
-      const res = await api(`/linkvideo/admin/subtitles/fetch/${videoId}`, { method: 'POST' });
-      if (res && res.ok && res.status === 'ready' && Array.isArray(res.subtitles) && res.subtitles.length > 0) {
-        if (window.mostrarToast) window.mostrarToast('¡Subtítulos obtenidos y guardados en PostgreSQL!');
-        if (badgeEl) {
-          badgeEl.innerHTML = `
-            <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#22c55e;"></span>
-            <span style="color:#15803d; font-weight:700;">● Subtítulos disponibles (${res.subtitles.length} cues | Idioma: ${res.languageCode || 'ES'})</span>
-          `;
-        }
-      } else {
-        if (window.mostrarToast) window.mostrarToast('No se encontraron subtítulos disponibles para este vídeo.');
-        if (badgeEl) {
-          badgeEl.innerHTML = `
-            <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#ef4444;"></span>
-            <span style="color:#b91c1c; font-weight:700;">Sin subtítulos disponibles</span>
-          `;
-        }
-      }
-    } catch (err) {
-      if (window.mostrarToast) window.mostrarToast('No se encontraron subtítulos disponibles para este vídeo.');
-      if (badgeEl) {
-        badgeEl.innerHTML = `
-          <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#ef4444;"></span>
-          <span style="color:#b91c1c;">Sin subtítulos disponibles</span>
-        `;
-      }
-    }
-  },
-
-  async precargarSubtitulosAlbum(colId) {
-    const progressEl = document.getElementById(`adminSubPreloadProgress_${colId}`);
-    if (progressEl) {
-      progressEl.style.display = 'block';
-      progressEl.innerHTML = `<strong>Iniciando precarga de subtítulos...</strong>`;
-    }
-
-    try {
-      const res = await api('/linkvideo/admin/subtitles/preload', { method: 'POST', body: { collectionId: colId } });
-      if (res && res.ok) {
-        if (progressEl) {
-          progressEl.innerHTML = `
-            <div style="font-weight:800; margin-bottom:2px;">Subtítulos precargados exitosamente:</div>
-            <div>Procesados: <strong>${res.processed} / ${res.total}</strong> | Disponibles: <strong style="color:#15803d;">${res.available}</strong> | Sin subtítulos: <strong style="color:#b91c1c;">${res.unavailable}</strong></div>
-          `;
-        }
-        if (window.mostrarToast) window.mostrarToast(`Precarga finalizada. Disponibles: ${res.available}/${res.total}`);
-        await this.abrirModalAdminAlbum(colId);
-      }
-    } catch (err) {
-      if (progressEl) {
-        progressEl.innerHTML = `<span style="color:#b91c1c; font-weight:700;">Error al ejecutar la precarga de subtítulos.</span>`;
-      }
-    }
-  },
-
   async eliminarVideoDeAlbum(colId, videoId) {
     if (!confirm('¿Eliminar este vídeo del álbum?')) return;
     try {
@@ -1168,9 +1082,6 @@ window.LinkVideo = {
     }
   },
 
-  currentCues: [],
-  lastDisplayedCueText: null,
-  subSyncInterval: null,
   ytPlayer: null,
   activeVideoData: null,
   isPlayingAudioBackground: false,
@@ -1179,6 +1090,9 @@ window.LinkVideo = {
 
   async abrirReproductorLinkVideo(video) {
     if (!video || !video.video_id) return;
+
+    // Destruir cualquier reproductor anterior antes de iniciar uno nuevo
+    this.limpiarReproductorAnterior();
 
     this.activeVideoData = video;
     this.isPlayingAudioBackground = true;
@@ -1229,21 +1143,6 @@ window.LinkVideo = {
           </button>
         </div>
 
-        <!-- Area de Subtitulos / Animación Aurora (Debajo del video, NO encima del video) -->
-        <div class="hitv-subtitle-area" id="hitvSubtitleArea">
-          <div id="hitvSubtitlesText" class="hitv-subtitle-line hitv-subtitle-hidden"></div>
-
-          <div id="hitvAuroraContainer" class="hitv-aurora-container hitv-aurora-hidden">
-            <div class="hitv-aurora-sphere">
-              <div class="hitv-aurora-wave wave-1"></div>
-              <div class="hitv-aurora-wave wave-2"></div>
-              <div class="hitv-aurora-wave wave-3"></div>
-              <div class="hitv-aurora-core"></div>
-            </div>
-            <span class="hitv-aurora-notice">Subtítulos no disponibles</span>
-          </div>
-        </div>
-
         <!-- Flecha vectorial pegada al lado izquierdo debajo del video -->
         <div style="display:flex; justify-content:flex-start; width:100%; margin-top:10px; padding-left:4px;">
           <button id="hitvFolderToggleBtn" class="hitv-folder-toggle-btn" onclick="LinkVideo.toggleFolderVideosList()" title="Ver otros vídeos de la carpeta">
@@ -1256,30 +1155,12 @@ window.LinkVideo = {
       </div>
     `;
 
-    // Cargar subtítulos desde el backend
-    this.currentCues = [];
-    this.lastDisplayedCueText = null;
-
-    try {
-      const subRes = await api(`/linkvideo/subtitles/${video.video_id}`);
-      if (subRes && subRes.ok && Array.isArray(subRes.subtitles) && subRes.subtitles.length > 0) {
-        this.currentCues = subRes.subtitles;
-      }
-    } catch (e) {
-      console.warn('[LinkVideo Subtitles] Error al consultar subtítulos:', e.message);
+    // Inicializar reproductor mediante YouTube IFrame Player API con origin y manejo de error 153
+    let rawOrigin = window.location.origin;
+    if (!rawOrigin || rawOrigin === 'null' || rawOrigin.startsWith('file://')) {
+      rawOrigin = undefined;
     }
 
-    const subTextEl = document.getElementById('hitvSubtitlesText');
-    const auroraEl = document.getElementById('hitvAuroraContainer');
-
-    if (this.currentCues.length > 0) {
-      if (auroraEl) auroraEl.classList.add('hitv-aurora-hidden');
-    } else {
-      if (subTextEl) subTextEl.classList.add('hitv-subtitle-hidden');
-      if (auroraEl) auroraEl.classList.remove('hitv-aurora-hidden');
-    }
-
-    // Inicializar reproductor mediante YouTube IFrame Player API
     this.ensureYouTubeApiLoaded(() => {
       try {
         if (!document.getElementById('linkVideoIframePlayer')) return;
@@ -1292,12 +1173,13 @@ window.LinkVideo = {
             playsinline: 1,
             enablejsapi: 1,
             rel: 0,
-            modestbranding: 1
+            modestbranding: 1,
+            origin: rawOrigin,
+            widget_referrer: window.location.href
           },
           events: {
             onReady: (event) => {
               try {
-                // Aplicar sistema de protección de audio si no se ha activado aún el volumen
                 if (!this.hasUserActivatedVolume) {
                   event.target.mute();
                 } else {
@@ -1309,29 +1191,29 @@ window.LinkVideo = {
             onStateChange: (event) => {
               if (window.YT && event.data === YT.PlayerState.PLAYING) {
                 this.isPlayingAudioBackground = true;
-                this.iniciarSincronizacionSubtitulos();
                 this.actualizarAudioBannerTop();
               } else if (window.YT && event.data === YT.PlayerState.PAUSED) {
                 this.isPlayingAudioBackground = false;
                 this.actualizarAudioBannerTop();
               } else if (window.YT && event.data === YT.PlayerState.ENDED) {
                 this.isPlayingAudioBackground = false;
-                this.detenerSincronizacionSubtitulos();
                 this.actualizarAudioBannerTop();
                 this.reproducirSiguienteVideo();
-              } else {
-                this.detenerSincronizacionSubtitulos();
               }
+            },
+            onError: (event) => {
+              console.warn('[LinkVideo Player] Error en reproductor YouTube API (Error ' + event.data + '). Activando fallback directo...');
+              this.crearIframeFallback(video.video_id);
             }
           }
         });
       } catch (err) {
-        console.warn('[LinkVideo] Fallback iframe directo:', err.message);
+        console.warn('[LinkVideo] Fallback iframe directo por excepción:', err.message);
         this.crearIframeFallback(video.video_id);
       }
     });
 
-    // Fallback de respaldo por si la API de YouTube no se carga a tiempo
+    // Fallback de respaldo por si la API de YouTube no responde
     setTimeout(() => {
       if (!this.ytPlayer && document.getElementById('linkVideoIframeContainer')) {
         const container = document.getElementById('linkVideoIframeContainer');
@@ -1339,7 +1221,7 @@ window.LinkVideo = {
           this.crearIframeFallback(video.video_id);
         }
       }
-    }, 2000);
+    }, 2200);
 
     // Emitir actividad multimedia en tiempo real
     if (window.socket) {
@@ -1369,10 +1251,22 @@ window.LinkVideo = {
     this.actualizarAudioBannerTop();
   },
 
+  limpiarReproductorAnterior() {
+    this.detenerTimerBannerAudio();
+
+    if (this.ytPlayer) {
+      try {
+        if (typeof this.ytPlayer.destroy === 'function') {
+          this.ytPlayer.destroy();
+        }
+      } catch (e) {}
+      this.ytPlayer = null;
+    }
+  },
+
   toggleFolderVideosList() {
     const container = document.getElementById('hitvFolderVideosContainer');
     const arrowSvg = document.getElementById('hitvFolderToggleArrowSvg');
-    const subArea = document.getElementById('hitvSubtitleArea');
     if (!container) return;
 
     const isHidden = container.style.display === 'none';
@@ -1380,11 +1274,9 @@ window.LinkVideo = {
       this.renderizarVideosCarpetaPlayer();
       container.style.display = 'flex';
       if (arrowSvg) arrowSvg.style.transform = 'rotate(180deg)';
-      if (subArea) subArea.style.display = 'none';
     } else {
       container.style.display = 'none';
       if (arrowSvg) arrowSvg.style.transform = 'rotate(0deg)';
-      if (subArea) subArea.style.display = 'flex';
     }
   },
 
@@ -1662,59 +1554,10 @@ window.LinkVideo = {
   },
 
   crearIframeFallback(videoId) {
-    const playerTarget = document.getElementById('linkVideoIframePlayer');
+    const playerTarget = document.getElementById('linkVideoIframePlayer') || document.getElementById('linkVideoIframeContainer');
     if (playerTarget) {
-      playerTarget.outerHTML = `<iframe id="linkVideoIframePlayer" src="https://www.youtube.com/embed/${videoId}?autoplay=1&controls=1&fs=1&playsinline=1&enablejsapi=1&rel=0&modestbranding=1" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen" allowfullscreen></iframe>`;
-    }
-  },
-
-  iniciarSincronizacionSubtitulos() {
-    this.detenerSincronizacionSubtitulos();
-    this.subSyncInterval = setInterval(() => {
-      let currentTime = 0;
-      if (this.ytPlayer && typeof this.ytPlayer.getCurrentTime === 'function') {
-        try { currentTime = this.ytPlayer.getCurrentTime(); } catch (e) {}
-      }
-      this.actualizarSubtituloActivo(currentTime);
-    }, 100);
-  },
-
-  detenerSincronizacionSubtitulos() {
-    if (this.subSyncInterval) {
-      clearInterval(this.subSyncInterval);
-      this.subSyncInterval = null;
-    }
-  },
-
-  actualizarSubtituloActivo(currentTime) {
-    const subTextEl = document.getElementById('hitvSubtitlesText');
-    const auroraEl = document.getElementById('hitvAuroraContainer');
-    if (!subTextEl) return;
-
-    if (!this.currentCues || this.currentCues.length === 0) {
-      subTextEl.classList.add('hitv-subtitle-hidden');
-      if (auroraEl) auroraEl.classList.remove('hitv-aurora-hidden');
-      return;
-    }
-
-    if (auroraEl) auroraEl.classList.add('hitv-aurora-hidden');
-
-    const activeCue = this.currentCues.find(cue => {
-      const dur = typeof cue.dur === 'number' && cue.dur > 0 ? cue.dur : 3;
-      return currentTime >= cue.start && currentTime < (cue.start + dur);
-    });
-
-    if (activeCue && activeCue.text) {
-      if (this.lastDisplayedCueText !== activeCue.text) {
-        this.lastDisplayedCueText = activeCue.text;
-        subTextEl.textContent = activeCue.text;
-        subTextEl.classList.remove('hitv-subtitle-hidden');
-      }
-    } else {
-      if (this.lastDisplayedCueText !== '') {
-        this.lastDisplayedCueText = '';
-        subTextEl.classList.add('hitv-subtitle-hidden');
-      }
+      const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&controls=1&fs=1&playsinline=1&enablejsapi=1&rel=0&modestbranding=1`;
+      playerTarget.innerHTML = `<iframe id="linkVideoIframePlayer" src="${embedUrl}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen" allowfullscreen style="width:100%; height:100%; border:none;"></iframe>`;
     }
   },
 
@@ -1731,20 +1574,9 @@ window.LinkVideo = {
   },
 
   cerrarReproductorLinkVideo() {
-    this.detenerSincronizacionSubtitulos();
-    this.currentCues = [];
-    this.lastDisplayedCueText = null;
+    this.limpiarReproductorAnterior();
     this.activeVideoData = null;
     this.isPlayingAudioBackground = false;
-
-    if (this.ytPlayer) {
-      try {
-        if (typeof this.ytPlayer.destroy === 'function') {
-          this.ytPlayer.destroy();
-        }
-      } catch (e) {}
-      this.ytPlayer = null;
-    }
 
     if (window.socket) {
       window.socket.emit('actividad:detener_viendo');
