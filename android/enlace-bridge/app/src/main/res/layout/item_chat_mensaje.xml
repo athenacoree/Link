@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/llChatMessageContainer"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="4dp">
+
+    <LinearLayout
+        android:id="@+id/llChatBubble"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="10dp"
+        android:maxWidth="280dp"
+        android:background="@drawable/bg_card_cuadrado">
+
+        <TextView
+            android:id="@+id/tvChatMsgText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Texto del mensaje"
+            android:textColor="#1F2937"
+            android:textSize="13sp" />
+
+        <TextView
+            android:id="@+id/tvChatMsgTime"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="end"
+            android:text="12:34"
+            android:textColor="#9CA3AF"
+            android:textSize="9sp"
+            android:layout_marginTop="2dp" />
+    </LinearLayout>
+</LinearLayout>

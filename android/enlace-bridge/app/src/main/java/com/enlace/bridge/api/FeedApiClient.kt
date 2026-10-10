@@ -36,6 +36,13 @@ class FeedApiClient(private val identityManager: DeviceIdentityManager) {
             builder.header("Cookie", cookieHeader)
         }
 
+        val deviceId = identityManager.getDeviceId()
+        val deviceToken = identityManager.getDeviceToken()
+        if (!deviceId.isNullOrBlank() && !deviceToken.isNullOrBlank()) {
+            builder.header("X-Bridge-Device-ID", deviceId)
+            builder.header("X-Bridge-Token", deviceToken)
+        }
+
         when (method.uppercase()) {
             "POST" -> builder.post((bodyJson ?: "{}").toRequestBody(jsonMediaType))
             "PUT" -> builder.put((bodyJson ?: "{}").toRequestBody(jsonMediaType))
@@ -113,6 +120,89 @@ class FeedApiClient(private val identityManager: DeviceIdentityManager) {
         }
     }
 
+    suspend fun getAmigos(): Result<List<UserPerson>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val serverUrl = identityManager.getServerUrl().trimEnd('/')
+                val url = "$serverUrl/api/amigos"
+                val request = buildRequest(url)
+
+                client.newCall(request).execute().use { response ->
+                    val bodyStr = response.body?.string() ?: ""
+                    if (response.isSuccessful) {
+                        val parsed = gson.fromJson(bodyStr, AmigosResponse::class.java)
+                        Result.success(parsed.amigos)
+                    } else {
+                        Result.failure(Exception("Error ${response.code} al cargar amigos"))
+                    }
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+    }
+
+    suspend fun getSolicitudes(): Result<List<UserPerson>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val serverUrl = identityManager.getServerUrl().trimEnd('/')
+                val url = "$serverUrl/api/amigos/solicitudes"
+                val request = buildRequest(url)
+
+                client.newCall(request).execute().use { response ->
+                    val bodyStr = response.body?.string() ?: ""
+                    if (response.isSuccessful) {
+                        val parsed = gson.fromJson(bodyStr, SolicitudesResponse::class.java)
+                        Result.success(parsed.solicitudes)
+                    } else {
+                        Result.failure(Exception("Error ${response.code} al cargar solicitudes"))
+                    }
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+    }
+
+    suspend fun responderSolicitud(targetUserId: String, aceptar: Boolean): Result<Boolean> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val serverUrl = identityManager.getServerUrl().trimEnd('/')
+                val url = "$serverUrl/api/amigos/$targetUserId/responder"
+                val bodyJson = JsonObject().apply { addProperty("aceptar", aceptar) }.toString()
+                val request = buildRequest(url, method = "POST", bodyJson = bodyJson)
+
+                client.newCall(request).execute().use { response ->
+                    Result.success(response.isSuccessful)
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+    }
+
+    suspend fun getConversaciones(): Result<List<ConversacionItem>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val serverUrl = identityManager.getServerUrl().trimEnd('/')
+                val url = "$serverUrl/api/mensajes"
+                val request = buildRequest(url)
+
+                client.newCall(request).execute().use { response ->
+                    val bodyStr = response.body?.string() ?: ""
+                    if (response.isSuccessful) {
+                        val parsed = gson.fromJson(bodyStr, ConversacionesResponse::class.java)
+                        Result.success(parsed.conversaciones)
+                    } else {
+                        Result.failure(Exception("Error ${response.code} al cargar conversaciones"))
+                    }
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+    }
+
     suspend fun getChatMessages(targetUserId: String): Result<List<ChatPreviewMessage>> {
         return withContext(Dispatchers.IO) {
             try {
@@ -127,6 +217,114 @@ class FeedApiClient(private val identityManager: DeviceIdentityManager) {
                         Result.success(parsed.mensajes)
                     } else {
                         Result.failure(Exception("Error ${response.code} al cargar chat"))
+                    }
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+    }
+
+    suspend fun sendChatMessage(targetUserId: String, text: String): Result<Boolean> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val serverUrl = identityManager.getServerUrl().trimEnd('/')
+                val url = "$serverUrl/api/mensajes"
+                val bodyJson = JsonObject().apply {
+                    addProperty("receiver_id", targetUserId)
+                    addProperty("text", text)
+                }.toString()
+                val request = buildRequest(url, method = "POST", bodyJson = bodyJson)
+
+                client.newCall(request).execute().use { response ->
+                    Result.success(response.isSuccessful)
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+    }
+
+    suspend fun getLinkVideoCollections(): Result<List<LinkVideoCollectionItem>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val serverUrl = identityManager.getServerUrl().trimEnd('/')
+                val url = "$serverUrl/api/linkvideo/collections"
+                val request = buildRequest(url)
+
+                client.newCall(request).execute().use { response ->
+                    val bodyStr = response.body?.string() ?: ""
+                    if (response.isSuccessful) {
+                        val parsed = gson.fromJson(bodyStr, LinkVideoCollectionsResponse::class.java)
+                        Result.success(parsed.collections)
+                    } else {
+                        Result.failure(Exception("Error ${response.code} al cargar colecciones"))
+                    }
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+    }
+
+    suspend fun getLinkVideoDetail(collectionId: String): Result<LinkVideoDetailResponse> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val serverUrl = identityManager.getServerUrl().trimEnd('/')
+                val url = "$serverUrl/api/linkvideo/collections/$collectionId"
+                val request = buildRequest(url)
+
+                client.newCall(request).execute().use { response ->
+                    val bodyStr = response.body?.string() ?: ""
+                    if (response.isSuccessful) {
+                        val parsed = gson.fromJson(bodyStr, LinkVideoDetailResponse::class.java)
+                        Result.success(parsed)
+                    } else {
+                        Result.failure(Exception("Error ${response.code} al cargar detalles de colección"))
+                    }
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+    }
+
+    suspend fun getPerfilActual(): Result<UserPerson> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val serverUrl = identityManager.getServerUrl().trimEnd('/')
+                val url = "$serverUrl/api/auth/yo"
+                val request = buildRequest(url)
+
+                client.newCall(request).execute().use { response ->
+                    val bodyStr = response.body?.string() ?: ""
+                    if (response.isSuccessful) {
+                        val parsed = gson.fromJson(bodyStr, UserPerson::class.java)
+                        Result.success(parsed)
+                    } else {
+                        Result.failure(Exception("Error ${response.code} al cargar perfil actual"))
+                    }
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+    }
+
+    suspend fun getPerfilUsuario(userId: String): Result<UserPerson> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val serverUrl = identityManager.getServerUrl().trimEnd('/')
+                val url = "$serverUrl/api/usuarios/$userId"
+                val request = buildRequest(url)
+
+                client.newCall(request).execute().use { response ->
+                    val bodyStr = response.body?.string() ?: ""
+                    if (response.isSuccessful) {
+                        val parsed = gson.fromJson(bodyStr, UserPerson::class.java)
+                        Result.success(parsed)
+                    } else {
+                        Result.failure(Exception("Error ${response.code} al cargar perfil de usuario"))
                     }
                 }
             } catch (e: Exception) {

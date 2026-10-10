@@ -52,10 +52,47 @@ data class UserStory(
 
 data class ChatPreviewMessage(
     val id: String? = null,
-    val senderId: String? = null,
-    val receiverId: String? = null,
+    @SerializedName("sender_id") val senderId: String? = null,
+    @SerializedName("receiver_id") val receiverId: String? = null,
     val text: String? = null,
     @SerializedName("media_url") val mediaUrl: String? = null,
+    @SerializedName("created_at") val createdAt: String? = null
+)
+
+data class ConversacionItem(
+    val id: String? = null,
+    val otroUsuario: UserPerson? = null,
+    val ultimoMensaje: String? = null,
+    val fecha: String? = null,
+    val noLeidos: Int = 0
+)
+
+data class LinkVideoCollectionItem(
+    val id: String,
+    val title: String,
+    val category: String? = "General",
+    @SerializedName("audio_description") val audioDescription: String? = null,
+    @SerializedName("cover_url") val coverUrl: String? = null,
+    @SerializedName("video_count") val videoCount: Int = 0
+)
+
+data class LinkVideoItem(
+    val id: String,
+    @SerializedName("collection_id") val collectionId: String? = null,
+    val title: String? = null,
+    @SerializedName("youtube_url") val youtubeUrl: String? = null,
+    @SerializedName("audio_description") val audioDescription: String? = null,
+    @SerializedName("thumbnail_url") val thumbnailUrl: String? = null
+)
+
+data class PublicacionItem(
+    val id: String,
+    @SerializedName("user_id") val userId: String? = null,
+    val text: String? = null,
+    @SerializedName("image_data") val imageData: String? = null,
+    val visibility: String? = "public",
+    val likesCount: Int = 0,
+    val commentsCount: Int = 0,
     @SerializedName("created_at") val createdAt: String? = null
 )
 
@@ -69,6 +106,31 @@ data class StoriesResponse(
 
 data class MessagesResponse(
     val mensajes: List<ChatPreviewMessage> = emptyList()
+)
+
+data class AmigosResponse(
+    val amigos: List<UserPerson> = emptyList()
+)
+
+data class SolicitudesResponse(
+    val solicitudes: List<UserPerson> = emptyList()
+)
+
+data class ConversacionesResponse(
+    val conversaciones: List<ConversacionItem> = emptyList()
+)
+
+data class LinkVideoCollectionsResponse(
+    val collections: List<LinkVideoCollectionItem> = emptyList()
+)
+
+data class LinkVideoDetailResponse(
+    val collection: LinkVideoCollectionItem? = null,
+    val videos: List<LinkVideoItem> = emptyList()
+)
+
+data class PublicacionesResponse(
+    val publicaciones: List<PublicacionItem> = emptyList()
 )
 
 data class ReactionResponse(
